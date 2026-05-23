@@ -8,7 +8,10 @@
       "Bash(npx expo *)",
       "Bash(npm uninstall *)",
       "Bash(npx tsc *)",
-      "Bash(xargs grep -l -i \"proxy\\\\|middleware\")"
+      "Bash(xargs grep -l -i \"proxy\\\\|middleware\")",
+      "Bash(supabase --version)",
+      "PowerShell(npx supabase --version 2>&1)",
+      "Bash(npm run *)"
     ]
   }
 }
