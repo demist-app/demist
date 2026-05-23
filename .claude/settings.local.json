@@ -7,7 +7,8 @@
       "Bash(npx create-expo-app@latest mobile --template blank-typescript)",
       "Bash(npx expo *)",
       "Bash(npm uninstall *)",
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "Bash(xargs grep -l -i \"proxy\\\\|middleware\")"
     ]
   }
 }
