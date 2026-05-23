@@ -1,0 +1,25 @@
+# Dependencies
+node_modules
+.expo
+
+# Environment files
+.env
+.env.local
+.env.development
+.env.production
+
+# Build outputs
+.next
+dist
+build
+
+# Supabase
+.supabase
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode
+.idea

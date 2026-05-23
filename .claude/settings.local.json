@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx create-next-app@latest web --typescript --tailwind --app --no-eslint --no-src-dir --import-alias \"@/*\" --yes)",
+      "Bash(npm install *)",
+      "Bash(npx create-expo-app@latest mobile --template blank-typescript --yes)",
+      "Bash(npx create-expo-app@latest mobile --template blank-typescript)",
+      "Bash(npx expo *)",
+      "Bash(npm uninstall *)",
+      "Bash(npx tsc *)"
+    ]
+  }
+}
