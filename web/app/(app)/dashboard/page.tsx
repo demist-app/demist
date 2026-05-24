@@ -278,16 +278,6 @@ export default function Dashboard() {
         window.postMessage({ source: 'demist', type: 'term', term: t.term, definition: t.definition }, '*')
       })
 
-      if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-        incoming.forEach(t => {
-          new Notification(t.term, {
-            body: t.definition,
-            tag: `demist-${t.term.toLowerCase()}`,
-            silent: true,
-          })
-        })
-      }
-
       incoming.forEach(({ id }) => {
         setTimeout(() => {
           setLiveTerms(prev => prev.map(t => t.id === id ? { ...t, dismissing: true } : t))
@@ -337,9 +327,6 @@ export default function Dashboard() {
       return
     }
     streamRef.current = stream
-    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
-      await Notification.requestPermission()
-    }
     sessionIdRef.current = null
 
     const supabase = createClient()
@@ -423,16 +410,20 @@ export default function Dashboard() {
       setRecentSessions(sessionsRaw.map((s: { id: string; subject: string | null; ai_name: string | null; started_at: string; ended_at: string | null }) => ({ ...s, ai_name: s.ai_name ?? null, termCount: countMap[s.id] ?? 0 })))
     }
 
-    // Fire-and-forget: generate AI name + synopsis for the session
-    if (sessionGlossary.length > 0 && sid) {
-      const { data: { session: authSession } } = await supabase.auth.getSession()
-      const token = authSession?.access_token
-      const base = process.env.NEXT_PUBLIC_SUPABASE_URL!
-      fetch(`${base}/functions/v1/summarize-session`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ session_id: sid, terms: sessionGlossary, subject: profileRef.current?.course }),
-      }).catch(console.error)
+    // Generate AI name + synopsis — delayed 6s to let the last processChunk finish saving terms
+    if (sid) {
+      const capturedSid = sid
+      const capturedSubject = profileRef.current?.course
+      setTimeout(async () => {
+        const sb = createClient()
+        const { data: { session: s } } = await sb.auth.getSession()
+        const token = s?.access_token
+        fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL!}/functions/v1/summarize-session`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session_id: capturedSid, subject: capturedSubject }),
+        }).catch(console.error)
+      }, 6000)
     }
   }
 

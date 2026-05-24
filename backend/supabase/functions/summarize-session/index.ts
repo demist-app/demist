@@ -12,19 +12,36 @@ serve(async (req) => {
   }
 
   try {
-    const { session_id, terms, subject } = await req.json() as {
+    const { session_id, subject } = await req.json() as {
       session_id: string
-      terms: Array<{ term: string; definition: string }>
       subject?: string | null
     }
 
-    if (!session_id || !terms?.length) {
+    if (!session_id) {
       return new Response(JSON.stringify({ ok: false }), {
         headers: { ...CORS, 'Content-Type': 'application/json' },
       })
     }
 
-    const termList = terms.map(t => `- ${t.term}: ${t.definition}`).join('\n')
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    )
+
+    // Fetch terms from the DB — this way timing on the client doesn't matter
+    const { data: termRows } = await supabase
+      .from('terms')
+      .select('term, definition')
+      .eq('session_id', session_id)
+      .limit(60)
+
+    if (!termRows?.length) {
+      return new Response(JSON.stringify({ ok: false, reason: 'no terms' }), {
+        headers: { ...CORS, 'Content-Type': 'application/json' },
+      })
+    }
+
+    const termList = termRows.map((t: { term: string; definition: string }) => `- ${t.term}: ${t.definition}`).join('\n')
     const context = subject ? `for a lecture on "${subject}"` : 'from a lecture'
 
     const prompt = `You extracted these terms ${context}:\n${termList}\n\nReturn a JSON object with:\n- "name": a 3–5 word title for this session (e.g. "Cell Division Basics", "SQL Joins Overview")\n- "synopsis": a 1–2 sentence summary of what was covered\n\nBe concise and specific to the terms above.`
@@ -55,11 +72,6 @@ serve(async (req) => {
 
     const ai_name = parsed.name?.trim() || null
     const synopsis = parsed.synopsis?.trim() || null
-
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-    )
 
     await supabase.from('sessions').update({ ai_name, synopsis }).eq('id', session_id)
 
