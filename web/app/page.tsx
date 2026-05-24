@@ -12,9 +12,9 @@ export const metadata: Metadata = {
     type: 'website',
     images: [
       {
-        url: 'https://demist.app/icon.png',
-        width: 512,
-        height: 512,
+        url: 'https://demist.app/og',
+        width: 1200,
+        height: 630,
         alt: 'Demist: real-time lecture term detection',
       },
     ],
@@ -23,7 +23,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Demist: Never Feel Lost in a Lecture Again',
     description: 'Demist listens to your lectures and quietly flags unfamiliar terms in real time.',
-    images: ['https://demist.app/icon.png'],
+    images: ['https://demist.app/og'],
   },
 }
 
