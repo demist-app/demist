@@ -47,7 +47,7 @@ export default function Onboarding() {
   }
 
   return (
-    <main className="relative min-h-screen bg-[#080810] text-white flex items-center justify-center px-6 overflow-hidden">
+    <main className="relative min-h-dvh bg-[#080810] text-white flex items-center justify-center px-6 overflow-y-auto py-12">
       {/* Background glow */}
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
         <div className="w-[800px] h-[800px] rounded-full bg-violet-600/[0.07] blur-[140px]" />
@@ -62,7 +62,7 @@ export default function Onboarding() {
         {/* Step 1 */}
         {step === 1 && (
           <div key="step1" className="animate-step">
-            <h1 className="text-[38px] font-bold tracking-tight leading-tight mb-2">
+            <h1 className="text-[32px] sm:text-[38px] font-bold tracking-tight leading-tight mb-2">
               What are you<br />studying?
             </h1>
             <p className="text-gray-500 mb-8">
@@ -92,7 +92,7 @@ export default function Onboarding() {
         {/* Step 2 */}
         {step === 2 && (
           <div key="step2" className="animate-step">
-            <h1 className="text-[38px] font-bold tracking-tight leading-tight mb-2">
+            <h1 className="text-[32px] sm:text-[38px] font-bold tracking-tight leading-tight mb-2">
               What year<br />are you in?
             </h1>
             <p className="text-gray-500 mb-8">

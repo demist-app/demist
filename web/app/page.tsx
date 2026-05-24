@@ -15,7 +15,7 @@ export default function Home() {
   }, [])
 
   return (
-    <main className="relative min-h-screen bg-[#080810] text-white flex flex-col items-center justify-center px-6 overflow-hidden">
+    <main className="relative min-h-dvh bg-[#080810] text-white flex flex-col items-center justify-center px-6 overflow-hidden">
       {/* Ambient glow */}
       <div aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center">
         <div className="w-[700px] h-[700px] rounded-full bg-violet-600/[0.08] blur-[130px]" />
@@ -26,11 +26,11 @@ export default function Home() {
           Demist
         </p>
 
-        <h1 className="text-[52px] font-bold tracking-tight leading-[1.1] mb-4">
+        <h1 className="text-[38px] sm:text-[52px] font-bold tracking-tight leading-[1.1] mb-4">
           Never feel lost<br />in a lecture again.
         </h1>
 
-        <p className="text-gray-500 text-[17px] leading-relaxed mb-10 max-w-sm">
+        <p className="text-gray-500 text-[15px] sm:text-[17px] leading-relaxed mb-10 max-w-sm">
           Demist listens alongside you and quietly explains unfamiliar terms as they come up.
         </p>
 

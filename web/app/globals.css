@@ -17,6 +17,13 @@ body {
   background: #080810;
   color: var(--color-foreground);
   font-family: var(--font-sans, Arial, sans-serif);
+  /* Prevent scroll bounce revealing background on iOS overscroll */
+  overscroll-behavior: none;
+}
+
+/* Tap highlight removal for interactive elements */
+button, a {
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* ─── Siri term card: slide up from below with spring ─────────────────────── */
@@ -75,4 +82,17 @@ body {
     transform: translateY(0);
     opacity: 1;
   }
+}
+
+/* ─── Flashcard flip (preserve-3d + backface-visibility via JS inline styles) ─ */
+.flashcard-flip {
+  perspective: 1000px;
+}
+.flashcard-inner {
+  transform-style: preserve-3d;
+}
+.flashcard-front,
+.flashcard-back {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
 }

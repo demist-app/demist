@@ -11,7 +11,14 @@
       "Bash(xargs grep -l -i \"proxy\\\\|middleware\")",
       "Bash(supabase --version)",
       "PowerShell(npx supabase --version 2>&1)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(git add *)",
+      "mcp__claude_ai_Vercel__list_teams",
+      "mcp__claude_ai_Vercel__list_projects",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(Remove-Item -Path \"c:\\\\Users\\\\shivb\\\\Desktop\\\\coding bits\\\\demist\\\\web\\\\app\\\\dashboard\\\\page.tsx\" -Force)",
+      "Bash(Remove-Item -Path \"c:\\\\Users\\\\shivb\\\\Desktop\\\\coding bits\\\\demist\\\\web\\\\app\\\\dashboard\" -Force -ErrorAction SilentlyContinue)"
     ]
   }
 }
