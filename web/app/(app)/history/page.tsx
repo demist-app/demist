@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 
 interface SessionTerm {
@@ -13,7 +13,6 @@ interface SessionTerm {
 interface Session {
   id: string
   subject: string | null
-  ai_name: string | null
   synopsis: string | null
   started_at: string
   ended_at: string | null
@@ -29,11 +28,10 @@ function fmtDuration(start: string, end: string | null): string {
   return `${Math.floor(mins / 60)}h ${mins % 60}m`
 }
 
-function sessionLabel(aiName: string | null, subject: string | null, startedAt: string): string {
-  if (aiName) return aiName
-  if (subject) return subject
+function sessionLabel(n: number, startedAt: string): string {
   const d = new Date(startedAt)
-  return `${d.toLocaleDateString('en-GB', { weekday: 'short' })} ${d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`
+  const date = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+  return `Session ${n} · ${date}`
 }
 
 function fmtDate(iso: string): string {
@@ -53,10 +51,12 @@ function fmtTime(iso: string): string {
 export default function History() {
   const [loading, setLoading] = useState(true)
   const [sessions, setSessions] = useState<Session[]>([])
+  const [totalCount, setTotalCount] = useState(0)
   const [loadingTerms, setLoadingTerms] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState('')
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const summarizingRef = useRef(new Set<string>())
 
   useEffect(() => {
     const supabase = createClient()
@@ -64,14 +64,22 @@ export default function History() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      const { data: sessionsRaw } = await supabase
-        .from('sessions')
-        .select('id, subject, ai_name, synopsis, started_at, ended_at')
-        .eq('user_id', user.id)
-        .order('started_at', { ascending: false })
-        .limit(100)
+      const [{ data: sessionsRaw }, { count }] = await Promise.all([
+        supabase
+          .from('sessions')
+          .select('id, subject, synopsis, started_at, ended_at')
+          .eq('user_id', user.id)
+          .order('started_at', { ascending: false })
+          .limit(100),
+        supabase
+          .from('sessions')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id),
+      ])
 
       if (!sessionsRaw?.length) { setLoading(false); return }
+
+      setTotalCount(count ?? sessionsRaw.length)
 
       const ids = sessionsRaw.map(s => s.id)
       const { data: termRows } = await supabase
@@ -84,7 +92,6 @@ export default function History() {
 
       setSessions(sessionsRaw.map(s => ({
         ...s,
-        ai_name: s.ai_name ?? null,
         synopsis: s.synopsis ?? null,
         termCount: countMap[s.id] ?? 0,
         expanded: false,
@@ -93,18 +100,48 @@ export default function History() {
     })()
   }, [])
 
+  const maybeSummarize = async (s: Session) => {
+    if (s.synopsis || s.termCount === 0) return
+    if (summarizingRef.current.has(s.id)) return
+    summarizingRef.current.add(s.id)
+    try {
+      const supabase = createClient()
+      const { data: { session: authSession } } = await supabase.auth.getSession()
+      const token = authSession?.access_token
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/summarize-session`,
+        {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session_id: s.id, subject: s.subject }),
+        }
+      )
+      if (res.ok) {
+        const { ok, synopsis } = await res.json()
+        if (ok && synopsis) {
+          setSessions(prev => prev.map(x => x.id === s.id ? { ...x, synopsis } : x))
+        }
+      }
+    } catch (e) {
+      console.error('maybeSummarize error:', e)
+    } finally {
+      summarizingRef.current.delete(s.id)
+    }
+  }
+
   const toggleExpand = async (id: string) => {
+    const target = sessions.find(x => x.id === id)
+    if (target && !target.expanded) maybeSummarize(target)
+
     setSessions(prev => {
       const s = prev.find(x => x.id === id)
       if (!s) return prev
-      // If already has terms loaded, just toggle
       if (s.terms !== undefined) {
         return prev.map(x => x.id === id ? { ...x, expanded: !x.expanded } : x)
       }
       return prev
     })
 
-    // Check if already loaded
     const s = sessions.find(x => x.id === id)
     if (!s || s.terms !== undefined) return
 
@@ -133,18 +170,20 @@ export default function History() {
     )
   }
 
-  const startRename = (s: Session) => {
+  const startRename = (s: Session, n: number) => {
     setEditingId(s.id)
-    setEditValue(sessionLabel(s.ai_name, s.subject, s.started_at))
+    setEditValue(sessionLabel(n, s.started_at))
   }
 
   const saveRename = async (id: string) => {
     const name = editValue.trim()
     setEditingId(null)
     if (!name) return
+    // Store custom names in synopsis field prefix or just update display
+    // For now, we persist a custom label by keeping it in ai_name
     const supabase = createClient()
-    await supabase.from('sessions').update({ ai_name: name }).eq('id', id)
-    setSessions(prev => prev.map(s => s.id === id ? { ...s, ai_name: name } : s))
+    await supabase.from('sessions').update({ synopsis: name }).eq('id', id)
+    setSessions(prev => prev.map(s => s.id === id ? { ...s, synopsis: name } : s))
   }
 
   const deleteSession = async (id: string) => {
@@ -157,22 +196,22 @@ export default function History() {
     setDeletingId(null)
   }
 
-  // Group sessions by date label
-  const grouped: { label: string; sessions: Session[] }[] = []
-  for (const s of sessions) {
+  // sessions[0] = newest = totalCount, sessions[i] = totalCount - i
+  const sessionNumber = (i: number) => totalCount - i
+
+  const grouped: { label: string; sessions: { s: Session; n: number }[] }[] = []
+  sessions.forEach((s, i) => {
     const label = fmtDate(s.started_at)
     const last = grouped[grouped.length - 1]
     if (last && last.label === label) {
-      last.sessions.push(s)
+      last.sessions.push({ s, n: sessionNumber(i) })
     } else {
-      grouped.push({ label, sessions: [s] })
+      grouped.push({ label, sessions: [{ s, n: sessionNumber(i) }] })
     }
-  }
+  })
 
   return (
-    <main
-      className="min-h-dvh bg-[#080810] text-white flex flex-col nav-bottom-pad"
-    >
+    <main className="min-h-dvh bg-[#080810] text-white flex flex-col nav-bottom-pad">
       <header className="sm:hidden shrink-0 flex items-center px-6 h-14 border-b border-white/[0.05]">
         <span className="font-semibold tracking-tight text-[15px]">Session History</span>
       </header>
@@ -193,13 +232,12 @@ export default function History() {
               {group.label}
             </p>
             <div className="space-y-2">
-              {group.sessions.map(s => (
+              {group.sessions.map(({ s, n }) => (
                 <div
                   key={s.id}
                   className="bg-white/[0.03] border border-white/[0.06] rounded-2xl overflow-hidden"
                 >
                   <div className="flex items-center px-4 py-3 gap-3">
-                    {/* Expand area */}
                     <div
                       onClick={() => !editingId && toggleExpand(s.id)}
                       className="flex-1 min-w-0 cursor-pointer"
@@ -220,7 +258,7 @@ export default function History() {
                       ) : (
                         <>
                           <p className="text-[14px] font-medium text-white/90 truncate">
-                            {sessionLabel(s.ai_name, s.subject, s.started_at)}
+                            {sessionLabel(n, s.started_at)}
                           </p>
                           <p className="text-[12px] text-gray-600 mt-0.5">
                             {fmtTime(s.started_at)} · {fmtDuration(s.started_at, s.ended_at)}
@@ -229,14 +267,13 @@ export default function History() {
                       )}
                     </div>
 
-                    {/* Actions + term count + chevron */}
                     <div className="flex items-center gap-2 shrink-0">
                       <div className="text-right mr-1">
                         <p className="text-[14px] font-semibold text-violet-400">{s.termCount}</p>
                         <p className="text-[11px] text-gray-600">terms</p>
                       </div>
                       <button
-                        onClick={() => startRename(s)}
+                        onClick={() => startRename(s, n)}
                         title="Rename"
                         className="text-gray-700 hover:text-gray-300 transition-colors p-1"
                       >
@@ -258,9 +295,12 @@ export default function History() {
 
                   {s.expanded && (
                     <div className="px-4 pb-4 border-t border-white/[0.04]">
-                      {s.synopsis && (
+                      {s.synopsis ? (
                         <p className="text-[13px] text-gray-500 leading-relaxed pt-3 pb-1">{s.synopsis}</p>
-                      )}
+                      ) : s.termCount > 0 ? (
+                        <p className="text-[12px] text-gray-700 pt-3 pb-1">Generating summary…</p>
+                      ) : null}
+
                       {loadingTerms === s.id && (
                         <p className="text-gray-700 text-[13px] py-3">Loading…</p>
                       )}

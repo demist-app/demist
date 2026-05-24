@@ -28,7 +28,6 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     )
 
-    // Fetch terms from the DB — this way timing on the client doesn't matter
     const { data: termRows } = await supabase
       .from('terms')
       .select('term, definition')
@@ -44,7 +43,7 @@ serve(async (req) => {
     const termList = termRows.map((t: { term: string; definition: string }) => `- ${t.term}: ${t.definition}`).join('\n')
     const context = subject ? `for a lecture on "${subject}"` : 'from a lecture'
 
-    const prompt = `You extracted these terms ${context}:\n${termList}\n\nReturn a JSON object with:\n- "name": a 3–5 word title for this session (e.g. "Cell Division Basics", "SQL Joins Overview")\n- "synopsis": a 1–2 sentence summary of what was covered\n\nBe concise and specific to the terms above.`
+    const prompt = `These terms were extracted ${context}:\n${termList}\n\nWrite a 1–2 sentence summary of what this lecture covered. Be specific to the actual terms listed. Return JSON with a single field "synopsis".`
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -68,15 +67,13 @@ serve(async (req) => {
     }
 
     const data = await response.json()
-    const parsed = JSON.parse(data.choices[0].message.content) as { name?: string; synopsis?: string }
-
-    const ai_name = parsed.name?.trim() || null
+    const parsed = JSON.parse(data.choices[0].message.content) as { synopsis?: string }
     const synopsis = parsed.synopsis?.trim() || null
 
-    await supabase.from('sessions').update({ ai_name, synopsis }).eq('id', session_id)
+    await supabase.from('sessions').update({ synopsis }).eq('id', session_id)
 
     return new Response(
-      JSON.stringify({ ok: true, ai_name, synopsis }),
+      JSON.stringify({ ok: true, synopsis }),
       { headers: { ...CORS, 'Content-Type': 'application/json' } },
     )
   } catch (e) {

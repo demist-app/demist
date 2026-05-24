@@ -14,11 +14,10 @@ interface LiveTerm {
 
 interface RecentSession {
   id: string
-  subject: string | null
-  ai_name: string | null
   started_at: string
   ended_at: string | null
   termCount: number
+  sessionNumber: number
 }
 
 interface ChartDay {
@@ -77,13 +76,10 @@ function fmtRelative(iso: string) {
   return `${days}d ago`
 }
 
-function sessionLabel(aiName: string | null, subject: string | null, startedAt: string): string {
-  if (aiName) return aiName
-  if (subject) return subject
+function sessionLabel(n: number, startedAt: string): string {
   const d = new Date(startedAt)
-  const day = d.toLocaleDateString('en-GB', { weekday: 'short' })
-  const time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
-  return `${day} ${time}`
+  const date = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+  return `Session ${n} · ${date}`
 }
 
 // Filter out non-English terms (catches Japanese, Chinese, Arabic, etc.)
@@ -107,6 +103,7 @@ export default function Dashboard() {
 
   const profileRef = useRef<Profile | null>(null)
   const userIdRef = useRef<string | null>(null)
+  const totalSessionCountRef = useRef(0)
   const sessionIdRef = useRef<string | null>(null)
   const isActiveRef = useRef(false)
   const streamRef = useRef<MediaStream | null>(null)
@@ -179,14 +176,17 @@ export default function Dashboard() {
         { count: dueReviewCount },
         { count: newCardCount },
         { data: sessionsRaw },
+        { count: totalCount },
       ] = await Promise.all([
         supabase.from('profiles').select('course, year_of_study').eq('id', user.id).single(),
         supabase.from('terms').select('term, known, created_at').eq('user_id', user.id),
         supabase.from('sessions').select('started_at').eq('user_id', user.id).order('started_at', { ascending: false }),
         supabase.from('terms').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('known', false).gt('sm2_review_count', 0).lte('sm2_due_at', now.toISOString()),
         supabase.from('terms').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('known', false).eq('sm2_review_count', 0),
-        supabase.from('sessions').select('id, subject, ai_name, started_at, ended_at').eq('user_id', user.id).order('started_at', { ascending: false }).limit(5),
+        supabase.from('sessions').select('id, started_at, ended_at').eq('user_id', user.id).order('started_at', { ascending: false }).limit(5),
+        supabase.from('sessions').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
       ])
+      totalSessionCountRef.current = totalCount ?? 0
 
       profileRef.current = prof as Profile
       setProfile(prof as Profile)
@@ -218,7 +218,8 @@ export default function Dashboard() {
         const { data: termRows } = await supabase.from('terms').select('session_id').in('session_id', ids)
         const countMap: Record<string, number> = {}
         for (const r of termRows ?? []) countMap[r.session_id] = (countMap[r.session_id] ?? 0) + 1
-        setRecentSessions(sessionsRaw.map(s => ({ ...s, ai_name: s.ai_name ?? null, termCount: countMap[s.id] ?? 0 })))
+        const tc = totalSessionCountRef.current
+        setRecentSessions(sessionsRaw.map((s, i) => ({ id: s.id, started_at: s.started_at, ended_at: s.ended_at, termCount: countMap[s.id] ?? 0, sessionNumber: tc - i })))
       }
 
       setLoading(false)
@@ -399,15 +400,19 @@ export default function Dashboard() {
     setChartData(get7DayChart((allTerms ?? []).filter(t => t.created_at >= weekAgo).map(t => t.created_at)))
 
     // Refresh recent sessions list
-    const { data: sessionsRaw } = await supabase
-      .from('sessions').select('id, subject, ai_name, started_at, ended_at')
-      .eq('user_id', userIdRef.current!).order('started_at', { ascending: false }).limit(5)
+    const [{ data: sessionsRaw }, { count: newTotal }] = await Promise.all([
+      supabase.from('sessions').select('id, started_at, ended_at')
+        .eq('user_id', userIdRef.current!).order('started_at', { ascending: false }).limit(5),
+      supabase.from('sessions').select('id', { count: 'exact', head: true }).eq('user_id', userIdRef.current!),
+    ])
+    totalSessionCountRef.current = newTotal ?? totalSessionCountRef.current
     if (sessionsRaw?.length) {
       const ids = sessionsRaw.map((s: { id: string }) => s.id)
       const { data: termRows } = await supabase.from('terms').select('session_id').in('session_id', ids)
       const countMap: Record<string, number> = {}
       for (const r of termRows ?? []) countMap[r.session_id] = (countMap[r.session_id] ?? 0) + 1
-      setRecentSessions(sessionsRaw.map((s: { id: string; subject: string | null; ai_name: string | null; started_at: string; ended_at: string | null }) => ({ ...s, ai_name: s.ai_name ?? null, termCount: countMap[s.id] ?? 0 })))
+      const tc = totalSessionCountRef.current
+      setRecentSessions(sessionsRaw.map((s: { id: string; started_at: string; ended_at: string | null }, i: number) => ({ id: s.id, started_at: s.started_at, ended_at: s.ended_at, termCount: countMap[s.id] ?? 0, sessionNumber: tc - i })))
     }
 
     // Generate AI name + synopsis — delayed 6s to let the last processChunk finish saving terms
@@ -583,7 +588,7 @@ export default function Dashboard() {
                       >
                         <div>
                           <p className="text-[14px] font-medium text-white/90">
-                            {sessionLabel(s.ai_name, s.subject, s.started_at)}
+                            {sessionLabel(s.sessionNumber, s.started_at)}
                           </p>
                           <p className="text-[12px] text-gray-600 mt-0.5">{fmtRelative(s.started_at)}</p>
                         </div>
