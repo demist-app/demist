@@ -347,6 +347,7 @@ export default function Dashboard() {
     const sessionId = session?.id ?? null
     sessionIdRef.current = sessionId
     isActiveRef.current = true
+    lastPopupAtRef.current = 0
     setIsRecording(true); setElapsed(0); setLiveTerms([]); setSessionGlossary([])
     window.postMessage({ source: 'demist', type: 'recording-started' }, '*')
     timerRef.current = setInterval(() => setElapsed(t => t + 1), 1000)

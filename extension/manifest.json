@@ -6,7 +6,9 @@
   "permissions": ["sidePanel"],
   "host_permissions": [
     "*://localhost:*/*",
-    "https://*.vercel.app/*"
+    "https://*.vercel.app/*",
+    "https://demist.app/*",
+    "https://*.demist.app/*"
   ],
   "side_panel": {
     "default_path": "sidepanel.html"
@@ -15,7 +17,9 @@
     {
       "matches": [
         "*://localhost:*/*",
-        "https://*.vercel.app/*"
+        "https://*.vercel.app/*",
+        "https://demist.app/*",
+        "https://*.demist.app/*"
       ],
       "js": ["content.js"],
       "run_at": "document_idle"

@@ -29,7 +29,10 @@
       "Bash(mv \"c:\\\\Users\\\\shivb\\\\Desktop\\\\coding bits\\\\demist\\\\web\\\\app\\\\api\\\\og\\\\[userId]\\\\route.ts\" \"c:\\\\Users\\\\shivb\\\\Desktop\\\\coding bits\\\\demist\\\\web\\\\app\\\\api\\\\og\\\\[userId]\\\\route.tsx\")",
       "Bash(cp \"c:\\\\Users\\\\shivb\\\\Desktop\\\\coding bits\\\\demist\\\\web\\\\app\\\\api\\\\og\\\\[userId]\\\\route.ts\" \"c:\\\\Users\\\\shivb\\\\Desktop\\\\coding bits\\\\demist\\\\web\\\\app\\\\api\\\\og\\\\[userId]\\\\route.tsx\")",
       "Bash(npx next *)",
-      "Bash(npx supabase *)"
+      "Bash(npx supabase *)",
+      "Bash(Copy-Item \"c:\\\\Users\\\\shivb\\\\Desktop\\\\coding bits\\\\demist\\\\photos\\\\image.png\" \"c:\\\\Users\\\\shivb\\\\Desktop\\\\coding bits\\\\demist\\\\web\\\\app\\\\icon.png\")",
+      "PowerShell(Copy-Item \"c:\\\\Users\\\\shivb\\\\Desktop\\\\coding bits\\\\demist\\\\photos\\\\image.png\" \"c:\\\\Users\\\\shivb\\\\Desktop\\\\coding bits\\\\demist\\\\web\\\\app\\\\icon.png\")",
+      "PowerShell(Copy-Item \"c:\\\\Users\\\\shivb\\\\Desktop\\\\coding bits\\\\demist\\\\photos\\\\image.png\" \"c:\\\\Users\\\\shivb\\\\Desktop\\\\coding bits\\\\demist\\\\web\\\\app\\\\favicon.ico\" -Force)"
     ],
     "additionalDirectories": [
       "c:\\Users\\shivb\\Desktop\\coding bits\\demist\\web\\app\\u"
