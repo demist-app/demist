@@ -464,7 +464,7 @@ export default function Dashboard() {
             <div className="shrink-0 grid grid-cols-3 gap-3 px-4 sm:px-6 pt-5 pb-1">
               <StatCard label="Streak" value={`${stats.streak}d`} />
               <StatCard label="This week" value={String(stats.termsThisWeek)} />
-              <StatCard label="Cards due" value={String(stats.dueFlashcards)} accent={stats.dueFlashcards > 0} />
+              <StatCard label="Flashcards due" value={String(stats.dueFlashcards)} accent={stats.dueFlashcards > 0} />
             </div>
 
             {/* 7-day chart */}

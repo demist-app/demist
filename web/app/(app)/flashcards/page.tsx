@@ -132,7 +132,7 @@ export default function Flashcards() {
           <div className="text-[44px]">🎉</div>
           <h2 className="text-[22px] font-bold">All caught up</h2>
           <p className="text-gray-500 text-[15px] leading-relaxed">
-            No cards due for review. Start a lecture to add new terms to your deck.
+            No Flashcards due for review. Start a lecture to add new terms to your deck.
           </p>
         </div>
       )}
