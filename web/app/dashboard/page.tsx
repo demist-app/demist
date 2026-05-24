@@ -29,6 +29,7 @@ export default function Dashboard() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [isRecording, setIsRecording] = useState(false)
+  const [isProcessing, setIsProcessing] = useState(false)
   const [elapsed, setElapsed] = useState(0)
   const [liveTerms, setLiveTerms] = useState<LiveTerm[]>([])
   const [glossary, setGlossary] = useState<StoredTerm[]>([])
@@ -72,24 +73,53 @@ export default function Dashboard() {
   }, [])
 
   const processChunk = async (blob: Blob, sessionId: string) => {
-    if (blob.size < 2000) return
+    if (blob.size < 500) return
     const supabase = createClient()
 
+    setIsProcessing(true)
     try {
-      const { data: tx, error: txErr } = await supabase.functions.invoke('transcribe', {
-        body: blob,
-        headers: { 'Content-Type': blob.type || 'audio/webm' },
-      })
-      if (txErr || !tx?.text?.trim()) return
+      // Get auth token for direct fetch calls (more reliable for binary data)
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
+      const base = process.env.NEXT_PUBLIC_SUPABASE_URL!
 
-      const { data: detected, error: dtErr } = await supabase.functions.invoke('detect-terms', {
-        body: {
+      // Transcribe audio
+      const txRes = await fetch(`${base}/functions/v1/transcribe`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': blob.type || 'audio/webm',
+        },
+        body: blob,
+      })
+      if (!txRes.ok) {
+        console.error('transcribe error:', await txRes.text())
+        return
+      }
+      const tx = await txRes.json()
+      if (!tx?.text?.trim()) return
+
+      console.log('transcript:', tx.text)
+
+      // Detect terms
+      const dtRes = await fetch(`${base}/functions/v1/detect-terms`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           transcript: tx.text,
           subject: profileRef.current?.course ?? 'general',
           year: profileRef.current?.year_of_study ?? 1,
-        },
+        }),
       })
-      if (dtErr || !detected?.terms?.length) return
+      if (!dtRes.ok) {
+        console.error('detect-terms error:', await dtRes.text())
+        return
+      }
+      const detected = await dtRes.json()
+      if (!detected?.terms?.length) return
 
       const incoming: LiveTerm[] = (detected.terms as { term: string; definition: string }[]).map(t => ({
         id: `${Date.now()}-${Math.random()}`,
@@ -123,8 +153,10 @@ export default function Dashboard() {
       if (saved?.length) {
         setGlossary(prev => [...(saved as StoredTerm[]).reverse(), ...prev].slice(0, 30))
       }
-    } catch {
-      // Silent — never interrupt recording for a processing error
+    } catch (e) {
+      console.error('processChunk error:', e)
+    } finally {
+      setIsProcessing(false)
     }
   }
 
@@ -185,7 +217,7 @@ export default function Dashboard() {
       recorder.start()
       chunkTimerRef.current = setTimeout(() => {
         if (recorder.state === 'recording') recorder.stop()
-      }, 15_000)
+      }, 10_000)
     }
 
     doChunk()
@@ -272,7 +304,9 @@ export default function Dashboard() {
             <div className="flex items-center gap-2.5">
               <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
               <span className="font-mono text-[18px] tabular-nums text-white">{fmtTime(elapsed)}</span>
-              <span className="text-gray-500 text-sm">Listening</span>
+              <span className="text-gray-500 text-sm">
+                {isProcessing ? 'Processing…' : 'Listening'}
+              </span>
             </div>
           ) : (
             <p className="text-gray-500 text-sm">
