@@ -274,6 +274,10 @@ export default function Dashboard() {
 
       setLiveTerms(prev => [...prev, ...incoming].slice(-3))
 
+      incoming.forEach(t => {
+        window.postMessage({ source: 'demist', type: 'term', term: t.term, definition: t.definition }, '*')
+      })
+
       if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
         incoming.forEach(t => {
           new Notification(t.term, {
@@ -348,6 +352,7 @@ export default function Dashboard() {
     sessionIdRef.current = sessionId
     isActiveRef.current = true
     setIsRecording(true); setElapsed(0); setLiveTerms([]); setSessionGlossary([])
+    window.postMessage({ source: 'demist', type: 'recording-started' }, '*')
     timerRef.current = setInterval(() => setElapsed(t => t + 1), 1000)
 
     const doChunk = () => {
@@ -382,6 +387,7 @@ export default function Dashboard() {
       await supabase.from('sessions').update({ ended_at: new Date().toISOString() }).eq('id', sid)
     }
     setIsRecording(false)
+    window.postMessage({ source: 'demist', type: 'recording-stopped' }, '*')
     posthog.capture('recording_stopped', { duration_seconds: elapsed })
 
     // Refresh stats after session

@@ -54,6 +54,9 @@ export default function History() {
   const [loading, setLoading] = useState(true)
   const [sessions, setSessions] = useState<Session[]>([])
   const [loadingTerms, setLoadingTerms] = useState<string | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editValue, setEditValue] = useState('')
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   useEffect(() => {
     const supabase = createClient()
@@ -130,6 +133,30 @@ export default function History() {
     )
   }
 
+  const startRename = (s: Session) => {
+    setEditingId(s.id)
+    setEditValue(sessionLabel(s.ai_name, s.subject, s.started_at))
+  }
+
+  const saveRename = async (id: string) => {
+    const name = editValue.trim()
+    setEditingId(null)
+    if (!name) return
+    const supabase = createClient()
+    await supabase.from('sessions').update({ ai_name: name }).eq('id', id)
+    setSessions(prev => prev.map(s => s.id === id ? { ...s, ai_name: name } : s))
+  }
+
+  const deleteSession = async (id: string) => {
+    if (!window.confirm('Delete this session and all its terms?')) return
+    setDeletingId(id)
+    const supabase = createClient()
+    await supabase.from('terms').delete().eq('session_id', id)
+    await supabase.from('sessions').delete().eq('id', id)
+    setSessions(prev => prev.filter(s => s.id !== id))
+    setDeletingId(null)
+  }
+
   // Group sessions by date label
   const grouped: { label: string; sessions: Session[] }[] = []
   for (const s of sessions) {
@@ -171,26 +198,63 @@ export default function History() {
                   key={s.id}
                   className="bg-white/[0.03] border border-white/[0.06] rounded-2xl overflow-hidden"
                 >
-                  <button
-                    onClick={() => toggleExpand(s.id)}
-                    className="w-full flex items-center justify-between px-4 py-3 text-left"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[14px] font-medium text-white/90 truncate">
-                        {sessionLabel(s.ai_name, s.subject, s.started_at)}
-                      </p>
-                      <p className="text-[12px] text-gray-600 mt-0.5">
-                        {fmtTime(s.started_at)} · {fmtDuration(s.started_at, s.ended_at)}
-                      </p>
+                  <div className="flex items-center px-4 py-3 gap-3">
+                    {/* Expand area */}
+                    <div
+                      onClick={() => !editingId && toggleExpand(s.id)}
+                      className="flex-1 min-w-0 cursor-pointer"
+                    >
+                      {editingId === s.id ? (
+                        <input
+                          autoFocus
+                          value={editValue}
+                          onChange={e => setEditValue(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') saveRename(s.id)
+                            if (e.key === 'Escape') setEditingId(null)
+                          }}
+                          onBlur={() => saveRename(s.id)}
+                          onClick={e => e.stopPropagation()}
+                          className="w-full bg-white/[0.07] border border-violet-500/40 rounded-lg px-2 py-1 text-[14px] text-white focus:outline-none"
+                        />
+                      ) : (
+                        <>
+                          <p className="text-[14px] font-medium text-white/90 truncate">
+                            {sessionLabel(s.ai_name, s.subject, s.started_at)}
+                          </p>
+                          <p className="text-[12px] text-gray-600 mt-0.5">
+                            {fmtTime(s.started_at)} · {fmtDuration(s.started_at, s.ended_at)}
+                          </p>
+                        </>
+                      )}
                     </div>
-                    <div className="flex items-center gap-3 shrink-0 ml-4">
-                      <div className="text-right">
+
+                    {/* Actions + term count + chevron */}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <div className="text-right mr-1">
                         <p className="text-[14px] font-semibold text-violet-400">{s.termCount}</p>
                         <p className="text-[11px] text-gray-600">terms</p>
                       </div>
-                      <ChevronIcon expanded={s.expanded} />
+                      <button
+                        onClick={() => startRename(s)}
+                        title="Rename"
+                        className="text-gray-700 hover:text-gray-300 transition-colors p-1"
+                      >
+                        <PencilIcon />
+                      </button>
+                      <button
+                        onClick={() => deleteSession(s.id)}
+                        title="Delete"
+                        disabled={deletingId === s.id}
+                        className="text-gray-700 hover:text-red-400 transition-colors p-1 disabled:opacity-40"
+                      >
+                        <TrashIcon />
+                      </button>
+                      <button onClick={() => toggleExpand(s.id)}>
+                        <ChevronIcon expanded={s.expanded} />
+                      </button>
                     </div>
-                  </button>
+                  </div>
 
                   {s.expanded && (
                     <div className="px-4 pb-4 border-t border-white/[0.04]">
@@ -252,6 +316,28 @@ function ChevronIcon({ expanded }: { expanded: boolean }) {
       className={`text-gray-600 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}
     >
       <polyline points="6 9 12 15 18 9" />
+    </svg>
+  )
+}
+
+function PencilIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+    </svg>
+  )
+}
+
+function TrashIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+      <path d="M10 11v6M14 11v6" />
+      <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
     </svg>
   )
 }

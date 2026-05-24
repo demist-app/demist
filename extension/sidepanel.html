@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Demist</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0 }
+
+    body {
+      background: #080810;
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    #header {
+      padding: 14px 16px 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    .brand {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: rgba(167,139,250,0.7);
+    }
+
+    #status {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #374151;
+      flex-shrink: 0;
+      transition: background 0.3s;
+    }
+    .dot.recording {
+      background: #ef4444;
+      animation: pulse 1.4s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1 }
+      50% { opacity: 0.35 }
+    }
+
+    #status-text { color: #4b5563; font-size: 12px; }
+
+    #clear-btn {
+      background: none;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 6px;
+      color: #374151;
+      font-size: 11px;
+      cursor: pointer;
+      padding: 3px 8px;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    #clear-btn:hover { color: #6b7280; border-color: rgba(255,255,255,0.14); }
+
+    #body {
+      flex: 1;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #empty {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 24px;
+      text-align: center;
+      gap: 10px;
+    }
+    .empty-icon { font-size: 40px; }
+    .empty-title { font-size: 15px; font-weight: 600; color: rgba(255,255,255,0.6); }
+    .empty-sub { font-size: 13px; color: #374151; line-height: 1.6; }
+
+    #terms {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .term-card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 14px;
+      padding: 12px 14px;
+    }
+    .term-card.fresh {
+      border-color: rgba(139,92,246,0.35);
+      animation: slideIn 0.25s ease;
+    }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-6px) }
+      to   { opacity: 1; transform: translateY(0) }
+    }
+
+    .term-name { font-size: 14px; font-weight: 600; color: #fff; margin-bottom: 5px; }
+    .term-def  { font-size: 12px; color: #9ca3af; line-height: 1.55; }
+    .term-time { font-size: 10px; color: #1f2937; margin-top: 7px; }
+  </style>
+</head>
+<body>
+  <div id="header">
+    <span class="brand">Demist</span>
+    <div id="status">
+      <div class="dot" id="dot"></div>
+      <span id="status-text">Waiting</span>
+      <button id="clear-btn">Clear</button>
+    </div>
+  </div>
+
+  <div id="body">
+    <div id="empty">
+      <div class="empty-icon">🎧</div>
+      <p class="empty-title">No terms yet</p>
+      <p class="empty-sub">Open Demist in any tab, start recording, and terms appear here as they're detected.</p>
+    </div>
+    <div id="terms" style="display:none"></div>
+  </div>
+
+  <script src="sidepanel.js"></script>
+</body>
+</html>

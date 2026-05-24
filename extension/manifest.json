@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "Demist",
+  "version": "1.0.0",
+  "description": "Live term cards from your Demist recording session",
+  "permissions": ["sidePanel"],
+  "host_permissions": [
+    "*://localhost:*/*",
+    "https://*.vercel.app/*"
+  ],
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://localhost:*/*",
+        "https://*.vercel.app/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Open Demist panel"
+  }
+}
