@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase'
+import { TranscriptViewer } from '../transcript-viewer'
 
 interface SessionTerm {
   id: string
@@ -14,6 +15,7 @@ interface Session {
   id: string
   subject: string | null
   synopsis: string | null
+  transcript: string | null
   started_at: string
   ended_at: string | null
   termCount: number
@@ -68,7 +70,7 @@ export default function History() {
       const [{ data: sessionsRaw }, { count }] = await Promise.all([
         supabase
           .from('sessions')
-          .select('id, subject, synopsis, started_at, ended_at')
+          .select('id, subject, synopsis, transcript, started_at, ended_at')
           .eq('user_id', user.id)
           .order('started_at', { ascending: false })
           .limit(100),
@@ -94,6 +96,7 @@ export default function History() {
       setSessions(sessionsRaw.map(s => ({
         ...s,
         synopsis: s.synopsis ?? null,
+        transcript: (s as { transcript?: string | null }).transcript ?? null,
         termCount: countMap[s.id] ?? 0,
         expanded: false,
       })))
@@ -363,6 +366,12 @@ export default function History() {
                               </button>
                             </div>
                           ))}
+                        </div>
+                      )}
+                      {s.transcript && (
+                        <div className="mt-4 pt-3 border-t border-white/[0.04]">
+                          <p className="text-[10px] font-bold tracking-[0.15em] text-gray-600 uppercase mb-2">Transcript</p>
+                          <TranscriptViewer transcript={s.transcript} subject={s.subject} year={null} />
                         </div>
                       )}
                     </div>

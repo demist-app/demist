@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import posthog from 'posthog-js'
+import { TranscriptViewer } from '../transcript-viewer'
 
 interface LiveTerm {
   id: string
@@ -27,6 +28,7 @@ interface RecentSession {
   termCount: number
   sessionNumber: number
   synopsis: string | null
+  transcript: string | null
   expanded: boolean
   terms?: SessionTerm[]
 }
@@ -128,6 +130,7 @@ export default function Dashboard() {
   const termFrequencyRef = useRef<Map<string, number>>(new Map())
   const lastPopupAtRef = useRef<number>(0)
   const sessionSummarizingRef = useRef(new Set<string>())
+  const transcriptRef = useRef<string>('')
 
   // Audio visualizer refs
   const ring1Ref = useRef<HTMLSpanElement | null>(null)
@@ -199,7 +202,7 @@ export default function Dashboard() {
         supabase.from('sessions').select('started_at').eq('user_id', user.id).order('started_at', { ascending: false }),
         supabase.from('terms').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('known', false).gt('sm2_review_count', 0).lte('sm2_due_at', now.toISOString()),
         supabase.from('terms').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('known', false).eq('sm2_review_count', 0),
-        supabase.from('sessions').select('id, started_at, ended_at, synopsis').eq('user_id', user.id).order('started_at', { ascending: false }).limit(5),
+        supabase.from('sessions').select('id, started_at, ended_at, synopsis, transcript').eq('user_id', user.id).order('started_at', { ascending: false }).limit(5),
         supabase.from('sessions').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
       ])
       totalSessionCountRef.current = totalCount ?? 0
@@ -235,7 +238,7 @@ export default function Dashboard() {
         const countMap: Record<string, number> = {}
         for (const r of termRows ?? []) countMap[r.session_id] = (countMap[r.session_id] ?? 0) + 1
         const tc = totalSessionCountRef.current
-        setRecentSessions(sessionsRaw.map((s, i) => ({ id: s.id, started_at: s.started_at, ended_at: s.ended_at, termCount: countMap[s.id] ?? 0, sessionNumber: tc - i, synopsis: (s as { synopsis?: string | null }).synopsis ?? null, expanded: false })))
+        setRecentSessions(sessionsRaw.map((s, i) => ({ id: s.id, started_at: s.started_at, ended_at: s.ended_at, termCount: countMap[s.id] ?? 0, sessionNumber: tc - i, synopsis: (s as { synopsis?: string | null }).synopsis ?? null, transcript: (s as { transcript?: string | null }).transcript ?? null, expanded: false })))
       }
 
       setLoading(false)
@@ -259,6 +262,7 @@ export default function Dashboard() {
       if (!txRes.ok) { console.error('transcribe error:', await txRes.text()); return }
       const tx = await txRes.json()
       if (!tx?.text?.trim()) return
+      transcriptRef.current = transcriptRef.current ? transcriptRef.current + ' ' + tx.text.trim() : tx.text.trim()
 
       const dtRes = await fetch(`${base}/functions/v1/detect-terms`, {
         method: 'POST',
@@ -364,6 +368,7 @@ export default function Dashboard() {
     isActiveRef.current = true
     lastPopupAtRef.current = 0
     termFrequencyRef.current = new Map()
+    transcriptRef.current = ''
     setIsRecording(true); setElapsed(0); setLiveTerms([]); setSessionGlossary([])
     window.postMessage({ source: 'demist', type: 'recording-started' }, '*')
     timerRef.current = setInterval(() => setElapsed(t => t + 1), 1000)
@@ -426,7 +431,7 @@ export default function Dashboard() {
 
     // Refresh recent sessions list
     const [{ data: sessionsRaw }, { count: newTotal }] = await Promise.all([
-      supabase.from('sessions').select('id, started_at, ended_at, synopsis')
+      supabase.from('sessions').select('id, started_at, ended_at, synopsis, transcript')
         .eq('user_id', userIdRef.current!).order('started_at', { ascending: false }).limit(5),
       supabase.from('sessions').select('id', { count: 'exact', head: true }).eq('user_id', userIdRef.current!),
     ])
@@ -437,10 +442,10 @@ export default function Dashboard() {
       const countMap: Record<string, number> = {}
       for (const r of termRows ?? []) countMap[r.session_id] = (countMap[r.session_id] ?? 0) + 1
       const tc = totalSessionCountRef.current
-      setRecentSessions(sessionsRaw.map((s: { id: string; started_at: string; ended_at: string | null; synopsis?: string | null }, i: number) => ({ id: s.id, started_at: s.started_at, ended_at: s.ended_at, termCount: countMap[s.id] ?? 0, sessionNumber: tc - i, synopsis: s.synopsis ?? null, expanded: false })))
+      setRecentSessions(sessionsRaw.map((s: { id: string; started_at: string; ended_at: string | null; synopsis?: string | null; transcript?: string | null }, i: number) => ({ id: s.id, started_at: s.started_at, ended_at: s.ended_at, termCount: countMap[s.id] ?? 0, sessionNumber: tc - i, synopsis: s.synopsis ?? null, transcript: s.transcript ?? null, expanded: false })))
     }
 
-    // Generate synopsis — delayed 6s to let the last processChunk finish saving terms
+    // Save transcript + generate synopsis after 6s (lets the last processChunk finish first)
     if (sid) {
       const capturedSid = sid
       const capturedSubject = profileRef.current?.course
@@ -448,6 +453,11 @@ export default function Dashboard() {
       setTimeout(async () => {
         try {
           const sb = createClient()
+          const tx = transcriptRef.current
+          if (tx) {
+            await sb.from('sessions').update({ transcript: tx }).eq('id', capturedSid)
+            setRecentSessions(prev => prev.map(s => s.id === capturedSid ? { ...s, transcript: tx } : s))
+          }
           const { data } = await sb.functions.invoke('summarize-session', {
             body: { session_id: capturedSid, subject: capturedSubject, terms: capturedGlossary },
           })
@@ -455,7 +465,7 @@ export default function Dashboard() {
             setRecentSessions(prev => prev.map(s => s.id === capturedSid ? { ...s, synopsis: data.synopsis } : s))
           }
         } catch (e) {
-          console.error('summarize-session error:', e)
+          console.error('post-session error:', e)
         }
       }, 6000)
     }
@@ -766,6 +776,12 @@ export default function Dashboard() {
                                     >✓</button>
                                   </div>
                                 ))}
+                              </div>
+                            )}
+                            {s.transcript && (
+                              <div className="mt-4 pt-3 border-t border-white/[0.04]">
+                                <p className="text-[10px] font-bold tracking-[0.15em] text-gray-600 uppercase mb-2">Transcript</p>
+                                <TranscriptViewer transcript={s.transcript} subject={profile?.course ?? null} year={profile?.year_of_study ?? null} />
                               </div>
                             )}
                           </div>

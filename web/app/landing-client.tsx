@@ -43,7 +43,7 @@ const EXTENSION_DOWNLOAD_URL = '/demist-extension.zip'
 const FEATURES = [
   {
     title: 'Listens while you take notes',
-    body: 'Demist uses your microphone to pick up what your lecturer says. When it hears an unfamiliar term, it looks it up and shows you the definition — no Googling, no pausing.',
+    body: 'Demist uses your microphone to pick up what your lecturer says. When it hears an unfamiliar term, it looks it up and shows you the definition - no Googling, no pausing.',
     Icon: MicIcon,
   },
   {
@@ -67,7 +67,7 @@ const STEPS = [
   {
     n: '02',
     title: 'Definitions pop up as your lecturer speaks',
-    body: 'When Demist hears a term you might not know, it shows you the definition in a small card on screen. It disappears after a few seconds — nothing to click, nothing to search.',
+    body: 'When Demist hears a term you might not know, it shows you the definition in a small card on screen. It disappears after a few seconds. Nothing to click, nothing to search.',
   },
   {
     n: '03',
@@ -170,8 +170,8 @@ export default function LandingClient() {
           className="text-[44px] sm:text-[66px] lg:text-[76px] font-bold tracking-tight leading-[1.04] mb-6 max-w-3xl"
           {...anim(150)}
         >
-          Never feel{' '}
-          <span className="text-violet-400">lost</span>
+          <span className="text-violet-400">Never</span>
+          {' '}feel lost
           <br />in a lecture again.
         </h1>
 
@@ -179,7 +179,7 @@ export default function LandingClient() {
           className="text-gray-500 text-[16px] sm:text-[18px] leading-relaxed mb-10 max-w-[480px]"
           {...anim(240)}
         >
-          Hit record before your lecture. When your lecturer says a term you don't recognise, Demist shows you the definition on screen, while you're still listening.
+          Hit record before your lecture. Demist shows you the definition on screen. No more confusion. No more distractions while you're still listening.
         </p>
 
         <div className="flex flex-col sm:flex-row items-center gap-3 mb-16" {...anim(320)}>
