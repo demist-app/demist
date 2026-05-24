@@ -10,6 +10,7 @@ interface ProfileData {
   course: string | null
   year_of_study: number | null
   email: string
+  is_public: boolean
 }
 
 interface ChartDay {
@@ -46,6 +47,8 @@ export default function Profile() {
   const [year, setYear] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [isPublic, setIsPublic] = useState(false)
+  const [copied, setCopied] = useState(false)
   const [totalTerms, setTotalTerms] = useState(0)
   const [totalSessions, setTotalSessions] = useState(0)
   const [chartData, setChartData] = useState<ChartDay[]>([])
@@ -65,17 +68,18 @@ export default function Profile() {
         { count: sessionCount },
         { data: recentTerms },
       ] = await Promise.all([
-        supabase.from('profiles').select('display_name, course, year_of_study').eq('id', user.id).single(),
+        supabase.from('profiles').select('display_name, course, year_of_study, is_public').eq('id', user.id).single(),
         supabase.from('terms').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
         supabase.from('sessions').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
         supabase.from('terms').select('created_at').eq('user_id', user.id).gte('created_at', weekAgo),
       ])
 
-      const p = prof as { display_name: string | null; course: string | null; year_of_study: number | null }
-      setProfile({ display_name: p?.display_name ?? null, course: p?.course ?? null, year_of_study: p?.year_of_study ?? null, email: user.email ?? '' })
+      const p = prof as { display_name: string | null; course: string | null; year_of_study: number | null; is_public: boolean }
+      setProfile({ display_name: p?.display_name ?? null, course: p?.course ?? null, year_of_study: p?.year_of_study ?? null, email: user.email ?? '', is_public: p?.is_public ?? false })
       setDisplayName(p?.display_name ?? '')
       setCourse(p?.course ?? '')
       setYear(p?.year_of_study ?? null)
+      setIsPublic(p?.is_public ?? false)
       setTotalTerms(termCount ?? 0)
       setTotalSessions(sessionCount ?? 0)
       setChartData(get7DayChart((recentTerms ?? []).map((t: { created_at: string }) => t.created_at)))
@@ -87,7 +91,7 @@ export default function Profile() {
     setSaving(true)
     const supabase = createClient()
     await supabase.from('profiles')
-      .update({ display_name: displayName.trim() || null, course: course.trim() || null, year_of_study: year })
+      .update({ display_name: displayName.trim() || null, course: course.trim() || null, year_of_study: year, is_public: isPublic })
       .eq('id', userId)
     posthog.capture('profile_updated')
     setSaving(false)
@@ -99,6 +103,20 @@ export default function Profile() {
     await createClient().auth.signOut()
     posthog.reset()
     router.replace('/login')
+  }
+
+  const togglePublic = async () => {
+    if (!userId) return
+    const next = !isPublic
+    setIsPublic(next)
+    await createClient().from('profiles').update({ is_public: next }).eq('id', userId)
+  }
+
+  const copyShareLink = () => {
+    if (!userId) return
+    navigator.clipboard.writeText(`${window.location.origin}/u/${userId}`)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
   }
 
   const initials = (displayName || profile?.email || '?').slice(0, 1).toUpperCase()
@@ -216,6 +234,48 @@ export default function Profile() {
           >
             {saved ? 'Saved ✓' : saving ? 'Saving…' : 'Save changes'}
           </button>
+        </div>
+
+        {/* Share & leaderboard */}
+        <div className="space-y-3">
+          <p className="text-[10px] font-bold tracking-[0.18em] text-gray-600 uppercase">Sharing</p>
+
+          <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl px-4 py-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[14px] text-white/80 font-medium">Public profile</p>
+                <p className="text-[12px] text-gray-600 mt-0.5">Anyone with the link can see your stats</p>
+              </div>
+              <button
+                onClick={togglePublic}
+                className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${isPublic ? 'bg-violet-600' : 'bg-white/[0.1]'}`}
+              >
+                <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 ${isPublic ? 'translate-x-5' : 'translate-x-0'}`} />
+              </button>
+            </div>
+
+            {isPublic && (
+              <div className="flex items-center gap-2 bg-white/[0.04] rounded-xl px-3 py-2">
+                <span className="flex-1 text-[12px] text-gray-400 truncate">
+                  {typeof window !== 'undefined' ? `${window.location.origin}/u/${userId}` : `/u/${userId}`}
+                </span>
+                <button
+                  onClick={copyShareLink}
+                  className="shrink-0 text-[12px] font-medium text-violet-400 hover:text-violet-300 transition-colors"
+                >
+                  {copied ? 'Copied ✓' : 'Copy'}
+                </button>
+              </div>
+            )}
+          </div>
+
+          <a
+            href="/leaderboard"
+            className="flex items-center justify-between w-full bg-white/[0.03] border border-white/[0.06] rounded-2xl px-4 py-3 hover:bg-white/[0.05] transition-all"
+          >
+            <span className="text-[14px] text-white/80">View leaderboard</span>
+            <span className="text-gray-600 text-[18px] leading-none">›</span>
+          </a>
         </div>
 
         {/* Sign out */}

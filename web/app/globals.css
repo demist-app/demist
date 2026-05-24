@@ -92,6 +92,14 @@ button, a {
   .nav-bottom-pad { padding-bottom: 0; }
 }
 
+/* ─── Term card overlay: above bottom nav on mobile, flush on desktop ─────── */
+.term-overlay-bottom {
+  bottom: calc(68px + env(safe-area-inset-bottom));
+}
+@media (min-width: 640px) {
+  .term-overlay-bottom { bottom: 20px; }
+}
+
 /* ─── Flashcard flip (preserve-3d + backface-visibility via JS inline styles) ─ */
 .flashcard-flip {
   perspective: 1000px;

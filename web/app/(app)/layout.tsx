@@ -12,6 +12,10 @@ const NAV = [
   { href: '/profile', label: 'Profile', icon: ProfileIcon },
 ]
 
+const DESKTOP_EXTRA = [
+  { href: '/leaderboard', label: 'Leaderboard' },
+]
+
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
@@ -31,7 +35,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       {/* ── Desktop top nav (hidden on mobile) ── */}
       <nav className="hidden sm:flex fixed top-0 inset-x-0 h-14 z-40 items-center px-8 gap-8 bg-[#080810]/96 backdrop-blur-xl border-b border-white/[0.05]">
         <span className="text-[15px] font-semibold tracking-tight text-white mr-2">Demist</span>
-        {NAV.map(({ href, label }) => {
+        {[...NAV, ...DESKTOP_EXTRA].map(({ href, label }) => {
           const active = pathname === href
           return (
             <Link

@@ -18,7 +18,20 @@
       "Bash(git commit -m ' *)",
       "Bash(git push *)",
       "Bash(Remove-Item -Path \"c:\\\\Users\\\\shivb\\\\Desktop\\\\coding bits\\\\demist\\\\web\\\\app\\\\dashboard\\\\page.tsx\" -Force)",
-      "Bash(Remove-Item -Path \"c:\\\\Users\\\\shivb\\\\Desktop\\\\coding bits\\\\demist\\\\web\\\\app\\\\dashboard\" -Force -ErrorAction SilentlyContinue)"
+      "Bash(Remove-Item -Path \"c:\\\\Users\\\\shivb\\\\Desktop\\\\coding bits\\\\demist\\\\web\\\\app\\\\dashboard\" -Force -ErrorAction SilentlyContinue)",
+      "WebFetch(domain:docs.expo.dev)",
+      "Bash(node -e \"const p = require\\('./node_modules/next/package.json'\\); console.log\\(p.version\\)\")",
+      "Bash(mkdir \"c:\\\\Users\\\\shivb\\\\Desktop\\\\coding bits\\\\demist\\\\web\\\\app\\\\u\\\\[userId]\" 2>&1 || true)",
+      "Bash(New-Item -ItemType Directory -Force \"c:\\\\Users\\\\shivb\\\\Desktop\\\\coding bits\\\\demist\\\\web\\\\app\\\\u\\\\[userId]\")",
+      "PowerShell(New-Item -ItemType Directory -Force \"c:\\\\Users\\\\shivb\\\\Desktop\\\\coding bits\\\\demist\\\\mobile\\\\lib\")",
+      "PowerShell(New-Item -ItemType Directory -Force \"c:\\\\Users\\\\shivb\\\\Desktop\\\\coding bits\\\\demist\\\\mobile\\\\app\")",
+      "PowerShell(New-Item -ItemType Directory -Force \"c:\\\\Users\\\\shivb\\\\Desktop\\\\coding bits\\\\demist\\\\mobile\\\\app\\\\\\(tabs\\)\")",
+      "Bash(mv \"c:\\\\Users\\\\shivb\\\\Desktop\\\\coding bits\\\\demist\\\\web\\\\app\\\\api\\\\og\\\\[userId]\\\\route.ts\" \"c:\\\\Users\\\\shivb\\\\Desktop\\\\coding bits\\\\demist\\\\web\\\\app\\\\api\\\\og\\\\[userId]\\\\route.tsx\")",
+      "Bash(cp \"c:\\\\Users\\\\shivb\\\\Desktop\\\\coding bits\\\\demist\\\\web\\\\app\\\\api\\\\og\\\\[userId]\\\\route.ts\" \"c:\\\\Users\\\\shivb\\\\Desktop\\\\coding bits\\\\demist\\\\web\\\\app\\\\api\\\\og\\\\[userId]\\\\route.tsx\")",
+      "Bash(npx next *)"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\shivb\\Desktop\\coding bits\\demist\\web\\app\\u"
     ]
   }
 }

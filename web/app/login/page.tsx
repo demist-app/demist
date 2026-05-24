@@ -14,6 +14,8 @@ export default function Login() {
   const [code, setCode] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [resending, setResending] = useState(false)
+  const [resent, setResent] = useState(false)
   const codeRef = useRef<HTMLInputElement>(null)
 
   // If already logged in, skip to dashboard
@@ -47,6 +49,23 @@ export default function Login() {
       setStep('code')
     }
     setLoading(false)
+  }
+
+  const handleResend = async () => {
+    setResending(true)
+    setError('')
+    const supabase = createClient()
+    const { error } = await supabase.auth.signInWithOtp({
+      email: email.trim(),
+      options: { shouldCreateUser: true },
+    })
+    setResending(false)
+    if (error) {
+      setError(error.message)
+    } else {
+      setResent(true)
+      setTimeout(() => setResent(false), 3000)
+    }
   }
 
   const handleVerifyCode = async (e: React.FormEvent) => {
@@ -142,19 +161,28 @@ export default function Login() {
               />
               <button
                 type="submit"
-                disabled={loading || code.length < 4}
+                disabled={loading || code.length < 6}
                 className="py-4 rounded-2xl text-[15px] font-semibold bg-violet-600 hover:bg-violet-500 disabled:opacity-25 disabled:cursor-not-allowed text-white transition-all"
               >
                 {loading ? 'Verifying…' : 'Verify →'}
               </button>
             </form>
 
-            <button
-              onClick={() => { setStep('email'); setCode(''); setError('') }}
-              className="mt-4 w-full text-[13px] text-gray-600 hover:text-gray-400 transition-colors"
-            >
-              ← Use a different email
-            </button>
+            <div className="mt-4 flex items-center justify-between">
+              <button
+                onClick={() => { setStep('email'); setCode(''); setError('') }}
+                className="text-[13px] text-gray-600 hover:text-gray-400 transition-colors"
+              >
+                ← Different email
+              </button>
+              <button
+                onClick={handleResend}
+                disabled={resending}
+                className="text-[13px] text-gray-600 hover:text-gray-400 disabled:opacity-40 transition-colors"
+              >
+                {resent ? 'Code sent ✓' : resending ? 'Sending…' : 'Resend code'}
+              </button>
+            </div>
           </div>
         )}
 

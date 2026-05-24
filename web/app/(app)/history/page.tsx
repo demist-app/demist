@@ -13,6 +13,8 @@ interface SessionTerm {
 interface Session {
   id: string
   subject: string | null
+  ai_name: string | null
+  synopsis: string | null
   started_at: string
   ended_at: string | null
   termCount: number
@@ -27,7 +29,8 @@ function fmtDuration(start: string, end: string | null): string {
   return `${Math.floor(mins / 60)}h ${mins % 60}m`
 }
 
-function sessionLabel(subject: string | null, startedAt: string): string {
+function sessionLabel(aiName: string | null, subject: string | null, startedAt: string): string {
+  if (aiName) return aiName
   if (subject) return subject
   const d = new Date(startedAt)
   return `${d.toLocaleDateString('en-GB', { weekday: 'short' })} ${d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`
@@ -60,7 +63,7 @@ export default function History() {
 
       const { data: sessionsRaw } = await supabase
         .from('sessions')
-        .select('id, subject, started_at, ended_at')
+        .select('id, subject, ai_name, synopsis, started_at, ended_at')
         .eq('user_id', user.id)
         .order('started_at', { ascending: false })
         .limit(100)
@@ -78,6 +81,8 @@ export default function History() {
 
       setSessions(sessionsRaw.map(s => ({
         ...s,
+        ai_name: s.ai_name ?? null,
+        synopsis: s.synopsis ?? null,
         termCount: countMap[s.id] ?? 0,
         expanded: false,
       })))
@@ -172,7 +177,7 @@ export default function History() {
                   >
                     <div className="flex-1 min-w-0">
                       <p className="text-[14px] font-medium text-white/90 truncate">
-                        {sessionLabel(s.subject, s.started_at)}
+                        {sessionLabel(s.ai_name, s.subject, s.started_at)}
                       </p>
                       <p className="text-[12px] text-gray-600 mt-0.5">
                         {fmtTime(s.started_at)} · {fmtDuration(s.started_at, s.ended_at)}
@@ -189,6 +194,9 @@ export default function History() {
 
                   {s.expanded && (
                     <div className="px-4 pb-4 border-t border-white/[0.04]">
+                      {s.synopsis && (
+                        <p className="text-[13px] text-gray-500 leading-relaxed pt-3 pb-1">{s.synopsis}</p>
+                      )}
                       {loadingTerms === s.id && (
                         <p className="text-gray-700 text-[13px] py-3">Loading…</p>
                       )}

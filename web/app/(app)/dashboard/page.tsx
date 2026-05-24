@@ -15,6 +15,7 @@ interface LiveTerm {
 interface RecentSession {
   id: string
   subject: string | null
+  ai_name: string | null
   started_at: string
   ended_at: string | null
   termCount: number
@@ -76,7 +77,8 @@ function fmtRelative(iso: string) {
   return `${days}d ago`
 }
 
-function sessionLabel(subject: string | null, startedAt: string): string {
+function sessionLabel(aiName: string | null, subject: string | null, startedAt: string): string {
+  if (aiName) return aiName
   if (subject) return subject
   const d = new Date(startedAt)
   const day = d.toLocaleDateString('en-GB', { weekday: 'short' })
@@ -86,7 +88,7 @@ function sessionLabel(subject: string | null, startedAt: string): string {
 
 // Filter out non-English terms (catches Japanese, Chinese, Arabic, etc.)
 function isLatinTerm(term: string): boolean {
-  return /^[\x20-\x7EÀ-ɏ\s'-]+$/.test(term)
+  return /^[\x20-\x7EÀ-ɏͰ-Ͽ\s'-]+$/.test(term)
 }
 
 // ─── Main component ────────────────────────────────────────────────────────────
@@ -183,7 +185,7 @@ export default function Dashboard() {
         supabase.from('sessions').select('started_at').eq('user_id', user.id).order('started_at', { ascending: false }),
         supabase.from('terms').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('known', false).gt('sm2_review_count', 0).lte('sm2_due_at', now.toISOString()),
         supabase.from('terms').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('known', false).eq('sm2_review_count', 0),
-        supabase.from('sessions').select('id, subject, started_at, ended_at').eq('user_id', user.id).order('started_at', { ascending: false }).limit(5),
+        supabase.from('sessions').select('id, subject, ai_name, started_at, ended_at').eq('user_id', user.id).order('started_at', { ascending: false }).limit(5),
       ])
 
       profileRef.current = prof as Profile
@@ -216,7 +218,7 @@ export default function Dashboard() {
         const { data: termRows } = await supabase.from('terms').select('session_id').in('session_id', ids)
         const countMap: Record<string, number> = {}
         for (const r of termRows ?? []) countMap[r.session_id] = (countMap[r.session_id] ?? 0) + 1
-        setRecentSessions(sessionsRaw.map(s => ({ ...s, termCount: countMap[s.id] ?? 0 })))
+        setRecentSessions(sessionsRaw.map(s => ({ ...s, ai_name: s.ai_name ?? null, termCount: countMap[s.id] ?? 0 })))
       }
 
       setLoading(false)
@@ -373,25 +375,45 @@ export default function Dashboard() {
     const supabase = createClient()
     const now = new Date()
     const weekAgo = new Date(now.getTime() - 7 * 86400000).toISOString()
-    const [{ data: allTerms }, { data: sessionDays }] = await Promise.all([
+    const [
+      { data: allTerms },
+      { data: sessionDays },
+      { count: dueReviewCount },
+      { count: newCardCount },
+    ] = await Promise.all([
       supabase.from('terms').select('term, known, created_at').eq('user_id', userIdRef.current!),
       supabase.from('sessions').select('started_at').eq('user_id', userIdRef.current!).order('started_at', { ascending: false }),
+      supabase.from('terms').select('id', { count: 'exact', head: true }).eq('user_id', userIdRef.current!).eq('known', false).gt('sm2_review_count', 0).lte('sm2_due_at', now.toISOString()),
+      supabase.from('terms').select('id', { count: 'exact', head: true }).eq('user_id', userIdRef.current!).eq('known', false).eq('sm2_review_count', 0),
     ])
     const termsThisWeek = (allTerms ?? []).filter(t => t.created_at >= weekAgo).length
     const streak = calculateStreak((sessionDays ?? []).map((s: { started_at: string }) => s.started_at))
-    setStats(prev => ({ ...prev, streak, termsThisWeek }))
+    const dueFlashcards = (dueReviewCount ?? 0) + Math.min(15, newCardCount ?? 0)
+    setStats({ streak, termsThisWeek, dueFlashcards })
     setChartData(get7DayChart((allTerms ?? []).filter(t => t.created_at >= weekAgo).map(t => t.created_at)))
 
     // Refresh recent sessions list
     const { data: sessionsRaw } = await supabase
-      .from('sessions').select('id, subject, started_at, ended_at')
+      .from('sessions').select('id, subject, ai_name, started_at, ended_at')
       .eq('user_id', userIdRef.current!).order('started_at', { ascending: false }).limit(5)
     if (sessionsRaw?.length) {
       const ids = sessionsRaw.map((s: { id: string }) => s.id)
       const { data: termRows } = await supabase.from('terms').select('session_id').in('session_id', ids)
       const countMap: Record<string, number> = {}
       for (const r of termRows ?? []) countMap[r.session_id] = (countMap[r.session_id] ?? 0) + 1
-      setRecentSessions(sessionsRaw.map((s: { id: string; subject: string | null; started_at: string; ended_at: string | null }) => ({ ...s, termCount: countMap[s.id] ?? 0 })))
+      setRecentSessions(sessionsRaw.map((s: { id: string; subject: string | null; ai_name: string | null; started_at: string; ended_at: string | null }) => ({ ...s, ai_name: s.ai_name ?? null, termCount: countMap[s.id] ?? 0 })))
+    }
+
+    // Fire-and-forget: generate AI name + synopsis for the session
+    if (sessionGlossary.length > 0 && sid) {
+      const { data: { session: authSession } } = await supabase.auth.getSession()
+      const token = authSession?.access_token
+      const base = process.env.NEXT_PUBLIC_SUPABASE_URL!
+      fetch(`${base}/functions/v1/summarize-session`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: sid, terms: sessionGlossary, subject: profileRef.current?.course }),
+      }).catch(console.error)
     }
   }
 
@@ -551,7 +573,7 @@ export default function Dashboard() {
                       >
                         <div>
                           <p className="text-[14px] font-medium text-white/90">
-                            {sessionLabel(s.subject, s.started_at)}
+                            {sessionLabel(s.ai_name, s.subject, s.started_at)}
                           </p>
                           <p className="text-[12px] text-gray-600 mt-0.5">{fmtRelative(s.started_at)}</p>
                         </div>
@@ -575,8 +597,7 @@ export default function Dashboard() {
 
       {/* Term card overlay */}
       <div
-        className="fixed inset-x-0 flex flex-col gap-3 items-center px-4 sm:px-5 z-50 pointer-events-none"
-        style={{ bottom: 'calc(68px + env(safe-area-inset-bottom))' }}
+        className="term-overlay-bottom fixed inset-x-0 flex flex-col gap-3 items-center px-4 sm:px-5 z-50 pointer-events-none"
       >
         {liveTerms.map(t => (
           <TermCard

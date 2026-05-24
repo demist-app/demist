@@ -108,8 +108,6 @@ export default function Onboarding() {
                   key={value}
                   onClick={() => setYear(value)}
                   className={`py-4 rounded-2xl text-[15px] font-medium transition-all ${
-                    value === 5 ? 'col-span-2' : ''
-                  } ${
                     year === value
                       ? 'bg-violet-600 border border-violet-400/40 text-white shadow-[0_0_24px_rgba(139,92,246,0.35)]'
                       : 'bg-white/[0.05] border border-white/[0.08] text-gray-300 hover:bg-white/[0.09] hover:border-white/[0.15]'

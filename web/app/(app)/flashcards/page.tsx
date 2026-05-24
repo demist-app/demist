@@ -49,6 +49,7 @@ export default function Flashcards() {
   const [dueCount, setDueCount] = useState(0)
   const [newCount, setNewCount] = useState(0)
   const [saving, setSaving] = useState(false)
+  const [stuckOnLast, setStuckOnLast] = useState(false)
 
   useEffect(() => {
     const supabase = createClient()
@@ -121,16 +122,19 @@ export default function Flashcards() {
     setSaving(false)
 
     if (grade === 0) {
-      // Re-queue at end without counting as reviewed
       if (queue.length === 0) {
         setCurrent(current)
+        setStuckOnLast(true)
       } else {
         setQueue(q => [...q, { ...current, isNew: false }])
         setCurrent(queue[0])
         setQueue(q => q.slice(1))
+        setStuckOnLast(false)
       }
       return
     }
+
+    setStuckOnLast(false)
 
     setReviewed(r => r + 1)
     if (queue.length === 0) {
@@ -258,18 +262,28 @@ export default function Flashcards() {
 
           {/* Rating buttons */}
           {flipped && (
-            <div className="shrink-0 grid grid-cols-4 gap-2 mt-4 animate-step">
-              {GRADE_LABELS.map(({ grade, label, color }) => (
+            <>
+              <div className="shrink-0 grid grid-cols-4 gap-2 mt-4 animate-step">
+                {GRADE_LABELS.map(({ grade, label, color }) => (
+                  <button
+                    key={grade}
+                    onClick={() => handleGrade(grade)}
+                    disabled={saving}
+                    className={`py-3 rounded-2xl text-[13px] font-semibold border bg-transparent transition-all disabled:opacity-40 ${color}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {stuckOnLast && (
                 <button
-                  key={grade}
-                  onClick={() => handleGrade(grade)}
-                  disabled={saving}
-                  className={`py-3 rounded-2xl text-[13px] font-semibold border bg-transparent transition-all disabled:opacity-40 ${color}`}
+                  onClick={() => setPhase('done')}
+                  className="shrink-0 mt-3 w-full text-center text-[13px] text-gray-600 hover:text-gray-400 transition-colors"
                 >
-                  {label}
+                  Done for today →
                 </button>
-              ))}
-            </div>
+              )}
+            </>
           )}
 
           {!flipped && (
