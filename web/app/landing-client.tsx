@@ -36,6 +36,11 @@ function scrollAnim(visible: boolean, delay: number, duration = 560) {
 // Deterministic waveform bar heights
 const BARS = [10, 22, 34, 26, 14, 38, 28, 18, 32, 42, 30, 16, 36, 26, 18, 12, 30, 22, 14, 20]
 
+// Update CHROME_STORE_URL once the Web Store listing is live
+const CHROME_STORE_URL: string | null = null
+// Put your zipped extension in web/public/demist-extension.zip
+const EXTENSION_DOWNLOAD_URL = '/demist-extension.zip'
+
 const FEATURES = [
   {
     title: 'Listens in real time',
@@ -79,6 +84,7 @@ export default function LandingClient() {
 
   const featuresRef = useInView()
   const stepsRef = useInView()
+  const extRef = useInView()
   const ctaRef = useInView()
 
   useEffect(() => {
@@ -296,6 +302,78 @@ export default function LandingClient() {
         </div>
       </section>
 
+      {/* ── Extension ── */}
+      <section ref={extRef.ref} className="relative z-10 px-6 sm:px-12 py-28 max-w-3xl mx-auto text-center">
+        <p className="text-[10px] font-bold tracking-[0.2em] text-gray-600 uppercase mb-4"
+          {...scrollAnim(extRef.visible, 0)}>
+          Chrome Extension
+        </p>
+        <h2
+          className="text-[30px] sm:text-[42px] font-bold tracking-tight mb-4 leading-tight"
+          {...scrollAnim(extRef.visible, 80)}
+        >
+          Term popups,{' '}
+          <span className="text-gray-600 font-normal">anywhere you learn.</span>
+        </h2>
+        <p
+          className="text-gray-600 text-[15px] leading-relaxed mb-10 max-w-[460px] mx-auto"
+          {...scrollAnim(extRef.visible, 160)}
+        >
+          The Demist extension surfaces definitions on any page — lecture slides, YouTube, PDFs, reading lists. Pairs with the web app automatically.
+        </p>
+
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3" {...scrollAnim(extRef.visible, 240)}>
+          {CHROME_STORE_URL ? (
+            <a
+              href={CHROME_STORE_URL}
+              target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-2.5 px-6 py-3.5 rounded-2xl bg-violet-600 hover:bg-violet-500 text-white font-semibold text-[15px] transition-all hover:shadow-[0_0_40px_rgba(139,92,246,0.4)] active:scale-95"
+            >
+              <ChromeIcon />
+              Add to Chrome
+            </a>
+          ) : (
+            <div className="relative">
+              <div className="flex items-center gap-2.5 px-6 py-3.5 rounded-2xl bg-white/[0.04] border border-white/[0.08] text-white/30 font-semibold text-[15px] cursor-not-allowed select-none">
+                <ChromeIcon />
+                Add to Chrome
+              </div>
+              <span className="absolute -top-2.5 -right-2.5 text-[10px] font-bold tracking-[0.1em] text-violet-400 bg-violet-600/20 border border-violet-500/30 rounded-full px-2 py-0.5 uppercase">
+                Soon
+              </span>
+            </div>
+          )}
+
+          <a
+            href={EXTENSION_DOWNLOAD_URL}
+            download
+            className="flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-white/[0.05] border border-white/[0.09] text-white/70 hover:text-white hover:bg-white/[0.08] hover:border-white/[0.14] transition-all text-[15px] font-medium"
+          >
+            <DownloadIcon />
+            Download beta
+          </a>
+        </div>
+
+        {!CHROME_STORE_URL && (
+          <div className="mt-8 bg-white/[0.03] border border-white/[0.06] rounded-2xl px-6 py-5 max-w-sm mx-auto text-left" {...scrollAnim(extRef.visible, 320)}>
+            <p className="text-[11px] font-bold tracking-[0.16em] text-gray-600 uppercase mb-3">Manual install (beta)</p>
+            <ol className="space-y-2">
+              {[
+                'Download and unzip the file',
+                'Go to chrome://extensions',
+                'Enable Developer mode (top right)',
+                'Click Load unpacked → select the folder',
+              ].map((step, i) => (
+                <li key={i} className="flex items-start gap-2.5">
+                  <span className="text-[11px] font-bold text-violet-500/50 mt-[3px] shrink-0 tabular-nums">{String(i + 1).padStart(2, '0')}</span>
+                  <span className="text-[13px] text-gray-500">{step}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
+      </section>
+
       {/* ── Final CTA ── */}
       <section ref={ctaRef.ref} className="relative z-10 px-6 py-36 text-center">
         <h2
@@ -309,7 +387,7 @@ export default function LandingClient() {
           className="text-gray-600 text-[16px] mb-10"
           {...scrollAnim(ctaRef.visible, 100)}
         >
-          Free to use. No downloads required.
+          Free to use. Works in your browser.
         </p>
         <div {...scrollAnim(ctaRef.visible, 180)}>
           <button
@@ -322,9 +400,12 @@ export default function LandingClient() {
       </section>
 
       {/* ── Footer ── */}
-      <footer className="relative z-10 px-6 sm:px-12 py-8 border-t border-white/[0.04] flex items-center justify-between">
+      <footer className="relative z-10 px-6 sm:px-12 py-8 border-t border-white/[0.04] flex items-center justify-between gap-4">
         <span className="text-[11px] font-bold tracking-[0.2em] text-gray-700 uppercase">Demist</span>
-        <p className="text-[12px] text-gray-700">© {new Date().getFullYear()} Demist</p>
+        <div className="flex items-center gap-5">
+          <a href="/privacy" className="text-[12px] text-gray-700 hover:text-gray-500 transition-colors">Privacy</a>
+          <p className="text-[12px] text-gray-700">© {new Date().getFullYear()} Demist</p>
+        </div>
       </footer>
     </main>
   )
@@ -354,6 +435,28 @@ function CardIcon() {
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <rect x="2" y="5" width="20" height="14" rx="3" />
       <line x1="2" y1="10" x2="22" y2="10" />
+    </svg>
+  )
+}
+
+function ChromeIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <circle cx="12" cy="12" r="4" />
+      <line x1="21.17" y1="8" x2="12" y2="8" />
+      <line x1="3.95" y1="6.06" x2="8.54" y2="14" />
+      <line x1="10.88" y1="21.94" x2="15.46" y2="14" />
+    </svg>
+  )
+}
+
+function DownloadIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="7 10 12 15 17 10" />
+      <line x1="12" y1="15" x2="12" y2="3" />
     </svg>
   )
 }
