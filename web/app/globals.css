@@ -11,6 +11,7 @@
   --animate-slide-down: term-slide-down 0.35s cubic-bezier(0.4, 0, 1, 1) forwards;
   --animate-gradient: gradient-shift 5s ease infinite;
   --animate-step: step-fade-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  --animate-float: glow-float 8s ease-in-out infinite;
 }
 
 body {
@@ -98,6 +99,18 @@ button, a {
 }
 @media (min-width: 640px) {
   .term-overlay-bottom { bottom: 20px; }
+}
+
+/* ─── Ambient glow float ─────────────────────────────────────────────────── */
+@keyframes glow-float {
+  0%, 100% { transform: translateY(0px) scale(1); }
+  50%       { transform: translateY(-32px) scale(1.06); }
+}
+
+/* ─── Waveform equalizer bars ────────────────────────────────────────────── */
+@keyframes equalizer {
+  0%   { transform: scaleY(1); }
+  100% { transform: scaleY(0.25); }
 }
 
 /* ─── Flashcard flip (preserve-3d + backface-visibility via JS inline styles) ─ */

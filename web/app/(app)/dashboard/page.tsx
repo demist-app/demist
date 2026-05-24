@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import posthog from 'posthog-js'
 
@@ -508,7 +509,7 @@ export default function Dashboard() {
             {isProcessing && <span className="text-gray-600 text-[12px]">processing</span>}
           </div>
         ) : (
-          <span className="font-semibold tracking-tight text-[15px]">Demist</span>
+          <Link href="/dashboard" className="font-semibold tracking-tight text-[15px] hover:text-violet-300 active:scale-95 transition-all duration-150 select-none">Demist</Link>
         )}
       </header>
 

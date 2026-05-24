@@ -32,7 +32,10 @@
       "Bash(npx supabase *)",
       "Bash(Copy-Item \"c:\\\\Users\\\\shivb\\\\Desktop\\\\coding bits\\\\demist\\\\photos\\\\image.png\" \"c:\\\\Users\\\\shivb\\\\Desktop\\\\coding bits\\\\demist\\\\web\\\\app\\\\icon.png\")",
       "PowerShell(Copy-Item \"c:\\\\Users\\\\shivb\\\\Desktop\\\\coding bits\\\\demist\\\\photos\\\\image.png\" \"c:\\\\Users\\\\shivb\\\\Desktop\\\\coding bits\\\\demist\\\\web\\\\app\\\\icon.png\")",
-      "PowerShell(Copy-Item \"c:\\\\Users\\\\shivb\\\\Desktop\\\\coding bits\\\\demist\\\\photos\\\\image.png\" \"c:\\\\Users\\\\shivb\\\\Desktop\\\\coding bits\\\\demist\\\\web\\\\app\\\\favicon.ico\" -Force)"
+      "PowerShell(Copy-Item \"c:\\\\Users\\\\shivb\\\\Desktop\\\\coding bits\\\\demist\\\\photos\\\\image.png\" \"c:\\\\Users\\\\shivb\\\\Desktop\\\\coding bits\\\\demist\\\\web\\\\app\\\\favicon.ico\" -Force)",
+      "Bash(node -e \"require\\('sharp'\\)\")",
+      "Bash(python -c \"from PIL import Image; print\\('pillow ok'\\)\")",
+      "Bash(pip install *)"
     ],
     "additionalDirectories": [
       "c:\\Users\\shivb\\Desktop\\coding bits\\demist\\web\\app\\u"
