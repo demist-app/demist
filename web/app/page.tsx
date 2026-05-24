@@ -2,12 +2,12 @@ import type { Metadata } from 'next'
 import LandingClient from './landing-client'
 
 export const metadata: Metadata = {
-  title: 'Demist — Never Feel Lost in a Lecture Again',
-  description: 'Demist listens to your university lectures and quietly surfaces definitions for unfamiliar terms in real time. Build your personal glossary, ace flashcard reviews, and never lose the thread again.',
+  title: 'Demist: Never Feel Lost in a Lecture Again',
+  description: 'Demist listens to your lectures and quietly flags unfamiliar terms in real time. Build a personal glossary and review with spaced repetition flashcards.',
   alternates: { canonical: 'https://demist.app' },
   openGraph: {
-    title: 'Demist — Never Feel Lost in a Lecture Again',
-    description: 'Demist listens to your lectures and quietly surfaces definitions for unfamiliar terms in real time. Built for university students.',
+    title: 'Demist: Never Feel Lost in a Lecture Again',
+    description: 'Demist listens to your lectures and quietly flags unfamiliar terms in real time. Built for university students.',
     url: 'https://demist.app',
     type: 'website',
     images: [
@@ -15,14 +15,14 @@ export const metadata: Metadata = {
         url: 'https://demist.app/icon.png',
         width: 512,
         height: 512,
-        alt: 'Demist — Real-time lecture term detection',
+        alt: 'Demist: real-time lecture term detection',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Demist — Never Feel Lost in a Lecture Again',
-    description: 'Demist listens to your lectures and quietly surfaces definitions for unfamiliar terms in real time.',
+    title: 'Demist: Never Feel Lost in a Lecture Again',
+    description: 'Demist listens to your lectures and quietly flags unfamiliar terms in real time.',
     images: ['https://demist.app/icon.png'],
   },
 }
