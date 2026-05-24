@@ -34,7 +34,7 @@ const jsonLd = {
   applicationCategory: 'EducationApplication',
   operatingSystem: 'Web',
   offers: { '@type': 'Offer', price: '0', priceCurrency: 'GBP' },
-  description: 'Demist listens to university lectures and surfaces real-time definitions for unfamiliar terms. Builds a personal glossary and uses spaced repetition flashcards for review.',
+  description: 'Demist listens to university lectures and shows definitions for unfamiliar terms in real time. Builds a personal glossary and uses spaced repetition flashcards for review.',
   url: 'https://demist.app',
   audience: { '@type': 'EducationalAudience', educationalRole: 'student' },
 }

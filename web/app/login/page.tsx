@@ -7,6 +7,46 @@ import posthog from 'posthog-js'
 
 type Step = 'email' | 'code'
 
+// Common disposable / temp email domains
+const DISPOSABLE_DOMAINS = new Set([
+  'mailinator.com', 'guerrillamail.com', 'guerrillamail.net', 'guerrillamail.org',
+  'guerrillamail.biz', 'guerrillamail.de', 'guerrillamail.info', 'guerrillamail.us',
+  'guerrillamailblock.com', 'grr.la', 'sharklasers.com',
+  '10minutemail.com', '10minutemail.net', '10minutemail.org',
+  'tempmail.com', 'temp-mail.org', 'temp-mail.ru', 'temp-mail.io',
+  'tempr.email', 'tempalias.com', 'tempinbox.com', 'temporaryemail.net',
+  'tmpmail.org', 'tmpmail.net', 'tmp-mail.org',
+  'throwaway.email', 'throwam.com',
+  'trashmail.com', 'trashmail.net', 'trashmail.at', 'trashmail.io',
+  'trashmail.me', 'trashmail.xyz', 'trashmail.org', 'trashdevil.com',
+  'trashdevil.de', 'trashme.pw',
+  'yopmail.com', 'yopmail.fr',
+  'spam4.me', 'discard.email', 'dispostable.com',
+  'mailnesia.com', 'maildrop.cc', 'mailsac.com', 'mailnull.com',
+  'mailexpire.com', 'fakeinbox.com', 'binkmail.com',
+  'getnada.com', 'mintemail.com', 'meltmail.com', 'getairmail.com',
+  'spamgourmet.com', 'spamgourmet.net', 'spamgourmet.org',
+  'spambox.us', 'spamex.com', 'spamfree24.org', 'spam.la',
+  'mytemp.email', 'emailfake.com', 'inboxbear.com', 'tempail.com',
+  'burnermail.io', 'stopspam.app', 'noref.in', 'willselfdestruct.com',
+  'privacy.net', 'filzmail.com', 'spamgob.com', 'spamhereplease.com',
+  'cool.fr.nf', 'jetable.fr.nf', 'spamtraps.net',
+])
+
+// Returns an error string or null if valid
+function validateEmail(raw: string): string | null {
+  const email = raw.trim().toLowerCase()
+  // RFC-ish format check: local@domain.tld
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
+    return 'Enter a valid email address.'
+  }
+  const domain = email.split('@')[1]
+  if (DISPOSABLE_DOMAINS.has(domain)) {
+    return 'Temporary email addresses aren\'t supported. Use a real email.'
+  }
+  return null
+}
+
 export default function Login() {
   const router = useRouter()
   const [step, setStep] = useState<Step>('email')
@@ -18,14 +58,12 @@ export default function Login() {
   const [resent, setResent] = useState(false)
   const codeRef = useRef<HTMLInputElement>(null)
 
-  // If already logged in, skip to dashboard
   useEffect(() => {
     createClient().auth.getUser().then(({ data }) => {
       if (data.user) router.replace('/dashboard')
     })
   }, [])
 
-  // Focus the code input when step changes
   useEffect(() => {
     if (step === 'code') setTimeout(() => codeRef.current?.focus(), 80)
   }, [step])
@@ -33,6 +71,8 @@ export default function Login() {
   const handleSendCode = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!email.trim()) return
+    const validationError = validateEmail(email)
+    if (validationError) { setError(validationError); return }
     setLoading(true)
     setError('')
     const supabase = createClient()
@@ -80,7 +120,7 @@ export default function Login() {
       type: 'email',
     })
     if (error) {
-      setError('Invalid or expired code — check your email and try again.')
+      setError('Invalid or expired code. Check your email and try again.')
       posthog.capture('otp_verify_failed')
       setLoading(false)
       return
@@ -120,7 +160,7 @@ export default function Login() {
               <input
                 type="email"
                 value={email}
-                onChange={e => setEmail(e.target.value)}
+                onChange={e => { setEmail(e.target.value); if (error) setError('') }}
                 placeholder="your@email.com"
                 autoFocus
                 required
@@ -193,4 +233,3 @@ export default function Login() {
     </main>
   )
 }
-

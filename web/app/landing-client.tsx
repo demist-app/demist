@@ -6,7 +6,6 @@ import { createClient } from '@/lib/supabase'
 import posthog from 'posthog-js'
 
 const SPRING = 'cubic-bezier(0.16, 1, 0.3, 1)'
-const BOUNCE = 'cubic-bezier(0.34, 1.56, 0.64, 1)'
 
 function anim(delay: number, duration = 580) {
   return { style: { animation: `step-fade-up ${duration}ms ${SPRING} ${delay}ms both` } }
@@ -43,18 +42,18 @@ const EXTENSION_DOWNLOAD_URL = '/demist-extension.zip'
 
 const FEATURES = [
   {
-    title: 'Listens in real time',
-    body: 'Processes audio every 10 seconds and surfaces definitions the moment a term appears, not in a summary after.',
+    title: 'Listens while you take notes',
+    body: 'Demist uses your microphone to pick up what your lecturer says. When it hears an unfamiliar term, it looks it up and shows you the definition — no Googling, no pausing.',
     Icon: MicIcon,
   },
   {
-    title: 'Builds your glossary',
-    body: 'Every detected term is saved to your personal library, organised by session and subject. Search anything, any time.',
+    title: 'Builds your glossary automatically',
+    body: 'Every term Demist picks up is saved to your account with its definition, organised by session. Nothing to copy, nothing to type.',
     Icon: BookIcon,
   },
   {
-    title: 'Reinforces with flashcards',
-    body: 'Terms queue automatically for spaced repetition review. The more you review, the longer the gaps between sessions.',
+    title: 'Drills you with flashcards',
+    body: 'Terms from your sessions are added to a flashcard queue automatically. Demist uses spaced repetition to schedule reviews, the method shown by memory research to produce better long-term retention than re-reading or cramming.',
     Icon: CardIcon,
   },
 ]
@@ -62,18 +61,18 @@ const FEATURES = [
 const STEPS = [
   {
     n: '01',
-    title: 'Open Demist before your lecture',
-    body: 'No download, no setup. Open the web app, hit record, and keep your notes open alongside it.',
+    title: 'Open Demist and hit record',
+    body: 'No download, no setup. Open the web app, tap record, and keep taking notes as normal. Demist runs in the background.',
   },
   {
     n: '02',
-    title: 'Terms appear as you listen',
-    body: 'Unfamiliar concepts surface as subtle cards that disappear after a few seconds. Never intrusive, never distracting.',
+    title: 'Definitions pop up as your lecturer speaks',
+    body: 'When Demist hears a term you might not know, it shows you the definition in a small card on screen. It disappears after a few seconds — nothing to click, nothing to search.',
   },
   {
     n: '03',
-    title: 'Review after. Actually remember.',
-    body: 'Your full glossary is there when the lecture ends. Flashcards are scheduled around what you actually need to work on.',
+    title: 'Your glossary is ready after class',
+    body: 'Every term Demist caught is saved with its definition. Flashcards quiz you using spaced repetition, the most researched technique for long-term memory, so what you review actually sticks.',
   },
 ]
 
@@ -81,6 +80,8 @@ export default function LandingClient() {
   const router = useRouter()
   const [authed, setAuthed] = useState(false)
   const [elapsed, setElapsed] = useState(154)
+  const [cardVisible, setCardVisible] = useState(false)
+  const [termHighlighted, setTermHighlighted] = useState(false)
 
   const featuresRef = useInView()
   const stepsRef = useInView()
@@ -96,6 +97,32 @@ export default function LandingClient() {
   useEffect(() => {
     const t = setInterval(() => setElapsed(e => e + 1), 1000)
     return () => clearInterval(t)
+  }, [])
+
+  useEffect(() => {
+    const timers: ReturnType<typeof setTimeout>[] = []
+    let cancelled = false
+    const t = (fn: () => void, ms: number) => { const id = setTimeout(fn, ms); timers.push(id) }
+
+    const cycle = (initialDelay: number) => {
+      t(() => {
+        if (cancelled) return
+        setTermHighlighted(true)
+        t(() => {
+          if (cancelled) return
+          setCardVisible(true)
+          t(() => {
+            if (cancelled) return
+            setCardVisible(false)
+            setTermHighlighted(false)
+            cycle(1800)
+          }, 3400)
+        }, 400)
+      }, initialDelay)
+    }
+
+    cycle(1600)
+    return () => { cancelled = true; timers.forEach(clearTimeout) }
   }, [])
 
   const fmt = (s: number) =>
@@ -139,10 +166,6 @@ export default function LandingClient() {
       {/* ── Hero ── */}
       <section className="relative z-10 min-h-[calc(100dvh-4rem)] flex flex-col items-center justify-center text-center px-6 pb-12">
 
-        <p className="text-[11px] font-bold tracking-[0.24em] text-violet-400/60 uppercase mb-6" {...anim(60)}>
-          For university students
-        </p>
-
         <h1
           className="text-[44px] sm:text-[66px] lg:text-[76px] font-bold tracking-tight leading-[1.04] mb-6 max-w-3xl"
           {...anim(150)}
@@ -156,7 +179,7 @@ export default function LandingClient() {
           className="text-gray-500 text-[16px] sm:text-[18px] leading-relaxed mb-10 max-w-[480px]"
           {...anim(240)}
         >
-          Demist listens as you learn and quietly surfaces definitions for unfamiliar terms, so you stay focused without falling behind.
+          Hit record before your lecture. When your lecturer says a term you don't recognise, Demist shows you the definition on screen, while you're still listening.
         </p>
 
         <div className="flex flex-col sm:flex-row items-center gap-3 mb-16" {...anim(320)}>
@@ -179,18 +202,35 @@ export default function LandingClient() {
           <div className="bg-[#0b0b17] border border-white/[0.07] rounded-3xl p-5 shadow-[0_0_80px_rgba(139,92,246,0.09),inset_0_0_0_1px_rgba(255,255,255,0.03)]">
 
             {/* Top bar */}
-            <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
                 <span className="font-mono text-[12px] text-gray-600">{fmt(elapsed)}</span>
               </div>
-              <span className="text-[11px] text-gray-700">Microeconomics · Year 2</span>
+              <span className="text-[11px] text-gray-700">Microeconomics</span>
             </div>
 
-            {/* Term card — bounces in after hero settles */}
+            {/* Live transcript */}
+            <p className="text-[12px] text-gray-700 font-mono mb-4 leading-relaxed">
+              &ldquo;...so the{' '}
+              <span
+                className="transition-colors duration-300"
+                style={{ color: termHighlighted ? '#a78bfa' : 'inherit' }}
+              >
+                elasticity of demand
+              </span>
+              {' '}here refers to...&rdquo;
+            </p>
+
+            {/* Term card — loops in and out */}
             <div
-              className="bg-white/[0.04] border border-violet-500/[0.18] rounded-2xl p-4 mb-5 shadow-[0_0_30px_rgba(139,92,246,0.07)]"
-              style={{ animation: `term-slide-up 640ms ${BOUNCE} 1100ms both` }}
+              className="bg-white/[0.04] border border-violet-500/[0.18] rounded-2xl p-4 mb-4 shadow-[0_0_30px_rgba(139,92,246,0.07)]"
+              style={{
+                opacity: cardVisible ? 1 : 0,
+                transform: cardVisible ? 'translateY(0)' : 'translateY(10px)',
+                transition: `opacity 0.38s ${SPRING}, transform 0.38s ${SPRING}`,
+                pointerEvents: cardVisible ? 'auto' : 'none',
+              }}
             >
               <div className="flex items-start gap-3">
                 <div
@@ -280,8 +320,8 @@ export default function LandingClient() {
           className="text-[30px] sm:text-[42px] font-bold tracking-tight text-center mb-16 leading-tight"
           {...scrollAnim(stepsRef.visible, 80)}
         >
-          Open it, hit record.{' '}
-          <span className="text-gray-600 font-normal">That's the whole setup.</span>
+          Open the app and hit record.{' '}
+          <span className="text-gray-600 font-normal">That's it.</span>
         </h2>
         <div>
           {STEPS.map(({ n, title, body }, i) => (
@@ -312,14 +352,14 @@ export default function LandingClient() {
           className="text-[30px] sm:text-[42px] font-bold tracking-tight mb-4 leading-tight"
           {...scrollAnim(extRef.visible, 80)}
         >
-          Term popups,{' '}
-          <span className="text-gray-600 font-normal">anywhere you learn.</span>
+          Definitions on any page,{' '}
+          <span className="text-gray-600 font-normal">not just in the app.</span>
         </h2>
         <p
           className="text-gray-600 text-[15px] leading-relaxed mb-10 max-w-[460px] mx-auto"
           {...scrollAnim(extRef.visible, 160)}
         >
-          The Demist extension surfaces definitions on any page: lecture slides, YouTube, PDFs, reading lists. Syncs with your web app automatically.
+          The Demist extension shows you definitions on any page: lecture slides, YouTube, PDFs, reading lists. Connects to your web app automatically.
         </p>
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3" {...scrollAnim(extRef.visible, 240)}>
