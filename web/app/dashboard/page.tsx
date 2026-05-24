@@ -46,81 +46,73 @@ export default function Dashboard() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // Audio visualizer refs — updated directly in RAF loop, no re-renders
-  const audioCtxRef = useRef<AudioContext | null>(null)
-  const analyserRef = useRef<AnalyserNode | null>(null)
-  const animFrameRef = useRef<number | null>(null)
   const ring1Ref = useRef<HTMLSpanElement | null>(null)
   const ring2Ref = useRef<HTMLSpanElement | null>(null)
   const ring3Ref = useRef<HTMLSpanElement | null>(null)
   const barsRef = useRef<HTMLDivElement | null>(null)
   const btnRef = useRef<HTMLButtonElement | null>(null)
 
-  const startVisualizer = (stream: MediaStream) => {
-    const ctx = new AudioContext()
-    const analyser = ctx.createAnalyser()
-    analyser.fftSize = 512
-    analyser.smoothingTimeConstant = 0.75
-    ctx.createMediaStreamSource(stream).connect(analyser)
-    audioCtxRef.current = ctx
-    analyserRef.current = analyser
+  // Runs AFTER React commits the render — so ring/bar refs are guaranteed attached
+  useEffect(() => {
+    if (!isRecording || !streamRef.current) return
 
-    const data = new Uint8Array(analyser.frequencyBinCount)
-    const BAR_COUNT = 28
-    const usable = Math.floor(analyser.frequencyBinCount * 0.55) // voice range
+    const stream = streamRef.current
+    let raf: number
+    let ctx: AudioContext
 
-    const tick = () => {
-      analyser.getByteFrequencyData(data)
+    ;(async () => {
+      ctx = new AudioContext()
+      await ctx.resume()
+      const analyser = ctx.createAnalyser()
+      analyser.fftSize = 512
+      analyser.smoothingTimeConstant = 0.78
+      ctx.createMediaStreamSource(stream).connect(analyser)
 
-      // RMS-ish average over voice frequencies
-      let sum = 0
-      for (let i = 0; i < usable; i++) sum += data[i]
-      const level = (sum / usable) / 255
+      const data = new Uint8Array(analyser.frequencyBinCount)
+      const usable = Math.floor(analyser.frequencyBinCount * 0.55)
+      const BAR_COUNT = 28
 
-      // Scale rings with audio level — no CSS animation, pure JS
-      const s1 = 1 + level * 2.8
-      const s2 = 1 + level * 2.0
-      const s3 = 1 + level * 1.3
-      if (ring1Ref.current) ring1Ref.current.style.transform = `scale(${s1})`
-      if (ring2Ref.current) ring2Ref.current.style.transform = `scale(${s2})`
-      if (ring3Ref.current) ring3Ref.current.style.transform = `scale(${s3})`
+      const tick = () => {
+        analyser.getByteFrequencyData(data)
 
-      // Drive button glow with level
-      if (btnRef.current) {
-        const glow = Math.round(level * 60)
-        btnRef.current.style.boxShadow = `0 0 ${20 + glow}px rgba(239,68,68,${0.3 + level * 0.5})`
-      }
+        let sum = 0
+        for (let i = 0; i < usable; i++) sum += data[i]
+        const level = (sum / usable) / 255
 
-      // Update frequency bars
-      if (barsRef.current) {
-        const bars = barsRef.current.children
-        const step = usable / BAR_COUNT
-        for (let i = 0; i < bars.length; i++) {
-          const val = data[Math.floor(i * step)] / 255
-          ;(bars[i] as HTMLElement).style.height = `${4 + val * 44}px`
+        if (ring1Ref.current) ring1Ref.current.style.transform = `scale(${1 + level * 2.8})`
+        if (ring2Ref.current) ring2Ref.current.style.transform = `scale(${1 + level * 2.0})`
+        if (ring3Ref.current) ring3Ref.current.style.transform = `scale(${1 + level * 1.3})`
+
+        if (btnRef.current) {
+          btnRef.current.style.boxShadow =
+            `0 0 ${20 + Math.round(level * 60)}px rgba(239,68,68,${(0.3 + level * 0.5).toFixed(2)})`
         }
+
+        if (barsRef.current) {
+          const bars = barsRef.current.children
+          const step = usable / BAR_COUNT
+          for (let i = 0; i < bars.length; i++) {
+            const val = data[Math.floor(i * step)] / 255
+            ;(bars[i] as HTMLElement).style.height = `${4 + val * 44}px`
+          }
+        }
+
+        raf = requestAnimationFrame(tick)
       }
+      raf = requestAnimationFrame(tick)
+    })()
 
-      animFrameRef.current = requestAnimationFrame(tick)
+    return () => {
+      cancelAnimationFrame(raf)
+      ctx?.close()
+      if (btnRef.current) btnRef.current.style.boxShadow = ''
+      if (barsRef.current) {
+        Array.from(barsRef.current.children).forEach(b => {
+          (b as HTMLElement).style.height = '4px'
+        })
+      }
     }
-    animFrameRef.current = requestAnimationFrame(tick)
-  }
-
-  const stopVisualizer = () => {
-    if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current)
-    audioCtxRef.current?.close()
-    audioCtxRef.current = null
-    analyserRef.current = null
-    // Reset ring scales
-    ;[ring1Ref, ring2Ref, ring3Ref].forEach(r => {
-      if (r.current) r.current.style.transform = 'scale(1)'
-    })
-    if (btnRef.current) btnRef.current.style.boxShadow = ''
-    if (barsRef.current) {
-      Array.from(barsRef.current.children).forEach(b => {
-        (b as HTMLElement).style.height = '4px'
-      })
-    }
-  }
+  }, [isRecording])
 
   useEffect(() => {
     const supabase = createClient()
@@ -269,7 +261,6 @@ export default function Dashboard() {
     setLiveTerms([])
 
     timerRef.current = setInterval(() => setElapsed(t => t + 1), 1000)
-    startVisualizer(stream)
 
     const doChunk = () => {
       const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
@@ -304,7 +295,6 @@ export default function Dashboard() {
 
   const stopRecording = async () => {
     isActiveRef.current = false
-    stopVisualizer()
     if (chunkTimerRef.current) clearTimeout(chunkTimerRef.current)
     if (timerRef.current) clearInterval(timerRef.current)
     if (recorderRef.current?.state === 'recording') recorderRef.current.stop()
@@ -351,7 +341,7 @@ export default function Dashboard() {
             aria-hidden
             className="pointer-events-none absolute inset-0 flex items-center justify-center"
           >
-            <div className="w-[700px] h-[700px] rounded-full bg-red-600/[0.05] blur-[120px] animate-pulse" />
+            <div className="w-[700px] h-[700px] rounded-full bg-red-600/[0.05] blur-[120px]" />
           </div>
         )}
 
