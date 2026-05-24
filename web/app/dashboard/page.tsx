@@ -45,6 +45,83 @@ export default function Dashboard() {
   const chunkTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
+  // Audio visualizer refs — updated directly in RAF loop, no re-renders
+  const audioCtxRef = useRef<AudioContext | null>(null)
+  const analyserRef = useRef<AnalyserNode | null>(null)
+  const animFrameRef = useRef<number | null>(null)
+  const ring1Ref = useRef<HTMLSpanElement | null>(null)
+  const ring2Ref = useRef<HTMLSpanElement | null>(null)
+  const ring3Ref = useRef<HTMLSpanElement | null>(null)
+  const barsRef = useRef<HTMLDivElement | null>(null)
+  const btnRef = useRef<HTMLButtonElement | null>(null)
+
+  const startVisualizer = (stream: MediaStream) => {
+    const ctx = new AudioContext()
+    const analyser = ctx.createAnalyser()
+    analyser.fftSize = 512
+    analyser.smoothingTimeConstant = 0.75
+    ctx.createMediaStreamSource(stream).connect(analyser)
+    audioCtxRef.current = ctx
+    analyserRef.current = analyser
+
+    const data = new Uint8Array(analyser.frequencyBinCount)
+    const BAR_COUNT = 28
+    const usable = Math.floor(analyser.frequencyBinCount * 0.55) // voice range
+
+    const tick = () => {
+      analyser.getByteFrequencyData(data)
+
+      // RMS-ish average over voice frequencies
+      let sum = 0
+      for (let i = 0; i < usable; i++) sum += data[i]
+      const level = (sum / usable) / 255
+
+      // Scale rings with audio level — no CSS animation, pure JS
+      const s1 = 1 + level * 2.8
+      const s2 = 1 + level * 2.0
+      const s3 = 1 + level * 1.3
+      if (ring1Ref.current) ring1Ref.current.style.transform = `scale(${s1})`
+      if (ring2Ref.current) ring2Ref.current.style.transform = `scale(${s2})`
+      if (ring3Ref.current) ring3Ref.current.style.transform = `scale(${s3})`
+
+      // Drive button glow with level
+      if (btnRef.current) {
+        const glow = Math.round(level * 60)
+        btnRef.current.style.boxShadow = `0 0 ${20 + glow}px rgba(239,68,68,${0.3 + level * 0.5})`
+      }
+
+      // Update frequency bars
+      if (barsRef.current) {
+        const bars = barsRef.current.children
+        const step = usable / BAR_COUNT
+        for (let i = 0; i < bars.length; i++) {
+          const val = data[Math.floor(i * step)] / 255
+          ;(bars[i] as HTMLElement).style.height = `${4 + val * 44}px`
+        }
+      }
+
+      animFrameRef.current = requestAnimationFrame(tick)
+    }
+    animFrameRef.current = requestAnimationFrame(tick)
+  }
+
+  const stopVisualizer = () => {
+    if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current)
+    audioCtxRef.current?.close()
+    audioCtxRef.current = null
+    analyserRef.current = null
+    // Reset ring scales
+    ;[ring1Ref, ring2Ref, ring3Ref].forEach(r => {
+      if (r.current) r.current.style.transform = 'scale(1)'
+    })
+    if (btnRef.current) btnRef.current.style.boxShadow = ''
+    if (barsRef.current) {
+      Array.from(barsRef.current.children).forEach(b => {
+        (b as HTMLElement).style.height = '4px'
+      })
+    }
+  }
+
   useEffect(() => {
     const supabase = createClient()
     ;(async () => {
@@ -192,6 +269,7 @@ export default function Dashboard() {
     setLiveTerms([])
 
     timerRef.current = setInterval(() => setElapsed(t => t + 1), 1000)
+    startVisualizer(stream)
 
     const doChunk = () => {
       const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
@@ -226,6 +304,7 @@ export default function Dashboard() {
 
   const stopRecording = async () => {
     isActiveRef.current = false
+    stopVisualizer()
     if (chunkTimerRef.current) clearTimeout(chunkTimerRef.current)
     if (timerRef.current) clearInterval(timerRef.current)
     if (recorderRef.current?.state === 'recording') recorderRef.current.stop()
@@ -276,21 +355,23 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Pulse rings + button */}
-        <div className="relative flex items-center justify-center mb-5">
+        {/* Rings + button */}
+        <div className="relative flex items-center justify-center mb-6">
+          {/* Rings — scaled by visualizer via refs, no CSS animation */}
           {isRecording && (
             <>
-              <span className="absolute w-[100px] h-[100px] rounded-full bg-red-500/20 animate-ring" />
-              <span className="absolute w-[100px] h-[100px] rounded-full bg-red-500/[0.13] animate-ring [animation-delay:0.8s]" />
-              <span className="absolute w-[100px] h-[100px] rounded-full bg-red-500/[0.07] animate-ring [animation-delay:1.6s]" />
+              <span ref={ring1Ref} className="absolute w-[88px] h-[88px] rounded-full bg-red-500/[0.18]" style={{ willChange: 'transform' }} />
+              <span ref={ring2Ref} className="absolute w-[88px] h-[88px] rounded-full bg-red-500/[0.11]" style={{ willChange: 'transform' }} />
+              <span ref={ring3Ref} className="absolute w-[88px] h-[88px] rounded-full bg-red-500/[0.06]" style={{ willChange: 'transform' }} />
             </>
           )}
 
           <button
+            ref={btnRef}
             onClick={isRecording ? stopRecording : startRecording}
-            className={`relative z-10 w-[88px] h-[88px] rounded-full flex items-center justify-center transition-all duration-300 select-none ${
+            className={`relative z-10 w-[88px] h-[88px] rounded-full flex items-center justify-center transition-colors duration-200 select-none ${
               isRecording
-                ? 'bg-red-600 hover:bg-red-500 shadow-[0_0_50px_rgba(239,68,68,0.4)]'
+                ? 'bg-red-600 hover:bg-red-500'
                 : 'bg-white/[0.07] border border-white/[0.11] hover:bg-white/[0.11] hover:border-violet-500/30 hover:shadow-[0_0_40px_rgba(139,92,246,0.18)]'
             }`}
           >
@@ -298,16 +379,32 @@ export default function Dashboard() {
           </button>
         </div>
 
-        {/* Status label */}
-        <div className="h-8 flex items-center justify-center">
+        {/* Status + frequency bars */}
+        <div className="flex flex-col items-center gap-3">
           {isRecording ? (
-            <div className="flex items-center gap-2.5">
-              <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-              <span className="font-mono text-[18px] tabular-nums text-white">{fmtTime(elapsed)}</span>
-              <span className="text-gray-500 text-sm">
-                {isProcessing ? 'Processing…' : 'Listening'}
-              </span>
-            </div>
+            <>
+              {/* Timer */}
+              <div className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                <span className="font-mono text-[17px] tabular-nums text-white">{fmtTime(elapsed)}</span>
+                {isProcessing && <span className="text-gray-600 text-[12px]">processing</span>}
+              </div>
+
+              {/* Frequency bars — heights driven by visualizer via ref */}
+              <div ref={barsRef} className="flex items-end gap-[2.5px]" style={{ height: '48px' }}>
+                {Array.from({ length: 28 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="w-[3px] rounded-full"
+                    style={{
+                      height: '4px',
+                      background: `rgba(239, 68, 68, ${0.4 + (i / 28) * 0.4})`,
+                      willChange: 'height',
+                    }}
+                  />
+                ))}
+              </div>
+            </>
           ) : (
             <p className="text-gray-500 text-sm">
               {profile?.course ? `Ready for ${profile.course}` : 'Tap to start listening'}
