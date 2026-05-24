@@ -274,6 +274,16 @@ export default function Dashboard() {
 
       setLiveTerms(prev => [...prev, ...incoming].slice(-3))
 
+      if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+        incoming.forEach(t => {
+          new Notification(t.term, {
+            body: t.definition,
+            tag: `demist-${t.term.toLowerCase()}`,
+            silent: true,
+          })
+        })
+      }
+
       incoming.forEach(({ id }) => {
         setTimeout(() => {
           setLiveTerms(prev => prev.map(t => t.id === id ? { ...t, dismissing: true } : t))
@@ -323,6 +333,9 @@ export default function Dashboard() {
       return
     }
     streamRef.current = stream
+    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+      await Notification.requestPermission()
+    }
     sessionIdRef.current = null
 
     const supabase = createClient()
