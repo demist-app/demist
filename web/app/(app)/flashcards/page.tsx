@@ -60,7 +60,7 @@ export default function Flashcards() {
 
       const now = new Date().toISOString()
 
-      // Two parallel queries — due reviews (unlimited) + new cards (daily budget)
+      // Two parallel queries - due reviews (unlimited) + new cards (daily budget)
       const [{ data: reviews }, { data: newCards }] = await Promise.all([
         supabase
           .from('terms')
@@ -210,7 +210,7 @@ export default function Flashcards() {
             />
           </div>
 
-          {/* Queue breakdown — visible on desktop where header is hidden */}
+          {/* Queue breakdown - visible on desktop where header is hidden */}
           <div className="shrink-0 flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               {dueCount > 0 && (

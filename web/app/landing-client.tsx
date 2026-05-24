@@ -222,7 +222,7 @@ export default function LandingClient() {
               {' '}here refers to...&rdquo;
             </p>
 
-            {/* Term card — loops in and out */}
+            {/* Term card - loops in and out */}
             <div
               className="bg-white/[0.04] border border-violet-500/[0.18] rounded-2xl p-4 mb-4 shadow-[0_0_30px_rgba(139,92,246,0.07)]"
               style={{

@@ -56,7 +56,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         })}
       </nav>
 
-      {/* Content — offset by top nav on desktop */}
+      {/* Content - offset by top nav on desktop */}
       <div className="sm:pt-14">
         {children}
       </div>

@@ -24,7 +24,7 @@ interface Session {
 }
 
 function fmtDuration(start: string, end: string | null): string {
-  if (!end) return '—'
+  if (!end) return '--'
   const mins = Math.floor((new Date(end).getTime() - new Date(start).getTime()) / 60000)
   if (mins < 60) return `${mins}m`
   return `${Math.floor(mins / 60)}h ${mins % 60}m`

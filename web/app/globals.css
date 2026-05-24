@@ -85,7 +85,7 @@ button, a {
   }
 }
 
-/* ─── Bottom nav padding — applied on mobile, cleared on desktop ─────────── */
+/* ─── Bottom nav padding - applied on mobile, cleared on desktop ─────────── */
 .nav-bottom-pad {
   padding-bottom: calc(52px + env(safe-area-inset-bottom));
 }
