@@ -110,8 +110,17 @@ export default function History() {
     let succeeded = false
     try {
       const supabase = createClient()
+      const { data: termRows } = await supabase
+        .from('terms')
+        .select('term, definition')
+        .eq('session_id', s.id)
+        .limit(60)
+      if (!termRows?.length) {
+        console.warn('maybeSummarize: no terms found for session', s.id)
+        return
+      }
       const { data, error } = await supabase.functions.invoke('summarize-session', {
-        body: { session_id: s.id, subject: s.subject },
+        body: { session_id: s.id, subject: s.subject, terms: termRows },
       })
       if (error) {
         console.error('summarize-session error:', error)

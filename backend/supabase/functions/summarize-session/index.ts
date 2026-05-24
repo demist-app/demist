@@ -12,9 +12,10 @@ serve(async (req) => {
   }
 
   try {
-    const { session_id, subject } = await req.json() as {
+    const { session_id, subject, terms: passedTerms } = await req.json() as {
       session_id: string
       subject?: string | null
+      terms?: { term: string; definition: string }[]
     }
 
     if (!session_id) {
@@ -28,13 +29,18 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     )
 
-    const { data: termRows } = await supabase
-      .from('terms')
-      .select('term, definition')
-      .eq('session_id', session_id)
-      .limit(60)
+    let termRows: { term: string; definition: string }[] = passedTerms ?? []
 
-    if (!termRows?.length) {
+    if (!termRows.length) {
+      const { data } = await supabase
+        .from('terms')
+        .select('term, definition')
+        .eq('session_id', session_id)
+        .limit(60)
+      termRows = data ?? []
+    }
+
+    if (!termRows.length) {
       return new Response(JSON.stringify({ ok: false, reason: 'no terms' }), {
         headers: { ...CORS, 'Content-Type': 'application/json' },
       })
@@ -66,8 +72,8 @@ serve(async (req) => {
       })
     }
 
-    const data = await response.json()
-    const parsed = JSON.parse(data.choices[0].message.content) as { synopsis?: string }
+    const aiData = await response.json()
+    const parsed = JSON.parse(aiData.choices[0].message.content) as { synopsis?: string }
     const synopsis = parsed.synopsis?.trim() || null
 
     await supabase.from('sessions').update({ synopsis }).eq('id', session_id)

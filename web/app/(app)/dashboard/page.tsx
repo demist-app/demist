@@ -430,10 +430,11 @@ export default function Dashboard() {
     if (sid) {
       const capturedSid = sid
       const capturedSubject = profileRef.current?.course
+      const capturedGlossary = [...sessionGlossary]
       setTimeout(() => {
         const sb = createClient()
         sb.functions.invoke('summarize-session', {
-          body: { session_id: capturedSid, subject: capturedSubject },
+          body: { session_id: capturedSid, subject: capturedSubject, terms: capturedGlossary },
         }).catch(console.error)
       }, 6000)
     }
