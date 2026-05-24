@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import posthog from 'posthog-js'
 
+const NEW_CARDS_PER_DAY = 15
+
 interface FlashCard {
   id: string
   term: string
@@ -11,9 +13,9 @@ interface FlashCard {
   sm2_interval: number
   sm2_ease: number
   sm2_review_count: number
+  isNew: boolean
 }
 
-// SM-2 algorithm: grade 0=Again, 1=Hard, 2=Good, 3=Easy
 function sm2Update(ease: number, interval: number, grade: 0 | 1 | 2 | 3): { interval: number; ease: number } {
   const newEase = Math.max(1.3, Math.min(3.0, ease + ([-0.2, -0.15, 0, 0.15] as const)[grade]))
   let newInterval: number
@@ -31,9 +33,9 @@ function sm2Update(ease: number, interval: number, grade: 0 | 1 | 2 | 3): { inte
 
 const GRADE_LABELS: { grade: 0 | 1 | 2 | 3; label: string; color: string }[] = [
   { grade: 0, label: 'Again', color: 'border-red-500/40 hover:bg-red-500/10 text-red-400' },
-  { grade: 1, label: 'Hard', color: 'border-orange-500/40 hover:bg-orange-500/10 text-orange-400' },
-  { grade: 2, label: 'Good', color: 'border-emerald-500/40 hover:bg-emerald-500/10 text-emerald-400' },
-  { grade: 3, label: 'Easy', color: 'border-violet-500/40 hover:bg-violet-500/10 text-violet-400' },
+  { grade: 1, label: 'Hard',  color: 'border-orange-500/40 hover:bg-orange-500/10 text-orange-400' },
+  { grade: 2, label: 'Good',  color: 'border-emerald-500/40 hover:bg-emerald-500/10 text-emerald-400' },
+  { grade: 3, label: 'Easy',  color: 'border-violet-500/40 hover:bg-violet-500/10 text-violet-400' },
 ]
 
 type Phase = 'loading' | 'empty' | 'review' | 'done'
@@ -44,7 +46,8 @@ export default function Flashcards() {
   const [current, setCurrent] = useState<FlashCard | null>(null)
   const [flipped, setFlipped] = useState(false)
   const [reviewed, setReviewed] = useState(0)
-  const [total, setTotal] = useState(0)
+  const [dueCount, setDueCount] = useState(0)
+  const [newCount, setNewCount] = useState(0)
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
@@ -55,19 +58,35 @@ export default function Flashcards() {
       posthog.capture('flashcards_viewed')
 
       const now = new Date().toISOString()
-      const { data } = await supabase
-        .from('terms')
-        .select('id, term, definition, sm2_interval, sm2_ease, sm2_review_count')
-        .eq('user_id', user.id)
-        .eq('known', false)
-        .lte('sm2_due_at', now)
-        .order('sm2_due_at', { ascending: true })
-        .limit(50)
 
-      const cards = (data ?? []) as FlashCard[]
+      // Two parallel queries — due reviews (unlimited) + new cards (daily budget)
+      const [{ data: reviews }, { data: newCards }] = await Promise.all([
+        supabase
+          .from('terms')
+          .select('id, term, definition, sm2_interval, sm2_ease, sm2_review_count')
+          .eq('user_id', user.id)
+          .eq('known', false)
+          .gt('sm2_review_count', 0)
+          .lte('sm2_due_at', now)
+          .order('sm2_due_at', { ascending: true }),
+        supabase
+          .from('terms')
+          .select('id, term, definition, sm2_interval, sm2_ease, sm2_review_count')
+          .eq('user_id', user.id)
+          .eq('known', false)
+          .eq('sm2_review_count', 0)
+          .order('created_at', { ascending: true })
+          .limit(NEW_CARDS_PER_DAY),
+      ])
+
+      const due = (reviews ?? []).map(c => ({ ...c, isNew: false })) as FlashCard[]
+      const fresh = (newCards ?? []).map(c => ({ ...c, isNew: true })) as FlashCard[]
+      const cards = [...due, ...fresh]
+
       if (!cards.length) { setPhase('empty'); return }
 
-      setTotal(cards.length)
+      setDueCount(due.length)
+      setNewCount(fresh.length)
       setQueue(cards.slice(1))
       setCurrent(cards[0])
       setPhase('review')
@@ -96,12 +115,24 @@ export default function Flashcards() {
       })
       .eq('id', current.id)
 
-    posthog.capture('flashcard_graded', { grade, interval, term: current.term })
+    posthog.capture('flashcard_graded', { grade, interval, isNew: current.isNew })
 
-    setReviewed(r => r + 1)
     setFlipped(false)
     setSaving(false)
 
+    if (grade === 0) {
+      // Re-queue at end without counting as reviewed
+      if (queue.length === 0) {
+        setCurrent(current)
+      } else {
+        setQueue(q => [...q, { ...current, isNew: false }])
+        setCurrent(queue[0])
+        setQueue(q => q.slice(1))
+      }
+      return
+    }
+
+    setReviewed(r => r + 1)
     if (queue.length === 0) {
       setPhase('done')
     } else {
@@ -110,18 +141,20 @@ export default function Flashcards() {
     }
   }
 
+  const total = dueCount + newCount
   const progressPct = total > 0 ? Math.round((reviewed / total) * 100) : 0
 
+  const queueLabel = [
+    dueCount > 0 && `${dueCount} due`,
+    newCount > 0 && `${newCount} new`,
+  ].filter(Boolean).join(' · ')
+
   return (
-    <main
-      className="min-h-dvh bg-[#080810] text-white flex flex-col"
-      style={{ paddingBottom: 'calc(52px + env(safe-area-inset-bottom))' }}
-    >
-      {/* Header */}
-      <header className="shrink-0 flex items-center justify-between px-6 h-14 border-b border-white/[0.05]">
+    <main className="min-h-dvh bg-[#080810] text-white flex flex-col nav-bottom-pad">
+      <header className="sm:hidden shrink-0 flex items-center justify-between px-6 h-14 border-b border-white/[0.05]">
         <span className="font-semibold tracking-tight text-[15px]">Flashcards</span>
         {phase === 'review' && (
-          <span className="text-[13px] text-gray-600">{reviewed}/{total}</span>
+          <span className="text-[13px] text-gray-600">{queueLabel}</span>
         )}
       </header>
 
@@ -132,7 +165,7 @@ export default function Flashcards() {
           <div className="text-[44px]">🎉</div>
           <h2 className="text-[22px] font-bold">All caught up</h2>
           <p className="text-gray-500 text-[15px] leading-relaxed">
-            No Flashcards due for review. Start a lecture to add new terms to your deck.
+            No cards due for review. Record a lecture to add new terms.
           </p>
         </div>
       )}
@@ -150,11 +183,28 @@ export default function Flashcards() {
       {phase === 'review' && current && (
         <div className="flex-1 flex flex-col px-4 sm:px-6 pt-4 pb-4">
           {/* Progress bar */}
-          <div className="shrink-0 h-1 bg-white/[0.06] rounded-full mb-6 overflow-hidden">
+          <div className="shrink-0 h-1 bg-white/[0.06] rounded-full mb-2 overflow-hidden">
             <div
               className="h-full bg-violet-500 rounded-full transition-all duration-300"
               style={{ width: `${progressPct}%` }}
             />
+          </div>
+
+          {/* Queue breakdown — visible on desktop where header is hidden */}
+          <div className="shrink-0 flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              {dueCount > 0 && (
+                <span className="text-[11px] font-medium text-orange-400/80 bg-orange-500/10 border border-orange-500/20 rounded-full px-2 py-0.5">
+                  {dueCount} due
+                </span>
+              )}
+              {newCount > 0 && (
+                <span className="text-[11px] font-medium text-violet-400/80 bg-violet-500/10 border border-violet-500/20 rounded-full px-2 py-0.5">
+                  {newCount} new
+                </span>
+              )}
+            </div>
+            <span className="text-[12px] text-gray-600">{reviewed}/{total}</span>
           </div>
 
           {/* Flip card */}
@@ -178,7 +228,12 @@ export default function Flashcards() {
                   className="absolute inset-0 bg-white/[0.04] border border-white/[0.08] rounded-[24px] flex flex-col items-center justify-center p-8"
                   style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' }}
                 >
-                  <p className="text-[11px] font-bold tracking-[0.18em] text-gray-600 uppercase mb-4">Term</p>
+                  {current.isNew && (
+                    <span className="text-[10px] font-bold tracking-[0.18em] text-violet-500/60 uppercase mb-3">New</span>
+                  )}
+                  {!current.isNew && (
+                    <span className="text-[10px] font-bold tracking-[0.18em] text-gray-600 uppercase mb-3">Review</span>
+                  )}
                   <p className="text-[24px] font-bold text-center leading-snug">{current.term}</p>
                   {!flipped && (
                     <p className="text-[12px] text-gray-700 mt-6">Tap to reveal definition</p>

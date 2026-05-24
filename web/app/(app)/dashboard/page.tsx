@@ -67,12 +67,26 @@ function fmtTime(s: number) {
 function fmtRelative(iso: string) {
   const diff = Date.now() - new Date(iso).getTime()
   const mins = Math.floor(diff / 60000)
+  if (mins < 2) return 'Just now'
   if (mins < 60) return `${mins}m ago`
   const hrs = Math.floor(diff / 3600000)
   if (hrs < 24) return `${hrs}h ago`
   const days = Math.floor(diff / 86400000)
   if (days === 1) return 'Yesterday'
   return `${days}d ago`
+}
+
+function sessionLabel(subject: string | null, startedAt: string): string {
+  if (subject) return subject
+  const d = new Date(startedAt)
+  const day = d.toLocaleDateString('en-GB', { weekday: 'short' })
+  const time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+  return `${day} ${time}`
+}
+
+// Filter out non-English terms (catches Japanese, Chinese, Arabic, etc.)
+function isLatinTerm(term: string): boolean {
+  return /^[\x20-\x7EÀ-ɏ\s'-]+$/.test(term)
 }
 
 // ─── Main component ────────────────────────────────────────────────────────────
@@ -160,13 +174,15 @@ export default function Dashboard() {
         { data: prof },
         { data: allTerms },
         { data: sessionDays },
-        { count: dueCount },
+        { count: dueReviewCount },
+        { count: newCardCount },
         { data: sessionsRaw },
       ] = await Promise.all([
         supabase.from('profiles').select('course, year_of_study').eq('id', user.id).single(),
         supabase.from('terms').select('term, known, created_at').eq('user_id', user.id),
         supabase.from('sessions').select('started_at').eq('user_id', user.id).order('started_at', { ascending: false }),
-        supabase.from('terms').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('known', false).lte('sm2_due_at', now.toISOString()),
+        supabase.from('terms').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('known', false).gt('sm2_review_count', 0).lte('sm2_due_at', now.toISOString()),
+        supabase.from('terms').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('known', false).eq('sm2_review_count', 0),
         supabase.from('sessions').select('id, subject, started_at, ended_at').eq('user_id', user.id).order('started_at', { ascending: false }).limit(5),
       ])
 
@@ -187,7 +203,8 @@ export default function Dashboard() {
       // Stats
       const termsThisWeek = (allTerms ?? []).filter(t => t.created_at >= weekAgo).length
       const streak = calculateStreak((sessionDays ?? []).map(s => s.started_at))
-      setStats({ streak, termsThisWeek, dueFlashcards: dueCount ?? 0 })
+      const dueFlashcards = (dueReviewCount ?? 0) + Math.min(15, newCardCount ?? 0)
+      setStats({ streak, termsThisWeek, dueFlashcards })
 
       // 7-day chart
       const chart7 = get7DayChart((allTerms ?? []).filter(t => t.created_at >= weekAgo).map(t => t.created_at))
@@ -237,10 +254,12 @@ export default function Dashboard() {
       const detected = await dtRes.json()
       if (!detected?.terms?.length) return
 
-      // Smart filter: skip known terms and terms seen 3+ times
+      // Smart filter: English-only, skip known, skip seen 3+ times
       const filtered = (detected.terms as { term: string; definition: string }[]).filter(t => {
         const key = t.term.toLowerCase()
-        return !knownTermsRef.current.has(key) && (termFrequencyRef.current.get(key) ?? 0) < 3
+        return isLatinTerm(t.term) &&
+               !knownTermsRef.current.has(key) &&
+               (termFrequencyRef.current.get(key) ?? 0) < 3
       })
       if (!filtered.length) return
 
@@ -362,6 +381,18 @@ export default function Dashboard() {
     const streak = calculateStreak((sessionDays ?? []).map((s: { started_at: string }) => s.started_at))
     setStats(prev => ({ ...prev, streak, termsThisWeek }))
     setChartData(get7DayChart((allTerms ?? []).filter(t => t.created_at >= weekAgo).map(t => t.created_at)))
+
+    // Refresh recent sessions list
+    const { data: sessionsRaw } = await supabase
+      .from('sessions').select('id, subject, started_at, ended_at')
+      .eq('user_id', userIdRef.current!).order('started_at', { ascending: false }).limit(5)
+    if (sessionsRaw?.length) {
+      const ids = sessionsRaw.map((s: { id: string }) => s.id)
+      const { data: termRows } = await supabase.from('terms').select('session_id').in('session_id', ids)
+      const countMap: Record<string, number> = {}
+      for (const r of termRows ?? []) countMap[r.session_id] = (countMap[r.session_id] ?? 0) + 1
+      setRecentSessions(sessionsRaw.map((s: { id: string; subject: string | null; started_at: string; ended_at: string | null }) => ({ ...s, termCount: countMap[s.id] ?? 0 })))
+    }
   }
 
   const dismissTerm = (id: string) => {
@@ -384,12 +415,9 @@ export default function Dashboard() {
   const maxChart = Math.max(...chartData.map(d => d.count), 1)
 
   return (
-    <main
-      className="min-h-dvh bg-[#080810] text-white flex flex-col overflow-hidden"
-      style={{ paddingBottom: 'calc(52px + env(safe-area-inset-bottom))' }}
-    >
-      {/* Header */}
-      <header className="shrink-0 flex items-center justify-between px-6 h-14 border-b border-white/[0.05]">
+    <main className="min-h-dvh bg-[#080810] text-white flex flex-col overflow-hidden nav-bottom-pad">
+      {/* Mobile-only header (desktop uses top nav from layout) */}
+      <header className="sm:hidden shrink-0 flex items-center px-6 h-14 border-b border-white/[0.05]">
         {isRecording ? (
           <div className="flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
@@ -413,6 +441,13 @@ export default function Dashboard() {
 
             {/* Visualizer zone */}
             <div className="flex-1 flex flex-col items-center justify-center relative z-10">
+              {/* Desktop recording status (header is hidden on sm+) */}
+              <div className="hidden sm:flex items-center gap-2 mb-6">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                <span className="font-mono text-[20px] tabular-nums">{fmtTime(elapsed)}</span>
+                {isProcessing && <span className="text-gray-600 text-[13px]">processing</span>}
+              </div>
+
               <div className="relative flex items-center justify-center mb-6">
                 <span ref={ring1Ref} className="absolute w-[88px] h-[88px] rounded-full bg-red-500/[0.18]" style={{ willChange: 'transform' }} />
                 <span ref={ring2Ref} className="absolute w-[88px] h-[88px] rounded-full bg-red-500/[0.11]" style={{ willChange: 'transform' }} />
@@ -516,7 +551,7 @@ export default function Dashboard() {
                       >
                         <div>
                           <p className="text-[14px] font-medium text-white/90">
-                            {s.subject ?? 'Session'}
+                            {sessionLabel(s.subject, s.started_at)}
                           </p>
                           <p className="text-[12px] text-gray-600 mt-0.5">{fmtRelative(s.started_at)}</p>
                         </div>

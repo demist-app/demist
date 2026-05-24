@@ -28,9 +28,33 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      {children}
+      {/* ── Desktop top nav (hidden on mobile) ── */}
+      <nav className="hidden sm:flex fixed top-0 inset-x-0 h-14 z-40 items-center px-8 gap-8 bg-[#080810]/96 backdrop-blur-xl border-b border-white/[0.05]">
+        <span className="text-[15px] font-semibold tracking-tight text-white mr-2">Demist</span>
+        {NAV.map(({ href, label }) => {
+          const active = pathname === href
+          return (
+            <Link
+              key={href}
+              href={href}
+              className={`text-[14px] font-medium transition-colors ${
+                active ? 'text-white' : 'text-gray-500 hover:text-gray-300'
+              }`}
+            >
+              {label}
+            </Link>
+          )
+        })}
+      </nav>
+
+      {/* Content — offset by top nav on desktop */}
+      <div className="sm:pt-14">
+        {children}
+      </div>
+
+      {/* ── Mobile bottom nav (hidden on desktop) ── */}
       <nav
-        className="fixed bottom-0 inset-x-0 z-40 bg-[#080810]/96 backdrop-blur-xl border-t border-white/[0.05] flex items-center justify-around"
+        className="sm:hidden fixed bottom-0 inset-x-0 z-40 bg-[#080810]/96 backdrop-blur-xl border-t border-white/[0.05] flex items-center justify-around"
         style={{ height: 'calc(52px + env(safe-area-inset-bottom))', paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
         {NAV.map(({ href, label, icon: Icon }) => {

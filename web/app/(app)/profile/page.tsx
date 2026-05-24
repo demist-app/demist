@@ -17,9 +17,16 @@ interface ChartDay {
   count: number
 }
 
-const YEAR_LABELS: Record<number, string> = {
-  1: '1st Year', 2: '2nd Year', 3: '3rd Year', 4: '4th Year', 5: 'Postgrad',
-}
+const YEAR_OPTIONS = [
+  { value: 1, label: 'Y1' },
+  { value: 2, label: 'Y2' },
+  { value: 3, label: 'Y3' },
+  { value: 4, label: 'Y4' },
+  { value: 5, label: 'Y5' },
+  { value: 6, label: 'Y6' },
+  { value: 7, label: 'Masters' },
+  { value: 8, label: 'PhD' },
+]
 
 function get7DayChart(timestamps: string[]): ChartDay[] {
   const DAY_LABELS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
@@ -101,10 +108,9 @@ export default function Profile() {
 
   return (
     <main
-      className="min-h-dvh bg-[#080810] text-white flex flex-col"
-      style={{ paddingBottom: 'calc(52px + env(safe-area-inset-bottom))' }}
+      className="min-h-dvh bg-[#080810] text-white flex flex-col nav-bottom-pad"
     >
-      <header className="shrink-0 flex items-center px-6 h-14 border-b border-white/[0.05]">
+      <header className="sm:hidden shrink-0 flex items-center px-6 h-14 border-b border-white/[0.05]">
         <span className="font-semibold tracking-tight text-[15px]">Profile</span>
       </header>
 
@@ -182,18 +188,18 @@ export default function Profile() {
 
           <div>
             <label className="text-[12px] text-gray-600 mb-1.5 block">Year of study</label>
-            <div className="grid grid-cols-5 gap-2">
-              {[1,2,3,4,5].map(v => (
+            <div className="grid grid-cols-4 gap-2">
+              {YEAR_OPTIONS.map(({ value, label }) => (
                 <button
-                  key={v}
-                  onClick={() => setYear(v)}
+                  key={value}
+                  onClick={() => setYear(value)}
                   className={`py-3 rounded-2xl text-[13px] font-medium transition-all ${
-                    year === v
+                    year === value
                       ? 'bg-violet-600 border border-violet-400/40 text-white'
                       : 'bg-white/[0.05] border border-white/[0.08] text-gray-400 hover:bg-white/[0.09]'
                   }`}
                 >
-                  {v === 5 ? 'PG' : `Y${v}`}
+                  {label}
                 </button>
               ))}
             </div>

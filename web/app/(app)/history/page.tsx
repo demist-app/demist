@@ -7,6 +7,7 @@ interface SessionTerm {
   id: string
   term: string
   definition: string
+  known: boolean
 }
 
 interface Session {
@@ -24,6 +25,12 @@ function fmtDuration(start: string, end: string | null): string {
   const mins = Math.floor((new Date(end).getTime() - new Date(start).getTime()) / 60000)
   if (mins < 60) return `${mins}m`
   return `${Math.floor(mins / 60)}h ${mins % 60}m`
+}
+
+function sessionLabel(subject: string | null, startedAt: string): string {
+  if (subject) return subject
+  const d = new Date(startedAt)
+  return `${d.toLocaleDateString('en-GB', { weekday: 'short' })} ${d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`
 }
 
 function fmtDate(iso: string): string {
@@ -97,7 +104,7 @@ export default function History() {
     const supabase = createClient()
     const { data } = await supabase
       .from('terms')
-      .select('id, term, definition')
+      .select('id, term, definition, known')
       .eq('session_id', id)
       .order('created_at', { ascending: true })
 
@@ -105,6 +112,17 @@ export default function History() {
       prev.map(x => x.id === id ? { ...x, terms: (data ?? []) as SessionTerm[], expanded: true } : x)
     )
     setLoadingTerms(null)
+  }
+
+  const toggleKnown = async (termId: string, currentlyKnown: boolean) => {
+    const supabase = createClient()
+    await supabase.from('terms').update({ known: !currentlyKnown }).eq('id', termId)
+    setSessions(prev =>
+      prev.map(s => ({
+        ...s,
+        terms: s.terms?.map(t => t.id === termId ? { ...t, known: !currentlyKnown } : t),
+      }))
+    )
   }
 
   // Group sessions by date label
@@ -121,10 +139,9 @@ export default function History() {
 
   return (
     <main
-      className="min-h-dvh bg-[#080810] text-white flex flex-col"
-      style={{ paddingBottom: 'calc(52px + env(safe-area-inset-bottom))' }}
+      className="min-h-dvh bg-[#080810] text-white flex flex-col nav-bottom-pad"
     >
-      <header className="shrink-0 flex items-center px-6 h-14 border-b border-white/[0.05]">
+      <header className="sm:hidden shrink-0 flex items-center px-6 h-14 border-b border-white/[0.05]">
         <span className="font-semibold tracking-tight text-[15px]">Session History</span>
       </header>
 
@@ -155,7 +172,7 @@ export default function History() {
                   >
                     <div className="flex-1 min-w-0">
                       <p className="text-[14px] font-medium text-white/90 truncate">
-                        {s.subject ?? 'Session'}
+                        {sessionLabel(s.subject, s.started_at)}
                       </p>
                       <p className="text-[12px] text-gray-600 mt-0.5">
                         {fmtTime(s.started_at)} · {fmtDuration(s.started_at, s.ended_at)}
@@ -181,12 +198,28 @@ export default function History() {
                       {s.terms && s.terms.length > 0 && (
                         <div className="space-y-3 pt-3">
                           {s.terms.map(t => (
-                            <div key={t.id} className="flex gap-3">
+                            <div key={t.id} className="flex items-start gap-3">
                               <div className="w-[3px] h-[3px] rounded-full bg-violet-500/60 mt-[9px] shrink-0" />
-                              <div>
-                                <span className="text-[13px] font-medium text-white/90">{t.term}</span>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className={`text-[13px] font-medium ${t.known ? 'text-gray-500 line-through' : 'text-white/90'}`}>
+                                    {t.term}
+                                  </span>
+                                  {t.known && (
+                                    <span className="text-[10px] text-emerald-500/70 font-medium shrink-0">known</span>
+                                  )}
+                                </div>
                                 <p className="text-[12px] text-gray-500 mt-0.5 leading-relaxed">{t.definition}</p>
                               </div>
+                              <button
+                                onClick={() => toggleKnown(t.id, t.known)}
+                                title={t.known ? 'Mark as not known' : 'Mark as known'}
+                                className={`shrink-0 mt-0.5 text-[18px] leading-none transition-colors ${
+                                  t.known ? 'text-emerald-500 hover:text-gray-600' : 'text-gray-700 hover:text-emerald-500'
+                                }`}
+                              >
+                                ✓
+                              </button>
                             </div>
                           ))}
                         </div>

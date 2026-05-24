@@ -84,6 +84,14 @@ button, a {
   }
 }
 
+/* ─── Bottom nav padding — applied on mobile, cleared on desktop ─────────── */
+.nav-bottom-pad {
+  padding-bottom: calc(52px + env(safe-area-inset-bottom));
+}
+@media (min-width: 640px) {
+  .nav-bottom-pad { padding-bottom: 0; }
+}
+
 /* ─── Flashcard flip (preserve-3d + backface-visibility via JS inline styles) ─ */
 .flashcard-flip {
   perspective: 1000px;
