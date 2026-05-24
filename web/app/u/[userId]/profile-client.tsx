@@ -30,7 +30,30 @@ export default function PublicProfileClient() {
     })()
   }, [userId])
 
-  if (loading) return <div className="min-h-dvh bg-[#080810]" />
+  if (loading) return (
+    <main className="min-h-dvh bg-[#080810] flex flex-col items-center justify-center px-6 py-12">
+      <div className="w-full max-w-[420px] space-y-6 animate-pulse">
+        <div className="h-3 w-14 bg-white/[0.06] rounded-full" />
+        <div className="flex items-center gap-4">
+          <div className="w-16 h-16 rounded-full bg-white/[0.06] shrink-0" />
+          <div className="flex flex-col gap-2">
+            <div className="h-5 w-36 bg-white/[0.08] rounded-full" />
+            <div className="h-3.5 w-24 bg-white/[0.05] rounded-full" />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          {[0,1].map(i => (
+            <div key={i} className="bg-white/[0.03] border border-white/[0.06] rounded-2xl px-4 py-4 flex flex-col gap-2">
+              <div className="h-2.5 w-16 bg-white/[0.05] rounded-full" />
+              <div className="h-8 w-12 bg-white/[0.08] rounded-md" />
+              <div className="h-2.5 w-20 bg-white/[0.05] rounded-full" />
+            </div>
+          ))}
+        </div>
+        <div className="h-14 w-full bg-white/[0.05] rounded-2xl" />
+      </div>
+    </main>
+  )
 
   if (notFound) {
     return (

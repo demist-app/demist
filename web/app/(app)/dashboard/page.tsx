@@ -349,6 +349,7 @@ export default function Dashboard() {
     sessionIdRef.current = sessionId
     isActiveRef.current = true
     lastPopupAtRef.current = 0
+    termFrequencyRef.current = new Map()
     setIsRecording(true); setElapsed(0); setLiveTerms([]); setSessionGlossary([])
     window.postMessage({ source: 'demist', type: 'recording-started' }, '*')
     timerRef.current = setInterval(() => setElapsed(t => t + 1), 1000)
@@ -425,18 +426,14 @@ export default function Dashboard() {
       setRecentSessions(sessionsRaw.map((s: { id: string; started_at: string; ended_at: string | null }, i: number) => ({ id: s.id, started_at: s.started_at, ended_at: s.ended_at, termCount: countMap[s.id] ?? 0, sessionNumber: tc - i })))
     }
 
-    // Generate AI name + synopsis — delayed 6s to let the last processChunk finish saving terms
+    // Generate synopsis — delayed 6s to let the last processChunk finish saving terms
     if (sid) {
       const capturedSid = sid
       const capturedSubject = profileRef.current?.course
-      setTimeout(async () => {
+      setTimeout(() => {
         const sb = createClient()
-        const { data: { session: s } } = await sb.auth.getSession()
-        const token = s?.access_token
-        fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL!}/functions/v1/summarize-session`, {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ session_id: capturedSid, subject: capturedSubject }),
+        sb.functions.invoke('summarize-session', {
+          body: { session_id: capturedSid, subject: capturedSubject },
         }).catch(console.error)
       }, 6000)
     }

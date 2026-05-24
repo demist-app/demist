@@ -112,9 +112,21 @@ export default function Profile() {
     await createClient().from('profiles').update({ is_public: next }).eq('id', userId)
   }
 
-  const copyShareLink = () => {
+  const copyShareLink = async () => {
     if (!userId) return
-    navigator.clipboard.writeText(`${window.location.origin}/u/${userId}`)
+    const url = `${window.location.origin}/u/${userId}`
+    try {
+      await navigator.clipboard.writeText(url)
+    } catch {
+      const el = document.createElement('textarea')
+      el.value = url
+      el.style.position = 'fixed'
+      el.style.opacity = '0'
+      document.body.appendChild(el)
+      el.select()
+      document.execCommand('copy')
+      document.body.removeChild(el)
+    }
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
@@ -189,6 +201,7 @@ export default function Profile() {
               value={displayName}
               onChange={e => setDisplayName(e.target.value)}
               placeholder="Your name"
+              maxLength={50}
               className="w-full bg-white/[0.05] border border-white/[0.1] rounded-2xl px-5 py-3.5 text-white text-[15px] placeholder-gray-700 focus:outline-none focus:border-violet-500/50 transition-all"
             />
           </div>
@@ -200,6 +213,7 @@ export default function Profile() {
               value={course}
               onChange={e => setCourse(e.target.value)}
               placeholder="e.g. Molecular Biology"
+              maxLength={80}
               className="w-full bg-white/[0.05] border border-white/[0.1] rounded-2xl px-5 py-3.5 text-white text-[15px] placeholder-gray-700 focus:outline-none focus:border-violet-500/50 transition-all"
             />
           </div>
