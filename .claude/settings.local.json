@@ -28,7 +28,8 @@
       "PowerShell(New-Item -ItemType Directory -Force \"c:\\\\Users\\\\shivb\\\\Desktop\\\\coding bits\\\\demist\\\\mobile\\\\app\\\\\\(tabs\\)\")",
       "Bash(mv \"c:\\\\Users\\\\shivb\\\\Desktop\\\\coding bits\\\\demist\\\\web\\\\app\\\\api\\\\og\\\\[userId]\\\\route.ts\" \"c:\\\\Users\\\\shivb\\\\Desktop\\\\coding bits\\\\demist\\\\web\\\\app\\\\api\\\\og\\\\[userId]\\\\route.tsx\")",
       "Bash(cp \"c:\\\\Users\\\\shivb\\\\Desktop\\\\coding bits\\\\demist\\\\web\\\\app\\\\api\\\\og\\\\[userId]\\\\route.ts\" \"c:\\\\Users\\\\shivb\\\\Desktop\\\\coding bits\\\\demist\\\\web\\\\app\\\\api\\\\og\\\\[userId]\\\\route.tsx\")",
-      "Bash(npx next *)"
+      "Bash(npx next *)",
+      "Bash(npx supabase *)"
     ],
     "additionalDirectories": [
       "c:\\Users\\shivb\\Desktop\\coding bits\\demist\\web\\app\\u"

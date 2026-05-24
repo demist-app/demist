@@ -56,6 +56,7 @@ export default function History() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState('')
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [generatingIds, setGeneratingIds] = useState<Set<string>>(new Set())
   const summarizingRef = useRef(new Set<string>())
 
   useEffect(() => {
@@ -104,6 +105,7 @@ export default function History() {
     if (s.synopsis || s.termCount === 0) return
     if (summarizingRef.current.has(s.id)) return
     summarizingRef.current.add(s.id)
+    setGeneratingIds(prev => new Set(prev).add(s.id))
     try {
       const supabase = createClient()
       const { data: { session: authSession } } = await supabase.auth.getSession()
@@ -126,6 +128,7 @@ export default function History() {
       console.error('maybeSummarize error:', e)
     } finally {
       summarizingRef.current.delete(s.id)
+      setGeneratingIds(prev => { const next = new Set(prev); next.delete(s.id); return next })
     }
   }
 
@@ -319,7 +322,7 @@ export default function History() {
                     <div className="px-4 pb-4 border-t border-white/[0.04]">
                       {s.synopsis ? (
                         <p className="text-[13px] text-gray-500 leading-relaxed pt-3 pb-1">{s.synopsis}</p>
-                      ) : s.termCount > 0 ? (
+                      ) : generatingIds.has(s.id) ? (
                         <p className="text-[12px] text-gray-700 pt-3 pb-1">Generating summary…</p>
                       ) : null}
 

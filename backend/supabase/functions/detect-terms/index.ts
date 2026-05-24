@@ -11,7 +11,7 @@ serve(async (req) => {
   }
 
   try {
-    const { transcript, subject, year } = await req.json()
+    const { transcript, subject, year, known_terms } = await req.json()
 
     if (!transcript?.trim()) {
       return new Response(JSON.stringify({ terms: [] }), {
@@ -19,15 +19,28 @@ serve(async (req) => {
       })
     }
 
-    const prompt = `You are helping a ${year ?? 1} year university student studying ${subject ?? 'general'}.
+    const knownList = Array.isArray(known_terms) && known_terms.length
+      ? known_terms.slice(0, 80).join(', ')
+      : 'none'
 
-Read this lecture transcript excerpt and identify terms, acronyms, or concepts that a ${year ?? 1} year ${subject ?? 'general'} student might not yet know.
+    const prompt = `You are a study assistant for a Year ${year ?? 1} ${subject ?? 'general'} student.
 
-Transcript: "${transcript}"
+Lecture excerpt: "${transcript}"
 
-Return a JSON object with a "terms" array. Each item must have "term" (string) and "definition" (one clear sentence in plain English) fields. If there are no unfamiliar terms, return {"terms": []}.
+Terms the student already knows (do NOT flag these): ${knownList}
 
-Example: {"terms": [{"term": "mitosis", "definition": "The process by which a cell divides into two genetically identical daughter cells."}]}`
+Task: Identify at most 1–2 subject-specific or technical terms from this excerpt that:
+1. This student is UNLIKELY to know given their year and subject
+2. Are genuinely LOAD-BEARING — if the student doesn't understand them, the next few minutes of lecture will not make sense
+3. Are NOT in the known terms list above
+
+Rules:
+- Return 0 terms if the excerpt has no important technical concepts (transitions, filler, generic language)
+- Return at most 2 terms — prefer 1 when only one truly matters
+- Never flag common English words or terms obvious to any university student
+- Definitions must be one clear sentence in plain English
+
+Return JSON: {"terms": [{"term": "...", "definition": "..."}]}`
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',

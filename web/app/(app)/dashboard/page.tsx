@@ -112,6 +112,7 @@ export default function Dashboard() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const knownTermsRef = useRef<Set<string>>(new Set())
   const termFrequencyRef = useRef<Map<string, number>>(new Map())
+  const lastPopupAtRef = useRef<number>(0)
 
   // Audio visualizer refs
   const ring1Ref = useRef<HTMLSpanElement | null>(null)
@@ -251,6 +252,7 @@ export default function Dashboard() {
           transcript: tx.text,
           subject: profileRef.current?.course ?? 'general',
           year: profileRef.current?.year_of_study ?? 1,
+          known_terms: Array.from(knownTermsRef.current),
         }),
       })
       if (!dtRes.ok) { console.error('detect-terms error:', await dtRes.text()); return }
@@ -266,7 +268,13 @@ export default function Dashboard() {
       })
       if (!filtered.length) return
 
-      const incoming: LiveTerm[] = filtered.map(t => ({
+      // Rate limit: at most 1 popup every 30 seconds
+      const now = Date.now()
+      const rateLimited = filtered.slice(0, now - lastPopupAtRef.current >= 30_000 ? 1 : 0)
+      if (!rateLimited.length) return
+      lastPopupAtRef.current = now
+
+      const incoming: LiveTerm[] = rateLimited.map(t => ({
         id: `${Date.now()}-${Math.random()}`,
         term: t.term,
         definition: t.definition,
