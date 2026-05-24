@@ -447,7 +447,44 @@ export default function Dashboard() {
     }
   }
 
-  if (loading) return <div className="min-h-dvh bg-[#080810]" />
+  if (loading) return (
+    <main className="min-h-dvh bg-[#080810] text-white flex flex-col overflow-hidden nav-bottom-pad">
+      <header className="sm:hidden shrink-0 flex items-center px-6 h-14 border-b border-white/[0.05]">
+        <span className="font-semibold tracking-tight text-[15px]">Demist</span>
+      </header>
+      <div className="flex-1 flex flex-col overflow-y-auto animate-pulse">
+        <div className="shrink-0 grid grid-cols-3 gap-3 px-4 sm:px-6 pt-5 pb-1">
+          {[0,1,2].map(i => (
+            <div key={i} className="bg-white/[0.03] border border-white/[0.06] rounded-2xl px-3 py-3 flex flex-col gap-2.5">
+              <div className="h-2 w-14 bg-white/[0.06] rounded-full" />
+              <div className="h-7 w-10 bg-white/[0.08] rounded-md" />
+            </div>
+          ))}
+        </div>
+        <div className="shrink-0 flex flex-col items-center py-6 gap-3">
+          <div className="w-[88px] h-[88px] rounded-full bg-white/[0.06]" />
+          <div className="h-3 w-32 bg-white/[0.05] rounded-full" />
+        </div>
+        <div className="flex-1 px-4 sm:px-6 pb-4">
+          <div className="h-2 w-28 bg-white/[0.05] rounded-full mb-3" />
+          <div className="space-y-2">
+            {[0,1,2].map(i => (
+              <div key={i} className="flex items-center justify-between bg-white/[0.03] border border-white/[0.06] rounded-2xl px-4 py-3">
+                <div className="flex flex-col gap-2">
+                  <div className="h-3.5 w-36 bg-white/[0.07] rounded-full" />
+                  <div className="h-3 w-20 bg-white/[0.05] rounded-full" />
+                </div>
+                <div className="flex flex-col items-end gap-1.5">
+                  <div className="h-4 w-6 bg-white/[0.07] rounded" />
+                  <div className="h-2.5 w-8 bg-white/[0.05] rounded-full" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </main>
+  )
 
   const maxChart = Math.max(...chartData.map(d => d.count), 1)
 
