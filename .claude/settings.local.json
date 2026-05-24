@@ -35,7 +35,8 @@
       "PowerShell(Copy-Item \"c:\\\\Users\\\\shivb\\\\Desktop\\\\coding bits\\\\demist\\\\photos\\\\image.png\" \"c:\\\\Users\\\\shivb\\\\Desktop\\\\coding bits\\\\demist\\\\web\\\\app\\\\favicon.ico\" -Force)",
       "Bash(node -e \"require\\('sharp'\\)\")",
       "Bash(python -c \"from PIL import Image; print\\('pillow ok'\\)\")",
-      "Bash(pip install *)"
+      "Bash(pip install *)",
+      "PowerShell(Test-Path \"C:\\\\Users\\\\shivb\\\\Desktop\\\\coding bits\\\\demist\\\\web\\\\public\\\\demist-extension.zip\"; \\(Get-Item \"C:\\\\Users\\\\shivb\\\\Desktop\\\\coding bits\\\\demist\\\\web\\\\public\\\\demist-extension.zip\"\\).Length)"
     ],
     "additionalDirectories": [
       "c:\\Users\\shivb\\Desktop\\coding bits\\demist\\web\\app\\u"
