@@ -44,7 +44,7 @@ const EXTENSION_DOWNLOAD_URL = '/demist-extension.zip'
 const FEATURES = [
   {
     title: 'Listens in real time',
-    body: 'Processes audio every 10 seconds and surfaces definitions the moment a term appears — not after the lecture.',
+    body: 'Processes audio every 10 seconds and surfaces definitions the moment a term appears, not in a summary after.',
     Icon: MicIcon,
   },
   {
@@ -68,12 +68,12 @@ const STEPS = [
   {
     n: '02',
     title: 'Terms appear as you listen',
-    body: 'Unfamiliar concepts surface as subtle cards that disappear after a few seconds. Never intrusive — only when it matters.',
+    body: 'Unfamiliar concepts surface as subtle cards that disappear after a few seconds. Never intrusive, never distracting.',
   },
   {
     n: '03',
-    title: 'Review after. Retain forever.',
-    body: 'Your full session glossary is waiting after the lecture. Flashcards queue themselves based on what needs your attention.',
+    title: 'Review after. Actually remember.',
+    body: 'Your full glossary is there when the lecture ends. Flashcards are scheduled around what you actually need to work on.',
   },
 ]
 
@@ -156,7 +156,7 @@ export default function LandingClient() {
           className="text-gray-500 text-[16px] sm:text-[18px] leading-relaxed mb-10 max-w-[480px]"
           {...anim(240)}
         >
-          Demist listens as you learn and quietly surfaces definitions for unfamiliar terms — so you stay focused without falling behind.
+          Demist listens as you learn and quietly surfaces definitions for unfamiliar terms, so you stay focused without falling behind.
         </p>
 
         <div className="flex flex-col sm:flex-row items-center gap-3 mb-16" {...anim(320)}>
@@ -248,8 +248,8 @@ export default function LandingClient() {
           className="text-[30px] sm:text-[42px] font-bold tracking-tight text-center mb-14 leading-tight"
           {...scrollAnim(featuresRef.visible, 80)}
         >
-          Everything you need.{' '}
-          <span className="text-gray-600 font-normal">Nothing you don't.</span>
+          Three simple tools.{' '}
+          <span className="text-gray-600 font-normal">All of them matter.</span>
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {FEATURES.map(({ title, body, Icon }, i) => (
@@ -280,8 +280,8 @@ export default function LandingClient() {
           className="text-[30px] sm:text-[42px] font-bold tracking-tight text-center mb-16 leading-tight"
           {...scrollAnim(stepsRef.visible, 80)}
         >
-          From zero to glossary{' '}
-          <span className="text-gray-600 font-normal">in one lecture.</span>
+          Open it, hit record.{' '}
+          <span className="text-gray-600 font-normal">That's the whole setup.</span>
         </h2>
         <div>
           {STEPS.map(({ n, title, body }, i) => (
@@ -319,7 +319,7 @@ export default function LandingClient() {
           className="text-gray-600 text-[15px] leading-relaxed mb-10 max-w-[460px] mx-auto"
           {...scrollAnim(extRef.visible, 160)}
         >
-          The Demist extension surfaces definitions on any page — lecture slides, YouTube, PDFs, reading lists. Pairs with the web app automatically.
+          The Demist extension surfaces definitions on any page: lecture slides, YouTube, PDFs, reading lists. Syncs with your web app automatically.
         </p>
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3" {...scrollAnim(extRef.visible, 240)}>

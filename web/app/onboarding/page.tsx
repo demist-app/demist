@@ -68,7 +68,7 @@ export default function Onboarding() {
               What are you<br />studying?
             </h1>
             <p className="text-gray-500 mb-8">
-              Demist pitches every explanation at your level.
+              We use this to get explanations at the right level.
             </p>
 
             <input
