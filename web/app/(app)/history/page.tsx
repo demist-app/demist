@@ -108,6 +108,7 @@ export default function History() {
     setGeneratingIds(prev => new Set(prev).add(s.id))
     setFailedIds(prev => { const next = new Set(prev); next.delete(s.id); return next })
     let succeeded = false
+    let skipFailed = false
     try {
       const supabase = createClient()
       const { data: termRows } = await supabase
@@ -116,7 +117,7 @@ export default function History() {
         .eq('session_id', s.id)
         .limit(60)
       if (!termRows?.length) {
-        console.warn('maybeSummarize: no terms found for session', s.id)
+        skipFailed = true
         return
       }
       const { data, error } = await supabase.functions.invoke('summarize-session', {
@@ -135,7 +136,7 @@ export default function History() {
     } finally {
       summarizingRef.current.delete(s.id)
       setGeneratingIds(prev => { const next = new Set(prev); next.delete(s.id); return next })
-      if (!succeeded) setFailedIds(prev => new Set(prev).add(s.id))
+      if (!succeeded && !skipFailed) setFailedIds(prev => new Set(prev).add(s.id))
     }
   }
 
@@ -260,8 +261,8 @@ export default function History() {
                 >
                   <div className="flex items-center px-4 py-3 gap-3">
                     <div
-                      onClick={() => { setConfirmingId(null); toggleExpand(s.id) }}
-                      className="flex-1 min-w-0 cursor-pointer"
+                      onClick={() => { if (s.termCount === 0) return; setConfirmingId(null); toggleExpand(s.id) }}
+                      className={`flex-1 min-w-0 ${s.termCount > 0 ? 'cursor-pointer' : 'cursor-default'}`}
                     >
                       <p className="text-[14px] font-medium text-white/90 truncate">
                         {sessionLabel(n, s.started_at)}
@@ -303,9 +304,11 @@ export default function History() {
                         </button>
                       )}
 
-                      <button onClick={() => { setConfirmingId(null); toggleExpand(s.id) }}>
-                        <ChevronIcon expanded={s.expanded} />
-                      </button>
+                      {s.termCount > 0 && (
+                        <button onClick={() => { setConfirmingId(null); toggleExpand(s.id) }}>
+                          <ChevronIcon expanded={s.expanded} />
+                        </button>
+                      )}
                     </div>
                   </div>
 

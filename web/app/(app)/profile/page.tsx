@@ -68,7 +68,7 @@ export default function Profile() {
         { count: sessionCount },
         { data: recentTerms },
       ] = await Promise.all([
-        supabase.from('profiles').select('display_name, course, year_of_study, is_public').eq('id', user.id).single(),
+        supabase.from('profiles').select('display_name, course, year_of_study, is_public').eq('id', user.id).maybeSingle(),
         supabase.from('terms').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
         supabase.from('sessions').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
         supabase.from('terms').select('created_at').eq('user_id', user.id).gte('created_at', weekAgo),

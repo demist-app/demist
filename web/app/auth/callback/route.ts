@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
       .from('profiles')
       .select('course')
       .eq('id', userId)
-      .single()
+      .maybeSingle()
 
     destination = profile?.course ? `${origin}/dashboard` : `${origin}/onboarding`
   }

@@ -162,7 +162,23 @@ export default function Flashcards() {
         )}
       </header>
 
-      {phase === 'loading' && <div className="flex-1" />}
+      {phase === 'loading' && (
+        <div className="flex-1 flex flex-col px-4 sm:px-6 pt-4 pb-4 animate-pulse">
+          <div className="h-1 bg-white/[0.06] rounded-full mb-6" />
+          <div className="flex items-center gap-2 mb-4">
+            <div className="h-5 w-16 bg-white/[0.06] rounded-full" />
+            <div className="h-5 w-14 bg-white/[0.06] rounded-full" />
+          </div>
+          <div className="flex-1 flex items-center justify-center">
+            <div className="w-full max-w-[380px] bg-white/[0.03] border border-white/[0.06] rounded-[24px] h-[220px]" />
+          </div>
+          <div className="grid grid-cols-4 gap-2 mt-4">
+            {[0,1,2,3].map(i => (
+              <div key={i} className="h-12 bg-white/[0.04] border border-white/[0.06] rounded-2xl" />
+            ))}
+          </div>
+        </div>
+      )}
 
       {phase === 'empty' && (
         <div className="flex-1 flex flex-col items-center justify-center px-8 text-center gap-4">

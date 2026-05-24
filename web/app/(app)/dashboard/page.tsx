@@ -13,12 +13,22 @@ interface LiveTerm {
   dbId?: string
 }
 
+interface SessionTerm {
+  id: string
+  term: string
+  definition: string
+  known: boolean
+}
+
 interface RecentSession {
   id: string
   started_at: string
   ended_at: string | null
   termCount: number
   sessionNumber: number
+  synopsis: string | null
+  expanded: boolean
+  terms?: SessionTerm[]
 }
 
 interface ChartDay {
@@ -101,6 +111,9 @@ export default function Dashboard() {
   const [stats, setStats] = useState<Stats>({ streak: 0, termsThisWeek: 0, dueFlashcards: 0 })
   const [chartData, setChartData] = useState<ChartDay[]>([])
   const [recentSessions, setRecentSessions] = useState<RecentSession[]>([])
+  const [sessionGenIds, setSessionGenIds] = useState<Set<string>>(new Set())
+  const [sessionFailIds, setSessionFailIds] = useState<Set<string>>(new Set())
+  const [sessionTermLoading, setSessionTermLoading] = useState<string | null>(null)
 
   const profileRef = useRef<Profile | null>(null)
   const userIdRef = useRef<string | null>(null)
@@ -114,6 +127,7 @@ export default function Dashboard() {
   const knownTermsRef = useRef<Set<string>>(new Set())
   const termFrequencyRef = useRef<Map<string, number>>(new Map())
   const lastPopupAtRef = useRef<number>(0)
+  const sessionSummarizingRef = useRef(new Set<string>())
 
   // Audio visualizer refs
   const ring1Ref = useRef<HTMLSpanElement | null>(null)
@@ -180,12 +194,12 @@ export default function Dashboard() {
         { data: sessionsRaw },
         { count: totalCount },
       ] = await Promise.all([
-        supabase.from('profiles').select('course, year_of_study').eq('id', user.id).single(),
+        supabase.from('profiles').select('course, year_of_study').eq('id', user.id).maybeSingle(),
         supabase.from('terms').select('term, known, created_at').eq('user_id', user.id),
         supabase.from('sessions').select('started_at').eq('user_id', user.id).order('started_at', { ascending: false }),
         supabase.from('terms').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('known', false).gt('sm2_review_count', 0).lte('sm2_due_at', now.toISOString()),
         supabase.from('terms').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('known', false).eq('sm2_review_count', 0),
-        supabase.from('sessions').select('id, started_at, ended_at').eq('user_id', user.id).order('started_at', { ascending: false }).limit(5),
+        supabase.from('sessions').select('id, started_at, ended_at, synopsis').eq('user_id', user.id).order('started_at', { ascending: false }).limit(5),
         supabase.from('sessions').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
       ])
       totalSessionCountRef.current = totalCount ?? 0
@@ -221,7 +235,7 @@ export default function Dashboard() {
         const countMap: Record<string, number> = {}
         for (const r of termRows ?? []) countMap[r.session_id] = (countMap[r.session_id] ?? 0) + 1
         const tc = totalSessionCountRef.current
-        setRecentSessions(sessionsRaw.map((s, i) => ({ id: s.id, started_at: s.started_at, ended_at: s.ended_at, termCount: countMap[s.id] ?? 0, sessionNumber: tc - i })))
+        setRecentSessions(sessionsRaw.map((s, i) => ({ id: s.id, started_at: s.started_at, ended_at: s.ended_at, termCount: countMap[s.id] ?? 0, sessionNumber: tc - i, synopsis: (s as { synopsis?: string | null }).synopsis ?? null, expanded: false })))
       }
 
       setLoading(false)
@@ -412,7 +426,7 @@ export default function Dashboard() {
 
     // Refresh recent sessions list
     const [{ data: sessionsRaw }, { count: newTotal }] = await Promise.all([
-      supabase.from('sessions').select('id, started_at, ended_at')
+      supabase.from('sessions').select('id, started_at, ended_at, synopsis')
         .eq('user_id', userIdRef.current!).order('started_at', { ascending: false }).limit(5),
       supabase.from('sessions').select('id', { count: 'exact', head: true }).eq('user_id', userIdRef.current!),
     ])
@@ -423,7 +437,7 @@ export default function Dashboard() {
       const countMap: Record<string, number> = {}
       for (const r of termRows ?? []) countMap[r.session_id] = (countMap[r.session_id] ?? 0) + 1
       const tc = totalSessionCountRef.current
-      setRecentSessions(sessionsRaw.map((s: { id: string; started_at: string; ended_at: string | null }, i: number) => ({ id: s.id, started_at: s.started_at, ended_at: s.ended_at, termCount: countMap[s.id] ?? 0, sessionNumber: tc - i })))
+      setRecentSessions(sessionsRaw.map((s: { id: string; started_at: string; ended_at: string | null; synopsis?: string | null }, i: number) => ({ id: s.id, started_at: s.started_at, ended_at: s.ended_at, termCount: countMap[s.id] ?? 0, sessionNumber: tc - i, synopsis: s.synopsis ?? null, expanded: false })))
     }
 
     // Generate synopsis — delayed 6s to let the last processChunk finish saving terms
@@ -431,11 +445,18 @@ export default function Dashboard() {
       const capturedSid = sid
       const capturedSubject = profileRef.current?.course
       const capturedGlossary = [...sessionGlossary]
-      setTimeout(() => {
-        const sb = createClient()
-        sb.functions.invoke('summarize-session', {
-          body: { session_id: capturedSid, subject: capturedSubject, terms: capturedGlossary },
-        }).catch(console.error)
+      setTimeout(async () => {
+        try {
+          const sb = createClient()
+          const { data } = await sb.functions.invoke('summarize-session', {
+            body: { session_id: capturedSid, subject: capturedSubject, terms: capturedGlossary },
+          })
+          if (data?.ok && data?.synopsis) {
+            setRecentSessions(prev => prev.map(s => s.id === capturedSid ? { ...s, synopsis: data.synopsis } : s))
+          }
+        } catch (e) {
+          console.error('summarize-session error:', e)
+        }
       }, 6000)
     }
   }
@@ -453,6 +474,68 @@ export default function Dashboard() {
       const supabase = createClient()
       await supabase.from('terms').update({ known: true }).eq('id', liveTerm.dbId)
     }
+  }
+
+  const maybeGenerateOnDashboard = async (s: RecentSession) => {
+    if (s.synopsis || !s.terms?.length) return
+    if (sessionSummarizingRef.current.has(s.id)) return
+    sessionSummarizingRef.current.add(s.id)
+    setSessionGenIds(prev => new Set(prev).add(s.id))
+    setSessionFailIds(prev => { const next = new Set(prev); next.delete(s.id); return next })
+    let succeeded = false
+    try {
+      const supabase = createClient()
+      const { data, error } = await supabase.functions.invoke('summarize-session', {
+        body: { session_id: s.id, subject: profileRef.current?.course, terms: s.terms },
+      })
+      if (!error && data?.ok && data?.synopsis) {
+        setRecentSessions(prev => prev.map(x => x.id === s.id ? { ...x, synopsis: data.synopsis } : x))
+        succeeded = true
+      }
+    } catch (e) {
+      console.error('dashboard summarize error:', e)
+    } finally {
+      sessionSummarizingRef.current.delete(s.id)
+      setSessionGenIds(prev => { const next = new Set(prev); next.delete(s.id); return next })
+      if (!succeeded) setSessionFailIds(prev => new Set(prev).add(s.id))
+    }
+  }
+
+  const retrySessionSummarize = (s: RecentSession) => {
+    sessionSummarizingRef.current.delete(s.id)
+    setSessionFailIds(prev => { const next = new Set(prev); next.delete(s.id); return next })
+    maybeGenerateOnDashboard(s)
+  }
+
+  const toggleExpandSession = async (id: string) => {
+    const target = recentSessions.find(s => s.id === id)
+    if (!target) return
+    if (target.expanded) {
+      setRecentSessions(prev => prev.map(s => s.id === id ? { ...s, expanded: false } : s))
+      return
+    }
+    if (target.terms !== undefined) {
+      setRecentSessions(prev => prev.map(s => s.id === id ? { ...s, expanded: true } : s))
+      maybeGenerateOnDashboard(target)
+      return
+    }
+    setSessionTermLoading(id)
+    const supabase = createClient()
+    const { data } = await supabase
+      .from('terms').select('id, term, definition, known')
+      .eq('session_id', id).order('created_at', { ascending: true })
+    const terms = (data ?? []) as SessionTerm[]
+    setRecentSessions(prev => prev.map(s => s.id === id ? { ...s, terms, expanded: true } : s))
+    setSessionTermLoading(null)
+    maybeGenerateOnDashboard({ ...target, terms })
+  }
+
+  const toggleKnownSession = async (termId: string, currentlyKnown: boolean) => {
+    const supabase = createClient()
+    await supabase.from('terms').update({ known: !currentlyKnown }).eq('id', termId)
+    setRecentSessions(prev =>
+      prev.map(s => ({ ...s, terms: s.terms?.map(t => t.id === termId ? { ...t, known: !currentlyKnown } : t) }))
+    )
   }
 
   if (loading) return (
@@ -627,20 +710,66 @@ export default function Dashboard() {
                   <p className="text-[10px] font-bold tracking-[0.18em] text-gray-600 uppercase mb-3">Recent Sessions</p>
                   <div className="space-y-2">
                     {recentSessions.map(s => (
-                      <div
-                        key={s.id}
-                        className="flex items-center justify-between bg-white/[0.03] border border-white/[0.06] rounded-2xl px-4 py-3"
-                      >
-                        <div>
-                          <p className="text-[14px] font-medium text-white/90">
-                            {sessionLabel(s.sessionNumber, s.started_at)}
-                          </p>
-                          <p className="text-[12px] text-gray-600 mt-0.5">{fmtRelative(s.started_at)}</p>
+                      <div key={s.id} className="bg-white/[0.03] border border-white/[0.06] rounded-2xl overflow-hidden">
+                        <div
+                          onClick={() => s.termCount > 0 && toggleExpandSession(s.id)}
+                          className={`flex items-center gap-3 px-4 py-3 ${s.termCount > 0 ? 'cursor-pointer hover:bg-white/[0.02] transition-colors' : ''}`}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[14px] font-medium text-white/90 truncate">
+                              {sessionLabel(s.sessionNumber, s.started_at)}
+                            </p>
+                            <p className="text-[12px] text-gray-600 mt-0.5">{fmtRelative(s.started_at)}</p>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <div className="text-right">
+                              <p className="text-[14px] font-semibold text-violet-400">{s.termCount}</p>
+                              <p className="text-[11px] text-gray-600">terms</p>
+                            </div>
+                            {s.termCount > 0 && <DashChevron expanded={s.expanded} />}
+                          </div>
                         </div>
-                        <div className="text-right">
-                          <p className="text-[14px] font-semibold text-violet-400">{s.termCount}</p>
-                          <p className="text-[11px] text-gray-600">terms</p>
-                        </div>
+                        {s.expanded && (
+                          <div className="px-4 pb-4 border-t border-white/[0.04]">
+                            {s.synopsis ? (
+                              <p className="text-[13px] text-gray-500 leading-relaxed pt-3 pb-1">{s.synopsis}</p>
+                            ) : sessionGenIds.has(s.id) ? (
+                              <p className="text-[12px] text-gray-700 pt-3 pb-1">Generating summary…</p>
+                            ) : sessionFailIds.has(s.id) ? (
+                              <div className="flex items-center gap-3 pt-3 pb-1">
+                                <p className="text-[12px] text-gray-700">Couldn't generate summary.</p>
+                                <button onClick={() => retrySessionSummarize(s)} className="text-[12px] text-violet-500 hover:text-violet-400 transition-colors shrink-0">Retry</button>
+                              </div>
+                            ) : null}
+                            {sessionTermLoading === s.id && (
+                              <p className="text-gray-700 text-[13px] py-3">Loading…</p>
+                            )}
+                            {s.terms && s.terms.length === 0 && (
+                              <p className="text-gray-700 text-[13px] py-3">No terms detected.</p>
+                            )}
+                            {s.terms && s.terms.length > 0 && (
+                              <div className="space-y-3 pt-3">
+                                {s.terms.map(t => (
+                                  <div key={t.id} className="flex items-start gap-3">
+                                    <div className="w-[3px] h-[3px] rounded-full bg-violet-500/60 mt-[9px] shrink-0" />
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2">
+                                        <span className={`text-[13px] font-medium ${t.known ? 'text-gray-500 line-through' : 'text-white/90'}`}>{t.term}</span>
+                                        {t.known && <span className="text-[10px] text-emerald-500/70 font-medium shrink-0">known</span>}
+                                      </div>
+                                      <p className="text-[12px] text-gray-500 mt-0.5 leading-relaxed">{t.definition}</p>
+                                    </div>
+                                    <button
+                                      onClick={() => toggleKnownSession(t.id, t.known)}
+                                      title={t.known ? 'Mark as not known' : 'Mark as known'}
+                                      className={`shrink-0 mt-0.5 text-[18px] leading-none transition-colors ${t.known ? 'text-emerald-500 hover:text-gray-600' : 'text-gray-700 hover:text-emerald-500'}`}
+                                    >✓</button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -748,4 +877,14 @@ function MicIcon() {
 
 function StopIcon() {
   return <div className="w-[22px] h-[22px] rounded-[5px] bg-white" />
+}
+
+function DashChevron({ expanded }: { expanded: boolean }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
+      className={`text-gray-600 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}>
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
+  )
 }

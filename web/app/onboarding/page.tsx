@@ -30,7 +30,7 @@ export default function Onboarding() {
         .from('profiles')
         .select('course')
         .eq('id', data.user.id)
-        .single()
+        .maybeSingle()
       if (profile?.course) router.replace('/dashboard')
     })
   }, [])
@@ -43,8 +43,7 @@ export default function Onboarding() {
     if (user) {
       await supabase
         .from('profiles')
-        .update({ course: course.trim(), year_of_study: year })
-        .eq('id', user.id)
+        .upsert({ id: user.id, course: course.trim(), year_of_study: year })
     }
     router.replace('/dashboard')
   }

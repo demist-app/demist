@@ -90,7 +90,7 @@ export default function Login() {
       .from('profiles')
       .select('course')
       .eq('id', data.user!.id)
-      .single()
+      .maybeSingle()
     router.replace(profile?.course ? '/dashboard' : '/onboarding')
   }
 
