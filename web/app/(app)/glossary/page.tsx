@@ -14,6 +14,7 @@ interface Term {
 interface GlossarySession {
   id: string
   started_at: string
+  subject: string | null
   number: number
   terms: Term[]
 }
@@ -41,15 +42,16 @@ export default function Glossary() {
         { data: sessionsData },
       ] = await Promise.all([
         supabase.from('terms').select('id, term, definition, session_id').eq('user_id', user.id).order('created_at', { ascending: true }),
-        supabase.from('sessions').select('id, started_at').eq('user_id', user.id).order('started_at', { ascending: true }),
+        supabase.from('sessions').select('id, started_at, subject').eq('user_id', user.id).order('started_at', { ascending: true }),
       ])
 
       const allTerms = (termsData ?? []) as Term[]
-      const allSessions = sessionsData ?? []
+      const allSessions = (sessionsData ?? []) as { id: string; started_at: string; subject: string | null }[]
       setTotalCount(allTerms.length)
 
       const sessionNumberMap = new Map(allSessions.map((s, i) => [s.id, i + 1]))
       const sessionIdSet = new Set(allSessions.map(s => s.id))
+      const sessionMetaMap = new Map(allSessions.map(s => [s.id, s]))
 
       const grouped = new Map<string, Term[]>()
       const orphans: Term[] = []
@@ -68,6 +70,7 @@ export default function Glossary() {
         .map(s => ({
           id: s.id,
           started_at: s.started_at,
+          subject: sessionMetaMap.get(s.id)?.subject ?? null,
           number: sessionNumberMap.get(s.id) ?? 0,
           terms: grouped.get(s.id)!,
         }))
@@ -83,38 +86,80 @@ export default function Glossary() {
   const filteredSessions = sessions
     .map(s => ({ ...s, terms: q ? s.terms.filter(t => t.term.toLowerCase().includes(q) || t.definition.toLowerCase().includes(q)) : s.terms }))
     .filter(s => s.terms.length > 0)
-  const filteredOrphans = q ? orphanTerms.filter(t => t.term.toLowerCase().includes(q) || t.definition.toLowerCase().includes(q)) : orphanTerms
+  const filteredOrphans = q
+    ? orphanTerms.filter(t => t.term.toLowerCase().includes(q) || t.definition.toLowerCase().includes(q))
+    : orphanTerms
+
+  const hasResults = filteredSessions.length > 0 || filteredOrphans.length > 0
 
   return (
     <main className="min-h-dvh bg-[#080810] text-white flex flex-col nav-bottom-pad">
-      <header className="sm:hidden shrink-0 flex items-center justify-between px-6 h-14 border-b border-white/[0.05]">
+      <header className="sm:hidden shrink-0 flex items-center px-6 h-14 border-b border-white/[0.05]">
         <span className="font-semibold tracking-tight text-[15px]">Glossary</span>
-        {!loading && <span className="text-[13px] text-gray-600">{totalCount} terms</span>}
       </header>
 
-      <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4">
+      {/* Hero */}
+      <div className="shrink-0 relative overflow-hidden px-4 sm:px-6 pt-6 pb-5">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -top-10 -left-10 w-[280px] h-[180px] rounded-full bg-violet-600/[0.08] blur-[60px]"
+        />
+        {loading ? (
+          <div className="animate-pulse">
+            <div className="h-10 w-24 bg-white/[0.07] rounded-xl mb-2" />
+            <div className="h-3.5 w-48 bg-white/[0.04] rounded-full" />
+          </div>
+        ) : (
+          <>
+            <p className="text-[44px] font-bold leading-none tracking-tight">{totalCount}</p>
+            <p className="text-[13px] text-gray-500 mt-1.5">
+              terms across{' '}
+              <span className="text-gray-400">{sessions.length} session{sessions.length !== 1 ? 's' : ''}</span>
+            </p>
+          </>
+        )}
+
+        {/* Search */}
         {!loading && totalCount > 0 && (
-          <div className="mb-4">
+          <div className="relative mt-5">
+            <svg
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-600 pointer-events-none"
+              width="15" height="15" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+            >
+              <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
             <input
               type="text"
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search terms..."
-              className="w-full bg-white/[0.05] border border-white/[0.08] rounded-2xl px-4 py-3 text-[14px] text-white placeholder-gray-700 focus:outline-none focus:border-violet-500/40 transition-all"
+              className="w-full pl-10 pr-4 py-3 bg-white/[0.05] border border-white/[0.08] rounded-2xl text-[14px] text-white placeholder-gray-700 focus:outline-none focus:border-violet-500/40 focus:bg-white/[0.07] transition-all"
             />
           </div>
         )}
+      </div>
 
+      {/* List */}
+      <div className="flex-1 overflow-y-auto px-4 sm:px-6 pb-6">
         {loading && (
-          <div className="animate-pulse space-y-6">
-            {[0, 1, 2].map(i => (
+          <div className="animate-pulse space-y-7">
+            {[4, 3, 5].map((count, i) => (
               <div key={i}>
-                <div className="h-3 w-36 bg-white/[0.06] rounded-full mb-3" />
-                <div className="space-y-2">
-                  {[0, 1, 2].map(j => (
-                    <div key={j} className="bg-white/[0.03] border border-white/[0.06] rounded-2xl px-4 py-3">
-                      <div className="h-3.5 w-28 bg-white/[0.08] rounded-full mb-2" />
-                      <div className="h-3 w-4/5 bg-white/[0.05] rounded-full" />
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="h-5 w-8 bg-violet-500/10 rounded-full" />
+                  <div className="h-3 w-28 bg-white/[0.05] rounded-full" />
+                  <div className="flex-1 h-px bg-white/[0.04]" />
+                  <div className="h-3 w-12 bg-white/[0.04] rounded-full" />
+                </div>
+                <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl overflow-hidden">
+                  {Array.from({ length: count }).map((_, j) => (
+                    <div key={j} className={`px-4 py-4 flex gap-3 ${j > 0 ? 'border-t border-white/[0.04]' : ''}`}>
+                      <div className="w-[3px] shrink-0 rounded-full bg-white/[0.06] self-stretch" />
+                      <div className="flex-1">
+                        <div className="h-4 w-32 bg-white/[0.08] rounded-full mb-2" />
+                        <div className="h-3 w-full bg-white/[0.05] rounded-full" />
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -124,41 +169,79 @@ export default function Glossary() {
         )}
 
         {!loading && totalCount === 0 && (
-          <div className="flex flex-col items-center justify-center py-16 text-center gap-2">
-            <p className="text-gray-500 text-[15px] font-medium">No terms yet</p>
-            <p className="text-gray-700 text-[13px]">Record a lecture to start building your glossary.</p>
+          <div className="flex flex-col items-center justify-center py-20 text-center gap-2">
+            <div className="w-12 h-12 rounded-2xl bg-white/[0.04] border border-white/[0.07] flex items-center justify-center mb-2">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="text-gray-600">
+                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+              </svg>
+            </div>
+            <p className="text-[15px] font-medium text-gray-400">No terms yet</p>
+            <p className="text-[13px] text-gray-700">Record a lecture to start building your glossary.</p>
           </div>
         )}
 
-        {!loading && totalCount > 0 && filteredSessions.length === 0 && filteredOrphans.length === 0 && (
-          <p className="text-center text-gray-600 text-[14px] py-10">No results for &ldquo;{search}&rdquo;</p>
+        {!loading && totalCount > 0 && !hasResults && (
+          <p className="text-center text-gray-600 text-[14px] py-12">No results for &ldquo;{search}&rdquo;</p>
         )}
 
-        {!loading && (
-          <div className="space-y-6">
+        {!loading && hasResults && (
+          <div className="space-y-7">
             {filteredSessions.map(s => (
               <div key={s.id}>
-                <p className="text-[10px] font-bold tracking-[0.18em] text-gray-600 uppercase mb-2">
-                  Session {s.number} · {fmtDate(s.started_at)}
-                </p>
-                <div className="space-y-2">
-                  {s.terms.map(t => (
-                    <div key={t.id} className="bg-white/[0.03] border border-white/[0.06] rounded-2xl px-4 py-3">
-                      <p className="text-[14px] font-medium text-white/90">{t.term}</p>
-                      <p className="text-[12px] text-gray-500 mt-1 leading-relaxed">{t.definition}</p>
+                {/* Session header */}
+                <div className="flex items-center gap-2.5 mb-3">
+                  <span className="text-[11px] font-bold text-violet-400 bg-violet-500/[0.12] border border-violet-500/20 rounded-full px-2.5 py-[3px] shrink-0 tabular-nums">
+                    #{s.number}
+                  </span>
+                  <span className="text-[13px] text-gray-500 shrink-0">{fmtDate(s.started_at)}</span>
+                  {s.subject && (
+                    <span className="text-[11px] text-gray-700 bg-white/[0.04] border border-white/[0.06] rounded-full px-2 py-[2px] truncate max-w-[100px]">
+                      {s.subject}
+                    </span>
+                  )}
+                  <div className="flex-1 h-px bg-white/[0.05]" />
+                  <span className="text-[11px] text-gray-700 shrink-0 tabular-nums">
+                    {s.terms.length} term{s.terms.length !== 1 ? 's' : ''}
+                  </span>
+                </div>
+
+                {/* Terms list */}
+                <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl overflow-hidden">
+                  {s.terms.map((t, i) => (
+                    <div
+                      key={t.id}
+                      className={`flex gap-3 px-4 py-4 ${i > 0 ? 'border-t border-white/[0.04]' : ''}`}
+                    >
+                      <div className="w-[3px] shrink-0 rounded-full bg-violet-500/30 my-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[15px] font-semibold text-white/90 leading-snug">{t.term}</p>
+                        <p className="text-[13px] text-gray-500 mt-1 leading-relaxed">{t.definition}</p>
+                      </div>
                     </div>
                   ))}
                 </div>
               </div>
             ))}
+
             {filteredOrphans.length > 0 && (
               <div>
-                <p className="text-[10px] font-bold tracking-[0.18em] text-gray-600 uppercase mb-2">Other</p>
-                <div className="space-y-2">
-                  {filteredOrphans.map(t => (
-                    <div key={t.id} className="bg-white/[0.03] border border-white/[0.06] rounded-2xl px-4 py-3">
-                      <p className="text-[14px] font-medium text-white/90">{t.term}</p>
-                      <p className="text-[12px] text-gray-500 mt-1 leading-relaxed">{t.definition}</p>
+                <div className="flex items-center gap-2.5 mb-3">
+                  <span className="text-[11px] font-bold text-gray-600 uppercase tracking-[0.14em]">Other</span>
+                  <div className="flex-1 h-px bg-white/[0.05]" />
+                </div>
+                <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl overflow-hidden">
+                  {filteredOrphans.map((t, i) => (
+                    <div
+                      key={t.id}
+                      className={`flex gap-3 px-4 py-4 ${i > 0 ? 'border-t border-white/[0.04]' : ''}`}
+                    >
+                      <div className="w-[3px] shrink-0 rounded-full bg-white/[0.15] my-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[15px] font-semibold text-white/90 leading-snug">{t.term}</p>
+                        <p className="text-[13px] text-gray-500 mt-1 leading-relaxed">{t.definition}</p>
+                      </div>
                     </div>
                   ))}
                 </div>
