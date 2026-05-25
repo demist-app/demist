@@ -352,14 +352,14 @@ export default function LandingClient() {
           className="text-[30px] sm:text-[42px] font-bold tracking-tight mb-4 leading-tight"
           {...scrollAnim(extRef.visible, 80)}
         >
-          Definitions and Concepts explained seamlessly,{' '}
-          <span className="text-gray-600 font-normal">anytime, anywhere.</span>
+          Keep your notes open.{' '}
+          <span className="text-gray-600 font-normal">Terms show in a side panel.</span>
         </h2>
         <p
-          className="text-gray-600 text-[15px] leading-relaxed mb-10 max-w-[460px] mx-auto"
+          className="text-gray-600 text-[15px] leading-relaxed mb-10 max-w-[480px] mx-auto"
           {...scrollAnim(extRef.visible, 160)}
         >
-          The Demist extension shows you definitions on any page: lecture slides, YouTube, PDFs, reading lists. Connects to your web app automatically.
+          Start recording in Demist, then switch to your lecture slides or notes. The Chrome extension keeps a live panel open on the side showing every term as it's detected, without covering your screen.
         </p>
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3" {...scrollAnim(extRef.visible, 240)}>
@@ -396,13 +396,15 @@ export default function LandingClient() {
 
         {!CHROME_STORE_URL && (
           <div className="mt-8 bg-white/[0.03] border border-white/[0.06] rounded-2xl px-6 py-5 max-w-sm mx-auto text-left" {...scrollAnim(extRef.visible, 320)}>
-            <p className="text-[11px] font-bold tracking-[0.16em] text-gray-600 uppercase mb-3">Manual install (beta)</p>
-            <ol className="space-y-2">
+            <p className="text-[11px] font-bold tracking-[0.16em] text-gray-600 uppercase mb-3">Install in 60 seconds (beta)</p>
+            <ol className="space-y-2.5">
               {[
-                'Download and unzip the file',
-                'Go to chrome://extensions',
-                'Enable Developer mode (top right)',
-                'Click Load unpacked → select the folder',
+                'Click Download beta above and save the zip file',
+                'Unzip it — you will get a single folder called demist-extension',
+                'In Chrome, go to chrome://extensions',
+                'Turn on Developer mode using the toggle in the top right',
+                'Click Load unpacked and select the demist-extension folder',
+                'Pin the extension, open Demist, and click the icon to open the side panel',
               ].map((step, i) => (
                 <li key={i} className="flex items-start gap-2.5">
                   <span className="text-[11px] font-bold text-violet-500/50 mt-[3px] shrink-0 tabular-nums">{String(i + 1).padStart(2, '0')}</span>

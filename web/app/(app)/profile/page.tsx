@@ -104,7 +104,7 @@ export default function Profile() {
   const handleSignOut = async () => {
     await createClient().auth.signOut()
     posthog.reset()
-    router.replace('/login')
+    window.location.replace('/')
   }
 
   const togglePublic = async () => {

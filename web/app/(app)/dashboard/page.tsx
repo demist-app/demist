@@ -266,13 +266,35 @@ export default function Dashboard() {
       })
       if (!filtered.length) return
 
-      // Rate limit: at most 1 popup every 30 seconds
+      // Save ALL filtered terms — popup is rate-limited separately
+      const { data: saved } = await supabase
+        .from('terms')
+        .insert(filtered.map(t => ({
+          user_id: userIdRef.current,
+          session_id: sessionId,
+          term: t.term,
+          definition: t.definition,
+          subject: profileRef.current?.course,
+        })))
+        .select('id, term, definition')
+
+      // Update frequency map for every saved term
+      for (const t of filtered) {
+        const key = t.term.toLowerCase()
+        termFrequencyRef.current.set(key, (termFrequencyRef.current.get(key) ?? 0) + 1)
+      }
+
+      if (saved?.length) {
+        setSessionGlossary(prev => [...saved.map((s: { term: string; definition: string }) => ({ term: s.term, definition: s.definition })), ...prev])
+      }
+
+      // Popup: show at most 1 card every 30 seconds (display only)
       const now = Date.now()
-      const rateLimited = filtered.slice(0, now - lastPopupAtRef.current >= 30_000 ? 1 : 0)
-      if (!rateLimited.length) return
+      const toShow = filtered.slice(0, now - lastPopupAtRef.current >= 30_000 ? 1 : 0)
+      if (!toShow.length) return
       lastPopupAtRef.current = now
 
-      const incoming: LiveTerm[] = rateLimited.map(t => ({
+      const incoming: LiveTerm[] = toShow.map(t => ({
         id: `${Date.now()}-${Math.random()}`,
         term: t.term,
         definition: t.definition,
@@ -292,31 +314,13 @@ export default function Dashboard() {
         }, 8000)
       })
 
-      const { data: saved } = await supabase
-        .from('terms')
-        .insert(incoming.map(t => ({
-          user_id: userIdRef.current,
-          session_id: sessionId,
-          term: t.term,
-          definition: t.definition,
-          subject: profileRef.current?.course,
-        })))
-        .select('id, term, definition')
-
-      // Update frequency map
-      for (const t of incoming) {
-        const key = t.term.toLowerCase()
-        termFrequencyRef.current.set(key, (termFrequencyRef.current.get(key) ?? 0) + 1)
-      }
-
-      // Attach DB ids to live terms so "I know this" can update them
+      // Attach DB ids to popup terms so "I know this" can update them
       if (saved?.length) {
         const dbMap = Object.fromEntries(saved.map((s: { id: string; term: string }) => [s.term.toLowerCase(), s.id]))
         setLiveTerms(prev => prev.map(t => {
           const dbId = dbMap[t.term.toLowerCase()]
           return dbId ? { ...t, dbId } : t
         }))
-        setSessionGlossary(prev => [...saved.map((s: { term: string; definition: string }) => ({ term: s.term, definition: s.definition })), ...prev])
       }
     } catch (e) {
       console.error('processChunk error:', e)
