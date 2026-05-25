@@ -43,7 +43,7 @@ const EXTENSION_DOWNLOAD_URL = '/demist-extension.zip'
 const FEATURES = [
   {
     title: 'Listens while you take notes',
-    body: 'Demist uses your microphone to pick up what your lecturer says. When it hears an unfamiliar term, it looks it up and shows you the definition - no Googling, no pausing.',
+    body: 'Demist uses your microphone to pick up what your lecturer says. When it hears an unfamiliar term, it explains the concept on screen - not a dictionary definition, but a plain explanation tailored to your subject and year.',
     Icon: MicIcon,
   },
   {
@@ -179,7 +179,7 @@ export default function LandingClient() {
           className="text-gray-500 text-[16px] sm:text-[18px] leading-relaxed mb-10 max-w-[480px]"
           {...anim(240)}
         >
-          Hit record before your lecture. Demist shows you the definition on screen. No more confusion. No more distractions while you're still listening.
+          Hit record before your lecture. When your lecturer says something you don't recognise, Demist explains the concept on screen - in the context of your subject, at your level.
         </p>
 
         <div className="flex flex-col sm:flex-row items-center gap-3 mb-16" {...anim(320)}>
