@@ -237,17 +237,16 @@ export default function Profile() {
               <span className="text-gray-600 text-[18px] leading-none">{exporting ? '...' : exported ? '✓' : '↓'}</span>
             </button>
             {exported && (
-              <div className="border-t border-white/[0.05] px-4 py-4 space-y-4">
+              <div className="border-t border-white/[0.05] px-4 py-4 space-y-5">
                 <div>
-                  <p className="text-[11px] font-bold tracking-[0.14em] text-violet-400/70 uppercase mb-3">Import on desktop</p>
+                  <p className="text-[11px] font-bold tracking-[0.14em] text-violet-400/70 uppercase mb-3">Android (AnkiDroid)</p>
                   <ol className="space-y-2">
                     {[
-                      'Open Anki on your computer',
-                      'Click File in the menu bar, then Import',
-                      'Select the downloaded demist-flashcards.txt file',
-                      'Set "Fields separated by" to Tab',
-                      'Map Field 1 to Front, Field 2 to Back',
-                      'Click Import. Your cards will appear in a new deck.',
+                      'Download the file above',
+                      'Open AnkiDroid',
+                      'Tap the three-dot menu in the top right',
+                      'Tap Import, then select demist-flashcards.txt',
+                      'Your cards will appear in a new deck',
                     ].map((step, i) => (
                       <li key={i} className="flex items-start gap-2.5">
                         <span className="text-[11px] font-bold text-violet-500/50 shrink-0 tabular-nums mt-[2px]">{i + 1}.</span>
@@ -257,8 +256,37 @@ export default function Profile() {
                   </ol>
                 </div>
                 <div>
-                  <p className="text-[11px] font-bold tracking-[0.14em] text-violet-400/70 uppercase mb-2">Using on mobile</p>
-                  <p className="text-[12px] text-gray-500 leading-relaxed">After importing on desktop, open Anki and click Sync. Your cards will appear in AnkiMobile or AnkiDroid automatically. AnkiDroid also supports direct file import via the menu if you prefer.</p>
+                  <p className="text-[11px] font-bold tracking-[0.14em] text-violet-400/70 uppercase mb-3">iPhone (AnkiMobile)</p>
+                  <ol className="space-y-2">
+                    {[
+                      'Download the file above',
+                      'Open the Downloads folder in the Files app',
+                      'Tap and hold demist-flashcards.txt',
+                      'Tap Share, then Copy to AnkiMobile',
+                      'AnkiMobile will import the cards automatically',
+                    ].map((step, i) => (
+                      <li key={i} className="flex items-start gap-2.5">
+                        <span className="text-[11px] font-bold text-violet-500/50 shrink-0 tabular-nums mt-[2px]">{i + 1}.</span>
+                        <span className="text-[12px] text-gray-500">{step}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+                <div>
+                  <p className="text-[11px] font-bold tracking-[0.14em] text-violet-400/70 uppercase mb-3">Desktop (Anki)</p>
+                  <ol className="space-y-2">
+                    {[
+                      'Download the file above',
+                      'Open Anki, click File then Import',
+                      'Select demist-flashcards.txt',
+                      'Set "Fields separated by" to Tab, then click Import',
+                    ].map((step, i) => (
+                      <li key={i} className="flex items-start gap-2.5">
+                        <span className="text-[11px] font-bold text-violet-500/50 shrink-0 tabular-nums mt-[2px]">{i + 1}.</span>
+                        <span className="text-[12px] text-gray-500">{step}</span>
+                      </li>
+                    ))}
+                  </ol>
                 </div>
                 <p className="text-[11px] text-gray-700">Cards are tagged with your course name so they are easy to find.</p>
               </div>
