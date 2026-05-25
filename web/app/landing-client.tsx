@@ -352,8 +352,8 @@ export default function LandingClient() {
           className="text-[30px] sm:text-[42px] font-bold tracking-tight mb-4 leading-tight"
           {...scrollAnim(extRef.visible, 80)}
         >
-          Definitions on any page,{' '}
-          <span className="text-gray-600 font-normal">not just in the app.</span>
+          Definitions and Concepts explained seamlessly,{' '}
+          <span className="text-gray-600 font-normal">anytime, anywhere.</span>
         </h2>
         <p
           className="text-gray-600 text-[15px] leading-relaxed mb-10 max-w-[460px] mx-auto"
