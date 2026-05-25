@@ -237,24 +237,30 @@ export default function Profile() {
               <span className="text-gray-600 text-[18px] leading-none">{exporting ? '...' : exported ? '✓' : '↓'}</span>
             </button>
             {exported && (
-              <div className="border-t border-white/[0.05] px-4 py-4">
-                <p className="text-[11px] font-bold tracking-[0.14em] text-violet-400/70 uppercase mb-3">How to import into Anki</p>
-                <ol className="space-y-2">
-                  {[
-                    'Open Anki on your computer',
-                    'Click File in the menu bar, then Import',
-                    'Select the downloaded demist-flashcards.txt file',
-                    'Set "Fields separated by" to Tab',
-                    'Map Field 1 to Front, Field 2 to Back',
-                    'Click Import — your cards will appear in a Demist deck',
-                  ].map((step, i) => (
-                    <li key={i} className="flex items-start gap-2.5">
-                      <span className="text-[11px] font-bold text-violet-500/50 shrink-0 tabular-nums mt-[2px]">{i + 1}.</span>
-                      <span className="text-[12px] text-gray-500">{step}</span>
-                    </li>
-                  ))}
-                </ol>
-                <p className="text-[11px] text-gray-700 mt-3">Tags are set to your course name so cards are easy to find.</p>
+              <div className="border-t border-white/[0.05] px-4 py-4 space-y-4">
+                <div>
+                  <p className="text-[11px] font-bold tracking-[0.14em] text-violet-400/70 uppercase mb-3">Import on desktop</p>
+                  <ol className="space-y-2">
+                    {[
+                      'Open Anki on your computer',
+                      'Click File in the menu bar, then Import',
+                      'Select the downloaded demist-flashcards.txt file',
+                      'Set "Fields separated by" to Tab',
+                      'Map Field 1 to Front, Field 2 to Back',
+                      'Click Import. Your cards will appear in a new deck.',
+                    ].map((step, i) => (
+                      <li key={i} className="flex items-start gap-2.5">
+                        <span className="text-[11px] font-bold text-violet-500/50 shrink-0 tabular-nums mt-[2px]">{i + 1}.</span>
+                        <span className="text-[12px] text-gray-500">{step}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+                <div>
+                  <p className="text-[11px] font-bold tracking-[0.14em] text-violet-400/70 uppercase mb-2">Using on mobile</p>
+                  <p className="text-[12px] text-gray-500 leading-relaxed">After importing on desktop, open Anki and click Sync. Your cards will appear in AnkiMobile or AnkiDroid automatically. AnkiDroid also supports direct file import via the menu if you prefer.</p>
+                </div>
+                <p className="text-[11px] text-gray-700">Cards are tagged with your course name so they are easy to find.</p>
               </div>
             )}
           </div>
