@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import posthog from 'posthog-js'
 
@@ -50,6 +51,7 @@ export default function Flashcards() {
   const [newCount, setNewCount] = useState(0)
   const [saving, setSaving] = useState(false)
   const [stuckOnLast, setStuckOnLast] = useState(false)
+  const [reviewedCards, setReviewedCards] = useState<FlashCard[]>([])
 
   useEffect(() => {
     const supabase = createClient()
@@ -135,7 +137,7 @@ export default function Flashcards() {
     }
 
     setStuckOnLast(false)
-
+    setReviewedCards(prev => [...prev, current])
     setReviewed(r => r + 1)
     if (queue.length === 0) {
       setPhase('done')
@@ -181,22 +183,50 @@ export default function Flashcards() {
       )}
 
       {phase === 'empty' && (
-        <div className="flex-1 flex flex-col items-center justify-center px-8 text-center gap-4">
-          <div className="text-[44px]">🎉</div>
-          <h2 className="text-[22px] font-bold">All caught up</h2>
-          <p className="text-gray-500 text-[15px] leading-relaxed">
-            No cards due for review. Record a lecture to add new terms.
-          </p>
+        <div className="flex-1 flex flex-col px-4 sm:px-6 py-8">
+          <div className="flex flex-col items-center text-center gap-3 mb-8">
+            <p className="text-[22px] font-bold">All caught up</p>
+            <p className="text-gray-500 text-[14px] leading-relaxed max-w-xs">
+              No cards due today. Record a lecture to add more terms.
+            </p>
+            <Link
+              href="/history"
+              className="mt-2 px-5 py-2.5 rounded-2xl bg-white/[0.05] border border-white/[0.09] text-[14px] font-medium text-gray-400 hover:text-white hover:bg-white/[0.08] transition-all"
+            >
+              Browse past sessions
+            </Link>
+          </div>
         </div>
       )}
 
       {phase === 'done' && (
-        <div className="flex-1 flex flex-col items-center justify-center px-8 text-center gap-4">
-          <div className="text-[44px]">✅</div>
-          <h2 className="text-[22px] font-bold">Session complete</h2>
-          <p className="text-gray-500 text-[15px]">
-            You reviewed {reviewed} card{reviewed !== 1 ? 's' : ''}. Check back tomorrow.
-          </p>
+        <div className="flex-1 flex flex-col px-4 sm:px-6 py-6 overflow-y-auto">
+          <div className="flex flex-col items-center text-center gap-2 mb-6">
+            <p className="text-[22px] font-bold">Session done</p>
+            <p className="text-gray-500 text-[14px]">
+              {reviewed} card{reviewed !== 1 ? 's' : ''} reviewed. Come back tomorrow for the next batch.
+            </p>
+            <Link
+              href="/history"
+              className="mt-2 px-5 py-2.5 rounded-2xl bg-white/[0.05] border border-white/[0.09] text-[14px] font-medium text-gray-400 hover:text-white hover:bg-white/[0.08] transition-all"
+            >
+              Browse past sessions
+            </Link>
+          </div>
+
+          {reviewedCards.length > 0 && (
+            <>
+              <p className="text-[10px] font-bold tracking-[0.18em] text-gray-600 uppercase mb-3">Cards you just reviewed</p>
+              <div className="space-y-2">
+                {reviewedCards.map(c => (
+                  <div key={c.id} className="bg-white/[0.03] border border-white/[0.06] rounded-2xl px-4 py-3">
+                    <p className="text-[14px] font-medium text-white/90">{c.term}</p>
+                    <p className="text-[12px] text-gray-500 mt-1 leading-relaxed">{c.definition}</p>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       )}
 
