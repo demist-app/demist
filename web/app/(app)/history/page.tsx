@@ -14,6 +14,7 @@ interface SessionTerm {
 
 interface Session {
   id: string
+  name: string | null
   subject: string | null
   synopsis: string | null
   transcript: string | null
@@ -60,6 +61,8 @@ export default function History() {
   const [confirmingId, setConfirmingId] = useState<string | null>(null)
   const [generatingIds, setGeneratingIds] = useState<Set<string>>(new Set())
   const [failedIds, setFailedIds] = useState<Set<string>>(new Set())
+  const [editingNameId, setEditingNameId] = useState<string | null>(null)
+  const [nameInput, setNameInput] = useState('')
   const summarizingRef = useRef(new Set<string>())
 
   useEffect(() => {
@@ -71,7 +74,7 @@ export default function History() {
       const [{ data: sessionsRaw }, { count }] = await Promise.all([
         supabase
           .from('sessions')
-          .select('id, subject, synopsis, transcript, started_at, ended_at')
+          .select('id, name, subject, synopsis, transcript, started_at, ended_at')
           .eq('user_id', user.id)
           .order('started_at', { ascending: false })
           .limit(100),
@@ -96,6 +99,7 @@ export default function History() {
 
       setSessions(sessionsRaw.map(s => ({
         ...s,
+        name: (s as { name?: string | null }).name ?? null,
         synopsis: s.synopsis ?? null,
         transcript: (s as { transcript?: string | null }).transcript ?? null,
         termCount: countMap[s.id] ?? 0,
@@ -201,6 +205,19 @@ export default function History() {
     setDeletingId(null)
   }
 
+  const startRename = (s: Session) => {
+    setEditingNameId(s.id)
+    setNameInput(s.name ?? '')
+    setConfirmingId(null)
+  }
+
+  const saveSessionName = async (id: string) => {
+    const name = nameInput.trim() || null
+    setEditingNameId(null)
+    setSessions(prev => prev.map(s => s.id === id ? { ...s, name } : s))
+    await createClient().from('sessions').update({ name }).eq('id', id)
+  }
+
   const sessionNumber = (i: number) => totalCount - i
 
   const grouped: { label: string; sessions: { s: Session; n: number }[] }[] = []
@@ -264,13 +281,31 @@ export default function History() {
                   className="bg-white/[0.03] border border-white/[0.06] rounded-2xl overflow-hidden"
                 >
                   <div className="flex items-center px-4 py-3 gap-3">
-                    <div
-                      onClick={() => { if (s.termCount === 0) return; setConfirmingId(null); toggleExpand(s.id) }}
-                      className={`flex-1 min-w-0 ${s.termCount > 0 ? 'cursor-pointer' : 'cursor-default'}`}
-                    >
-                      <p className="text-[14px] font-medium text-white/90 truncate">
-                        {sessionLabel(n, s.started_at)}
-                      </p>
+                    <div className="flex-1 min-w-0">
+                      {editingNameId === s.id ? (
+                        <input
+                          autoFocus
+                          value={nameInput}
+                          onChange={e => setNameInput(e.target.value)}
+                          onBlur={() => saveSessionName(s.id)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') saveSessionName(s.id)
+                            if (e.key === 'Escape') setEditingNameId(null)
+                          }}
+                          placeholder={sessionLabel(n, s.started_at)}
+                          maxLength={80}
+                          className="text-[14px] font-medium bg-transparent border-b border-violet-500/50 focus:outline-none text-white/90 w-full pb-0.5"
+                        />
+                      ) : (
+                        <div
+                          className="flex items-center gap-1.5 group"
+                          onClick={() => { if (s.termCount === 0) return; setConfirmingId(null); toggleExpand(s.id) }}
+                        >
+                          <p className={`text-[14px] font-medium truncate ${s.termCount > 0 ? 'cursor-pointer' : ''} ${s.name ? 'text-white/90' : 'text-gray-400'}`}>
+                            {s.name || sessionLabel(n, s.started_at)}
+                          </p>
+                        </div>
+                      )}
                       <p className="text-[12px] text-gray-600 mt-0.5">
                         {fmtTime(s.started_at)} · {fmtDuration(s.started_at, s.ended_at)}
                       </p>
@@ -299,13 +334,22 @@ export default function History() {
                           </button>
                         </div>
                       ) : (
-                        <button
-                          onClick={() => setConfirmingId(s.id)}
-                          title="Delete session"
-                          className="text-gray-700 hover:text-red-400 transition-colors p-1"
-                        >
-                          <TrashIcon />
-                        </button>
+                        <div className="flex items-center gap-0.5">
+                          <button
+                            onClick={() => startRename(s)}
+                            title="Rename session"
+                            className="text-gray-700 hover:text-violet-400 transition-colors p-1"
+                          >
+                            <PencilIcon />
+                          </button>
+                          <button
+                            onClick={() => setConfirmingId(s.id)}
+                            title="Delete session"
+                            className="text-gray-700 hover:text-red-400 transition-colors p-1"
+                          >
+                            <TrashIcon />
+                          </button>
+                        </div>
                       )}
 
                       {s.termCount > 0 && (
@@ -394,6 +438,16 @@ function ChevronIcon({ expanded }: { expanded: boolean }) {
       className={`text-gray-600 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}
     >
       <polyline points="6 9 12 15 18 9" />
+    </svg>
+  )
+}
+
+function PencilIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
     </svg>
   )
 }

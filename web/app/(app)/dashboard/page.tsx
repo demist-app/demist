@@ -23,6 +23,7 @@ interface SessionTerm {
 
 interface RecentSession {
   id: string
+  name: string | null
   started_at: string
   ended_at: string | null
   termCount: number
@@ -184,7 +185,7 @@ export default function Dashboard() {
         supabase.from('sessions').select('started_at').eq('user_id', user.id).order('started_at', { ascending: false }),
         supabase.from('terms').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('known', false).gt('sm2_review_count', 0).lte('sm2_due_at', now.toISOString()),
         supabase.from('terms').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('known', false).eq('sm2_review_count', 0),
-        supabase.from('sessions').select('id, started_at, ended_at, synopsis, transcript').eq('user_id', user.id).order('started_at', { ascending: false }).limit(5),
+        supabase.from('sessions').select('id, name, started_at, ended_at, synopsis, transcript').eq('user_id', user.id).order('started_at', { ascending: false }).limit(5),
         supabase.from('sessions').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
       ])
       totalSessionCountRef.current = totalCount ?? 0
@@ -216,7 +217,7 @@ export default function Dashboard() {
         const countMap: Record<string, number> = {}
         for (const r of termRows ?? []) countMap[r.session_id] = (countMap[r.session_id] ?? 0) + 1
         const tc = totalSessionCountRef.current
-        setRecentSessions(sessionsRaw.map((s, i) => ({ id: s.id, started_at: s.started_at, ended_at: s.ended_at, termCount: countMap[s.id] ?? 0, sessionNumber: tc - i, synopsis: (s as { synopsis?: string | null }).synopsis ?? null, transcript: (s as { transcript?: string | null }).transcript ?? null, expanded: false })))
+        setRecentSessions(sessionsRaw.map((s, i) => ({ id: s.id, name: (s as { name?: string | null }).name ?? null, started_at: s.started_at, ended_at: s.ended_at, termCount: countMap[s.id] ?? 0, sessionNumber: tc - i, synopsis: (s as { synopsis?: string | null }).synopsis ?? null, transcript: (s as { transcript?: string | null }).transcript ?? null, expanded: false })))
       }
 
       setLoading(false)
@@ -408,7 +409,7 @@ export default function Dashboard() {
 
     // Refresh recent sessions list
     const [{ data: sessionsRaw }, { count: newTotal }] = await Promise.all([
-      supabase.from('sessions').select('id, started_at, ended_at, synopsis, transcript')
+      supabase.from('sessions').select('id, name, started_at, ended_at, synopsis, transcript')
         .eq('user_id', userIdRef.current!).order('started_at', { ascending: false }).limit(5),
       supabase.from('sessions').select('id', { count: 'exact', head: true }).eq('user_id', userIdRef.current!),
     ])
@@ -419,7 +420,7 @@ export default function Dashboard() {
       const countMap: Record<string, number> = {}
       for (const r of termRows ?? []) countMap[r.session_id] = (countMap[r.session_id] ?? 0) + 1
       const tc = totalSessionCountRef.current
-      setRecentSessions(sessionsRaw.map((s: { id: string; started_at: string; ended_at: string | null; synopsis?: string | null; transcript?: string | null }, i: number) => ({ id: s.id, started_at: s.started_at, ended_at: s.ended_at, termCount: countMap[s.id] ?? 0, sessionNumber: tc - i, synopsis: s.synopsis ?? null, transcript: s.transcript ?? null, expanded: false })))
+      setRecentSessions(sessionsRaw.map((s: { id: string; name?: string | null; started_at: string; ended_at: string | null; synopsis?: string | null; transcript?: string | null }, i: number) => ({ id: s.id, name: s.name ?? null, started_at: s.started_at, ended_at: s.ended_at, termCount: countMap[s.id] ?? 0, sessionNumber: tc - i, synopsis: s.synopsis ?? null, transcript: s.transcript ?? null, expanded: false })))
     }
 
     // Save transcript + generate synopsis after 6s (lets the last processChunk finish first)
@@ -697,8 +698,8 @@ export default function Dashboard() {
                           className={`flex items-center gap-3 px-4 py-3 ${s.termCount > 0 ? 'cursor-pointer hover:bg-white/[0.02] transition-colors' : ''}`}
                         >
                           <div className="flex-1 min-w-0">
-                            <p className="text-[14px] font-medium text-white/90 truncate">
-                              {sessionLabel(s.sessionNumber, s.started_at)}
+                            <p className={`text-[14px] font-medium truncate ${s.name ? 'text-white/90' : 'text-gray-400'}`}>
+                              {s.name || sessionLabel(s.sessionNumber, s.started_at)}
                             </p>
                             <p className="text-[12px] text-gray-600 mt-0.5">{fmtRelative(s.started_at)}</p>
                           </div>

@@ -13,9 +13,9 @@ interface Term {
 
 interface GlossarySession {
   id: string
+  name: string | null
   started_at: string
   subject: string | null
-  number: number
   terms: Term[]
 }
 
@@ -42,14 +42,13 @@ export default function Glossary() {
         { data: sessionsData },
       ] = await Promise.all([
         supabase.from('terms').select('id, term, definition, session_id').eq('user_id', user.id).order('created_at', { ascending: true }),
-        supabase.from('sessions').select('id, started_at, subject').eq('user_id', user.id).order('started_at', { ascending: true }),
+        supabase.from('sessions').select('id, name, started_at, subject').eq('user_id', user.id).order('started_at', { ascending: true }),
       ])
 
       const allTerms = (termsData ?? []) as Term[]
-      const allSessions = (sessionsData ?? []) as { id: string; started_at: string; subject: string | null }[]
+      const allSessions = (sessionsData ?? []) as { id: string; name: string | null; started_at: string; subject: string | null }[]
       setTotalCount(allTerms.length)
 
-      const sessionNumberMap = new Map(allSessions.map((s, i) => [s.id, i + 1]))
       const sessionIdSet = new Set(allSessions.map(s => s.id))
       const sessionMetaMap = new Map(allSessions.map(s => [s.id, s]))
 
@@ -69,9 +68,9 @@ export default function Glossary() {
         .filter(s => grouped.has(s.id))
         .map(s => ({
           id: s.id,
+          name: sessionMetaMap.get(s.id)?.name ?? null,
           started_at: s.started_at,
           subject: sessionMetaMap.get(s.id)?.subject ?? null,
-          number: sessionNumberMap.get(s.id) ?? 0,
           terms: grouped.get(s.id)!,
         }))
         .reverse()
@@ -192,10 +191,12 @@ export default function Glossary() {
               <div key={s.id}>
                 {/* Session header */}
                 <div className="flex items-center gap-2.5 mb-3">
-                  <span className="text-[11px] font-bold text-violet-400 bg-violet-500/[0.12] border border-violet-500/20 rounded-full px-2.5 py-[3px] shrink-0 tabular-nums">
-                    #{s.number}
+                  <span className={`text-[13px] font-semibold shrink-0 truncate max-w-[180px] ${s.name ? 'text-white/80' : 'text-gray-500'}`}>
+                    {s.name || fmtDate(s.started_at)}
                   </span>
-                  <span className="text-[13px] text-gray-500 shrink-0">{fmtDate(s.started_at)}</span>
+                  {s.name && (
+                    <span className="text-[12px] text-gray-600 shrink-0">{fmtDate(s.started_at)}</span>
+                  )}
                   {s.subject && (
                     <span className="text-[11px] text-gray-700 bg-white/[0.04] border border-white/[0.06] rounded-full px-2 py-[2px] truncate max-w-[100px]">
                       {s.subject}
