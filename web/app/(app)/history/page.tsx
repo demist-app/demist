@@ -97,14 +97,34 @@ export default function History() {
       const countMap: Record<string, number> = {}
       for (const r of termRows ?? []) countMap[r.session_id] = (countMap[r.session_id] ?? 0) + 1
 
-      setSessions(sessionsRaw.map(s => ({
+      const built = sessionsRaw.map(s => ({
         ...s,
         name: (s as { name?: string | null }).name ?? null,
         synopsis: s.synopsis ?? null,
         transcript: (s as { transcript?: string | null }).transcript ?? null,
         termCount: countMap[s.id] ?? 0,
         expanded: false,
-      })))
+        terms: undefined as SessionTerm[] | undefined,
+      }))
+
+      // Auto-expand session linked from dashboard "+N more" click
+      const targetId = new URLSearchParams(window.location.search).get('session')
+      if (targetId && built.find(s => s.id === targetId)) {
+        const { data: termsData } = await supabase
+          .from('terms')
+          .select('id, term, definition, known')
+          .eq('session_id', targetId)
+          .order('created_at', { ascending: true })
+        const idx = built.findIndex(s => s.id === targetId)
+        if (idx !== -1) {
+          built[idx] = { ...built[idx], terms: (termsData ?? []) as SessionTerm[], expanded: true }
+        }
+        setTimeout(() => {
+          document.getElementById(`session-${targetId}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }, 150)
+      }
+
+      setSessions(built)
       setLoading(false)
     })()
   }, [])
@@ -278,6 +298,7 @@ export default function History() {
               {group.sessions.map(({ s, n }) => (
                 <div
                   key={s.id}
+                  id={`session-${s.id}`}
                   className="bg-white/[0.03] border border-white/[0.06] rounded-2xl overflow-hidden"
                 >
                   <div className="flex items-center px-4 py-3 gap-3">
@@ -415,7 +436,7 @@ export default function History() {
                       {s.transcript && (
                         <div className="mt-4 pt-3 border-t border-white/[0.04]">
                           <p className="text-[10px] font-bold tracking-[0.15em] text-gray-600 uppercase mb-2">Transcript</p>
-                          <TranscriptViewer transcript={s.transcript} subject={s.subject} year={null} terms={s.terms?.map(t => ({ term: t.term, definition: t.definition }))} />
+                          <TranscriptViewer transcript={s.transcript} subject={s.subject} year={null} sessionId={s.id} terms={s.terms?.map(t => ({ term: t.term, definition: t.definition }))} />
                         </div>
                       )}
                     </div>

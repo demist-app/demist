@@ -7,6 +7,8 @@ interface Popup {
   term: string
   definition: string | null
   loading: boolean
+  saving: boolean
+  saved: boolean
   x: number
   y: number
 }
@@ -52,11 +54,13 @@ export function TranscriptViewer({
   subject,
   year,
   terms,
+  sessionId,
 }: {
   transcript: string
   subject: string | null
   year: number | null
   terms?: TermHint[]
+  sessionId?: string
 }) {
   const [popup, setPopup] = useState<Popup | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -64,7 +68,7 @@ export function TranscriptViewer({
   const showAt = (term: string, definition: string | null, loading: boolean, el: Element) => {
     const rect = el.getBoundingClientRect()
     const x = Math.min(Math.max(rect.left + rect.width / 2, 140), window.innerWidth - 140)
-    setPopup({ term, definition, loading, x, y: rect.top })
+    setPopup({ term, definition, loading, saving: false, saved: false, x, y: rect.top })
   }
 
   const handleTermClick = (term: string, definition: string, e: React.PointerEvent<HTMLSpanElement>) => {
@@ -84,7 +88,7 @@ export function TranscriptViewer({
 
     const rect = range.getBoundingClientRect()
     const x = Math.min(Math.max(rect.left + rect.width / 2, 140), window.innerWidth - 140)
-    setPopup({ term: text, definition: null, loading: true, x, y: rect.top })
+    setPopup({ term: text, definition: null, loading: true, saving: false, saved: false, x, y: rect.top })
 
     try {
       const supabase = createClient()
@@ -100,6 +104,28 @@ export function TranscriptViewer({
       setPopup(prev => prev ? { ...prev, definition: def, loading: false } : null)
     } catch {
       setPopup(null)
+    }
+  }
+
+  const saveFlashcard = async () => {
+    if (!popup?.definition || !sessionId) return
+    setPopup(prev => prev ? { ...prev, saving: true } : null)
+    try {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const term = popup.term.length > 80 ? popup.term.slice(0, 77) + '...' : popup.term
+      await supabase.from('terms').insert({
+        user_id: user.id,
+        session_id: sessionId,
+        term,
+        definition: popup.definition,
+        subject: subject ?? null,
+      })
+      setPopup(prev => prev ? { ...prev, saving: false, saved: true } : null)
+      setTimeout(() => setPopup(null), 1600)
+    } catch {
+      setPopup(prev => prev ? { ...prev, saving: false } : null)
     }
   }
 
@@ -147,7 +173,18 @@ export function TranscriptViewer({
           {popup.loading ? (
             <p className="text-[12px] text-gray-600">Looking up...</p>
           ) : popup.definition ? (
-            <p className="text-[12px] text-gray-400 leading-relaxed">{popup.definition}</p>
+            <>
+              <p className="text-[12px] text-gray-400 leading-relaxed mb-2.5">{popup.definition}</p>
+              {sessionId && (
+                <button
+                  onClick={saveFlashcard}
+                  disabled={popup.saving || popup.saved}
+                  className="w-full text-[12px] font-medium py-1.5 rounded-lg bg-violet-600/20 hover:bg-violet-600/30 text-violet-400 hover:text-violet-300 transition-all disabled:opacity-50"
+                >
+                  {popup.saved ? 'Saved to flashcards ✓' : popup.saving ? 'Saving...' : '+ Save as flashcard'}
+                </button>
+              )}
+            </>
           ) : (
             <p className="text-[12px] text-gray-600">No definition found.</p>
           )}

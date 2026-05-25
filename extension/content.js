@@ -1,3 +1,4 @@
+// Relay events from the web app to the extension background
 window.addEventListener('message', (e) => {
   if (e.source !== window || e.data?.source !== 'demist') return
   const { type, term, definition } = e.data
@@ -7,5 +8,12 @@ window.addEventListener('message', (e) => {
     chrome.runtime.sendMessage({ type: 'DEMIST_RECORDING_STARTED' }).catch(() => {})
   } else if (type === 'recording-stopped') {
     chrome.runtime.sendMessage({ type: 'DEMIST_RECORDING_STOPPED' }).catch(() => {})
+  }
+})
+
+// Relay start/stop commands from background to the web app
+chrome.runtime.onMessage.addListener((msg) => {
+  if (msg.type === 'DEMIST_COMMAND') {
+    window.postMessage({ source: 'demist-ext', command: msg.command }, '*')
   }
 })

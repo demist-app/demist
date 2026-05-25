@@ -3,7 +3,7 @@
   "name": "Demist",
   "version": "1.0.0",
   "description": "Live term cards from your Demist recording session",
-  "permissions": ["sidePanel"],
+  "permissions": ["sidePanel", "tabs"],
   "host_permissions": [
     "*://localhost:*/*",
     "https://*.vercel.app/*",

@@ -114,6 +114,8 @@ export default function Dashboard() {
   const lastPopupAtRef = useRef<number>(0)
   const sessionSummarizingRef = useRef(new Set<string>())
   const transcriptRef = useRef<string>('')
+  const startRecordingRef = useRef<() => Promise<void>>(() => Promise.resolve())
+  const stopRecordingRef = useRef<() => Promise<void>>(() => Promise.resolve())
 
   // Audio visualizer refs
   const ring1Ref = useRef<HTMLSpanElement | null>(null)
@@ -159,6 +161,17 @@ export default function Dashboard() {
       if (barsRef.current) Array.from(barsRef.current.children).forEach(b => { (b as HTMLElement).style.height = '4px' })
     }
   }, [isRecording])
+
+  useEffect(() => {
+    const handler = (e: MessageEvent) => {
+      if (e.source !== window || (e.data as Record<string, unknown>)?.source !== 'demist-ext') return
+      const cmd = (e.data as Record<string, unknown>).command
+      if (cmd === 'start-recording' && !isActiveRef.current) startRecordingRef.current()
+      else if (cmd === 'stop-recording' && isActiveRef.current) stopRecordingRef.current()
+    }
+    window.addEventListener('message', handler)
+    return () => window.removeEventListener('message', handler)
+  }, [])
 
   useEffect(() => {
     const supabase = createClient()
@@ -288,6 +301,11 @@ export default function Dashboard() {
         setSessionGlossary(prev => [...saved.map((s: { term: string; definition: string }) => ({ term: s.term, definition: s.definition })), ...prev])
       }
 
+      // Send ALL detected terms to the extension side panel
+      for (const t of filtered) {
+        window.postMessage({ source: 'demist', type: 'term', term: t.term, definition: t.definition }, '*')
+      }
+
       // Popup: show at most 1 card every 30 seconds (display only)
       const now = Date.now()
       const toShow = filtered.slice(0, now - lastPopupAtRef.current >= 30_000 ? 1 : 0)
@@ -302,10 +320,6 @@ export default function Dashboard() {
       }))
 
       setLiveTerms(prev => [...prev, ...incoming].slice(-3))
-
-      incoming.forEach(t => {
-        window.postMessage({ source: 'demist', type: 'term', term: t.term, definition: t.definition }, '*')
-      })
 
       incoming.forEach(({ id }) => {
         setTimeout(() => {
@@ -522,6 +536,9 @@ export default function Dashboard() {
     maybeGenerateOnDashboard({ ...target, terms })
   }
 
+
+  startRecordingRef.current = startRecording
+  stopRecordingRef.current = stopRecording
 
   if (loading) return (
     <main className="min-h-dvh bg-[#080810] text-white flex flex-col overflow-hidden nav-bottom-pad">
@@ -748,7 +765,7 @@ export default function Dashboard() {
                                   ))}
                                 </div>
                                 {s.terms.length > 3 && (
-                                  <Link href="/history" className="inline-block mt-2 text-[12px] text-violet-500 hover:text-violet-400 transition-colors">
+                                  <Link href={`/history?session=${s.id}`} className="inline-block mt-2 text-[12px] text-violet-500 hover:text-violet-400 transition-colors">
                                     +{s.terms.length - 3} more in History
                                   </Link>
                                 )}
