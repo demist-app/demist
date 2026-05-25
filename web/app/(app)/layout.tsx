@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase'
 const NAV = [
   { href: '/dashboard', label: 'Home', icon: HomeIcon },
   { href: '/flashcards', label: 'Flashcards', icon: CardsIcon },
+  { href: '/glossary', label: 'Glossary', icon: GlossaryIcon },
   { href: '/history', label: 'History', icon: HistoryIcon },
   { href: '/profile', label: 'Profile', icon: ProfileIcon },
 ]
@@ -114,6 +115,16 @@ function HistoryIcon({ active }: { active: boolean }) {
       strokeWidth={active ? 2 : 1.6} strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="9" />
       <polyline points="12 7 12 12 15 15" />
+    </svg>
+  )
+}
+
+function GlossaryIcon({ active }: { active: boolean }) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth={active ? 2 : 1.6} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
     </svg>
   )
 }

@@ -68,12 +68,12 @@ export default function Profile() {
         { data: prof },
         { count: termCount },
         { count: sessionCount },
-        { data: recentTerms },
+        { data: recentSessions7d },
       ] = await Promise.all([
         supabase.from('profiles').select('display_name, course, year_of_study, is_public').eq('id', user.id).maybeSingle(),
         supabase.from('terms').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
         supabase.from('sessions').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
-        supabase.from('terms').select('created_at').eq('user_id', user.id).gte('created_at', weekAgo),
+        supabase.from('sessions').select('started_at').eq('user_id', user.id).gte('started_at', weekAgo),
       ])
 
       const p = prof as { display_name: string | null; course: string | null; year_of_study: number | null; is_public: boolean }
@@ -84,7 +84,7 @@ export default function Profile() {
       setIsPublic(p?.is_public ?? false)
       setTotalTerms(termCount ?? 0)
       setTotalSessions(sessionCount ?? 0)
-      setChartData(get7DayChart((recentTerms ?? []).map((t: { created_at: string }) => t.created_at)))
+      setChartData(get7DayChart((recentSessions7d ?? []).map((s: { started_at: string }) => s.started_at)))
     })()
   }, [])
 
@@ -189,21 +189,15 @@ export default function Profile() {
         </div>
 
         {/* Stats row */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl px-4 py-3">
-            <p className="text-[10px] text-gray-600 uppercase tracking-[0.12em]">Total terms</p>
-            <p className="text-[26px] font-bold leading-none mt-1">{totalTerms}</p>
-          </div>
-          <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl px-4 py-3">
-            <p className="text-[10px] text-gray-600 uppercase tracking-[0.12em]">Sessions</p>
-            <p className="text-[26px] font-bold leading-none mt-1">{totalSessions}</p>
-          </div>
+        <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl px-4 py-3">
+          <p className="text-[10px] text-gray-600 uppercase tracking-[0.12em]">Sessions</p>
+          <p className="text-[26px] font-bold leading-none mt-1">{totalSessions}</p>
         </div>
 
         {/* 7-day chart */}
         {chartData.some(d => d.count > 0) && (
           <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl px-4 py-4">
-            <p className="text-[10px] font-bold tracking-[0.18em] text-gray-600 uppercase mb-4">Terms this week</p>
+            <p className="text-[10px] font-bold tracking-[0.18em] text-gray-600 uppercase mb-4">Sessions this week</p>
             <div className="flex items-end gap-1.5 h-[52px]">
               {chartData.map((d, i) => {
                 const height = Math.max(3, Math.round((d.count / maxChart) * 44))
