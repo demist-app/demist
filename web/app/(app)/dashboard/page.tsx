@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import posthog from 'posthog-js'
-import { TranscriptViewer } from '../transcript-viewer'
+import { SummaryViewer } from '../summary-viewer'
 
 interface LiveTerm {
   id: string
@@ -33,11 +33,6 @@ interface RecentSession {
   terms?: SessionTerm[]
 }
 
-interface ChartDay {
-  label: string
-  count: number
-}
-
 interface Profile {
   course: string | null
   year_of_study: number | null
@@ -60,18 +55,6 @@ function calculateStreak(timestamps: string[]): number {
   return streak
 }
 
-function get7DayChart(timestamps: string[]): ChartDay[] {
-  const DAY_LABELS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
-  return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(); d.setDate(d.getDate() - (6 - i)); d.setHours(0,0,0,0)
-    const next = new Date(d.getTime() + 86400000)
-    const count = timestamps.filter(t => {
-      const ts = new Date(t).getTime()
-      return ts >= d.getTime() && ts < next.getTime()
-    }).length
-    return { label: DAY_LABELS[d.getDay()], count }
-  })
-}
 
 function fmtTime(s: number) {
   return `${String(Math.floor(s / 60)).padStart(2,'0')}:${String(s % 60).padStart(2,'0')}`
@@ -111,7 +94,6 @@ export default function Dashboard() {
   const [sessionGlossary, setSessionGlossary] = useState<{ term: string; definition: string }[]>([])
   const [profile, setProfile] = useState<Profile | null>(null)
   const [stats, setStats] = useState<Stats>({ streak: 0, termsThisWeek: 0, dueFlashcards: 0 })
-  const [chartData, setChartData] = useState<ChartDay[]>([])
   const [recentSessions, setRecentSessions] = useState<RecentSession[]>([])
   const [sessionGenIds, setSessionGenIds] = useState<Set<string>>(new Set())
   const [sessionFailIds, setSessionFailIds] = useState<Set<string>>(new Set())
@@ -226,10 +208,6 @@ export default function Dashboard() {
       const streak = calculateStreak((sessionDays ?? []).map(s => s.started_at))
       const dueFlashcards = (dueReviewCount ?? 0) + Math.min(15, newCardCount ?? 0)
       setStats({ streak, termsThisWeek, dueFlashcards })
-
-      // 7-day chart
-      const chart7 = get7DayChart((allTerms ?? []).filter(t => t.created_at >= weekAgo).map(t => t.created_at))
-      setChartData(chart7)
 
       // Recent sessions with term counts
       if (sessionsRaw?.length) {
@@ -427,7 +405,6 @@ export default function Dashboard() {
     const streak = calculateStreak((sessionDays ?? []).map((s: { started_at: string }) => s.started_at))
     const dueFlashcards = (dueReviewCount ?? 0) + Math.min(15, newCardCount ?? 0)
     setStats({ streak, termsThisWeek, dueFlashcards })
-    setChartData(get7DayChart((allTerms ?? []).filter(t => t.created_at >= weekAgo).map(t => t.created_at)))
 
     // Refresh recent sessions list
     const [{ data: sessionsRaw }, { count: newTotal }] = await Promise.all([
@@ -540,13 +517,6 @@ export default function Dashboard() {
     maybeGenerateOnDashboard({ ...target, terms })
   }
 
-  const toggleKnownSession = async (termId: string, currentlyKnown: boolean) => {
-    const supabase = createClient()
-    await supabase.from('terms').update({ known: !currentlyKnown }).eq('id', termId)
-    setRecentSessions(prev =>
-      prev.map(s => ({ ...s, terms: s.terms?.map(t => t.id === termId ? { ...t, known: !currentlyKnown } : t) }))
-    )
-  }
 
   if (loading) return (
     <main className="min-h-dvh bg-[#080810] text-white flex flex-col overflow-hidden nav-bottom-pad">
@@ -587,7 +557,6 @@ export default function Dashboard() {
     </main>
   )
 
-  const maxChart = Math.max(...chartData.map(d => d.count), 1)
 
   return (
     <main className="min-h-dvh bg-[#080810] text-white flex flex-col overflow-hidden nav-bottom-pad">
@@ -669,55 +638,57 @@ export default function Dashboard() {
           </>
         ) : (
           /* ── Home mode ── */
-          <>
-            {/* Stats row */}
-            <div className="shrink-0 grid grid-cols-3 gap-3 px-4 sm:px-6 pt-5 pb-1">
-              <StatCard label="Streak" value={`${stats.streak}d`} />
-              <StatCard label="This week" value={String(stats.termsThisWeek)} />
-              <StatCard label="Flashcards due" value={String(stats.dueFlashcards)} accent={stats.dueFlashcards > 0} />
-            </div>
+          <div className="flex-1 flex flex-col overflow-y-auto">
 
-            {/* 7-day chart */}
-            {chartData.some(d => d.count > 0) && (
-              <div className="shrink-0 px-4 sm:px-6 pt-4 pb-2">
-                <p className="text-[10px] font-bold tracking-[0.18em] text-gray-600 uppercase mb-3">7 days</p>
-                <div className="flex items-end gap-1.5 h-[52px]">
-                  {chartData.map((d, i) => {
-                    const height = Math.max(3, Math.round((d.count / maxChart) * 44))
-                    const isToday = i === chartData.length - 1
-                    return (
-                      <div key={i} className="flex flex-col items-center gap-1 flex-1">
-                        <div
-                          className={`w-full rounded-sm transition-all ${isToday ? 'bg-violet-500' : 'bg-white/[0.12]'}`}
-                          style={{ height: `${height}px` }}
-                        />
-                        <span className={`text-[9px] ${isToday ? 'text-violet-400' : 'text-gray-700'}`}>{d.label}</span>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Record button */}
-            <div className="shrink-0 flex flex-col items-center py-6">
+            {/* ── Record hero ── */}
+            <div className="shrink-0 flex flex-col items-center pt-10 pb-8 px-6">
               <button
                 ref={btnRef}
                 onClick={startRecording}
-                className="w-[88px] h-[88px] rounded-full bg-white/[0.07] border border-white/[0.11] hover:bg-white/[0.11] hover:border-violet-500/30 hover:shadow-[0_0_40px_rgba(139,92,246,0.18)] flex items-center justify-center transition-all duration-200 select-none"
+                className="w-[96px] h-[96px] rounded-full bg-white/[0.07] border border-white/[0.11] hover:bg-white/[0.11] hover:border-violet-500/30 hover:shadow-[0_0_48px_rgba(139,92,246,0.22)] flex items-center justify-center transition-all duration-200 select-none"
               >
                 <MicIcon />
               </button>
-              <p className="text-gray-500 text-sm mt-3">
-                {profile?.course ? `Ready for ${profile.course}` : 'Tap to start listening'}
+              <p className="text-white/80 font-medium text-[16px] mt-4">
+                {profile?.course ? `Ready for ${profile.course}` : 'Start a session'}
+              </p>
+              <p className="text-gray-600 text-[13px] mt-1">
+                Tap the mic before your lecture
               </p>
             </div>
 
-            {/* Recent sessions */}
-            <div className="flex-1 px-4 sm:px-6 pb-4 overflow-y-auto">
+            {/* ── Action cards ── */}
+            <div className="shrink-0 grid grid-cols-2 gap-3 px-4 sm:px-6 pb-5">
+              {stats.dueFlashcards > 0 ? (
+                <Link
+                  href="/flashcards"
+                  className="col-span-2 flex items-center justify-between bg-violet-600/10 border border-violet-500/25 rounded-2xl px-4 py-3 hover:bg-violet-600/15 transition-all"
+                >
+                  <div>
+                    <p className="text-[14px] font-semibold text-violet-300">{stats.dueFlashcards} flashcards due</p>
+                    <p className="text-[12px] text-violet-400/60 mt-0.5">Tap to review now</p>
+                  </div>
+                  <span className="text-violet-400 text-[20px] leading-none">›</span>
+                </Link>
+              ) : null}
+              <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl px-4 py-3">
+                <p className="text-[10px] text-gray-600 uppercase tracking-[0.12em]">Streak</p>
+                <p className="text-[24px] font-bold leading-none mt-1">{stats.streak}<span className="text-[14px] font-normal text-gray-600 ml-0.5">d</span></p>
+              </div>
+              <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl px-4 py-3">
+                <p className="text-[10px] text-gray-600 uppercase tracking-[0.12em]">This week</p>
+                <p className="text-[24px] font-bold leading-none mt-1">{stats.termsThisWeek}<span className="text-[14px] font-normal text-gray-600 ml-1">terms</span></p>
+              </div>
+            </div>
+
+            {/* ── Recent sessions ── */}
+            <div className="flex-1 px-4 sm:px-6 pb-4">
               {recentSessions.length > 0 ? (
                 <>
-                  <p className="text-[10px] font-bold tracking-[0.18em] text-gray-600 uppercase mb-3">Recent Sessions</p>
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-[10px] font-bold tracking-[0.18em] text-gray-600 uppercase">Recent Sessions</p>
+                    <Link href="/history" className="text-[12px] text-gray-600 hover:text-gray-400 transition-colors">See all</Link>
+                  </div>
                   <div className="space-y-2">
                     {recentSessions.map(s => (
                       <div key={s.id} className="bg-white/[0.03] border border-white/[0.06] rounded-2xl overflow-hidden">
@@ -739,50 +710,47 @@ export default function Dashboard() {
                             {s.termCount > 0 && <DashChevron expanded={s.expanded} />}
                           </div>
                         </div>
+
                         {s.expanded && (
                           <div className="px-4 pb-4 border-t border-white/[0.04]">
+                            {/* Summary */}
                             {s.synopsis ? (
-                              <p className="text-[13px] text-gray-500 leading-relaxed pt-3 pb-1">{s.synopsis}</p>
+                              <div className="pt-3">
+                                <SummaryViewer synopsis={s.synopsis} sessionId={s.id} subject={profile?.course ?? null} year={profile?.year_of_study ?? null} />
+                              </div>
                             ) : sessionGenIds.has(s.id) ? (
-                              <p className="text-[12px] text-gray-700 pt-3 pb-1">Generating summary…</p>
+                              <p className="text-[12px] text-gray-700 pt-3">Generating summary...</p>
                             ) : sessionFailIds.has(s.id) ? (
-                              <div className="flex items-center gap-3 pt-3 pb-1">
+                              <div className="flex items-center gap-3 pt-3">
                                 <p className="text-[12px] text-gray-700">Couldn't generate summary.</p>
                                 <button onClick={() => retrySessionSummarize(s)} className="text-[12px] text-violet-500 hover:text-violet-400 transition-colors shrink-0">Retry</button>
                               </div>
                             ) : null}
+
+                            {/* First 3 terms only */}
                             {sessionTermLoading === s.id && (
-                              <p className="text-gray-700 text-[13px] py-3">Loading…</p>
-                            )}
-                            {s.terms && s.terms.length === 0 && (
-                              <p className="text-gray-700 text-[13px] py-3">No terms detected.</p>
+                              <p className="text-gray-700 text-[13px] pt-3">Loading...</p>
                             )}
                             {s.terms && s.terms.length > 0 && (
-                              <div className="space-y-3 pt-3">
-                                {s.terms.map(t => (
-                                  <div key={t.id} className="flex items-start gap-3">
-                                    <div className="w-[3px] h-[3px] rounded-full bg-violet-500/60 mt-[9px] shrink-0" />
-                                    <div className="flex-1 min-w-0">
-                                      <div className="flex items-center gap-2">
-                                        <span className={`text-[13px] font-medium ${t.known ? 'text-gray-500 line-through' : 'text-white/90'}`}>{t.term}</span>
-                                        {t.known && <span className="text-[10px] text-emerald-500/70 font-medium shrink-0">known</span>}
-                                      </div>
-                                      <p className="text-[12px] text-gray-500 mt-0.5 leading-relaxed">{t.definition}</p>
-                                    </div>
-                                    <button
-                                      onClick={() => toggleKnownSession(t.id, t.known)}
-                                      title={t.known ? 'Mark as not known' : 'Mark as known'}
-                                      className={`shrink-0 mt-0.5 text-[18px] leading-none transition-colors ${t.known ? 'text-emerald-500 hover:text-gray-600' : 'text-gray-700 hover:text-emerald-500'}`}
-                                    >✓</button>
-                                  </div>
-                                ))}
+                              <div className="pt-3">
+                                <p className="text-[10px] font-bold tracking-[0.15em] text-gray-600 uppercase mb-2">Terms</p>
+                                <div className="space-y-1.5">
+                                  {s.terms.slice(0, 3).map(t => (
+                                    <p key={t.id} className="text-[13px] text-gray-500 leading-snug">
+                                      <span className="text-white/70 font-medium">{t.term}</span>
+                                      {' '}- {t.definition}
+                                    </p>
+                                  ))}
+                                </div>
+                                {s.terms.length > 3 && (
+                                  <Link href="/history" className="inline-block mt-2 text-[12px] text-violet-500 hover:text-violet-400 transition-colors">
+                                    +{s.terms.length - 3} more in History
+                                  </Link>
+                                )}
                               </div>
                             )}
-                            {s.transcript && (
-                              <div className="mt-4 pt-3 border-t border-white/[0.04]">
-                                <p className="text-[10px] font-bold tracking-[0.15em] text-gray-600 uppercase mb-2">Transcript</p>
-                                <TranscriptViewer transcript={s.transcript} subject={profile?.course ?? null} year={profile?.year_of_study ?? null} />
-                              </div>
+                            {s.terms && s.terms.length === 0 && (
+                              <p className="text-gray-700 text-[13px] pt-3">No terms detected.</p>
                             )}
                           </div>
                         )}
@@ -791,12 +759,13 @@ export default function Dashboard() {
                   </div>
                 </>
               ) : (
-                <p className="text-center text-gray-700 text-sm py-8">
-                  Start a session to build your glossary.
-                </p>
+                <div className="flex flex-col items-center justify-center py-10 text-center gap-2">
+                  <p className="text-gray-600 text-[14px]">No sessions yet.</p>
+                  <p className="text-gray-700 text-[13px]">Hit the mic above before your next lecture.</p>
+                </div>
               )}
             </div>
-          </>
+          </div>
         )}
       </div>
 
@@ -818,15 +787,6 @@ export default function Dashboard() {
 }
 
 // ─── Stat card ─────────────────────────────────────────────────────────────────
-
-function StatCard({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
-  return (
-    <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl px-3 py-3 flex flex-col gap-1">
-      <p className="text-[10px] text-gray-600 uppercase tracking-[0.12em]">{label}</p>
-      <p className={`text-[22px] font-bold leading-none ${accent ? 'text-violet-400' : 'text-white'}`}>{value}</p>
-    </div>
-  )
-}
 
 // ─── Term card ─────────────────────────────────────────────────────────────────
 

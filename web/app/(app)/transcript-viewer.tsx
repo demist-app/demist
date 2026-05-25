@@ -11,17 +11,66 @@ interface Popup {
   y: number
 }
 
+interface TermHint {
+  term: string
+  definition: string
+}
+
+type Segment =
+  | { highlight: false; content: string }
+  | { highlight: true; content: string; definition: string }
+
+function buildSegments(text: string, terms: TermHint[]): Segment[] {
+  if (!terms.length) return [{ highlight: false, content: text }]
+
+  // Longest terms first so "elasticity of demand" matches before "demand"
+  const sorted = [...terms].sort((a, b) => b.term.length - a.term.length)
+  let segs: Segment[] = [{ highlight: false, content: text }]
+
+  for (const { term, definition } of sorted) {
+    const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const re = new RegExp(`\\b${escaped}\\b`, 'gi')
+    const next: Segment[] = []
+    for (const seg of segs) {
+      if (seg.highlight) { next.push(seg); continue }
+      let last = 0
+      let m
+      while ((m = re.exec(seg.content)) !== null) {
+        if (m.index > last) next.push({ highlight: false, content: seg.content.slice(last, m.index) })
+        next.push({ highlight: true, content: m[0], definition })
+        last = m.index + m[0].length
+      }
+      if (last < seg.content.length) next.push({ highlight: false, content: seg.content.slice(last) })
+    }
+    segs = next
+  }
+  return segs
+}
+
 export function TranscriptViewer({
   transcript,
   subject,
   year,
+  terms,
 }: {
   transcript: string
   subject: string | null
   year: number | null
+  terms?: TermHint[]
 }) {
   const [popup, setPopup] = useState<Popup | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+
+  const showAt = (term: string, definition: string | null, loading: boolean, el: Element) => {
+    const rect = el.getBoundingClientRect()
+    const x = Math.min(Math.max(rect.left + rect.width / 2, 140), window.innerWidth - 140)
+    setPopup({ term, definition, loading, x, y: rect.top })
+  }
+
+  const handleTermClick = (term: string, definition: string, e: React.PointerEvent<HTMLSpanElement>) => {
+    e.stopPropagation()
+    showAt(term, definition, false, e.currentTarget)
+  }
 
   const handlePointerUp = async () => {
     const sel = window.getSelection()
@@ -35,7 +84,6 @@ export function TranscriptViewer({
 
     const rect = range.getBoundingClientRect()
     const x = Math.min(Math.max(rect.left + rect.width / 2, 140), window.innerWidth - 140)
-
     setPopup({ term: text, definition: null, loading: true, x, y: rect.top })
 
     try {
@@ -63,13 +111,27 @@ export function TranscriptViewer({
     return () => document.removeEventListener('mousedown', close)
   }, [])
 
+  const segments = buildSegments(transcript, terms ?? [])
+
   return (
     <div ref={containerRef} className="relative">
       <p
         className="text-[13px] text-gray-500 leading-relaxed select-text cursor-text whitespace-pre-wrap"
         onPointerUp={handlePointerUp}
       >
-        {transcript}
+        {segments.map((seg, i) =>
+          seg.highlight ? (
+            <span
+              key={i}
+              className="text-violet-400/80 underline decoration-violet-500/40 decoration-dotted underline-offset-2 cursor-pointer"
+              onPointerUp={e => handleTermClick(seg.content, seg.definition, e)}
+            >
+              {seg.content}
+            </span>
+          ) : (
+            seg.content
+          )
+        )}
       </p>
 
       {popup && (

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { TranscriptViewer } from '../transcript-viewer'
+import { SummaryViewer } from '../summary-viewer'
 
 interface SessionTerm {
   id: string
@@ -318,7 +319,9 @@ export default function History() {
                   {s.expanded && (
                     <div className="px-4 pb-4 border-t border-white/[0.04]">
                       {s.synopsis ? (
-                        <p className="text-[13px] text-gray-500 leading-relaxed pt-3 pb-1">{s.synopsis}</p>
+                        <div className="pt-3 pb-1">
+                          <SummaryViewer synopsis={s.synopsis} sessionId={s.id} subject={s.subject} year={null} />
+                        </div>
                       ) : generatingIds.has(s.id) ? (
                         <p className="text-[12px] text-gray-700 pt-3 pb-1">Generating summary…</p>
                       ) : failedIds.has(s.id) ? (
@@ -340,38 +343,35 @@ export default function History() {
                         <p className="text-gray-700 text-[13px] py-3">No terms detected.</p>
                       )}
                       {s.terms && s.terms.length > 0 && (
-                        <div className="space-y-3 pt-3">
-                          {s.terms.map(t => (
-                            <div key={t.id} className="flex items-start gap-3">
-                              <div className="w-[3px] h-[3px] rounded-full bg-violet-500/60 mt-[9px] shrink-0" />
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2">
-                                  <span className={`text-[13px] font-medium ${t.known ? 'text-gray-500 line-through' : 'text-white/90'}`}>
+                        <div className="pt-3">
+                          <p className="text-[10px] font-bold tracking-[0.15em] text-gray-600 uppercase mb-2">Terms</p>
+                          <div className="space-y-2">
+                            {s.terms.map(t => (
+                              <div key={t.id} className="flex items-start gap-3">
+                                <div className="flex-1 min-w-0">
+                                  <span className={`text-[13px] font-medium ${t.known ? 'text-gray-600 line-through' : 'text-white/80'}`}>
                                     {t.term}
                                   </span>
-                                  {t.known && (
-                                    <span className="text-[10px] text-emerald-500/70 font-medium shrink-0">known</span>
-                                  )}
+                                  <span className="text-gray-600 text-[13px]"> - {t.definition}</span>
                                 </div>
-                                <p className="text-[12px] text-gray-500 mt-0.5 leading-relaxed">{t.definition}</p>
+                                <button
+                                  onClick={() => toggleKnown(t.id, t.known)}
+                                  title={t.known ? 'Mark as not known' : 'Mark as known'}
+                                  className={`shrink-0 mt-0.5 text-[17px] leading-none transition-colors ${
+                                    t.known ? 'text-emerald-500 hover:text-gray-600' : 'text-gray-700 hover:text-emerald-500'
+                                  }`}
+                                >
+                                  ✓
+                                </button>
                               </div>
-                              <button
-                                onClick={() => toggleKnown(t.id, t.known)}
-                                title={t.known ? 'Mark as not known' : 'Mark as known'}
-                                className={`shrink-0 mt-0.5 text-[18px] leading-none transition-colors ${
-                                  t.known ? 'text-emerald-500 hover:text-gray-600' : 'text-gray-700 hover:text-emerald-500'
-                                }`}
-                              >
-                                ✓
-                              </button>
-                            </div>
-                          ))}
+                            ))}
+                          </div>
                         </div>
                       )}
                       {s.transcript && (
                         <div className="mt-4 pt-3 border-t border-white/[0.04]">
                           <p className="text-[10px] font-bold tracking-[0.15em] text-gray-600 uppercase mb-2">Transcript</p>
-                          <TranscriptViewer transcript={s.transcript} subject={s.subject} year={null} />
+                          <TranscriptViewer transcript={s.transcript} subject={s.subject} year={null} terms={s.terms?.map(t => ({ term: t.term, definition: t.definition }))} />
                         </div>
                       )}
                     </div>

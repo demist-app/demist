@@ -53,6 +53,8 @@ export default function Profile() {
   const [totalSessions, setTotalSessions] = useState(0)
   const [chartData, setChartData] = useState<ChartDay[]>([])
   const [userId, setUserId] = useState<string | null>(null)
+  const [exporting, setExporting] = useState(false)
+  const [exported, setExported] = useState(false)
 
   useEffect(() => {
     const supabase = createClient()
@@ -110,6 +112,36 @@ export default function Profile() {
     const next = !isPublic
     setIsPublic(next)
     await createClient().from('profiles').update({ is_public: next }).eq('id', userId)
+  }
+
+  const exportToAnki = async () => {
+    setExporting(true)
+    try {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data: terms } = await supabase
+        .from('terms')
+        .select('term, definition, subject')
+        .eq('user_id', user.id)
+        .eq('known', false)
+        .order('created_at', { ascending: true })
+      if (!terms?.length) return
+      const lines = terms.map(t => {
+        const tag = t.subject ? t.subject.replace(/\s+/g, '_') : 'Demist'
+        return `${t.term}\t${t.definition}\t${tag}`
+      })
+      const blob = new Blob([lines.join('\n')], { type: 'text/plain' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'demist-flashcards.txt'
+      a.click()
+      URL.revokeObjectURL(url)
+      setExported(true)
+    } finally {
+      setExporting(false)
+    }
   }
 
   const copyShareLink = async () => {
@@ -187,6 +219,44 @@ export default function Profile() {
                 )
               })}
             </div>
+          </div>
+        )}
+
+        {/* Anki export */}
+        {totalTerms > 0 && (
+          <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl overflow-hidden">
+            <button
+              onClick={exportToAnki}
+              disabled={exporting}
+              className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/[0.03] transition-all disabled:opacity-40"
+            >
+              <div className="text-left">
+                <p className="text-[14px] text-white/80 font-medium">Export to Anki</p>
+                <p className="text-[12px] text-gray-600 mt-0.5">{totalTerms} terms ready to export</p>
+              </div>
+              <span className="text-gray-600 text-[18px] leading-none">{exporting ? '...' : exported ? '✓' : '↓'}</span>
+            </button>
+            {exported && (
+              <div className="border-t border-white/[0.05] px-4 py-4">
+                <p className="text-[11px] font-bold tracking-[0.14em] text-violet-400/70 uppercase mb-3">How to import into Anki</p>
+                <ol className="space-y-2">
+                  {[
+                    'Open Anki on your computer',
+                    'Click File in the menu bar, then Import',
+                    'Select the downloaded demist-flashcards.txt file',
+                    'Set "Fields separated by" to Tab',
+                    'Map Field 1 to Front, Field 2 to Back',
+                    'Click Import — your cards will appear in a Demist deck',
+                  ].map((step, i) => (
+                    <li key={i} className="flex items-start gap-2.5">
+                      <span className="text-[11px] font-bold text-violet-500/50 shrink-0 tabular-nums mt-[2px]">{i + 1}.</span>
+                      <span className="text-[12px] text-gray-500">{step}</span>
+                    </li>
+                  ))}
+                </ol>
+                <p className="text-[11px] text-gray-700 mt-3">Tags are set to your course name so cards are easy to find.</p>
+              </div>
+            )}
           </div>
         )}
 
