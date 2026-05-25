@@ -48,12 +48,12 @@ const FEATURES = [
   },
   {
     title: 'Builds your glossary automatically',
-    body: 'Every term Demist picks up is saved to your account with its definition, organised by session. Nothing to copy, nothing to type.',
+    body: 'Every term Demist picks up is saved to your account with its definition. Nothing to copy, all automatic.',
     Icon: BookIcon,
   },
   {
     title: 'Drills you with flashcards',
-    body: 'Terms from your sessions are added to a flashcard queue automatically. Demist uses spaced repetition to schedule reviews, the method shown by memory research to produce better long-term retention than re-reading or cramming.',
+    body: <>Terms from your sessions are added to a flashcard queue automatically. Demist uses <span className="text-violet-400 font-medium">spaced repetition</span> to schedule reviews, the best proven method to study.</>,
     Icon: CardIcon,
   },
 ]
@@ -67,12 +67,12 @@ const STEPS = [
   {
     n: '02',
     title: 'Definitions pop up as your lecturer speaks',
-    body: 'When Demist hears a term you might not know, it shows you the definition in a small card on screen. It disappears after a few seconds. Nothing to click, nothing to search.',
+    body: 'When Demist hears a term you might not know, it shows you the definition in a small card on screen. Nothing to click, nothing to search.',
   },
   {
     n: '03',
     title: 'Your glossary is ready after class',
-    body: 'Every term Demist caught is saved with its definition. Flashcards quiz you using spaced repetition, the most researched technique for long-term memory, so what you review actually sticks.',
+    body: <>Every term Demist caught is saved with its definition. Flashcards quiz you using <span className="text-violet-400 font-medium">spaced repetition</span>, the most researched technique for long-term memory, so what you review actually sticks.</>,
   },
 ]
 
