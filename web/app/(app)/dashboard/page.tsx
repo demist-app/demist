@@ -45,8 +45,6 @@ interface Stats {
   dueFlashcards: number
 }
 
-// ─── SM-2 helpers ─────────────────────────────────────────────────────────────
-
 function calculateStreak(timestamps: string[]): number {
   if (!timestamps.length) return 0
   const today = new Date(); today.setHours(0, 0, 0, 0)
@@ -55,7 +53,6 @@ function calculateStreak(timestamps: string[]): number {
   while (days.has(cur)) { streak++; cur -= 86400000 }
   return streak
 }
-
 
 function fmtTime(s: number) {
   return `${String(Math.floor(s / 60)).padStart(2,'0')}:${String(s % 60).padStart(2,'0')}`
@@ -79,12 +76,9 @@ function sessionLabel(n: number, startedAt: string): string {
   return `Session ${n} · ${date}`
 }
 
-// Filter out non-English terms (catches Japanese, Chinese, Arabic, etc.)
 function isLatinTerm(term: string): boolean {
   return /^[\x20-\x7EÀ-ɏͰ-Ͽ\s'-]+$/.test(term)
 }
-
-// ─── Main component ────────────────────────────────────────────────────────────
 
 export default function Dashboard() {
   const [loading, setLoading] = useState(true)
@@ -117,7 +111,6 @@ export default function Dashboard() {
   const startRecordingRef = useRef<() => Promise<void>>(() => Promise.resolve())
   const stopRecordingRef = useRef<() => Promise<void>>(() => Promise.resolve())
 
-  // Audio visualizer refs
   const ring1Ref = useRef<HTMLSpanElement | null>(null)
   const ring2Ref = useRef<HTMLSpanElement | null>(null)
   const ring3Ref = useRef<HTMLSpanElement | null>(null)
@@ -206,7 +199,6 @@ export default function Dashboard() {
       profileRef.current = prof as Profile
       setProfile(prof as Profile)
 
-      // Build known + frequency maps for smart filtering
       const known = new Set<string>()
       const freq = new Map<string, number>()
       for (const t of allTerms ?? []) {
@@ -217,13 +209,11 @@ export default function Dashboard() {
       knownTermsRef.current = known
       termFrequencyRef.current = freq
 
-      // Stats
       const termsThisWeek = (allTerms ?? []).filter(t => t.created_at >= weekAgo).length
       const streak = calculateStreak((sessionDays ?? []).map(s => s.started_at))
       const dueFlashcards = (dueReviewCount ?? 0) + Math.min(15, newCardCount ?? 0)
       setStats({ streak, termsThisWeek, dueFlashcards })
 
-      // Recent sessions with term counts
       if (sessionsRaw?.length) {
         const ids = sessionsRaw.map(s => s.id)
         const { data: termRows } = await supabase.from('terms').select('session_id').in('session_id', ids)
@@ -270,7 +260,6 @@ export default function Dashboard() {
       const detected = await dtRes.json()
       if (!detected?.terms?.length) return
 
-      // Smart filter: English-only, skip known, skip seen 3+ times
       const filtered = (detected.terms as { term: string; definition: string }[]).filter(t => {
         const key = t.term.toLowerCase()
         return isLatinTerm(t.term) &&
@@ -279,7 +268,6 @@ export default function Dashboard() {
       })
       if (!filtered.length) return
 
-      // Save ALL filtered terms — popup is rate-limited separately
       const { data: saved } = await supabase
         .from('terms')
         .insert(filtered.map(t => ({
@@ -291,7 +279,6 @@ export default function Dashboard() {
         })))
         .select('id, term, definition')
 
-      // Update frequency map for every saved term
       for (const t of filtered) {
         const key = t.term.toLowerCase()
         termFrequencyRef.current.set(key, (termFrequencyRef.current.get(key) ?? 0) + 1)
@@ -301,12 +288,10 @@ export default function Dashboard() {
         setSessionGlossary(prev => [...saved.map((s: { term: string; definition: string }) => ({ term: s.term, definition: s.definition })), ...prev])
       }
 
-      // Send ALL detected terms to the extension side panel
       for (const t of filtered) {
         window.postMessage({ source: 'demist', type: 'term', term: t.term, definition: t.definition }, '*')
       }
 
-      // Popup: show at most 1 card every 30 seconds (display only)
       const now = Date.now()
       const toShow = filtered.slice(0, now - lastPopupAtRef.current >= 30_000 ? 1 : 0)
       if (!toShow.length) return
@@ -328,7 +313,6 @@ export default function Dashboard() {
         }, 8000)
       })
 
-      // Attach DB ids to popup terms so "I know this" can update them
       if (saved?.length) {
         const dbMap = Object.fromEntries(saved.map((s: { id: string; term: string }) => [s.term.toLowerCase(), s.id]))
         setLiveTerms(prev => prev.map(t => {
@@ -405,7 +389,6 @@ export default function Dashboard() {
     window.postMessage({ source: 'demist', type: 'recording-stopped' }, '*')
     posthog.capture('recording_stopped', { duration_seconds: elapsed })
 
-    // Refresh stats after session
     const supabase = createClient()
     const now = new Date()
     const weekAgo = new Date(now.getTime() - 7 * 86400000).toISOString()
@@ -425,7 +408,6 @@ export default function Dashboard() {
     const dueFlashcards = (dueReviewCount ?? 0) + Math.min(15, newCardCount ?? 0)
     setStats({ streak, termsThisWeek, dueFlashcards })
 
-    // Refresh recent sessions list
     const [{ data: sessionsRaw }, { count: newTotal }] = await Promise.all([
       supabase.from('sessions').select('id, name, started_at, ended_at, synopsis, transcript')
         .eq('user_id', userIdRef.current!).order('started_at', { ascending: false }).limit(5),
@@ -441,7 +423,6 @@ export default function Dashboard() {
       setRecentSessions(sessionsRaw.map((s: { id: string; name?: string | null; started_at: string; ended_at: string | null; synopsis?: string | null; transcript?: string | null }, i: number) => ({ id: s.id, name: s.name ?? null, started_at: s.started_at, ended_at: s.ended_at, termCount: countMap[s.id] ?? 0, sessionNumber: tc - i, synopsis: s.synopsis ?? null, transcript: s.transcript ?? null, expanded: false })))
     }
 
-    // Save transcript + generate synopsis after 6s (lets the last processChunk finish first)
     if (sid) {
       const capturedSid = sid
       const capturedSubject = profileRef.current?.course
@@ -536,41 +517,39 @@ export default function Dashboard() {
     maybeGenerateOnDashboard({ ...target, terms })
   }
 
-
   startRecordingRef.current = startRecording
   stopRecordingRef.current = stopRecording
 
   if (loading) return (
     <main className="min-h-dvh bg-[#080810] text-white flex flex-col overflow-hidden nav-bottom-pad">
       <header className="sm:hidden shrink-0 flex items-center px-6 h-14 border-b border-white/[0.05]">
-        <span className="font-semibold tracking-tight text-[15px]">Demist</span>
+        <span className="font-bold tracking-tight text-[15px]">Demist</span>
       </header>
       <div className="flex-1 flex flex-col overflow-y-auto animate-pulse">
-        <div className="shrink-0 grid grid-cols-3 gap-3 px-4 sm:px-6 pt-5 pb-1">
-          {[0,1,2].map(i => (
-            <div key={i} className="bg-white/[0.03] border border-white/[0.06] rounded-2xl px-3 py-3 flex flex-col gap-2.5">
-              <div className="h-2 w-14 bg-white/[0.06] rounded-full" />
-              <div className="h-7 w-10 bg-white/[0.08] rounded-md" />
+        <div className="shrink-0 flex flex-col items-center pt-12 pb-8 px-6 gap-3">
+          <div className="w-[96px] h-[96px] rounded-full bg-white/[0.06]" />
+          <div className="h-4 w-32 bg-white/[0.04] rounded-full" />
+          <div className="h-3 w-48 bg-white/[0.03] rounded-full" />
+        </div>
+        <div className="shrink-0 grid grid-cols-2 gap-3 px-4 sm:px-6 pb-5">
+          {[0,1].map(i => (
+            <div key={i} className="bg-white/[0.03] border border-white/[0.06] rounded-2xl px-4 py-4">
+              <div className="h-2 w-12 bg-white/[0.06] rounded-full mb-3" />
+              <div className="h-7 w-14 bg-white/[0.08] rounded-md" />
             </div>
           ))}
-        </div>
-        <div className="shrink-0 flex flex-col items-center py-6 gap-3">
-          <div className="w-[88px] h-[88px] rounded-full bg-white/[0.06]" />
-          <div className="h-3 w-32 bg-white/[0.05] rounded-full" />
         </div>
         <div className="flex-1 px-4 sm:px-6 pb-4">
           <div className="h-2 w-28 bg-white/[0.05] rounded-full mb-3" />
           <div className="space-y-2">
             {[0,1,2].map(i => (
-              <div key={i} className="flex items-center justify-between bg-white/[0.03] border border-white/[0.06] rounded-2xl px-4 py-3">
-                <div className="flex flex-col gap-2">
+              <div key={i} className="flex items-center gap-3 bg-white/[0.03] border border-white/[0.06] rounded-2xl px-4 py-3.5">
+                <div className="w-[2px] self-stretch rounded-full bg-white/[0.04]" />
+                <div className="flex-1 flex flex-col gap-2">
                   <div className="h-3.5 w-36 bg-white/[0.07] rounded-full" />
                   <div className="h-3 w-20 bg-white/[0.05] rounded-full" />
                 </div>
-                <div className="flex flex-col items-end gap-1.5">
-                  <div className="h-4 w-6 bg-white/[0.07] rounded" />
-                  <div className="h-2.5 w-8 bg-white/[0.05] rounded-full" />
-                </div>
+                <div className="h-5 w-12 bg-white/[0.05] rounded-full" />
               </div>
             ))}
           </div>
@@ -579,39 +558,48 @@ export default function Dashboard() {
     </main>
   )
 
-
   return (
     <main className="min-h-dvh bg-[#080810] text-white flex flex-col overflow-hidden nav-bottom-pad">
-      {/* Mobile-only header (desktop uses top nav from layout) */}
-      <header className="sm:hidden shrink-0 flex items-center px-6 h-14 border-b border-white/[0.05]">
+      {/* Ambient blobs */}
+      <div aria-hidden className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
+        <div
+          className="absolute -top-32 -left-32 w-[500px] h-[500px] rounded-full bg-violet-700/[0.06] blur-[120px]"
+          style={{ animation: 'blob-drift 22s ease-in-out infinite' }}
+        />
+        <div
+          className="absolute -bottom-24 -right-24 w-[380px] h-[380px] rounded-full bg-indigo-800/[0.05] blur-[100px]"
+          style={{ animation: 'blob-drift 28s ease-in-out infinite reverse' }}
+        />
+      </div>
+
+      {/* Mobile header */}
+      <header className="sm:hidden shrink-0 flex items-center px-6 h-14 border-b border-white/[0.05] relative z-20">
         {isRecording ? (
           <div className="flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
             <span className="font-mono text-[17px] tabular-nums">{fmtTime(elapsed)}</span>
-            {isProcessing && <span className="text-gray-600 text-[12px]">processing</span>}
+            {isProcessing && <span className="text-gray-600 text-[12px] ml-1">processing</span>}
           </div>
         ) : (
-          <Link href="/dashboard" className="font-semibold tracking-tight text-[15px] hover:text-violet-300 active:scale-95 transition-all duration-150 select-none">Demist</Link>
+          <Link href="/dashboard" className="font-bold tracking-tight text-[15px] hover:text-violet-300 active:scale-95 transition-all duration-150 select-none">Demist</Link>
         )}
       </header>
 
       {/* Body */}
-      <div className="flex-1 flex flex-col overflow-y-auto">
+      <div className="flex-1 flex flex-col overflow-y-auto relative z-10">
         {isRecording ? (
-          /* ── Recording mode ── */
           <>
-            {/* Ambient glow */}
+            {/* Red ambient glow during recording */}
             <div aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center z-0">
-              <div className="w-[700px] h-[700px] rounded-full bg-red-600/[0.05] blur-[120px]" />
+              <div className="w-[600px] h-[600px] rounded-full bg-red-600/[0.06] blur-[120px]" />
             </div>
 
-            {/* Visualizer zone */}
+            {/* Visualizer */}
             <div className="flex-1 flex flex-col items-center justify-center relative z-10">
-              {/* Desktop recording status (header is hidden on sm+) */}
               <div className="hidden sm:flex items-center gap-2 mb-6">
                 <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
                 <span className="font-mono text-[20px] tabular-nums">{fmtTime(elapsed)}</span>
-                {isProcessing && <span className="text-gray-600 text-[13px]">processing</span>}
+                {isProcessing && <span className="text-gray-600 text-[13px] ml-1">processing</span>}
               </div>
 
               <div className="relative flex items-center justify-center mb-6">
@@ -638,18 +626,17 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Session glossary */}
             {sessionGlossary.length > 0 && (
               <div className="shrink-0 px-4 sm:px-6 pb-4 max-h-[32vh] overflow-y-auto">
                 <p className="text-[10px] font-bold tracking-[0.18em] text-gray-600 uppercase mb-3 sticky top-0 bg-[#080810]">
                   This Session
                 </p>
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {sessionGlossary.map((t, i) => (
-                    <div key={i} className="flex gap-3">
-                      <div className="w-[3px] h-[3px] rounded-full bg-red-500/60 mt-[9px] shrink-0" />
-                      <div>
-                        <span className="text-[14px] font-medium text-white/90">{t.term}</span>
+                    <div key={i} className="flex gap-3 bg-white/[0.03] border border-white/[0.05] rounded-xl px-3 py-2.5">
+                      <div className="w-[2px] rounded-full bg-red-500/50 self-stretch shrink-0" />
+                      <div className="min-w-0">
+                        <span className="text-[13px] font-semibold text-white/90">{t.term}</span>
                         <p className="text-[12px] text-gray-500 mt-0.5 leading-relaxed">{t.definition}</p>
                       </div>
                     </div>
@@ -659,83 +646,97 @@ export default function Dashboard() {
             )}
           </>
         ) : (
-          /* ── Home mode ── */
+          /* Home mode */
           <div className="flex-1 flex flex-col overflow-y-auto">
 
-            {/* ── Record hero ── */}
-            <div className="shrink-0 flex flex-col items-center pt-10 pb-8 px-6">
-              <button
-                ref={btnRef}
-                onClick={startRecording}
-                className="w-[96px] h-[96px] rounded-full bg-white/[0.07] border border-white/[0.11] hover:bg-white/[0.11] hover:border-violet-500/30 hover:shadow-[0_0_48px_rgba(139,92,246,0.22)] flex items-center justify-center transition-all duration-200 select-none"
-              >
-                <MicIcon />
-              </button>
-              <p className="text-white/80 font-medium text-[16px] mt-4">
-                {profile?.course ? `Ready for ${profile.course}` : 'Start a session'}
+            {/* Mic hero */}
+            <div className="shrink-0 flex flex-col items-center pt-12 pb-8 px-6">
+              <div className="relative flex items-center justify-center mb-5">
+                <span className="absolute w-[130px] h-[130px] rounded-full bg-violet-600/[0.08]" style={{ animation: 'glow-float 4s ease-in-out infinite' }} />
+                <span className="absolute w-[162px] h-[162px] rounded-full bg-violet-600/[0.05]" style={{ animation: 'glow-float 4s ease-in-out -1.3s infinite' }} />
+                <span className="absolute w-[194px] h-[194px] rounded-full bg-violet-600/[0.025]" style={{ animation: 'glow-float 4s ease-in-out -2.7s infinite' }} />
+                <button
+                  ref={btnRef}
+                  onClick={startRecording}
+                  className="relative z-10 w-[96px] h-[96px] rounded-full bg-white/[0.07] border border-violet-500/30 hover:bg-violet-600/20 hover:border-violet-500/50 hover:shadow-[0_0_56px_rgba(139,92,246,0.3)] flex items-center justify-center transition-all duration-300 select-none"
+                >
+                  <MicIcon />
+                </button>
+              </div>
+              <p className="text-white/90 font-semibold text-[17px]">
+                {profile?.course ? `Ready for ${profile.course}` : 'Start recording'}
               </p>
-              <p className="text-gray-600 text-[13px] mt-1">
-                Tap the mic before your lecture
-              </p>
+              <p className="text-gray-600 text-[13px] mt-1.5">Tap the mic before your next lecture</p>
             </div>
 
-            {/* ── Action cards ── */}
+            {/* Stats */}
             <div className="shrink-0 grid grid-cols-2 gap-3 px-4 sm:px-6 pb-5">
-              {stats.dueFlashcards > 0 ? (
+              {stats.dueFlashcards > 0 && (
                 <Link
                   href="/flashcards"
-                  className="col-span-2 flex items-center justify-between bg-violet-600/10 border border-violet-500/25 rounded-2xl px-4 py-3 hover:bg-violet-600/15 transition-all"
+                  className="col-span-2 flex items-center justify-between bg-amber-500/[0.07] border border-amber-500/20 rounded-2xl px-4 py-3.5 hover:bg-amber-500/[0.11] transition-all group"
                 >
                   <div>
-                    <p className="text-[14px] font-semibold text-violet-300">{stats.dueFlashcards} flashcards due</p>
-                    <p className="text-[12px] text-violet-400/60 mt-0.5">Tap to review now</p>
+                    <p className="text-[14px] font-semibold text-amber-300">{stats.dueFlashcards} flashcards due</p>
+                    <p className="text-[12px] text-amber-400/50 mt-0.5">Review now to stay on track</p>
                   </div>
-                  <span className="text-violet-400 text-[20px] leading-none">›</span>
+                  <span className="text-amber-400/60 group-hover:text-amber-300 transition-colors text-[20px] leading-none">›</span>
                 </Link>
-              ) : null}
-              <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl px-4 py-3">
-                <p className="text-[10px] text-gray-600 uppercase tracking-[0.12em]">Streak</p>
-                <p className="text-[24px] font-bold leading-none mt-1">{stats.streak}<span className="text-[14px] font-normal text-gray-600 ml-0.5">d</span></p>
+              )}
+              <div className="bg-white/[0.03] border border-white/[0.07] rounded-2xl px-4 py-4">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                  <p className="text-[11px] text-gray-600 uppercase tracking-[0.12em]">Streak</p>
+                </div>
+                <p className="text-[28px] font-bold leading-none text-amber-400">
+                  {stats.streak}<span className="text-[14px] font-normal text-gray-600 ml-1">days</span>
+                </p>
               </div>
-              <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl px-4 py-3">
-                <p className="text-[10px] text-gray-600 uppercase tracking-[0.12em]">This week</p>
-                <p className="text-[24px] font-bold leading-none mt-1">{stats.termsThisWeek}<span className="text-[14px] font-normal text-gray-600 ml-1">terms</span></p>
+              <div className="bg-white/[0.03] border border-white/[0.07] rounded-2xl px-4 py-4">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-violet-500" />
+                  <p className="text-[11px] text-gray-600 uppercase tracking-[0.12em]">This week</p>
+                </div>
+                <p className="text-[28px] font-bold leading-none text-violet-400">
+                  {stats.termsThisWeek}<span className="text-[14px] font-normal text-gray-600 ml-1">terms</span>
+                </p>
               </div>
             </div>
 
-            {/* ── Recent sessions ── */}
+            {/* Recent sessions */}
             <div className="flex-1 px-4 sm:px-6 pb-4">
               {recentSessions.length > 0 ? (
                 <>
                   <div className="flex items-center justify-between mb-3">
-                    <p className="text-[10px] font-bold tracking-[0.18em] text-gray-600 uppercase">Recent Sessions</p>
-                    <Link href="/history" className="text-[12px] text-gray-600 hover:text-gray-400 transition-colors">See all</Link>
+                    <p className="text-[11px] font-bold tracking-[0.18em] text-gray-600 uppercase">Recent Sessions</p>
+                    <Link href="/history" className="text-[12px] text-violet-500/70 hover:text-violet-400 transition-colors">See all</Link>
                   </div>
                   <div className="space-y-2">
                     {recentSessions.map(s => (
-                      <div key={s.id} className="bg-white/[0.03] border border-white/[0.06] rounded-2xl overflow-hidden">
+                      <div key={s.id} className="bg-white/[0.03] border border-white/[0.07] rounded-2xl overflow-hidden hover:bg-white/[0.04] hover:border-white/[0.1] transition-all">
                         <div
                           onClick={() => s.termCount > 0 && toggleExpandSession(s.id)}
-                          className={`flex items-center gap-3 px-4 py-3 ${s.termCount > 0 ? 'cursor-pointer hover:bg-white/[0.02] transition-colors' : ''}`}
+                          className={`flex items-center gap-3 px-4 py-3.5 ${s.termCount > 0 ? 'cursor-pointer' : ''}`}
                         >
+                          <div className="w-[2px] self-stretch rounded-full bg-gradient-to-b from-violet-500/50 to-violet-500/10 shrink-0" />
                           <div className="flex-1 min-w-0">
-                            <p className={`text-[14px] font-medium truncate ${s.name ? 'text-white/90' : 'text-gray-400'}`}>
+                            <p className={`text-[14px] font-semibold truncate ${s.name ? 'text-white/90' : 'text-gray-400'}`}>
                               {s.name || sessionLabel(s.sessionNumber, s.started_at)}
                             </p>
                             <p className="text-[12px] text-gray-600 mt-0.5">{fmtRelative(s.started_at)}</p>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
-                            <div className="text-right">
-                              <p className="text-[14px] font-semibold text-violet-400">{s.termCount}</p>
-                              <p className="text-[11px] text-gray-600">terms</p>
-                            </div>
+                            {s.termCount > 0 && (
+                              <span className="bg-violet-500/10 border border-violet-500/20 rounded-full px-2.5 py-0.5 text-[12px] font-semibold text-violet-400 tabular-nums">
+                                {s.termCount}
+                              </span>
+                            )}
                             {s.termCount > 0 && <DashChevron expanded={s.expanded} />}
                           </div>
                         </div>
 
                         {s.expanded && (
                           <div className="px-4 pb-4 border-t border-white/[0.04]">
-                            {/* Summary */}
                             {s.synopsis ? (
                               <div className="pt-3">
                                 <SummaryViewer synopsis={s.synopsis} sessionId={s.id} subject={profile?.course ?? null} year={profile?.year_of_study ?? null} />
@@ -744,12 +745,11 @@ export default function Dashboard() {
                               <p className="text-[12px] text-gray-700 pt-3">Generating summary...</p>
                             ) : sessionFailIds.has(s.id) ? (
                               <div className="flex items-center gap-3 pt-3">
-                                <p className="text-[12px] text-gray-700">Couldn't generate summary.</p>
+                                <p className="text-[12px] text-gray-700">Could not generate summary.</p>
                                 <button onClick={() => retrySessionSummarize(s)} className="text-[12px] text-violet-500 hover:text-violet-400 transition-colors shrink-0">Retry</button>
                               </div>
                             ) : null}
 
-                            {/* First 3 terms only */}
                             {sessionTermLoading === s.id && (
                               <p className="text-gray-700 text-[13px] pt-3">Loading...</p>
                             )}
@@ -782,8 +782,15 @@ export default function Dashboard() {
                 </>
               ) : (
                 <div className="flex flex-col items-center justify-center py-10 text-center gap-2">
-                  <p className="text-gray-600 text-[14px]">No sessions yet.</p>
-                  <p className="text-gray-700 text-[13px]">Hit the mic above before your next lecture.</p>
+                  <div className="w-12 h-12 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center mb-1">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="text-gray-700">
+                      <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" />
+                      <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                      <line x1="12" y1="19" x2="12" y2="22" />
+                    </svg>
+                  </div>
+                  <p className="text-gray-600 text-[14px] font-medium">No sessions yet</p>
+                  <p className="text-gray-700 text-[13px]">Tap the mic above before your next lecture.</p>
                 </div>
               )}
             </div>
@@ -791,10 +798,8 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Term card overlay */}
-      <div
-        className="term-overlay-bottom fixed inset-x-0 flex flex-col gap-3 items-center px-4 sm:px-5 z-50 pointer-events-none"
-      >
+      {/* Term overlay */}
+      <div className="term-overlay-bottom fixed inset-x-0 flex flex-col gap-3 items-center px-4 sm:px-5 z-50 pointer-events-none">
         {liveTerms.map(t => (
           <TermCard
             key={t.id}
@@ -807,10 +812,6 @@ export default function Dashboard() {
     </main>
   )
 }
-
-// ─── Stat card ─────────────────────────────────────────────────────────────────
-
-// ─── Term card ─────────────────────────────────────────────────────────────────
 
 function TermCard({
   term,
@@ -852,15 +853,13 @@ function TermCard({
             onClick={onKnown}
             className="mt-3 text-[12px] text-gray-600 hover:text-violet-400 transition-colors"
           >
-            ✓ I already know this
+            I already know this
           </button>
         </div>
       </div>
     </div>
   )
 }
-
-// ─── Icons ─────────────────────────────────────────────────────────────────────
 
 function MicIcon() {
   return (

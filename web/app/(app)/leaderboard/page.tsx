@@ -34,14 +34,22 @@ export default function Leaderboard() {
 
   return (
     <main className="min-h-dvh bg-[#080810] text-white flex flex-col nav-bottom-pad">
-      <header className="sm:hidden shrink-0 flex items-center px-6 h-14 border-b border-white/[0.05]">
+      <div aria-hidden className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
+        <div className="absolute -top-32 right-0 w-[400px] h-[400px] rounded-full bg-amber-600/[0.04] blur-[110px]"
+          style={{ animation: 'blob-drift 25s ease-in-out infinite' }} />
+        <div className="absolute bottom-0 -left-20 w-[300px] h-[300px] rounded-full bg-violet-700/[0.05] blur-[90px]"
+          style={{ animation: 'blob-drift 20s ease-in-out infinite reverse' }} />
+      </div>
+
+      <header className="sm:hidden relative z-10 shrink-0 flex items-center px-6 h-14 border-b border-white/[0.05]">
         <span className="font-semibold tracking-tight text-[15px]">Leaderboard</span>
       </header>
 
-      <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-6">
+      <div className="relative z-10 flex-1 overflow-y-auto px-4 sm:px-6 py-6">
         <div className="mb-6">
-          <p className="text-[10px] font-bold tracking-[0.18em] text-gray-600 uppercase mb-1">This week</p>
-          <p className="text-[13px] text-gray-600">Top learners by terms picked up in the last 7 days</p>
+          <p className="text-[10px] font-bold tracking-[0.18em] text-gray-600 uppercase mb-2">Weekly rankings</p>
+          <p className="text-[22px] font-bold leading-tight">Top learners</p>
+          <p className="text-[13px] text-gray-500 mt-1">Terms picked up in the last 7 days</p>
         </div>
 
         {loading && (
@@ -101,10 +109,10 @@ export default function Leaderboard() {
                     <p className="text-[12px] text-gray-600 mt-0.5">{entry.total_terms} total</p>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className={`text-[18px] font-bold ${isYou ? 'text-violet-400' : 'text-white'}`}>
+                    <p className={`text-[20px] font-bold tabular-nums ${isYou ? 'text-violet-400' : i < 3 ? 'text-amber-400' : 'text-white/90'}`}>
                       {entry.terms_this_week}
                     </p>
-                    <p className="text-[11px] text-gray-600">this week</p>
+                    <p className="text-[10px] text-gray-600 uppercase tracking-[0.1em]">terms</p>
                   </div>
                 </a>
               )
@@ -115,7 +123,7 @@ export default function Leaderboard() {
         {!loading && !error && (
           <p className="text-center text-[12px] text-gray-700 mt-8">
             Enable your public profile in{' '}
-            <a href="/profile" className="text-violet-500/70 hover:text-violet-400 transition-colors">Settings</a>
+            <a href="/profile" className="text-violet-400/70 hover:text-violet-400 transition-colors">Settings</a>
             {' '}to appear here.
           </p>
         )}

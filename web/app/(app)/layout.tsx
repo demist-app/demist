@@ -47,8 +47,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <Link
               key={href}
               href={href}
-              className={`text-[14px] font-medium transition-colors ${
-                active ? 'text-white' : 'text-gray-500 hover:text-gray-300'
+              className={`flex items-center h-14 border-b-[2px] text-[14px] font-medium transition-all ${
+                active
+                  ? 'text-white border-violet-500/60'
+                  : 'text-gray-500 hover:text-gray-300 border-transparent'
               }`}
             >
               {label}

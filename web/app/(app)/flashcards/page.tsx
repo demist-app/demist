@@ -275,16 +275,15 @@ export default function Flashcards() {
               >
                 {/* Front */}
                 <div
-                  className="absolute inset-0 bg-white/[0.04] border border-white/[0.08] rounded-[24px] flex flex-col items-center justify-center p-8"
+                  className="absolute inset-0 bg-[#0d0d1c] border border-white/[0.09] rounded-[24px] flex flex-col items-center justify-center p-8"
                   style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' }}
                 >
-                  {current.isNew && (
-                    <span className="text-[10px] font-bold tracking-[0.18em] text-violet-500/60 uppercase mb-3">New</span>
+                  {current.isNew ? (
+                    <span className="text-[10px] font-bold tracking-[0.18em] text-violet-400/70 bg-violet-500/10 border border-violet-500/20 rounded-full px-3 py-1 uppercase mb-4">New</span>
+                  ) : (
+                    <span className="text-[10px] font-bold tracking-[0.18em] text-gray-500/70 bg-white/[0.04] border border-white/[0.06] rounded-full px-3 py-1 uppercase mb-4">Review</span>
                   )}
-                  {!current.isNew && (
-                    <span className="text-[10px] font-bold tracking-[0.18em] text-gray-600 uppercase mb-3">Review</span>
-                  )}
-                  <p className="text-[24px] font-bold text-center leading-snug">{current.term}</p>
+                  <p className="text-[26px] font-bold text-center leading-snug">{current.term}</p>
                   {!flipped && (
                     <p className="text-[12px] text-gray-700 mt-6">Tap to reveal definition</p>
                   )}
@@ -292,14 +291,16 @@ export default function Flashcards() {
 
                 {/* Back */}
                 <div
-                  className="absolute inset-0 bg-white/[0.04] border border-violet-500/20 rounded-[24px] flex flex-col items-center justify-center p-8"
+                  className="absolute inset-0 rounded-[24px] flex flex-col items-center justify-center p-8"
                   style={{
                     backfaceVisibility: 'hidden',
                     WebkitBackfaceVisibility: 'hidden',
                     transform: 'rotateY(180deg)',
+                    background: 'linear-gradient(160deg, rgba(139,92,246,0.07) 0%, #0d0d1c 60%)',
+                    border: '1px solid rgba(139,92,246,0.22)',
                   }}
                 >
-                  <p className="text-[11px] font-bold tracking-[0.18em] text-violet-500/70 uppercase mb-4">Definition</p>
+                  <p className="text-[11px] font-bold tracking-[0.18em] text-violet-400/60 uppercase mb-4">Definition</p>
                   <p className="text-[16px] text-gray-200 text-center leading-relaxed">{current.definition}</p>
                 </div>
               </div>

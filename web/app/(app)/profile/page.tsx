@@ -179,19 +179,31 @@ export default function Profile() {
       <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 space-y-6">
         {/* Avatar + name */}
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-full bg-violet-600/20 border border-violet-500/30 flex items-center justify-center text-[22px] font-bold text-violet-400 shrink-0">
+          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-violet-600/40 to-indigo-600/30 border border-violet-500/40 flex items-center justify-center text-[24px] font-bold text-violet-300 shrink-0 shadow-[0_0_24px_rgba(139,92,246,0.2)]">
             {initials}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-[16px] font-semibold truncate">{displayName || 'No name set'}</p>
+            <p className="text-[17px] font-bold truncate">{displayName || 'No name set'}</p>
             <p className="text-[13px] text-gray-500 truncate">{profile.email}</p>
           </div>
         </div>
 
         {/* Stats row */}
-        <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl px-4 py-3">
-          <p className="text-[10px] text-gray-600 uppercase tracking-[0.12em]">Sessions</p>
-          <p className="text-[26px] font-bold leading-none mt-1">{totalSessions}</p>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="bg-white/[0.03] border border-white/[0.07] rounded-2xl px-4 py-4">
+            <div className="flex items-center gap-1.5 mb-2">
+              <div className="w-1.5 h-1.5 rounded-full bg-violet-500" />
+              <p className="text-[11px] text-gray-600 uppercase tracking-[0.12em]">Sessions</p>
+            </div>
+            <p className="text-[28px] font-bold leading-none text-violet-400">{totalSessions}</p>
+          </div>
+          <div className="bg-white/[0.03] border border-white/[0.07] rounded-2xl px-4 py-4">
+            <div className="flex items-center gap-1.5 mb-2">
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              <p className="text-[11px] text-gray-600 uppercase tracking-[0.12em]">Total terms</p>
+            </div>
+            <p className="text-[28px] font-bold leading-none text-emerald-400">{totalTerms}</p>
+          </div>
         </div>
 
         {/* 7-day chart */}

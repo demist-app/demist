@@ -42,19 +42,40 @@ const EXTENSION_DOWNLOAD_URL = '/demist-extension.zip'
 
 const FEATURES = [
   {
-    title: 'Listens while you take notes',
-    body: 'Demist uses your microphone to pick up what your lecturer says. When it hears an unfamiliar term, it explains the concept on screen - not a dictionary definition, but a plain explanation tailored to your subject and year.',
+    title: 'Live term detection',
+    body: 'Demist listens to your microphone and identifies unfamiliar terms as your lecturer speaks. A plain-English explanation appears on screen, tailored to your subject and year of study.',
     Icon: MicIcon,
+    tag: null as string | null,
   },
   {
-    title: 'Builds your glossary automatically',
-    body: 'Every term Demist picks up is saved to your account with its definition. Nothing to copy, all automatic.',
+    title: 'Automatic glossary',
+    body: 'Every detected term is saved to your account with its definition. Nothing to copy, nothing to type - your glossary grows in the background.',
     Icon: BookIcon,
+    tag: null as string | null,
   },
   {
-    title: 'Drills you with flashcards',
-    body: <>Terms from your sessions are added to a flashcard queue automatically. Demist uses <span className="text-violet-400 font-medium">spaced repetition</span> to schedule reviews, the best proven method to study.</>,
+    title: 'Spaced repetition flashcards',
+    body: <>Terms are queued as flashcards automatically. Demist uses <span className="text-violet-400 font-medium">SM-2 spaced repetition</span> to schedule reviews at exactly the right time for long-term retention.</>,
     Icon: CardIcon,
+    tag: null as string | null,
+  },
+  {
+    title: 'AI session summaries',
+    body: 'When you stop recording, Demist generates a concise summary of everything your lecturer covered. Find it waiting in your history alongside the full term list and transcript.',
+    Icon: SummaryIcon,
+    tag: 'New' as string | null,
+  },
+  {
+    title: 'Full session history',
+    body: 'Every lecture is stored with its terms, transcript, and AI summary. Rename sessions, browse past notes, and pick up exactly where you left off.',
+    Icon: HistoryIconFeat,
+    tag: 'New' as string | null,
+  },
+  {
+    title: 'Chrome extension side panel',
+    body: 'Keep your notes app open. The extension shows detected terms in a live side panel while you take notes in another tab - no screen switching needed.',
+    Icon: PanelIcon,
+    tag: 'New' as string | null,
   },
 ]
 
@@ -72,7 +93,7 @@ const STEPS = [
   {
     n: '03',
     title: 'Your glossary is ready after class',
-    body: <>Every term Demist caught is saved with its definition. Flashcards quiz you using <span className="text-violet-400 font-medium">spaced repetition</span>, the most researched technique for long-term memory, so what you review actually sticks.</>,
+    body: <>Every term is saved with its definition, and an AI summary of the session is generated in the background. Flashcards queue automatically using <span className="text-violet-400 font-medium">spaced repetition</span> so what you review actually sticks.</>,
   },
 ]
 
@@ -179,7 +200,7 @@ export default function LandingClient() {
           className="text-gray-500 text-[16px] sm:text-[18px] leading-relaxed mb-10 max-w-[480px]"
           {...anim(240)}
         >
-          Hit record before your lecture. When your lecturer says something you don't recognise, Demist explains the concept on screen - in the context of your subject, at your level.
+          Hit record before your lecture. Demist catches every unfamiliar term your lecturer says, explains it on screen, and builds your glossary, summaries, and flashcards automatically.
         </p>
 
         <div className="flex flex-col sm:flex-row items-center gap-3 mb-16" {...anim(320)}>
@@ -279,27 +300,34 @@ export default function LandingClient() {
       </section>
 
       {/* ── Features ── */}
-      <section id="features" ref={featuresRef.ref} className="relative z-10 px-6 sm:px-12 py-28 max-w-5xl mx-auto">
+      <section id="features" ref={featuresRef.ref} className="relative z-10 px-6 sm:px-12 py-28 max-w-6xl mx-auto">
         <p className="text-[10px] font-bold tracking-[0.2em] text-gray-600 uppercase mb-4 text-center"
           {...scrollAnim(featuresRef.visible, 0)}>
-          What it does
+          Features
         </p>
         <h2
           className="text-[30px] sm:text-[42px] font-bold tracking-tight text-center mb-14 leading-tight"
           {...scrollAnim(featuresRef.visible, 80)}
         >
-          Three simple tools.{' '}
-          <span className="text-gray-600 font-normal">All of them matter.</span>
+          Everything you need.{' '}
+          <span className="text-gray-600 font-normal">All built in.</span>
         </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {FEATURES.map(({ title, body, Icon }, i) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {FEATURES.map(({ title, body, Icon, tag }, i) => (
             <div
               key={title}
               className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6 group hover:bg-white/[0.05] hover:border-white/[0.1] transition-all duration-300"
-              {...scrollAnim(featuresRef.visible, 160 + i * 110)}
+              {...scrollAnim(featuresRef.visible, 160 + i * 80)}
             >
-              <div className="w-9 h-9 rounded-xl bg-violet-600/10 border border-violet-500/20 flex items-center justify-center mb-5 text-violet-400 group-hover:bg-violet-600/16 group-hover:border-violet-500/30 transition-all duration-300">
-                <Icon />
+              <div className="flex items-start justify-between mb-5">
+                <div className="w-9 h-9 rounded-xl bg-violet-600/10 border border-violet-500/20 flex items-center justify-center text-violet-400 group-hover:bg-violet-600/16 group-hover:border-violet-500/30 transition-all duration-300">
+                  <Icon />
+                </div>
+                {tag && (
+                  <span className="text-[10px] font-bold tracking-[0.1em] text-violet-400 bg-violet-600/15 border border-violet-500/25 rounded-full px-2 py-0.5 uppercase">
+                    {tag}
+                  </span>
+                )}
               </div>
               <p className="text-[15px] font-semibold text-white/90 mb-2">{title}</p>
               <p className="text-[13px] text-gray-600 leading-relaxed">{body}</p>
@@ -499,6 +527,36 @@ function DownloadIcon() {
       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
       <polyline points="7 10 12 15 17 10" />
       <line x1="12" y1="15" x2="12" y2="3" />
+    </svg>
+  )
+}
+
+function SummaryIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <polyline points="14 2 14 8 20 8" />
+      <line x1="16" y1="13" x2="8" y2="13" />
+      <line x1="16" y1="17" x2="8" y2="17" />
+      <line x1="10" y1="9" x2="8" y2="9" />
+    </svg>
+  )
+}
+
+function HistoryIconFeat() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="9" />
+      <polyline points="12 7 12 12 15 15" />
+    </svg>
+  )
+}
+
+function PanelIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+      <line x1="9" y1="3" x2="9" y2="21" />
     </svg>
   )
 }
