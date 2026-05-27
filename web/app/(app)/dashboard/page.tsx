@@ -544,7 +544,6 @@ export default function Dashboard() {
           <div className="space-y-2">
             {[0,1,2].map(i => (
               <div key={i} className="flex items-center gap-3 bg-white/[0.03] border border-white/[0.06] rounded-2xl px-4 py-3.5">
-                <div className="w-[2px] self-stretch rounded-full bg-white/[0.04]" />
                 <div className="flex-1 flex flex-col gap-2">
                   <div className="h-3.5 w-36 bg-white/[0.07] rounded-full" />
                   <div className="h-3 w-20 bg-white/[0.05] rounded-full" />
@@ -581,7 +580,7 @@ export default function Dashboard() {
             {isProcessing && <span className="text-gray-600 text-[12px] ml-1">processing</span>}
           </div>
         ) : (
-          <Link href="/dashboard" className="font-bold tracking-tight text-[15px] hover:text-violet-300 active:scale-95 transition-all duration-150 select-none">Demist</Link>
+          <Link href="/dashboard" className="font-bold tracking-tight text-[15px] hover:text-violet-300 active:scale-[0.97] transition-all duration-150 select-none">Demist</Link>
         )}
       </header>
 
@@ -609,7 +608,7 @@ export default function Dashboard() {
                 <button
                   ref={btnRef}
                   onClick={stopRecording}
-                  className="relative z-10 w-[88px] h-[88px] rounded-full bg-red-600 hover:bg-red-500 flex items-center justify-center transition-colors duration-200 select-none"
+                  className="relative z-10 w-[88px] h-[88px] rounded-full bg-red-600 hover:bg-red-500 active:scale-[0.97] flex items-center justify-center transition-colors duration-200 select-none"
                 >
                   <StopIcon />
                 </button>
@@ -633,8 +632,7 @@ export default function Dashboard() {
                 </p>
                 <div className="space-y-2">
                   {sessionGlossary.map((t, i) => (
-                    <div key={i} className="flex gap-3 bg-white/[0.03] border border-white/[0.05] rounded-xl px-3 py-2.5">
-                      <div className="w-[2px] rounded-full bg-red-500/50 self-stretch shrink-0" />
+                    <div key={i} className="flex gap-3 bg-red-500/[0.04] border border-red-500/[0.12] rounded-xl px-3 py-2.5">
                       <div className="min-w-0">
                         <span className="text-[13px] font-semibold text-white/90">{t.term}</span>
                         <p className="text-[12px] text-gray-500 mt-0.5 leading-relaxed">{t.definition}</p>
@@ -658,7 +656,7 @@ export default function Dashboard() {
                 <button
                   ref={btnRef}
                   onClick={startRecording}
-                  className="relative z-10 w-[96px] h-[96px] rounded-full bg-white/[0.07] border border-violet-500/30 hover:bg-violet-600/20 hover:border-violet-500/50 hover:shadow-[0_0_56px_rgba(139,92,246,0.3)] flex items-center justify-center transition-all duration-300 select-none"
+                  className="relative z-10 w-[96px] h-[96px] rounded-full bg-white/[0.07] border border-violet-500/30 hover:bg-violet-600/20 hover:border-violet-500/50 hover:shadow-[0_0_56px_rgba(139,92,246,0.3)] active:scale-[0.97] flex items-center justify-center transition-transform,background-color,border-color,box-shadow duration-200 select-none"
                 >
                   <MicIcon />
                 </button>
@@ -713,12 +711,11 @@ export default function Dashboard() {
                   </div>
                   <div className="space-y-2">
                     {recentSessions.map(s => (
-                      <div key={s.id} className="bg-white/[0.03] border border-white/[0.07] rounded-2xl overflow-hidden hover:bg-white/[0.04] hover:border-white/[0.1] transition-all">
+                      <div key={s.id} className="bg-white/[0.03] border border-white/[0.07] rounded-2xl overflow-hidden hover:bg-violet-500/[0.04] hover:border-violet-500/[0.15] transition-colors duration-200">
                         <div
                           onClick={() => s.termCount > 0 && toggleExpandSession(s.id)}
                           className={`flex items-center gap-3 px-4 py-3.5 ${s.termCount > 0 ? 'cursor-pointer' : ''}`}
                         >
-                          <div className="w-[2px] self-stretch rounded-full bg-gradient-to-b from-violet-500/50 to-violet-500/10 shrink-0" />
                           <div className="flex-1 min-w-0">
                             <p className={`text-[14px] font-semibold truncate ${s.name ? 'text-white/90' : 'text-gray-400'}`}>
                               {s.name || sessionLabel(s.sessionNumber, s.started_at)}

@@ -299,10 +299,9 @@ export default function History() {
                 <div
                   key={s.id}
                   id={`session-${s.id}`}
-                  className="bg-white/[0.03] border border-white/[0.07] rounded-2xl overflow-hidden hover:bg-white/[0.04] hover:border-white/[0.1] transition-all"
+                  className="bg-white/[0.03] border border-white/[0.07] rounded-2xl overflow-hidden hover:bg-violet-500/[0.04] hover:border-violet-500/[0.15] transition-colors duration-200"
                 >
                   <div className="flex items-center px-4 py-3.5 gap-3">
-                    <div className="w-[2px] self-stretch rounded-full bg-gradient-to-b from-violet-500/40 to-violet-500/10 shrink-0" />
                     <div className="flex-1 min-w-0">
                       {editingNameId === s.id ? (
                         <input

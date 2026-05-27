@@ -37,7 +37,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <nav className="hidden sm:flex fixed top-0 inset-x-0 h-14 z-40 items-center px-8 gap-8 bg-[#080810]/96 backdrop-blur-xl border-b border-white/[0.05]">
         <Link
           href="/dashboard"
-          className="text-[15px] font-semibold tracking-tight text-white mr-2 hover:text-violet-300 active:scale-95 transition-all duration-150 select-none"
+          className="text-[15px] font-semibold tracking-tight text-white mr-2 hover:text-violet-300 active:scale-[0.97] transition-colors duration-150 select-none"
         >
           Demist
         </Link>

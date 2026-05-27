@@ -71,12 +71,6 @@ const FEATURES = [
     Icon: HistoryIconFeat,
     tag: 'New' as string | null,
   },
-  {
-    title: 'Chrome extension side panel',
-    body: 'Keep your notes app open. The extension shows detected terms in a live side panel while you take notes in another tab - no screen switching needed.',
-    Icon: PanelIcon,
-    tag: 'New' as string | null,
-  },
 ]
 
 const STEPS = [
@@ -206,7 +200,7 @@ export default function LandingClient() {
         <div className="flex flex-col sm:flex-row items-center gap-3 mb-16" {...anim(320)}>
           <button
             onClick={cta}
-            className="px-8 py-4 rounded-2xl bg-violet-600 hover:bg-violet-500 text-white font-semibold text-[15px] transition-all duration-200 hover:shadow-[0_0_44px_rgba(139,92,246,0.42)] active:scale-95 select-none"
+            className="px-8 py-4 rounded-2xl bg-violet-600 hover:bg-violet-500 text-white font-semibold text-[15px] transition-all duration-200 hover:shadow-[0_0_44px_rgba(139,92,246,0.42)] active:scale-[0.97] select-none"
           >
             {authed ? 'Open app →' : 'Get started free →'}
           </button>
@@ -290,49 +284,84 @@ export default function LandingClient() {
           </div>
         </div>
 
-        {/* Scroll cue */}
-        <div className="mt-10 flex flex-col items-center gap-2" {...anim(800)}>
-          <div
-            className="w-px h-8 bg-gradient-to-b from-transparent to-white/20"
-            style={{ animation: 'glow-float 2s ease-in-out infinite' }}
-          />
-        </div>
       </section>
 
       {/* ── Features ── */}
       <section id="features" ref={featuresRef.ref} className="relative z-10 px-6 sm:px-12 py-28 max-w-6xl mx-auto">
-        <p className="text-[10px] font-bold tracking-[0.2em] text-gray-600 uppercase mb-4 text-center"
-          {...scrollAnim(featuresRef.visible, 0)}>
-          Features
-        </p>
         <h2
           className="text-[30px] sm:text-[42px] font-bold tracking-tight text-center mb-14 leading-tight"
-          {...scrollAnim(featuresRef.visible, 80)}
+          {...scrollAnim(featuresRef.visible, 0)}
         >
           Everything you need.{' '}
-          <span className="text-gray-600 font-normal">All built in.</span>
+          <span className="text-gray-500 font-normal">All built in.</span>
         </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {FEATURES.map(({ title, body, Icon, tag }, i) => (
-            <div
-              key={title}
-              className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6 group hover:bg-white/[0.05] hover:border-white/[0.1] transition-all duration-300"
-              {...scrollAnim(featuresRef.visible, 160 + i * 80)}
-            >
-              <div className="flex items-start justify-between mb-5">
-                <div className="w-9 h-9 rounded-xl bg-violet-600/10 border border-violet-500/20 flex items-center justify-center text-violet-400 group-hover:bg-violet-600/16 group-hover:border-violet-500/30 transition-all duration-300">
-                  <Icon />
-                </div>
-                {tag && (
-                  <span className="text-[10px] font-bold tracking-[0.1em] text-violet-400 bg-violet-600/15 border border-violet-500/25 rounded-full px-2 py-0.5 uppercase">
-                    {tag}
-                  </span>
-                )}
-              </div>
-              <p className="text-[15px] font-semibold text-white/90 mb-2">{title}</p>
-              <p className="text-[13px] text-gray-600 leading-relaxed">{body}</p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {/* Hero tile: Live term detection - wide */}
+          <div
+            className="sm:col-span-2 bg-violet-600/[0.06] border border-violet-500/[0.18] rounded-2xl p-7 group hover:bg-violet-600/[0.09] hover:border-violet-500/[0.26] transition-colors duration-200"
+            {...scrollAnim(featuresRef.visible, 80)}
+          >
+            <div className="w-9 h-9 rounded-xl bg-violet-600/[0.14] border border-violet-500/25 flex items-center justify-center text-violet-400 mb-6">
+              <MicIcon />
             </div>
-          ))}
+            <p className="text-[18px] font-bold text-white/95 mb-2.5">{FEATURES[0].title}</p>
+            <p className="text-[14px] text-gray-500 leading-relaxed max-w-md">{FEATURES[0].body}</p>
+          </div>
+
+          {/* Glossary */}
+          <div
+            className="bg-white/[0.03] border border-white/[0.07] rounded-2xl p-6 hover:bg-white/[0.05] hover:border-white/[0.11] transition-colors duration-200"
+            {...scrollAnim(featuresRef.visible, 140)}
+          >
+            <div className="w-9 h-9 rounded-xl bg-white/[0.05] border border-white/[0.09] flex items-center justify-center text-gray-400 mb-5">
+              <BookIcon />
+            </div>
+            <p className="text-[15px] font-semibold text-white/90 mb-2">{FEATURES[1].title}</p>
+            <p className="text-[13px] text-gray-600 leading-relaxed">{FEATURES[1].body}</p>
+          </div>
+
+          {/* Flashcards */}
+          <div
+            className="bg-white/[0.03] border border-white/[0.07] rounded-2xl p-6 hover:bg-white/[0.05] hover:border-white/[0.11] transition-colors duration-200"
+            {...scrollAnim(featuresRef.visible, 200)}
+          >
+            <div className="w-9 h-9 rounded-xl bg-white/[0.05] border border-white/[0.09] flex items-center justify-center text-gray-400 mb-5">
+              <CardIcon />
+            </div>
+            <p className="text-[15px] font-semibold text-white/90 mb-2">{FEATURES[2].title}</p>
+            <p className="text-[13px] text-gray-600 leading-relaxed">{FEATURES[2].body}</p>
+          </div>
+
+          {/* AI summaries */}
+          <div
+            className="bg-white/[0.03] border border-white/[0.07] rounded-2xl p-6 hover:bg-white/[0.05] hover:border-white/[0.11] transition-colors duration-200"
+            {...scrollAnim(featuresRef.visible, 260)}
+          >
+            <div className="flex items-center justify-between mb-5">
+              <div className="w-9 h-9 rounded-xl bg-white/[0.05] border border-white/[0.09] flex items-center justify-center text-gray-400">
+                <SummaryIcon />
+              </div>
+              <span className="text-[10px] font-bold tracking-[0.1em] text-violet-400 bg-violet-600/15 border border-violet-500/25 rounded-full px-2 py-0.5 uppercase">New</span>
+            </div>
+            <p className="text-[15px] font-semibold text-white/90 mb-2">{FEATURES[3].title}</p>
+            <p className="text-[13px] text-gray-600 leading-relaxed">{FEATURES[3].body}</p>
+          </div>
+
+          {/* Session history */}
+          <div
+            className="bg-white/[0.03] border border-white/[0.07] rounded-2xl p-6 hover:bg-white/[0.05] hover:border-white/[0.11] transition-colors duration-200"
+            {...scrollAnim(featuresRef.visible, 320)}
+          >
+            <div className="flex items-center justify-between mb-5">
+              <div className="w-9 h-9 rounded-xl bg-white/[0.05] border border-white/[0.09] flex items-center justify-center text-gray-400">
+                <HistoryIconFeat />
+              </div>
+              <span className="text-[10px] font-bold tracking-[0.1em] text-violet-400 bg-violet-600/15 border border-violet-500/25 rounded-full px-2 py-0.5 uppercase">New</span>
+            </div>
+            <p className="text-[15px] font-semibold text-white/90 mb-2">{FEATURES[4].title}</p>
+            <p className="text-[13px] text-gray-600 leading-relaxed">{FEATURES[4].body}</p>
+          </div>
         </div>
       </section>
 
@@ -395,7 +424,7 @@ export default function LandingClient() {
             <a
               href={CHROME_STORE_URL}
               target="_blank" rel="noopener noreferrer"
-              className="flex items-center gap-2.5 px-6 py-3.5 rounded-2xl bg-violet-600 hover:bg-violet-500 text-white font-semibold text-[15px] transition-all hover:shadow-[0_0_40px_rgba(139,92,246,0.4)] active:scale-95"
+              className="flex items-center gap-2.5 px-6 py-3.5 rounded-2xl bg-violet-600 hover:bg-violet-500 text-white font-semibold text-[15px] transition-all hover:shadow-[0_0_40px_rgba(139,92,246,0.4)] active:scale-[0.97]"
             >
               <ChromeIcon />
               Add to Chrome
@@ -462,7 +491,7 @@ export default function LandingClient() {
         <div {...scrollAnim(ctaRef.visible, 180)}>
           <button
             onClick={cta}
-            className="px-10 py-5 rounded-2xl bg-violet-600 hover:bg-violet-500 text-white font-semibold text-[16px] transition-all duration-200 hover:shadow-[0_0_60px_rgba(139,92,246,0.48)] active:scale-95 select-none"
+            className="px-10 py-5 rounded-2xl bg-violet-600 hover:bg-violet-500 text-white font-semibold text-[16px] transition-all duration-200 hover:shadow-[0_0_60px_rgba(139,92,246,0.48)] active:scale-[0.97] select-none"
           >
             {authed ? 'Open app →' : 'Get started free →'}
           </button>
@@ -552,11 +581,3 @@ function HistoryIconFeat() {
   )
 }
 
-function PanelIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-      <line x1="9" y1="3" x2="9" y2="21" />
-    </svg>
-  )
-}

@@ -316,7 +316,7 @@ export default function Flashcards() {
                     key={grade}
                     onClick={() => handleGrade(grade)}
                     disabled={saving}
-                    className={`py-3 rounded-2xl text-[13px] font-semibold border bg-transparent transition-all disabled:opacity-40 ${color}`}
+                    className={`py-3 rounded-2xl text-[13px] font-semibold border bg-transparent transition-colors duration-150 active:scale-[0.97] disabled:opacity-40 ${color}`}
                   >
                     {label}
                   </button>
@@ -337,7 +337,7 @@ export default function Flashcards() {
             <div className="shrink-0 mt-4">
               <button
                 onClick={() => setFlipped(true)}
-                className="w-full py-4 rounded-2xl text-[15px] font-semibold bg-white/[0.06] border border-white/[0.08] text-white hover:bg-white/[0.09] transition-all"
+                className="w-full py-4 rounded-2xl text-[15px] font-semibold bg-white/[0.06] border border-white/[0.08] text-white hover:bg-white/[0.09] active:scale-[0.97] transition-colors duration-150"
               >
                 Show definition
               </button>

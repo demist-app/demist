@@ -213,13 +213,10 @@ export default function Glossary() {
                   {s.terms.map((t, i) => (
                     <div
                       key={t.id}
-                      className={`flex gap-3 px-4 py-4 ${i > 0 ? 'border-t border-white/[0.04]' : ''}`}
+                      className={`px-4 py-4 hover:bg-violet-500/[0.03] transition-colors duration-150 ${i > 0 ? 'border-t border-white/[0.04]' : ''}`}
                     >
-                      <div className="w-[3px] shrink-0 rounded-full bg-violet-500/30 my-0.5" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[15px] font-semibold text-white/90 leading-snug">{t.term}</p>
-                        <p className="text-[13px] text-gray-500 mt-1 leading-relaxed">{t.definition}</p>
-                      </div>
+                      <p className="text-[15px] font-semibold text-white/90 leading-snug">{t.term}</p>
+                      <p className="text-[13px] text-gray-500 mt-1 leading-relaxed">{t.definition}</p>
                     </div>
                   ))}
                 </div>
@@ -236,13 +233,10 @@ export default function Glossary() {
                   {filteredOrphans.map((t, i) => (
                     <div
                       key={t.id}
-                      className={`flex gap-3 px-4 py-4 ${i > 0 ? 'border-t border-white/[0.04]' : ''}`}
+                      className={`px-4 py-4 hover:bg-white/[0.02] transition-colors duration-150 ${i > 0 ? 'border-t border-white/[0.04]' : ''}`}
                     >
-                      <div className="w-[3px] shrink-0 rounded-full bg-white/[0.15] my-0.5" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[15px] font-semibold text-white/90 leading-snug">{t.term}</p>
-                        <p className="text-[13px] text-gray-500 mt-1 leading-relaxed">{t.definition}</p>
-                      </div>
+                      <p className="text-[15px] font-semibold text-white/90 leading-snug">{t.term}</p>
+                      <p className="text-[13px] text-gray-500 mt-1 leading-relaxed">{t.definition}</p>
                     </div>
                   ))}
                 </div>
