@@ -97,8 +97,10 @@ export default function Glossary() {
         <span className="font-semibold tracking-tight text-[15px]">Glossary</span>
       </header>
 
+      <div className="flex-1 overflow-y-auto">
+      <div className="w-full max-w-4xl mx-auto">
       {/* Hero */}
-      <div className="shrink-0 relative overflow-hidden px-4 sm:px-6 pt-6 pb-5">
+      <div className="relative overflow-hidden px-4 sm:px-6 pt-6 pb-5">
         <div
           aria-hidden
           className="pointer-events-none absolute -top-10 -left-10 w-[280px] h-[180px] rounded-full bg-violet-600/[0.08] blur-[60px]"
@@ -140,7 +142,7 @@ export default function Glossary() {
       </div>
 
       {/* List */}
-      <div className="flex-1 overflow-y-auto px-4 sm:px-6 pb-6">
+      <div className="px-4 sm:px-6 pb-6">
         {loading && (
           <div className="animate-pulse space-y-7">
             {[4, 3, 5].map((count, i) => (
@@ -244,6 +246,8 @@ export default function Glossary() {
             )}
           </div>
         )}
+      </div>
+      </div>
       </div>
     </main>
   )

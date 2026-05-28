@@ -531,32 +531,34 @@ export default function Dashboard() {
       <header className="sm:hidden shrink-0 flex items-center px-6 h-14 border-b border-white/[0.05]">
         <span className="font-bold tracking-tight text-[15px]">Demist</span>
       </header>
-      <div className="flex-1 flex flex-col overflow-y-auto animate-pulse">
-        <div className="shrink-0 flex flex-col items-center pt-12 pb-8 px-6 gap-3">
-          <div className="w-[96px] h-[96px] rounded-full bg-white/[0.06]" />
-          <div className="h-4 w-32 bg-white/[0.04] rounded-full" />
-          <div className="h-3 w-48 bg-white/[0.03] rounded-full" />
-        </div>
-        <div className="shrink-0 grid grid-cols-2 gap-3 px-4 sm:px-6 pb-5">
-          {[0,1].map(i => (
-            <div key={i} className="bg-white/[0.03] border border-white/[0.06] rounded-2xl px-4 py-4">
-              <div className="h-2 w-12 bg-white/[0.06] rounded-full mb-3" />
-              <div className="h-7 w-14 bg-white/[0.08] rounded-md" />
-            </div>
-          ))}
-        </div>
-        <div className="flex-1 px-4 sm:px-6 pb-4">
-          <div className="h-2 w-28 bg-white/[0.05] rounded-full mb-3" />
-          <div className="space-y-2">
-            {[0,1,2].map(i => (
-              <div key={i} className="flex items-center gap-3 bg-white/[0.03] border border-white/[0.06] rounded-2xl px-4 py-3.5">
-                <div className="flex-1 flex flex-col gap-2">
-                  <div className="h-3.5 w-36 bg-white/[0.07] rounded-full" />
-                  <div className="h-3 w-20 bg-white/[0.05] rounded-full" />
-                </div>
-                <div className="h-5 w-12 bg-white/[0.05] rounded-full" />
+      <div className="flex-1 overflow-y-auto animate-pulse">
+        <div className="w-full max-w-4xl mx-auto">
+          <div className="flex flex-col items-center pt-12 pb-8 px-6 gap-3">
+            <div className="w-[96px] h-[96px] rounded-full bg-white/[0.06]" />
+            <div className="h-4 w-32 bg-white/[0.04] rounded-full" />
+            <div className="h-3 w-48 bg-white/[0.03] rounded-full" />
+          </div>
+          <div className="grid grid-cols-2 gap-3 px-4 sm:px-6 pb-5">
+            {[0,1].map(i => (
+              <div key={i} className="bg-white/[0.03] border border-white/[0.06] rounded-2xl px-4 py-4">
+                <div className="h-2 w-12 bg-white/[0.06] rounded-full mb-3" />
+                <div className="h-7 w-14 bg-white/[0.08] rounded-md" />
               </div>
             ))}
+          </div>
+          <div className="px-4 sm:px-6 pb-4">
+            <div className="h-2 w-28 bg-white/[0.05] rounded-full mb-3" />
+            <div className="space-y-2">
+              {[0,1,2].map(i => (
+                <div key={i} className="flex items-center gap-3 bg-white/[0.03] border border-white/[0.06] rounded-2xl px-4 py-3.5">
+                  <div className="flex-1 flex flex-col gap-2">
+                    <div className="h-3.5 w-36 bg-white/[0.07] rounded-full" />
+                    <div className="h-3 w-20 bg-white/[0.05] rounded-full" />
+                  </div>
+                  <div className="h-5 w-12 bg-white/[0.05] rounded-full" />
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -651,10 +653,11 @@ export default function Dashboard() {
           </>
         ) : (
           /* Home mode */
-          <div className="flex-1 flex flex-col overflow-y-auto">
+          <div className="flex-1 overflow-y-auto">
+          <div className="w-full max-w-4xl mx-auto flex flex-col">
 
             {/* Mic hero */}
-            <div className="shrink-0 flex flex-col items-center pt-12 pb-8 px-6">
+            <div className="flex flex-col items-center pt-12 pb-8 px-4 sm:px-6">
               <div className="relative flex items-center justify-center mb-5">
                 <span className="absolute w-[130px] h-[130px] rounded-full bg-violet-600/[0.08]" style={{ animation: 'glow-float 4s ease-in-out infinite' }} />
                 <span className="absolute w-[162px] h-[162px] rounded-full bg-violet-600/[0.05]" style={{ animation: 'glow-float 4s ease-in-out -1.3s infinite' }} />
@@ -674,7 +677,7 @@ export default function Dashboard() {
             </div>
 
             {/* Stats */}
-            <div className="shrink-0 grid grid-cols-2 gap-3 px-4 sm:px-6 pb-5">
+            <div className="grid grid-cols-2 gap-3 px-4 sm:px-6 pb-5">
               {stats.dueFlashcards > 0 && (
                 <Link
                   href="/flashcards"
@@ -708,7 +711,7 @@ export default function Dashboard() {
             </div>
 
             {/* Recent sessions */}
-            <div className="flex-1 px-4 sm:px-6 pb-4">
+            <div className="px-4 sm:px-6 pb-4">
               {recentSessions.length > 0 ? (
                 <>
                   <div className="flex items-center justify-between mb-3">
@@ -797,6 +800,7 @@ export default function Dashboard() {
                 </div>
               )}
             </div>
+          </div>
           </div>
         )}
       </div>

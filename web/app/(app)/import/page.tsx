@@ -418,7 +418,7 @@ export default function ImportPage() {
 
   return (
     <div className="min-h-dvh bg-[#080810] pb-20 sm:pb-10">
-      <div className="max-w-2xl mx-auto px-4 pt-8 sm:pt-10">
+      <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 pt-6 sm:pt-8">
 
         {/* Header */}
         <div className="mb-8 animate-step opacity-0" style={{ animationDelay: '0ms', animationFillMode: 'forwards' }}>

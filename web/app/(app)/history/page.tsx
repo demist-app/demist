@@ -266,7 +266,8 @@ export default function History() {
         <span className="font-semibold tracking-tight text-[15px]">Session History</span>
       </header>
 
-      <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4">
+      <div className="flex-1 overflow-y-auto">
+      <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 py-4">
         {loading && (
           <div className="animate-pulse space-y-6">
             {[0,1].map(g => (
@@ -455,6 +456,7 @@ export default function History() {
             </div>
           </div>
         ))}
+      </div>
       </div>
     </main>
   )

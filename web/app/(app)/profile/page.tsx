@@ -168,7 +168,8 @@ export default function Profile() {
         <span className="font-semibold tracking-tight text-[15px]">Profile</span>
       </header>
 
-      <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 space-y-6">
+      <div className="flex-1 overflow-y-auto">
+      <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 py-6 space-y-6">
         {/* Avatar + name */}
         <div className="flex items-center gap-4">
           <div className="w-16 h-16 rounded-full bg-gradient-to-br from-violet-600/40 to-indigo-600/30 border border-violet-500/40 flex items-center justify-center text-[24px] font-bold text-violet-300 shrink-0 shadow-[0_0_24px_rgba(139,92,246,0.2)]">
@@ -361,6 +362,7 @@ export default function Profile() {
         >
           Sign out
         </button>
+      </div>
       </div>
     </main>
   )
