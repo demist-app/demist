@@ -28,10 +28,10 @@ export default function Onboarding() {
       if (!data.user) { router.replace('/login'); return }
       const { data: profile } = await supabase
         .from('profiles')
-        .select('course')
+        .select('course, year_of_study')
         .eq('id', data.user.id)
         .maybeSingle()
-      if (profile?.course) router.replace('/dashboard')
+      if (profile?.course || profile?.year_of_study) router.replace('/dashboard')
     })
   }, [])
 
@@ -41,9 +41,10 @@ export default function Onboarding() {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
-      await supabase
+      const { error } = await supabase
         .from('profiles')
-        .upsert({ id: user.id, course: course.trim(), year_of_study: year })
+        .upsert({ id: user.id, course: course.trim() || null, year_of_study: year })
+      if (error) console.error('onboarding save failed:', error)
     }
     router.replace('/dashboard')
   }

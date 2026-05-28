@@ -128,10 +128,10 @@ export default function Login() {
     posthog.capture('login_success', { method: 'otp' })
     const { data: profile } = await supabase
       .from('profiles')
-      .select('course')
+      .select('course, year_of_study')
       .eq('id', data.user!.id)
       .maybeSingle()
-    router.replace(profile?.course ? '/dashboard' : '/onboarding')
+    router.replace((profile?.course || profile?.year_of_study) ? '/dashboard' : '/onboarding')
   }
 
   return (

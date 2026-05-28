@@ -14,15 +14,23 @@ function notionHeaders(token: string) {
 
 // ---- PUSH helpers ----
 
+interface GlossaryTerm {
+  term: string
+  definition: string
+  created_at: string
+  sessions: { name: string | null; started_at: string } | null
+}
+
 async function pushGlossary(token: string, userId: string, supabase: ReturnType<typeof createServerClient>) {
-  const { data: terms } = await supabase
+  const { data: termsRaw } = await supabase
     .from('terms')
     .select('term, definition, created_at, sessions(name, started_at)')
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
     .limit(200)
+  const terms = (termsRaw ?? []) as GlossaryTerm[]
 
-  if (!terms?.length) return { ok: false, error: 'no_terms' }
+  if (!terms.length) return { ok: false, error: 'no_terms' }
 
   // Create a new page in the user's workspace to hold the glossary database
   const pageRes = await fetch('https://api.notion.com/v1/pages', {
@@ -66,14 +74,12 @@ async function pushGlossary(token: string, userId: string, supabase: ReturnType<
   const db = await dbRes.json()
 
   // Insert rows in batches of 10 (Notion rate limit friendly)
-  const batches: typeof terms[] = []
+  const batches: GlossaryTerm[][] = []
   for (let i = 0; i < terms.length; i += 10) batches.push(terms.slice(i, i + 10))
 
   for (const batch of batches) {
-    await Promise.all(batch.map(t => {
-      const sessionName = (t.sessions as { name: string | null; started_at: string } | null)?.name
-        ?? (t.sessions as { name: string | null; started_at: string } | null)?.started_at?.slice(0, 10)
-        ?? ''
+    await Promise.all(batch.map((t: GlossaryTerm) => {
+      const sessionName = t.sessions?.name ?? t.sessions?.started_at?.slice(0, 10) ?? ''
       return fetch('https://api.notion.com/v1/pages', {
         method: 'POST',
         headers: notionHeaders(token),
@@ -93,16 +99,25 @@ async function pushGlossary(token: string, userId: string, supabase: ReturnType<
   return { ok: true, page_url: page.url, term_count: terms.length }
 }
 
+interface SummarySession {
+  id: string
+  name: string | null
+  started_at: string
+  synopsis: string | null
+  subject: string | null
+}
+
 async function pushSummaries(token: string, userId: string, supabase: ReturnType<typeof createServerClient>) {
-  const { data: sessions } = await supabase
+  const { data: sessionsRaw } = await supabase
     .from('sessions')
     .select('id, name, started_at, synopsis, subject')
     .eq('user_id', userId)
     .not('synopsis', 'is', null)
     .order('started_at', { ascending: false })
     .limit(50)
+  const sessions = (sessionsRaw ?? []) as SummarySession[]
 
-  if (!sessions?.length) return { ok: false, error: 'no_sessions_with_synopsis' }
+  if (!sessions.length) return { ok: false, error: 'no_sessions_with_synopsis' }
 
   const pageRes = await fetch('https://api.notion.com/v1/pages', {
     method: 'POST',
@@ -113,7 +128,7 @@ async function pushSummaries(token: string, userId: string, supabase: ReturnType
       properties: {
         title: { title: [{ text: { content: 'Demist Session Summaries' } }] },
       },
-      children: sessions.map(s => ({
+      children: sessions.map((s: SummarySession) => ({
         object: 'block',
         type: 'toggle',
         toggle: {
