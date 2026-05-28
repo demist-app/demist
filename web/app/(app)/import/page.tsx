@@ -143,13 +143,24 @@ export default function ImportPage() {
 
   const handleAudioUpload = async () => {
     if (!audioFile || !userId) return
+
+    const ALLOWED_AUDIO = /\.(mp3|wav|mp4|m4a|webm|ogg)$/i
+    if (!ALLOWED_AUDIO.test(audioFile.name)) {
+      setAudioError('Unsupported file type. Use MP3, WAV, MP4, M4A, or WebM.')
+      return
+    }
+    if (audioFile.size > 25 * 1024 * 1024) {
+      setAudioError('File is too large. Maximum size is 25 MB (Whisper API limit).')
+      return
+    }
+
     setAudioStatus('uploading')
     setAudioError(null)
     setAudioResult(null)
 
     try {
       const supabase = createClient()
-      const ext = audioFile.name.split('.').pop() ?? 'mp3'
+      const ext = audioFile.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') ?? 'mp3'
       const storagePath = `${userId}/${Date.now()}.${ext}`
 
       const { error: uploadErr } = await supabase.storage
@@ -164,6 +175,8 @@ export default function ImportPage() {
       const token = session?.access_token
       const base = process.env.NEXT_PUBLIC_SUPABASE_URL!
 
+      if (!token) throw new Error('Not authenticated')
+
       const res = await fetch(`${base}/functions/v1/transcribe-audio`, {
         method: 'POST',
         headers: {
@@ -172,8 +185,8 @@ export default function ImportPage() {
         },
         body: JSON.stringify({
           storage_path: storagePath,
-          session_name: audioFile.name.replace(/\.[^.]+$/, ''),
-          subject: profile?.course ?? null,
+          session_name: audioFile.name.replace(/\.[^.]+$/, '').slice(0, 100),
+          subject: profile?.course?.slice(0, 100) ?? null,
           year_of_study: profile?.year_of_study ?? null,
         }),
       })
@@ -194,6 +207,17 @@ export default function ImportPage() {
 
   const handleTextUpload = async () => {
     if (!textFile || !userId) return
+
+    const ALLOWED_TEXT = /\.(pptx|docx|txt)$/i
+    if (!ALLOWED_TEXT.test(textFile.name)) {
+      setTextError('Unsupported file type. Use PPTX, DOCX, or TXT.')
+      return
+    }
+    if (textFile.size > 50 * 1024 * 1024) {
+      setTextError('File is too large. Maximum size is 50 MB.')
+      return
+    }
+
     setTextStatus('extracting')
     setTextError(null)
     setTextResult(null)
@@ -212,13 +236,15 @@ export default function ImportPage() {
       const ext = textFile.name.split('.').pop()?.toLowerCase()
       const sourceMap: Record<string, string> = { pptx: 'pptx_upload', docx: 'docx_upload', txt: 'transcript_upload' }
 
+      if (!token) throw new Error('Not authenticated')
+
       const res = await fetch(`${base}/functions/v1/process-text-upload`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           text,
-          session_name: textFile.name.replace(/\.[^.]+$/, ''),
-          subject: profile?.course ?? null,
+          session_name: textFile.name.replace(/\.[^.]+$/, '').slice(0, 100),
+          subject: profile?.course?.slice(0, 100) ?? null,
           year_of_study: profile?.year_of_study ?? null,
           source: sourceMap[ext ?? ''] ?? 'text_upload',
         }),

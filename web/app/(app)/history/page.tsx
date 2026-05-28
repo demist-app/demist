@@ -218,11 +218,19 @@ export default function History() {
   const deleteSession = async (id: string) => {
     setDeletingId(id)
     setConfirmingId(null)
-    const supabase = createClient()
-    await supabase.from('terms').delete().eq('session_id', id)
-    await supabase.from('sessions').delete().eq('id', id)
-    setSessions(prev => prev.filter(s => s.id !== id))
-    setDeletingId(null)
+    try {
+      const supabase = createClient()
+      const { error: termsErr } = await supabase.from('terms').delete().eq('session_id', id)
+      if (termsErr) throw termsErr
+      const { error: sessionErr } = await supabase.from('sessions').delete().eq('id', id)
+      if (sessionErr) throw sessionErr
+      setSessions(prev => prev.filter(s => s.id !== id))
+    } catch (e) {
+      console.error('deleteSession error:', e)
+      alert('Failed to delete session. Please try again.')
+    } finally {
+      setDeletingId(null)
+    }
   }
 
   const startRename = (s: Session) => {
@@ -232,10 +240,11 @@ export default function History() {
   }
 
   const saveSessionName = async (id: string) => {
-    const name = nameInput.trim() || null
+    const name = nameInput.trim().slice(0, 80) || null
     setEditingNameId(null)
     setSessions(prev => prev.map(s => s.id === id ? { ...s, name } : s))
-    await createClient().from('sessions').update({ name }).eq('id', id)
+    const { error } = await createClient().from('sessions').update({ name }).eq('id', id)
+    if (error) console.error('saveSessionName error:', error)
   }
 
   const sessionNumber = (i: number) => totalCount - i

@@ -234,6 +234,7 @@ export default function Dashboard() {
     try {
       const { data: { session } } = await supabase.auth.getSession()
       const token = session?.access_token
+      if (!token) { console.error('processChunk: no auth token'); return }
       const base = process.env.NEXT_PUBLIC_SUPABASE_URL!
 
       const txRes = await fetch(`${base}/functions/v1/transcribe`, {
@@ -339,12 +340,17 @@ export default function Dashboard() {
     sessionIdRef.current = null
 
     const supabase = createClient()
-    const { data: session } = await supabase
+    const { data: session, error: sessionErr } = await supabase
       .from('sessions')
       .insert({ user_id: userIdRef.current, subject: profileRef.current?.course, year_of_study: profileRef.current?.year_of_study })
       .select('id').single()
 
-    const sessionId = session?.id ?? null
+    if (sessionErr || !session) {
+      streamRef.current?.getTracks().forEach(t => t.stop())
+      alert('Could not start session. Check your connection and try again.')
+      return
+    }
+    const sessionId = session.id
     sessionIdRef.current = sessionId
     isActiveRef.current = true
     lastPopupAtRef.current = 0

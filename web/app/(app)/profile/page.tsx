@@ -91,14 +91,26 @@ export default function Profile() {
   const handleSave = async () => {
     if (!userId) return
     setSaving(true)
-    const supabase = createClient()
-    await supabase.from('profiles')
-      .update({ display_name: displayName.trim() || null, course: course.trim() || null, year_of_study: year, is_public: isPublic })
-      .eq('id', userId)
-    posthog.capture('profile_updated')
-    setSaving(false)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.from('profiles')
+        .update({
+          display_name: displayName.trim().slice(0, 60) || null,
+          course: course.trim().slice(0, 100) || null,
+          year_of_study: year,
+          is_public: isPublic,
+        })
+        .eq('id', userId)
+      if (error) throw error
+      posthog.capture('profile_updated')
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+    } catch (e) {
+      console.error('handleSave error:', e)
+      alert('Failed to save profile. Please try again.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const handleSignOut = async () => {
@@ -119,16 +131,17 @@ export default function Profile() {
     try {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      const { data: terms } = await supabase
+      if (!user) { alert('Not signed in.'); return }
+      const { data: terms, error } = await supabase
         .from('terms')
         .select('term, definition, subject')
         .eq('user_id', user.id)
         .eq('known', false)
         .order('created_at', { ascending: true })
-      if (!terms?.length) return
+      if (error) throw error
+      if (!terms?.length) { alert('No flashcards to export yet.'); return }
       const lines = terms.map(t => {
-        const tag = t.subject ? t.subject.replace(/\s+/g, '_') : 'Demist'
+        const tag = t.subject ? t.subject.replace(/[^\w]/g, '_').slice(0, 50) : 'Demist'
         return `${t.term}\t${t.definition}\t${tag}`
       })
       const blob = new Blob([lines.join('\n')], { type: 'text/plain' })
@@ -139,6 +152,9 @@ export default function Profile() {
       a.click()
       URL.revokeObjectURL(url)
       setExported(true)
+    } catch (e) {
+      console.error('exportToAnki error:', e)
+      alert('Export failed. Please try again.')
     } finally {
       setExporting(false)
     }
