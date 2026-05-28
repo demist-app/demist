@@ -10,10 +10,11 @@ const NAV = [
   { href: '/flashcards', label: 'Flashcards', icon: CardsIcon },
   { href: '/glossary', label: 'Glossary', icon: GlossaryIcon },
   { href: '/history', label: 'History', icon: HistoryIcon },
-  { href: '/profile', label: 'Profile', icon: ProfileIcon },
+  { href: '/import', label: 'Import', icon: ImportIcon },
 ]
 
 const DESKTOP_EXTRA = [
+  { href: '/profile', label: 'Profile' },
   { href: '/leaderboard', label: 'Leaderboard' },
 ]
 
@@ -131,12 +132,13 @@ function GlossaryIcon({ active }: { active: boolean }) {
   )
 }
 
-function ProfileIcon({ active }: { active: boolean }) {
+function ImportIcon({ active }: { active: boolean }) {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
       strokeWidth={active ? 2 : 1.6} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-      <circle cx="12" cy="7" r="4" />
+      <polyline points="8 17 12 21 16 17" />
+      <line x1="12" y1="12" x2="12" y2="21" />
+      <path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29" />
     </svg>
   )
 }
