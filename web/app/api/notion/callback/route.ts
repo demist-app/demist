@@ -7,7 +7,7 @@ export async function GET(req: NextRequest) {
   const code = searchParams.get('code')
   const error = searchParams.get('error')
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? `${req.nextUrl.protocol}//${req.nextUrl.host}`
 
   if (error || !code) {
     return NextResponse.redirect(`${appUrl}/import?notion_error=${error ?? 'no_code'}`)
