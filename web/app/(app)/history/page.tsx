@@ -267,7 +267,7 @@ export default function History() {
       </header>
 
       <div className="flex-1 overflow-y-auto">
-      <div className="w-full max-w-3xl mx-auto px-4 sm:px-6 py-4">
+      <div className="w-full max-w-3xl mx-auto px-4 sm:px-6 py-4 animate-step opacity-0" style={{ animationFillMode: 'forwards' }}>
         {loading && (
           <div className="animate-pulse space-y-6">
             {[0,1].map(g => (

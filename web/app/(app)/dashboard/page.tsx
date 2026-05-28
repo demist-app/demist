@@ -657,7 +657,7 @@ export default function Dashboard() {
           <div className="w-full max-w-4xl mx-auto flex flex-col">
 
             {/* Mic hero */}
-            <div className="flex flex-col items-center pt-12 pb-8 px-4 sm:px-6">
+            <div className="flex flex-col items-center pt-12 pb-8 px-4 sm:px-6 animate-step opacity-0" style={{ animationFillMode: 'forwards' }}>
               <div className="relative flex items-center justify-center mb-5">
                 <span className="absolute w-[130px] h-[130px] rounded-full bg-violet-600/[0.08]" style={{ animation: 'glow-float 4s ease-in-out infinite' }} />
                 <span className="absolute w-[162px] h-[162px] rounded-full bg-violet-600/[0.05]" style={{ animation: 'glow-float 4s ease-in-out -1.3s infinite' }} />
@@ -677,7 +677,7 @@ export default function Dashboard() {
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-2 gap-3 px-4 sm:px-6 pb-5">
+            <div className="grid grid-cols-2 gap-3 px-4 sm:px-6 pb-5 animate-step opacity-0" style={{ animationDelay: '60ms', animationFillMode: 'forwards' }}>
               {stats.dueFlashcards > 0 && (
                 <Link
                   href="/flashcards"
@@ -711,7 +711,7 @@ export default function Dashboard() {
             </div>
 
             {/* Recent sessions */}
-            <div className="px-4 sm:px-6 pb-4">
+            <div className="px-4 sm:px-6 pb-4 animate-step opacity-0" style={{ animationDelay: '120ms', animationFillMode: 'forwards' }}>
               {recentSessions.length > 0 ? (
                 <>
                   <div className="flex items-center justify-between mb-3">

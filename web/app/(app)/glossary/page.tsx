@@ -98,7 +98,7 @@ export default function Glossary() {
       </header>
 
       <div className="flex-1 overflow-y-auto">
-      <div className="w-full max-w-2xl mx-auto">
+      <div className="w-full max-w-2xl mx-auto animate-step opacity-0" style={{ animationFillMode: 'forwards' }}>
       {/* Hero */}
       <div className="relative overflow-hidden px-4 sm:px-6 pt-6 pb-5">
         <div

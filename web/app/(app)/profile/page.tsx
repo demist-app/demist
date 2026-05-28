@@ -171,7 +171,7 @@ export default function Profile() {
       <div className="flex-1 overflow-y-auto">
       <div className="w-full max-w-xl mx-auto px-4 sm:px-6 py-6 space-y-6">
         {/* Avatar + name */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 animate-step opacity-0" style={{ animationFillMode: 'forwards' }}>
           <div className="w-16 h-16 rounded-full bg-gradient-to-br from-violet-600/40 to-indigo-600/30 border border-violet-500/40 flex items-center justify-center text-[24px] font-bold text-violet-300 shrink-0 shadow-[0_0_24px_rgba(139,92,246,0.2)]">
             {initials}
           </div>
@@ -183,7 +183,7 @@ export default function Profile() {
 
         {/* Anki export */}
         {totalTerms > 0 && (
-          <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl overflow-hidden">
+          <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl overflow-hidden animate-step opacity-0" style={{ animationDelay: '30ms', animationFillMode: 'forwards' }}>
             <button
               onClick={exportToAnki}
               disabled={exporting}
@@ -254,7 +254,7 @@ export default function Profile() {
         )}
 
         {/* Edit form */}
-        <div className="space-y-3">
+        <div className="space-y-3 animate-step opacity-0" style={{ animationDelay: '60ms', animationFillMode: 'forwards' }}>
           <p className="text-[10px] font-bold tracking-[0.18em] text-gray-600 uppercase">Settings</p>
 
           <div>
@@ -314,7 +314,7 @@ export default function Profile() {
         </div>
 
         {/* Share & leaderboard */}
-        <div className="space-y-3">
+        <div className="space-y-3 animate-step opacity-0" style={{ animationDelay: '120ms', animationFillMode: 'forwards' }}>
           <p className="text-[10px] font-bold tracking-[0.18em] text-gray-600 uppercase">Sharing</p>
 
           <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl px-4 py-4 space-y-3">
@@ -358,7 +358,8 @@ export default function Profile() {
         {/* Sign out */}
         <button
           onClick={handleSignOut}
-          className="w-full py-4 rounded-2xl text-[15px] font-medium bg-white/[0.03] border border-white/[0.06] text-gray-500 hover:text-red-400 hover:border-red-500/20 transition-all"
+          className="w-full py-4 rounded-2xl text-[15px] font-medium bg-white/[0.03] border border-white/[0.06] text-gray-500 hover:text-red-400 hover:border-red-500/20 transition-all animate-step opacity-0"
+          style={{ animationDelay: '180ms', animationFillMode: 'forwards' }}
         >
           Sign out
         </button>
