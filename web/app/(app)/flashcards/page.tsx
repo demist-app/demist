@@ -165,7 +165,7 @@ export default function Flashcards() {
       </header>
 
       {phase === 'loading' && (
-        <div className="flex-1 flex flex-col max-w-4xl w-full mx-auto px-4 sm:px-6 pt-4 pb-4 animate-pulse">
+        <div className="flex-1 flex flex-col max-w-xl w-full mx-auto px-4 sm:px-6 pt-4 pb-4 animate-pulse">
           <div className="h-1 bg-white/[0.06] rounded-full mb-6" />
           <div className="flex items-center gap-2 mb-4">
             <div className="h-5 w-16 bg-white/[0.06] rounded-full" />
@@ -183,7 +183,7 @@ export default function Flashcards() {
       )}
 
       {phase === 'empty' && (
-        <div className="flex-1 flex flex-col max-w-4xl w-full mx-auto px-4 sm:px-6 py-8">
+        <div className="flex-1 flex flex-col max-w-xl w-full mx-auto px-4 sm:px-6 py-8">
           <div className="flex flex-col items-center text-center gap-3 mb-8">
             <p className="text-[22px] font-bold">All caught up</p>
             <p className="text-gray-500 text-[14px] leading-relaxed max-w-xs">
@@ -200,7 +200,7 @@ export default function Flashcards() {
       )}
 
       {phase === 'done' && (
-        <div className="flex-1 flex flex-col max-w-4xl w-full mx-auto px-4 sm:px-6 py-6 overflow-y-auto">
+        <div className="flex-1 flex flex-col max-w-xl w-full mx-auto px-4 sm:px-6 py-6 overflow-y-auto">
           <div className="flex flex-col items-center text-center gap-2 mb-6">
             <p className="text-[22px] font-bold">Session done</p>
             <p className="text-gray-500 text-[14px]">
@@ -231,7 +231,7 @@ export default function Flashcards() {
       )}
 
       {phase === 'review' && current && (
-        <div className="flex-1 flex flex-col max-w-4xl w-full mx-auto px-4 sm:px-6 pt-4 pb-4">
+        <div className="flex-1 flex flex-col max-w-xl w-full mx-auto px-4 sm:px-6 pt-4 pb-4">
           {/* Progress bar */}
           <div className="shrink-0 h-1 bg-white/[0.06] rounded-full mb-2 overflow-hidden">
             <div
