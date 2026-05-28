@@ -110,7 +110,7 @@ export default function Login() {
 
   const handleVerifyCode = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (code.length < 8) return
+    if (code.length < 6) return
     setLoading(true)
     setError('')
     const supabase = createClient()
@@ -195,13 +195,13 @@ export default function Login() {
                 inputMode="numeric"
                 pattern="[0-9]*"
                 value={code}
-                onChange={e => setCode(e.target.value.replace(/\D/g, ''))}
-                placeholder="00000000"
+                onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="000000"
                 className="w-full bg-white/[0.05] border border-white/[0.1] rounded-2xl px-5 py-4 text-white text-[22px] font-mono tracking-[0.3em] text-center placeholder-gray-700 focus:outline-none focus:border-violet-500/50 focus:bg-white/[0.07] transition-all"
               />
               <button
                 type="submit"
-                disabled={loading || code.length < 8}
+                disabled={loading || code.length < 6}
                 className="py-4 rounded-2xl text-[15px] font-semibold bg-violet-600 hover:bg-violet-500 disabled:opacity-25 disabled:cursor-not-allowed text-white transition-all"
               >
                 {loading ? 'Verifying…' : 'Verify →'}

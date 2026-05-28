@@ -13,11 +13,6 @@ interface ProfileData {
   is_public: boolean
 }
 
-interface ChartDay {
-  label: string
-  count: number
-}
-
 const YEAR_OPTIONS = [
   { value: 1, label: 'Y1' },
   { value: 2, label: 'Y2' },
@@ -29,15 +24,6 @@ const YEAR_OPTIONS = [
   { value: 8, label: 'PhD' },
 ]
 
-function get7DayChart(timestamps: string[]): ChartDay[] {
-  const DAY_LABELS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
-  return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(); d.setDate(d.getDate() - (6 - i)); d.setHours(0,0,0,0)
-    const next = new Date(d.getTime() + 86400000)
-    const count = timestamps.filter(t => { const ts = new Date(t).getTime(); return ts >= d.getTime() && ts < next.getTime() }).length
-    return { label: DAY_LABELS[d.getDay()], count }
-  })
-}
 
 export default function Profile() {
   const router = useRouter()
@@ -50,8 +36,6 @@ export default function Profile() {
   const [isPublic, setIsPublic] = useState(false)
   const [copied, setCopied] = useState(false)
   const [totalTerms, setTotalTerms] = useState(0)
-  const [totalSessions, setTotalSessions] = useState(0)
-  const [chartData, setChartData] = useState<ChartDay[]>([])
   const [userId, setUserId] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
   const [exported, setExported] = useState(false)
@@ -63,17 +47,12 @@ export default function Profile() {
       if (!user) return
       setUserId(user.id)
 
-      const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString()
       const [
         { data: prof },
         { count: termCount },
-        { count: sessionCount },
-        { data: recentSessions7d },
       ] = await Promise.all([
         supabase.from('profiles').select('display_name, course, year_of_study, is_public').eq('id', user.id).maybeSingle(),
         supabase.from('terms').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
-        supabase.from('sessions').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
-        supabase.from('sessions').select('started_at').eq('user_id', user.id).gte('started_at', weekAgo),
       ])
 
       const p = prof as { display_name: string | null; course: string | null; year_of_study: number | null; is_public: boolean }
@@ -83,8 +62,6 @@ export default function Profile() {
       setYear(p?.year_of_study ?? null)
       setIsPublic(p?.is_public ?? false)
       setTotalTerms(termCount ?? 0)
-      setTotalSessions(sessionCount ?? 0)
-      setChartData(get7DayChart((recentSessions7d ?? []).map((s: { started_at: string }) => s.started_at)))
     })()
   }, [])
 
@@ -180,7 +157,6 @@ export default function Profile() {
   }
 
   const initials = (displayName || profile?.email || '?').slice(0, 1).toUpperCase()
-  const maxChart = Math.max(...chartData.map(d => d.count), 1)
 
   if (!profile) return <div className="min-h-dvh bg-[#080810]" />
 
@@ -203,46 +179,6 @@ export default function Profile() {
             <p className="text-[13px] text-gray-500 truncate">{profile.email}</p>
           </div>
         </div>
-
-        {/* Stats row */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="bg-white/[0.03] border border-white/[0.07] rounded-2xl px-4 py-4">
-            <div className="flex items-center gap-1.5 mb-2">
-              <div className="w-1.5 h-1.5 rounded-full bg-violet-500" />
-              <p className="text-[11px] text-gray-600 uppercase tracking-[0.12em]">Sessions</p>
-            </div>
-            <p className="text-[28px] font-bold leading-none text-violet-400">{totalSessions}</p>
-          </div>
-          <div className="bg-white/[0.03] border border-white/[0.07] rounded-2xl px-4 py-4">
-            <div className="flex items-center gap-1.5 mb-2">
-              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              <p className="text-[11px] text-gray-600 uppercase tracking-[0.12em]">Total terms</p>
-            </div>
-            <p className="text-[28px] font-bold leading-none text-emerald-400">{totalTerms}</p>
-          </div>
-        </div>
-
-        {/* 7-day chart */}
-        {chartData.some(d => d.count > 0) && (
-          <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl px-4 py-4">
-            <p className="text-[10px] font-bold tracking-[0.18em] text-gray-600 uppercase mb-4">Sessions this week</p>
-            <div className="flex items-end gap-1.5 h-[52px]">
-              {chartData.map((d, i) => {
-                const height = Math.max(3, Math.round((d.count / maxChart) * 44))
-                const isToday = i === chartData.length - 1
-                return (
-                  <div key={i} className="flex flex-col items-center gap-1 flex-1">
-                    <div
-                      className={`w-full rounded-sm ${isToday ? 'bg-violet-500' : 'bg-white/[0.12]'}`}
-                      style={{ height: `${height}px` }}
-                    />
-                    <span className={`text-[9px] ${isToday ? 'text-violet-400' : 'text-gray-700'}`}>{d.label}</span>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
 
         {/* Anki export */}
         {totalTerms > 0 && (
@@ -410,10 +346,10 @@ export default function Profile() {
           </div>
 
           <a
-            href="/leaderboard"
-            className="flex items-center justify-between w-full bg-white/[0.03] border border-white/[0.06] rounded-2xl px-4 py-3 hover:bg-white/[0.05] transition-all"
+            href="/stats"
+            className="flex items-center justify-between w-full bg-white/[0.03] border border-white/[0.06] rounded-2xl px-4 py-3 hover:bg-white/[0.05] transition-colors duration-150 active:scale-[0.97]"
           >
-            <span className="text-[14px] text-white/80">View leaderboard</span>
+            <span className="text-[14px] text-white/80">View your stats</span>
             <span className="text-gray-600 text-[18px] leading-none">›</span>
           </a>
         </div>

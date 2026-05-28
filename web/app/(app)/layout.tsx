@@ -15,7 +15,7 @@ const NAV = [
 
 const DESKTOP_EXTRA = [
   { href: '/profile', label: 'Profile' },
-  { href: '/leaderboard', label: 'Leaderboard' },
+  { href: '/stats', label: 'Stats' },
 ]
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
