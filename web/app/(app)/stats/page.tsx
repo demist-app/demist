@@ -171,9 +171,10 @@ export default function Stats() {
           </div>
 
           {/* Charts row — side by side on desktop */}
-          {hasAnyData && (
+          {(dailySessions.some(d => d.count > 0) || weeklyTerms.some(w => w.count > 0)) && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 animate-step opacity-0" style={{ animationDelay: '100ms', animationFillMode: 'forwards' }}>
               {/* Sessions this week */}
+              {dailySessions.some(d => d.count > 0) && (
               <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl px-4 py-4">
                 <p className="text-[10px] font-bold tracking-[0.18em] text-gray-600 uppercase mb-4">Sessions this week</p>
                 <div className="flex items-end gap-1.5 h-[60px]">
@@ -192,8 +193,10 @@ export default function Stats() {
                   })}
                 </div>
               </div>
+              )}
 
               {/* Terms over 8 weeks */}
+              {weeklyTerms.some(w => w.count > 0) && (
               <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl px-4 py-4">
                 <p className="text-[10px] font-bold tracking-[0.18em] text-gray-600 uppercase mb-4">Terms detected (8 weeks)</p>
                 <div className="flex items-end gap-1 h-[60px]">
@@ -212,6 +215,7 @@ export default function Stats() {
                   })}
                 </div>
               </div>
+              )}
             </div>
           )}
 

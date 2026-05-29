@@ -109,6 +109,14 @@ button, a {
   66%       { transform: translate(-10px, 8px) scale(0.97); }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .animate-step {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+
 .flashcard-flip {
   perspective: 1000px;
 }

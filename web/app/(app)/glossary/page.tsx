@@ -179,7 +179,7 @@ export default function Glossary() {
               </svg>
             </div>
             <p className="text-[15px] font-medium text-gray-400">No terms yet</p>
-            <p className="text-[13px] text-gray-700">Record a lecture to start building your glossary.</p>
+            <p className="text-[13px] text-gray-700">Record a lecture to grow your glossary.</p>
           </div>
         )}
 

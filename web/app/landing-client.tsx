@@ -43,31 +43,31 @@ const EXTENSION_DOWNLOAD_URL = '/demist-extension.zip'
 const FEATURES = [
   {
     title: 'Live term detection',
-    body: 'Demist listens to your microphone and identifies unfamiliar terms as your lecturer speaks. A plain-English explanation appears on screen, tailored to your subject and year of study.',
+    body: 'Demist listens to your microphone and flags unfamiliar terms as your lecturer speaks. Each definition shows on screen, matched to your subject and year.',
     Icon: MicIcon,
     tag: null as string | null,
   },
   {
     title: 'Automatic glossary',
-    body: 'Every detected term is saved to your account with its definition. Nothing to copy, nothing to type - your glossary grows in the background.',
+    body: 'Demist saves every term with its definition. Your glossary fills itself while you focus on the lecture.',
     Icon: BookIcon,
     tag: null as string | null,
   },
   {
     title: 'Spaced repetition flashcards',
-    body: <>Terms are queued as flashcards automatically. Demist uses <span className="text-violet-400 font-medium">SM-2 spaced repetition</span> to schedule reviews at exactly the right time for long-term retention.</>,
+    body: <>Demist queues each term as a flashcard and uses <span className="text-violet-400 font-medium">SM-2 spaced repetition</span> to schedule reviews at the right time.</>,
     Icon: CardIcon,
     tag: null as string | null,
   },
   {
     title: 'AI session summaries',
-    body: 'When you stop recording, Demist generates a concise summary of everything your lecturer covered. Find it waiting in your history alongside the full term list and transcript.',
+    body: 'When you stop recording, Demist generates a summary of your lecture. Find it in your history alongside the term list and transcript.',
     Icon: SummaryIcon,
     tag: 'New' as string | null,
   },
   {
     title: 'Full session history',
-    body: 'Every lecture is stored with its terms, transcript, and AI summary. Rename sessions, browse past notes, and pick up exactly where you left off.',
+    body: 'Demist stores every lecture with its terms, transcript, and summary. Rename sessions, browse past notes, and return to any recording.',
     Icon: HistoryIconFeat,
     tag: 'New' as string | null,
   },
@@ -82,12 +82,12 @@ const STEPS = [
   {
     n: '02',
     title: 'Definitions pop up as your lecturer speaks',
-    body: 'When Demist hears a term you might not know, it shows you the definition in a small card on screen. Nothing to click, nothing to search.',
+    body: 'When Demist hears a term you might not know, it shows the definition in a small card on screen.',
   },
   {
     n: '03',
     title: 'Your glossary is ready after class',
-    body: <>Every term is saved with its definition, and an AI summary of the session is generated in the background. Flashcards queue automatically using <span className="text-violet-400 font-medium">spaced repetition</span> so what you review actually sticks.</>,
+    body: <>Demist saves every term with its definition and generates a session summary. Flashcards queue with <span className="text-violet-400 font-medium">spaced repetition</span> on a schedule built around when you&apos;ll forget.</>,
   },
 ]
 
@@ -416,7 +416,7 @@ export default function LandingClient() {
           className="text-gray-600 text-[15px] leading-relaxed mb-10 max-w-[480px] mx-auto"
           {...scrollAnim(extRef.visible, 160)}
         >
-          Start recording in Demist, then switch to your lecture slides or notes. The Chrome extension keeps a live panel open on the side showing every term as it's detected, without covering your screen.
+          Start recording in Demist, then switch to your lecture slides or notes. The Chrome extension keeps a live panel open on the side showing every term as Demist detects it, without covering your screen.
         </p>
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3" {...scrollAnim(extRef.visible, 240)}>

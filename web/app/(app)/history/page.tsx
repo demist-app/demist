@@ -295,7 +295,7 @@ export default function History() {
         {!loading && sessions.length === 0 && (
           <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
             <p className="text-gray-600">No sessions yet.</p>
-            <p className="text-gray-700 text-[13px]">Head to Home and start recording a lecture.</p>
+            <p className="text-gray-700 text-[13px]">Go to Home and record your first lecture.</p>
           </div>
         )}
 
