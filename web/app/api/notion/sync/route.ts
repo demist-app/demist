@@ -156,8 +156,16 @@ async function pushSummaries(token: string, userId: string, supabase: ReturnType
 
 // ---- PULL helpers ----
 
-async function extractBlocksText(token: string, blockId: string, depth = 0): Promise<string> {
-  if (depth > 2) return ''
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const MAX_BLOCKS = 200
+
+async function extractBlocksText(
+  token: string,
+  blockId: string,
+  depth = 0,
+  counter = { n: 0 }
+): Promise<string> {
+  if (depth > 2 || counter.n >= MAX_BLOCKS) return ''
   const res = await fetch(`https://api.notion.com/v1/blocks/${blockId}/children?page_size=100`, {
     headers: notionHeaders(token),
   })
@@ -165,11 +173,13 @@ async function extractBlocksText(token: string, blockId: string, depth = 0): Pro
   const data = await res.json()
   const lines: string[] = []
   for (const block of data.results ?? []) {
+    if (counter.n >= MAX_BLOCKS) break
+    counter.n++
     const richText = block[block.type]?.rich_text ?? []
     const lineText = richText.map((r: { plain_text: string }) => r.plain_text).join('')
     if (lineText.trim()) lines.push(lineText)
     if (block.has_children) {
-      const childText = await extractBlocksText(token, block.id, depth + 1)
+      const childText = await extractBlocksText(token, block.id, depth + 1, counter)
       if (childText) lines.push(childText)
     }
   }
@@ -236,7 +246,9 @@ export async function POST(req: NextRequest) {
 
   if (action === 'pull_page') {
     const { page_id } = body
-    if (!page_id) return NextResponse.json({ error: 'missing_page_id' }, { status: 400 })
+    if (!page_id || !UUID_RE.test(String(page_id))) {
+      return NextResponse.json({ error: 'invalid_page_id' }, { status: 400 })
+    }
     const text = await extractBlocksText(token, page_id)
     if (!text.trim()) return NextResponse.json({ error: 'empty_page' }, { status: 422 })
     return NextResponse.json({ ok: true, text })

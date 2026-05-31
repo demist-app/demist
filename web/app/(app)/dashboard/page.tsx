@@ -93,6 +93,7 @@ export default function Dashboard() {
   const [sessionGenIds, setSessionGenIds] = useState<Set<string>>(new Set())
   const [sessionFailIds, setSessionFailIds] = useState<Set<string>>(new Set())
   const [sessionTermLoading, setSessionTermLoading] = useState<string | null>(null)
+  const [recordingError, setRecordingError] = useState<string | null>(null)
 
   const profileRef = useRef<Profile | null>(null)
   const userIdRef = useRef<string | null>(null)
@@ -242,7 +243,13 @@ export default function Dashboard() {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': blob.type || 'audio/webm' },
         body: blob,
       })
-      if (!txRes.ok) { console.error('transcribe error:', await txRes.text()); return }
+      if (!txRes.ok) {
+        if (txRes.status === 401) {
+          setRecordingError('Session expired. Sign in again to continue recording.')
+          stopRecordingRef.current()
+        }
+        return
+      }
       const tx = await txRes.json()
       if (!tx?.text?.trim()) return
       transcriptRef.current = transcriptRef.current ? transcriptRef.current + ' ' + tx.text.trim() : tx.text.trim()
@@ -257,7 +264,13 @@ export default function Dashboard() {
           known_terms: Array.from(knownTermsRef.current),
         }),
       })
-      if (!dtRes.ok) { console.error('detect-terms error:', await dtRes.text()); return }
+      if (!dtRes.ok) {
+        if (dtRes.status === 401) {
+          setRecordingError('Session expired. Sign in again to continue recording.')
+          stopRecordingRef.current()
+        }
+        return
+      }
       const detected = await dtRes.json()
       if (!detected?.terms?.length) return
 
@@ -290,7 +303,7 @@ export default function Dashboard() {
       }
 
       for (const t of filtered) {
-        window.postMessage({ source: 'demist', type: 'term', term: t.term, definition: t.definition }, '*')
+        window.postMessage({ source: 'demist', type: 'term', term: t.term, definition: t.definition }, window.location.origin)
       }
 
       const now = Date.now()
@@ -356,8 +369,8 @@ export default function Dashboard() {
     lastPopupAtRef.current = 0
     termFrequencyRef.current = new Map()
     transcriptRef.current = ''
-    setIsRecording(true); setElapsed(0); setLiveTerms([]); setSessionGlossary([])
-    window.postMessage({ source: 'demist', type: 'recording-started' }, '*')
+    setIsRecording(true); setElapsed(0); setLiveTerms([]); setSessionGlossary([]); setRecordingError(null)
+    window.postMessage({ source: 'demist', type: 'recording-started' }, window.location.origin)
     timerRef.current = setInterval(() => setElapsed(t => t + 1), 1000)
 
     const doChunk = () => {
@@ -392,7 +405,7 @@ export default function Dashboard() {
       await supabase.from('sessions').update({ ended_at: new Date().toISOString() }).eq('id', sid)
     }
     setIsRecording(false)
-    window.postMessage({ source: 'demist', type: 'recording-stopped' }, '*')
+    window.postMessage({ source: 'demist', type: 'recording-stopped' }, window.location.origin)
     posthog.capture('recording_stopped', { duration_seconds: elapsed })
 
     const supabase = createClient()
@@ -674,6 +687,9 @@ export default function Dashboard() {
                 {profile?.course ? `Ready for ${profile.course}` : 'Start recording'}
               </p>
               <p className="text-gray-600 text-[13px] mt-1.5">Tap the mic before your next lecture</p>
+              {recordingError && (
+                <p className="mt-4 text-red-400 text-[13px] text-center max-w-xs">{recordingError}</p>
+              )}
             </div>
 
             {/* Stats */}

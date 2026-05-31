@@ -56,6 +56,7 @@ export default function Login() {
   const [error, setError] = useState('')
   const [resending, setResending] = useState(false)
   const [resent, setResent] = useState(false)
+  const [resendCooldown, setResendCooldown] = useState(0)
   const codeRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -67,6 +68,12 @@ export default function Login() {
   useEffect(() => {
     if (step === 'code') setTimeout(() => codeRef.current?.focus(), 80)
   }, [step])
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return
+    const t = setTimeout(() => setResendCooldown(c => c - 1), 1000)
+    return () => clearTimeout(t)
+  }, [resendCooldown])
 
   const handleSendCode = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -84,14 +91,15 @@ export default function Login() {
       setError(error.message)
       posthog.capture('otp_send_failed', { error_message: error.message })
     } else {
-      posthog.identify(email.trim())
       posthog.capture('otp_sent')
       setStep('code')
+      setResendCooldown(60)
     }
     setLoading(false)
   }
 
   const handleResend = async () => {
+    if (resendCooldown > 0) return
     setResending(true)
     setError('')
     const supabase = createClient()
@@ -104,6 +112,7 @@ export default function Login() {
       setError(error.message)
     } else {
       setResent(true)
+      setResendCooldown(60)
       setTimeout(() => setResent(false), 3000)
     }
   }
@@ -125,6 +134,7 @@ export default function Login() {
       setLoading(false)
       return
     }
+    posthog.identify(data.user!.id, { email: email.trim() })
     posthog.capture('login_success', { method: 'otp' })
     const { data: profile } = await supabase
       .from('profiles')
@@ -217,10 +227,10 @@ export default function Login() {
               </button>
               <button
                 onClick={handleResend}
-                disabled={resending}
+                disabled={resending || resendCooldown > 0}
                 className="text-[13px] text-gray-600 hover:text-gray-400 disabled:opacity-40 transition-colors"
               >
-                {resent ? 'Code sent ✓' : resending ? 'Sending…' : 'Resend code'}
+                {resent ? 'Code sent ✓' : resending ? 'Sending…' : resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend code'}
               </button>
             </div>
           </div>

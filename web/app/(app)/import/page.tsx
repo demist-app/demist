@@ -130,12 +130,18 @@ export default function ImportPage() {
     const error = searchParams.get('notion_error')
     if (connected === '1') {
       setNotionConnectMsg('Notion connected successfully.')
-      // Refresh integration state
       const supabase = createClient()
       supabase.from('integrations').select('workspace_name').eq('provider', 'notion').maybeSingle()
         .then(({ data }) => setNotionIntegration(data))
     } else if (error) {
-      setNotionConnectMsg(`Notion connection failed: ${error.replace(/_/g, ' ')}.`)
+      const NOTION_ERRORS: Record<string, string> = {
+        no_code: 'No authorisation code received from Notion.',
+        invalid_state: 'Connection attempt expired or was tampered with. Please try again.',
+        token_exchange_failed: 'Could not complete the connection. Please try again.',
+        access_denied: 'Access was denied. Please grant permission in Notion.',
+      }
+      const msg = NOTION_ERRORS[error] ?? `Connection failed: ${error.replace(/_/g, ' ')}.`
+      setNotionConnectMsg(msg)
     }
   }, [searchParams])
 
@@ -146,7 +152,7 @@ export default function ImportPage() {
 
     const ALLOWED_AUDIO = /\.(mp3|wav|mp4|m4a|webm|ogg)$/i
     if (!ALLOWED_AUDIO.test(audioFile.name)) {
-      setAudioError('Unsupported file type. Use MP3, WAV, MP4, M4A, or WebM.')
+      setAudioError('Unsupported file type. Use MP3, WAV, MP4, M4A, WebM, or OGG.')
       return
     }
     if (audioFile.size > 25 * 1024 * 1024) {
@@ -436,7 +442,7 @@ export default function ImportPage() {
                 </span>
                 <h2 className="text-[15px] font-semibold text-white">Lecture Recording</h2>
               </div>
-              <p className="text-xs text-gray-500 mt-1 ml-11">MP3, WAV, MP4, M4A, WebM up to 25 MB. We transcribe then detect unfamiliar terms.</p>
+              <p className="text-xs text-gray-500 mt-1 ml-11">MP3, WAV, MP4, M4A, WebM, OGG up to 25 MB. We transcribe then detect unfamiliar terms.</p>
             </div>
 
             <div
@@ -506,7 +512,7 @@ export default function ImportPage() {
                 <div className="p-8 flex flex-col items-center gap-2 text-center">
                   <span className="text-gray-600"><UploadIcon /></span>
                   <p className="text-sm text-gray-500">Drag a recording here or <span className="text-violet-400">browse</span></p>
-                  <p className="text-xs text-gray-600">MP3, WAV, MP4, M4A, WebM</p>
+                  <p className="text-xs text-gray-600">MP3, WAV, MP4, M4A, WebM, OGG</p>
                 </div>
               )}
             </div>
