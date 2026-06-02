@@ -5,6 +5,26 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import JSZip from 'jszip'
 
+const FETCH_TIMEOUT_MS = 300_000 // 5 min — long audio files take time
+
+function fetchWithTimeout(url: string, options: RequestInit, ms = FETCH_TIMEOUT_MS): Promise<Response> {
+  const ctrl = new AbortController()
+  const id = setTimeout(() => ctrl.abort(), ms)
+  return fetch(url, { ...options, signal: ctrl.signal }).finally(() => clearTimeout(id))
+}
+
+const AUDIO_UPLOAD_ERRORS: Record<string, string> = {
+  audio_too_large_for_transcription: 'File exceeds the transcription limit. Try compressing it or splitting into segments under 25 MB (~25–60 min depending on quality).',
+  unauthorized: 'Your session expired. Please sign in again.',
+  storage_download_failed: 'Could not retrieve your file. Please try again.',
+  invalid_audio_format: 'File format not recognised. Use MP3, WAV, MP4, M4A, WebM, or OGG.',
+  internal_error: 'Processing failed. Please try again.',
+}
+
+function friendlyAudioError(code: string): string {
+  return AUDIO_UPLOAD_ERRORS[code] ?? `Processing failed: ${code.replace(/_/g, ' ')}.`
+}
+
 // ---- Types ----
 
 type AudioStatus = 'idle' | 'uploading' | 'transcribing' | 'processing' | 'done' | 'error'
@@ -86,6 +106,8 @@ export default function ImportPage() {
   const [audioStatus, setAudioStatus] = useState<AudioStatus>('idle')
   const [audioResult, setAudioResult] = useState<UploadResult | null>(null)
   const [audioError, setAudioError] = useState<string | null>(null)
+  const [audioProgress, setAudioProgress] = useState(0)
+  const [audioRedirect, setAudioRedirect] = useState<number | null>(null)
   const audioDragRef = useRef(false)
   const [audioDragOver, setAudioDragOver] = useState(false)
 
@@ -94,6 +116,8 @@ export default function ImportPage() {
   const [textStatus, setTextStatus] = useState<TextStatus>('idle')
   const [textResult, setTextResult] = useState<UploadResult | null>(null)
   const [textError, setTextError] = useState<string | null>(null)
+  const [textProgress, setTextProgress] = useState(0)
+  const [textRedirect, setTextRedirect] = useState<number | null>(null)
   const textDragRef = useRef(false)
   const [textDragOver, setTextDragOver] = useState(false)
 
@@ -145,6 +169,66 @@ export default function ImportPage() {
     }
   }, [searchParams])
 
+  // ---- Progress bars ----
+
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval> | null = null
+    if (audioStatus === 'uploading') {
+      setAudioProgress(0)
+      interval = setInterval(() => setAudioProgress(p => Math.min(p + 8, 18)), 150)
+    } else if (audioStatus === 'transcribing') {
+      interval = setInterval(() => setAudioProgress(p => Math.min(p + 0.4, 75)), 400)
+    } else if (audioStatus === 'processing') {
+      interval = setInterval(() => setAudioProgress(p => Math.min(p + 0.25, 93)), 400)
+    } else if (audioStatus === 'done') {
+      setAudioProgress(100)
+    } else if (audioStatus === 'idle' || audioStatus === 'error') {
+      setAudioProgress(0)
+    }
+    return () => { if (interval) clearInterval(interval) }
+  }, [audioStatus])
+
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval> | null = null
+    if (textStatus === 'extracting') {
+      setTextProgress(0)
+      interval = setInterval(() => setTextProgress(p => Math.min(p + 10, 25)), 100)
+    } else if (textStatus === 'processing') {
+      interval = setInterval(() => setTextProgress(p => Math.min(p + 0.5, 93)), 400)
+    } else if (textStatus === 'done') {
+      setTextProgress(100)
+    } else if (textStatus === 'idle' || textStatus === 'error') {
+      setTextProgress(0)
+    }
+    return () => { if (interval) clearInterval(interval) }
+  }, [textStatus])
+
+  // ---- Auto-redirect after success ----
+
+  useEffect(() => {
+    if (audioStatus !== 'done') return
+    setAudioRedirect(3)
+    const interval = setInterval(() => {
+      setAudioRedirect(c => {
+        if (c === null || c <= 1) { clearInterval(interval); router.push('/history'); return null }
+        return c - 1
+      })
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [audioStatus])
+
+  useEffect(() => {
+    if (textStatus !== 'done') return
+    setTextRedirect(3)
+    const interval = setInterval(() => {
+      setTextRedirect(c => {
+        if (c === null || c <= 1) { clearInterval(interval); router.push('/history'); return null }
+        return c - 1
+      })
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [textStatus])
+
   // ---- Audio upload ----
 
   const handleAudioUpload = async () => {
@@ -183,7 +267,7 @@ export default function ImportPage() {
 
       if (!token) throw new Error('Not authenticated')
 
-      const res = await fetch(`${base}/functions/v1/transcribe-audio`, {
+      const res = await fetchWithTimeout(`${base}/functions/v1/transcribe-audio`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -199,7 +283,7 @@ export default function ImportPage() {
 
       setAudioStatus('processing')
       const data = await res.json()
-      if (!res.ok || !data.ok) throw new Error(data.error ?? 'Processing failed')
+      if (!res.ok || !data.ok) throw new Error(friendlyAudioError(data.error ?? 'internal_error'))
 
       setAudioResult(data)
       setAudioStatus('done')
@@ -244,7 +328,7 @@ export default function ImportPage() {
 
       if (!token) throw new Error('Not authenticated')
 
-      const res = await fetch(`${base}/functions/v1/process-text-upload`, {
+      const res = await fetchWithTimeout(`${base}/functions/v1/process-text-upload`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -274,11 +358,11 @@ export default function ImportPage() {
     const setUrl = type === 'glossary' ? setGlossaryPageUrl : setSummaryPageUrl
     setStatus('pushing')
     try {
-      const res = await fetch('/api/notion/sync', {
+      const res = await fetchWithTimeout('/api/notion/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: type === 'glossary' ? 'push_glossary' : 'push_summaries' }),
-      })
+      }, 60_000)
       const data = await res.json()
       if (!res.ok || !data.ok) throw new Error(data.error ?? 'Push failed')
       if (data.page_url) setUrl(data.page_url)
@@ -294,11 +378,11 @@ export default function ImportPage() {
     setNotionPullStatus('loading_pages')
     setNotionPullError(null)
     try {
-      const res = await fetch('/api/notion/sync', {
+      const res = await fetchWithTimeout('/api/notion/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'list_pages' }),
-      })
+      }, 30_000)
       const data = await res.json()
       if (!res.ok || !data.ok) throw new Error(data.error ?? 'Failed to load pages')
       setNotionPages(data.pages ?? [])
@@ -442,7 +526,7 @@ export default function ImportPage() {
                 </span>
                 <h2 className="text-[15px] font-semibold text-white">Lecture Recording</h2>
               </div>
-              <p className="text-xs text-gray-500 mt-1 ml-11">MP3, WAV, MP4, M4A, WebM, OGG up to 25 MB. We transcribe then detect unfamiliar terms.</p>
+              <p className="text-xs text-gray-500 mt-1 ml-11">MP3, WAV, MP4, M4A, WebM, OGG — up to 25 MB (roughly 25–60 min depending on recording quality). We transcribe then detect unfamiliar terms.</p>
             </div>
 
             <div
@@ -476,20 +560,25 @@ export default function ImportPage() {
                     {audioResult.term_count} term{audioResult.term_count !== 1 ? 's' : ''} detected.
                     {audioResult.synopsis ? ' AI summary generated.' : ''}
                   </p>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => router.push('/history')}
-                      className="text-xs font-medium text-violet-400 hover:text-violet-300 transition-colors duration-150 active:scale-[0.97]"
-                    >
-                      View in History
-                    </button>
-                    <span className="text-gray-700">·</span>
-                    <button
-                      onClick={() => { setAudioFile(null); setAudioStatus('idle'); setAudioResult(null) }}
-                      className="text-xs text-gray-500 hover:text-gray-400 transition-colors duration-150 active:scale-[0.97]"
-                    >
-                      Upload another
-                    </button>
+                  <div className="flex items-center justify-between">
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => router.push('/history')}
+                        className="text-xs font-medium text-violet-400 hover:text-violet-300 transition-colors duration-150 active:scale-[0.97]"
+                      >
+                        View in History
+                      </button>
+                      <span className="text-gray-700">·</span>
+                      <button
+                        onClick={() => { setAudioRedirect(null); setAudioFile(null); setAudioStatus('idle'); setAudioResult(null) }}
+                        className="text-xs text-gray-500 hover:text-gray-400 transition-colors duration-150 active:scale-[0.97]"
+                      >
+                        Upload another
+                      </button>
+                    </div>
+                    {audioRedirect !== null && (
+                      <span className="text-xs text-gray-600">Redirecting in {audioRedirect}s</span>
+                    )}
                   </div>
                 </div>
               ) : audioFile ? (
@@ -516,6 +605,18 @@ export default function ImportPage() {
                 </div>
               )}
             </div>
+
+            {audioWorking && (
+              <div className="mx-5 mb-3">
+                <div className="h-1 rounded-full bg-white/[0.06] overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-violet-500 transition-all duration-500 ease-out"
+                    style={{ width: `${audioProgress}%` }}
+                  />
+                </div>
+                <p className="text-[11px] text-gray-600 mt-1.5">{audioLabel[audioStatus]}</p>
+              </div>
+            )}
 
             {audioError && (
               <p className="mx-5 mb-4 text-xs text-red-400">{audioError}</p>
@@ -588,20 +689,25 @@ export default function ImportPage() {
                     {textResult.term_count} term{textResult.term_count !== 1 ? 's' : ''} detected.
                     {textResult.synopsis ? ' AI summary generated.' : ''}
                   </p>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => router.push('/history')}
-                      className="text-xs font-medium text-violet-400 hover:text-violet-300 transition-colors duration-150 active:scale-[0.97]"
-                    >
-                      View in History
-                    </button>
-                    <span className="text-gray-700">·</span>
-                    <button
-                      onClick={() => { setTextFile(null); setTextStatus('idle'); setTextResult(null) }}
-                      className="text-xs text-gray-500 hover:text-gray-400 transition-colors duration-150 active:scale-[0.97]"
-                    >
-                      Upload another
-                    </button>
+                  <div className="flex items-center justify-between">
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => router.push('/history')}
+                        className="text-xs font-medium text-violet-400 hover:text-violet-300 transition-colors duration-150 active:scale-[0.97]"
+                      >
+                        View in History
+                      </button>
+                      <span className="text-gray-700">·</span>
+                      <button
+                        onClick={() => { setTextRedirect(null); setTextFile(null); setTextStatus('idle'); setTextResult(null) }}
+                        className="text-xs text-gray-500 hover:text-gray-400 transition-colors duration-150 active:scale-[0.97]"
+                      >
+                        Upload another
+                      </button>
+                    </div>
+                    {textRedirect !== null && (
+                      <span className="text-xs text-gray-600">Redirecting in {textRedirect}s</span>
+                    )}
                   </div>
                 </div>
               ) : textFile ? (
@@ -628,6 +734,18 @@ export default function ImportPage() {
                 </div>
               )}
             </div>
+
+            {textWorking && (
+              <div className="mx-5 mb-3">
+                <div className="h-1 rounded-full bg-white/[0.06] overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-violet-500 transition-all duration-500 ease-out"
+                    style={{ width: `${textProgress}%` }}
+                  />
+                </div>
+                <p className="text-[11px] text-gray-600 mt-1.5">{textLabel[textStatus]}</p>
+              </div>
+            )}
 
             {textError && (
               <p className="mx-5 mb-4 text-xs text-red-400">{textError}</p>

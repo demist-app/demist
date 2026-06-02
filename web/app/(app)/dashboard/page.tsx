@@ -629,6 +629,7 @@ export default function Dashboard() {
                 <button
                   ref={btnRef}
                   onClick={stopRecording}
+                  aria-label="Stop recording"
                   className="relative z-10 w-[88px] h-[88px] rounded-full bg-red-600 hover:bg-red-500 active:scale-[0.97] flex items-center justify-center transition-colors duration-200 select-none"
                 >
                   <StopIcon />
@@ -678,7 +679,8 @@ export default function Dashboard() {
                 <button
                   ref={btnRef}
                   onClick={startRecording}
-                  className="relative z-10 w-[96px] h-[96px] rounded-full bg-white/[0.07] border border-violet-500/30 hover:bg-violet-600/20 hover:border-violet-500/50 hover:shadow-[0_0_56px_rgba(139,92,246,0.3)] active:scale-[0.97] flex items-center justify-center transition-transform,background-color,border-color,box-shadow duration-200 select-none"
+                  aria-label="Start recording"
+                  className="relative z-10 w-[96px] h-[96px] rounded-full bg-white/[0.07] border border-violet-500/30 hover:bg-violet-600/20 hover:border-violet-500/50 hover:shadow-[0_0_56px_rgba(139,92,246,0.3)] active:scale-[0.97] flex items-center justify-center transition-all duration-200 select-none"
                 >
                   <MicIcon />
                 </button>

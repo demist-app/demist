@@ -108,7 +108,7 @@ export default function Flashcards() {
     const dueAt = new Date(Date.now() + interval * 86400000).toISOString()
 
     const supabase = createClient()
-    await supabase
+    const { error } = await supabase
       .from('terms')
       .update({
         sm2_interval: interval,
@@ -117,6 +117,12 @@ export default function Flashcards() {
         sm2_review_count: (current.sm2_review_count ?? 0) + 1,
       })
       .eq('id', current.id)
+
+    if (error) {
+      console.error('sm2 update failed:', error)
+      setSaving(false)
+      return
+    }
 
     posthog.capture('flashcard_graded', { grade, interval, isNew: current.isNew })
 

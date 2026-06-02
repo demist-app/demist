@@ -206,6 +206,11 @@ export default function Login() {
                 pattern="[0-9]*"
                 value={code}
                 onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                onPaste={e => {
+                  e.preventDefault()
+                  const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6)
+                  setCode(pasted)
+                }}
                 placeholder="000000"
                 className="w-full bg-white/[0.05] border border-white/[0.1] rounded-2xl px-5 py-4 text-white text-[22px] font-mono tracking-[0.3em] text-center placeholder-gray-700 focus:outline-none focus:border-violet-500/50 focus:bg-white/[0.07] transition-all"
               />

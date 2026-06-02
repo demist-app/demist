@@ -72,7 +72,11 @@
       "Bash(agent-browser skills *)",
       "Bash(agent-browser status *)",
       "Bash(agent-browser goto *)",
-      "Bash(git diff *)"
+      "Bash(git diff *)",
+      "Bash(supabase projects *)",
+      "Bash(supabase db *)",
+      "Bash(supabase functions *)",
+      "Bash(supabase secrets *)"
     ],
     "additionalDirectories": [
       "c:\\Users\\shivb\\Desktop\\coding bits\\demist\\web\\app\\u"

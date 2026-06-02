@@ -33,51 +33,59 @@ export default function Glossary() {
   useEffect(() => {
     const supabase = createClient()
     ;(async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      posthog.capture('glossary_viewed')
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
+        posthog.capture('glossary_viewed')
 
-      const [
-        { data: termsData },
-        { data: sessionsData },
-      ] = await Promise.all([
-        supabase.from('terms').select('id, term, definition, session_id').eq('user_id', user.id).order('created_at', { ascending: true }),
-        supabase.from('sessions').select('id, name, started_at, subject').eq('user_id', user.id).order('started_at', { ascending: true }),
-      ])
+        const [
+          { data: termsData, error: termsErr },
+          { data: sessionsData, error: sessionsErr },
+        ] = await Promise.all([
+          supabase.from('terms').select('id, term, definition, session_id').eq('user_id', user.id).order('created_at', { ascending: true }),
+          supabase.from('sessions').select('id, name, started_at, subject').eq('user_id', user.id).order('started_at', { ascending: true }),
+        ])
 
-      const allTerms = (termsData ?? []) as Term[]
-      const allSessions = (sessionsData ?? []) as { id: string; name: string | null; started_at: string; subject: string | null }[]
-      setTotalCount(allTerms.length)
+        if (termsErr) throw termsErr
+        if (sessionsErr) throw sessionsErr
 
-      const sessionIdSet = new Set(allSessions.map(s => s.id))
-      const sessionMetaMap = new Map(allSessions.map(s => [s.id, s]))
+        const allTerms = (termsData ?? []) as Term[]
+        const allSessions = (sessionsData ?? []) as { id: string; name: string | null; started_at: string; subject: string | null }[]
+        setTotalCount(allTerms.length)
 
-      const grouped = new Map<string, Term[]>()
-      const orphans: Term[] = []
+        const sessionIdSet = new Set(allSessions.map(s => s.id))
+        const sessionMetaMap = new Map(allSessions.map(s => [s.id, s]))
 
-      for (const t of allTerms) {
-        if (!t.session_id || !sessionIdSet.has(t.session_id)) {
-          orphans.push(t)
-        } else {
-          if (!grouped.has(t.session_id)) grouped.set(t.session_id, [])
-          grouped.get(t.session_id)!.push(t)
+        const grouped = new Map<string, Term[]>()
+        const orphans: Term[] = []
+
+        for (const t of allTerms) {
+          if (!t.session_id || !sessionIdSet.has(t.session_id)) {
+            orphans.push(t)
+          } else {
+            if (!grouped.has(t.session_id)) grouped.set(t.session_id, [])
+            grouped.get(t.session_id)!.push(t)
+          }
         }
+
+        const sessionList: GlossarySession[] = allSessions
+          .filter(s => grouped.has(s.id))
+          .map(s => ({
+            id: s.id,
+            name: sessionMetaMap.get(s.id)?.name ?? null,
+            started_at: s.started_at,
+            subject: sessionMetaMap.get(s.id)?.subject ?? null,
+            terms: grouped.get(s.id)!,
+          }))
+          .reverse()
+
+        setSessions(sessionList)
+        setOrphanTerms(orphans)
+      } catch (e) {
+        console.error('glossary load error:', e)
+      } finally {
+        setLoading(false)
       }
-
-      const sessionList: GlossarySession[] = allSessions
-        .filter(s => grouped.has(s.id))
-        .map(s => ({
-          id: s.id,
-          name: sessionMetaMap.get(s.id)?.name ?? null,
-          started_at: s.started_at,
-          subject: sessionMetaMap.get(s.id)?.subject ?? null,
-          terms: grouped.get(s.id)!,
-        }))
-        .reverse()
-
-      setSessions(sessionList)
-      setOrphanTerms(orphans)
-      setLoading(false)
     })()
   }, [])
 

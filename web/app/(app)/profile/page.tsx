@@ -121,7 +121,7 @@ export default function Profile() {
         const tag = t.subject ? t.subject.replace(/[^\w]/g, '_').slice(0, 50) : 'Demist'
         return `${t.term}\t${t.definition}\t${tag}`
       })
-      const blob = new Blob([lines.join('\n')], { type: 'text/plain' })
+      const blob = new Blob(['﻿' + lines.join('\n')], { type: 'text/plain;charset=utf-8' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
@@ -142,18 +142,24 @@ export default function Profile() {
     const url = `${window.location.origin}/u/${userId}`
     try {
       await navigator.clipboard.writeText(url)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
     } catch {
-      const el = document.createElement('textarea')
-      el.value = url
-      el.style.position = 'fixed'
-      el.style.opacity = '0'
-      document.body.appendChild(el)
-      el.select()
-      document.execCommand('copy')
-      document.body.removeChild(el)
+      try {
+        const el = document.createElement('textarea')
+        el.value = url
+        el.style.position = 'fixed'
+        el.style.opacity = '0'
+        document.body.appendChild(el)
+        el.select()
+        document.execCommand('copy')
+        document.body.removeChild(el)
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
+      } catch {
+        // clipboard unavailable — silently ignore
+      }
     }
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
   }
 
   const initials = (displayName || profile?.email || '?').slice(0, 1).toUpperCase()

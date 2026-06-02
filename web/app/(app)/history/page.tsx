@@ -205,14 +205,23 @@ export default function History() {
   }
 
   const toggleKnown = async (termId: string, currentlyKnown: boolean) => {
-    const supabase = createClient()
-    await supabase.from('terms').update({ known: !currentlyKnown }).eq('id', termId)
+    // Optimistic update
     setSessions(prev =>
       prev.map(s => ({
         ...s,
         terms: s.terms?.map(t => t.id === termId ? { ...t, known: !currentlyKnown } : t),
       }))
     )
+    const { error } = await createClient().from('terms').update({ known: !currentlyKnown }).eq('id', termId)
+    if (error) {
+      // Roll back
+      setSessions(prev =>
+        prev.map(s => ({
+          ...s,
+          terms: s.terms?.map(t => t.id === termId ? { ...t, known: currentlyKnown } : t),
+        }))
+      )
+    }
   }
 
   const deleteSession = async (id: string) => {
@@ -241,10 +250,14 @@ export default function History() {
 
   const saveSessionName = async (id: string) => {
     const name = nameInput.trim().slice(0, 80) || null
+    const prev_name = sessions.find(s => s.id === id)?.name ?? null
     setEditingNameId(null)
     setSessions(prev => prev.map(s => s.id === id ? { ...s, name } : s))
     const { error } = await createClient().from('sessions').update({ name }).eq('id', id)
-    if (error) console.error('saveSessionName error:', error)
+    if (error) {
+      setSessions(prev => prev.map(s => s.id === id ? { ...s, name: prev_name } : s))
+      console.error('saveSessionName error:', error)
+    }
   }
 
   const sessionNumber = (i: number) => totalCount - i
