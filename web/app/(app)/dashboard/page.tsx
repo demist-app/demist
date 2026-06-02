@@ -343,16 +343,14 @@ export default function Dashboard() {
   const SILENCE_THRESHOLD = 0.003 // lowered for distant lecturers — only skips true dead air
 
   const processChunk = async (blob: Blob, sessionId: string, peak: number) => {
-    console.log(`[demist] chunk: size=${blob.size} peak=${peak.toFixed(4)} threshold=${SILENCE_THRESHOLD}`)
-    if (blob.size < 500) { console.warn('[demist] chunk skipped: too small'); return }
-    if (peak < SILENCE_THRESHOLD) { console.warn('[demist] chunk skipped: silence'); return }
+    if (blob.size < 500) return
+    if (peak < SILENCE_THRESHOLD) return
     const supabase = createClient()
     setIsProcessing(true)
     try {
       const { data: { session } } = await supabase.auth.getSession()
       const token = session?.access_token
-      if (!token) { console.error('[demist] processChunk: no auth token'); return }
-      console.log('[demist] sending to transcribe...')
+      if (!token) { console.error('processChunk: no auth token'); return }
       const base = process.env.NEXT_PUBLIC_SUPABASE_URL!
 
       const txRes = await fetch(`${base}/functions/v1/transcribe`, {
