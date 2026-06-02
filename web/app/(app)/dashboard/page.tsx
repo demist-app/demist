@@ -341,14 +341,16 @@ export default function Dashboard() {
   const SILENCE_THRESHOLD = 0.015 // ~1.5% of max — filters dead air / muted mic
 
   const processChunk = async (blob: Blob, sessionId: string, peak: number) => {
-    if (blob.size < 500) return
-    if (peak < SILENCE_THRESHOLD) return // silent chunk — save the Whisper call
+    console.log(`[demist] chunk: size=${blob.size} peak=${peak.toFixed(4)} threshold=${SILENCE_THRESHOLD}`)
+    if (blob.size < 500) { console.warn('[demist] chunk skipped: too small'); return }
+    if (peak < SILENCE_THRESHOLD) { console.warn('[demist] chunk skipped: silence'); return }
     const supabase = createClient()
     setIsProcessing(true)
     try {
       const { data: { session } } = await supabase.auth.getSession()
       const token = session?.access_token
-      if (!token) { console.error('processChunk: no auth token'); return }
+      if (!token) { console.error('[demist] processChunk: no auth token'); return }
+      console.log('[demist] sending to transcribe...')
       const base = process.env.NEXT_PUBLIC_SUPABASE_URL!
 
       const txRes = await fetch(`${base}/functions/v1/transcribe`, {
@@ -449,9 +451,9 @@ export default function Dashboard() {
       chunkTimerRef.current = setTimeout(() => { if (recorder.state === 'recording') recorder.stop() }, 10_000)
     }
 
-    // ── Try Web Speech API first (free) — fall back to Whisper if unavailable ──
+    // ── Web Speech API disabled: unreliable mic access in Chrome; using Whisper only ──
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+    const SpeechRecognitionAPI = null as any
     // Flush when we have ~10 words (65 chars) — roughly every 4-5 seconds of normal speech
     const SPEECH_FLUSH_CHARS = 65
     // Min ms between detect-terms calls to avoid hammering the API
