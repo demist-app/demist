@@ -829,7 +829,7 @@ export default function Dashboard() {
                 </p>
                 <div className="space-y-2">
                   {sessionGlossary.map((t, i) => (
-                    <div key={i} className="flex gap-3 bg-red-500/[0.04] border border-red-500/[0.12] rounded-xl px-3 py-2.5">
+                    <div key={i} className="flex gap-3 bg-white/[0.03] border border-white/[0.07] rounded-xl px-3 py-2.5">
                       <div className="min-w-0">
                         <span className="text-[13px] font-semibold text-white/90">{t.term}</span>
                         <p className="text-[12px] text-gray-500 mt-0.5 leading-relaxed">{t.definition}</p>
