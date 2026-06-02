@@ -429,6 +429,26 @@ export default function Dashboard() {
     window.postMessage({ source: 'demist', type: 'recording-started' }, window.location.origin)
     timerRef.current = setInterval(() => setElapsed(t => t + 1), 1000)
 
+    // ── Whisper path: 10-second chunk loop (shared by both branches) ───────────
+    const doChunk = () => {
+      peakLevelRef.current = 0  // reset peak at the start of each 10-second window
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? 'audio/webm;codecs=opus'
+        : MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'
+      const recorder = new MediaRecorder(streamRef.current!, { mimeType })
+      recorderRef.current = recorder
+      const chunks: Blob[] = []
+      recorder.ondataavailable = (e: BlobEvent) => { if (e.data.size > 0) chunks.push(e.data) }
+      recorder.onstop = () => {
+        const blob = new Blob(chunks, { type: mimeType })
+        const peak = peakLevelRef.current
+        if (sessionIdRef.current) processChunk(blob, sessionIdRef.current, peak)
+        if (isActiveRef.current) doChunk()
+      }
+      recorder.start()
+      chunkTimerRef.current = setTimeout(() => { if (recorder.state === 'recording') recorder.stop() }, 10_000)
+    }
+
     // ── Try Web Speech API first (free) — fall back to Whisper if unavailable ──
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
@@ -443,6 +463,20 @@ export default function Dashboard() {
       speechBufferRef.current = ''
       lastDetectTimeRef.current = Date.now()
       processTranscriptChunk(text, sessionIdRef.current)
+    }
+
+    const fallbackToWhisper = (reason: string) => {
+      console.warn(`Web Speech API failed (${reason}) — falling back to Whisper`)
+      try { recognitionRef.current?.stop() } catch { /* ignore */ }
+      recognitionRef.current = null
+      // Flush whatever accumulated before the failure
+      const remaining = speechBufferRef.current.trim()
+      if (remaining && sessionIdRef.current) {
+        speechBufferRef.current = ''
+        processTranscriptChunk(remaining, sessionIdRef.current)
+      }
+      speechModeRef.current = false
+      if (isActiveRef.current) doChunk()
     }
 
     if (SpeechRecognitionAPI) {
@@ -466,8 +500,18 @@ export default function Dashboard() {
         }
       }, 20_000)
 
+      // No-result watchdog: if recognition never fires in 12s, it's broken — fall back
+      const noResultWatchdog = setTimeout(() => {
+        if (!isActiveRef.current || !speechModeRef.current) return
+        if (lastDetectTimeRef.current === 0 && speechBufferRef.current.length === 0) {
+          clearInterval(safetyFlush)
+          fallbackToWhisper('no-result-timeout')
+        }
+      }, 12_000)
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       recognition.onresult = (event: any) => {
+        clearTimeout(noResultWatchdog) // recognition is working — cancel watchdog
         let newText = ''
         for (let i = event.resultIndex; i < event.results.length; i++) {
           if (event.results[i].isFinal) newText += event.results[i][0].transcript + ' '
@@ -484,7 +528,7 @@ export default function Dashboard() {
 
       // Browser stops recognition after silence or ~60s — restart if still recording
       recognition.onend = () => {
-        if (isActiveRef.current) {
+        if (isActiveRef.current && speechModeRef.current) {
           try { recognition.start() } catch { /* already started */ }
         }
       }
@@ -492,37 +536,15 @@ export default function Dashboard() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       recognition.onerror = (event: any) => {
         if (event.error === 'no-speech') return // normal — just silence, not an error
-        if (event.error === 'audio-capture') {
-          // Speech recognition can't access mic — fall back gracefully
-          console.warn('Web Speech API audio-capture error — recognition may not work')
-          return
-        }
-        console.error('SpeechRecognition error:', event.error)
+        clearInterval(safetyFlush)
+        clearTimeout(noResultWatchdog)
+        fallbackToWhisper(event.error)
       }
 
       recognition.start()
     } else {
       // ── Whisper path with silence detection ────────────────────────────────
       speechModeRef.current = false
-
-      const doChunk = () => {
-        peakLevelRef.current = 0  // reset peak at the start of each 10-second window
-        const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-          ? 'audio/webm;codecs=opus'
-          : MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'
-        const recorder = new MediaRecorder(stream, { mimeType })
-        recorderRef.current = recorder
-        const chunks: Blob[] = []
-        recorder.ondataavailable = (e: BlobEvent) => { if (e.data.size > 0) chunks.push(e.data) }
-        recorder.onstop = () => {
-          const blob = new Blob(chunks, { type: mimeType })
-          const peak = peakLevelRef.current
-          if (sessionId) processChunk(blob, sessionId, peak)
-          if (isActiveRef.current) doChunk()
-        }
-        recorder.start()
-        chunkTimerRef.current = setTimeout(() => { if (recorder.state === 'recording') recorder.stop() }, 10_000)
-      }
       doChunk()
     }
 
