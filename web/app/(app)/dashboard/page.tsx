@@ -115,6 +115,8 @@ export default function Dashboard() {
 
   const peakLevelRef = useRef(0)           // peak audio level in current chunk (for silence detection)
   const speechModeRef = useRef(false)       // true = Web Speech API active, false = Whisper
+  const audioProcessingCtxRef = useRef<AudioContext | null>(null)
+  const processedStreamRef = useRef<MediaStream | null>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null)
   const speechBufferRef = useRef('')        // accumulated Web Speech transcript waiting for detect-terms
@@ -338,7 +340,7 @@ export default function Dashboard() {
   // ── Whisper path: transcribe audio blob then detect terms ─────────────────────
   // Skips Whisper entirely if audio level was below silence threshold.
 
-  const SILENCE_THRESHOLD = 0.015 // ~1.5% of max — filters dead air / muted mic
+  const SILENCE_THRESHOLD = 0.003 // lowered for distant lecturers — only skips true dead air
 
   const processChunk = async (blob: Blob, sessionId: string, peak: number) => {
     console.log(`[demist] chunk: size=${blob.size} peak=${peak.toFixed(4)} threshold=${SILENCE_THRESHOLD}`)
@@ -400,13 +402,40 @@ export default function Dashboard() {
     startingRef.current = true
     let stream: MediaStream
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: false, // don't suppress the lecturer's voice as "echo"
+          noiseSuppression: true,  // filter HVAC / ambient hum
+          autoGainControl: true,   // hardware-level boost for quiet sources
+        },
+        video: false,
+      })
     } catch {
       startingRef.current = false
       alert('Microphone access is needed to use Demist.')
       return
     }
     streamRef.current = stream
+
+    // Audio processing pipeline: boost quiet audio and normalise volume.
+    // Raw stream → gain(2.5×) → compressor → processedStream → MediaRecorder
+    // Waveform visualiser keeps reading from the raw stream (unchanged).
+    const audioCtx = new AudioContext()
+    audioProcessingCtxRef.current = audioCtx
+    const src = audioCtx.createMediaStreamSource(stream)
+    const gain = audioCtx.createGain()
+    gain.gain.value = 2.5
+    const compressor = audioCtx.createDynamicsCompressor()
+    compressor.threshold.value = -30
+    compressor.knee.value = 20
+    compressor.ratio.value = 4
+    compressor.attack.value = 0.003
+    compressor.release.value = 0.15
+    const dest = audioCtx.createMediaStreamDestination()
+    src.connect(gain)
+    gain.connect(compressor)
+    compressor.connect(dest)
+    processedStreamRef.current = dest.stream
     sessionIdRef.current = null
 
     const supabase = createClient()
@@ -437,7 +466,7 @@ export default function Dashboard() {
       const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
         ? 'audio/webm;codecs=opus'
         : MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'
-      const recorder = new MediaRecorder(streamRef.current!, { mimeType })
+      const recorder = new MediaRecorder(processedStreamRef.current ?? streamRef.current!, { mimeType })
       recorderRef.current = recorder
       const chunks: Blob[] = []
       recorder.ondataavailable = (e: BlobEvent) => { if (e.data.size > 0) chunks.push(e.data) }
@@ -573,6 +602,9 @@ export default function Dashboard() {
     }
 
     if (timerRef.current) clearInterval(timerRef.current)
+    audioProcessingCtxRef.current?.close()
+    audioProcessingCtxRef.current = null
+    processedStreamRef.current = null
     streamRef.current?.getTracks().forEach(t => t.stop())
     const sid = sessionIdRef.current
     if (sid) {
