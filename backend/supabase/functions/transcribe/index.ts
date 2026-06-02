@@ -59,21 +59,11 @@ serve(async (req) => {
       })
     }
 
-    // Validate MIME type against magic bytes
-    const bytes = new Uint8Array(audioBytes.slice(0, 12))
-    const isWebm = bytes[0] === 0x1A && bytes[1] === 0x45 && bytes[2] === 0xDF && bytes[3] === 0xA3
-    const isMp4 = bytes[4] === 0x66 && bytes[5] === 0x74 && bytes[6] === 0x79 && bytes[7] === 0x70
-    const isMp3 = (bytes[0] === 0xFF && (bytes[1] & 0xE0) === 0xE0) || (bytes[0] === 0x49 && bytes[1] === 0x44 && bytes[2] === 0x33)
-    const isOgg = bytes[0] === 0x4F && bytes[1] === 0x67 && bytes[2] === 0x67 && bytes[3] === 0x53
-
-    if (!isWebm && !isMp4 && !isMp3 && !isOgg) {
-      return new Response(JSON.stringify({ error: 'invalid_audio_format' }), {
-        status: 415,
-        headers: { ...CORS, 'Content-Type': 'application/json' },
-      })
-    }
-
-    const ext = isMp4 ? 'mp4' : isMp3 ? 'mp3' : isOgg ? 'ogg' : 'webm'
+    // Infer extension from content-type — Whisper validates the audio itself
+    const ext = contentType.includes('mp4') || contentType.includes('m4a') ? 'mp4'
+      : contentType.includes('mpeg') || contentType.includes('mp3') ? 'mp3'
+      : contentType.includes('ogg') ? 'ogg'
+      : 'webm'
     const file = new File([audioBytes], `audio.${ext}`, { type: contentType })
 
     const form = new FormData()
