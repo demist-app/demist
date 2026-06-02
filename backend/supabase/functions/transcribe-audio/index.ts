@@ -2,10 +2,18 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const ALLOWED_ORIGINS = ['https://demist.app', 'https://www.demist.app']
-const CHUNK_SIZE = 3500        // chars per GPT detection pass
-const MAX_CHUNKS = 30          // cap at ~105k chars (~2 hrs of speech)
-const MAX_TERMS = 80           // hard cap on saved terms per import
-const WHISPER_LIMIT = 24 * 1024 * 1024  // 24 MB — leave 1 MB headroom under OpenAI's 25 MB limit
+
+// Audio limits
+// Each Whisper request must be ≤ 25 MB. We send 20 MB slices with 5 MB headroom
+// so a corrupted boundary (WebM cluster wrap) never pushes us over.
+// 3 slices × 20 MB = 60 MB max — covers a 3.5-hour lecture at 32 kbps WebM/opus.
+const WHISPER_SLICE  = 20 * 1024 * 1024   // 20 MB per Whisper call
+const MAX_AUDIO_BYTES = 3 * WHISPER_SLICE  // 60 MB absolute ceiling
+
+// Term detection
+const CHUNK_SIZE = 3500  // chars per GPT pass
+const MAX_CHUNKS = 30    // ~105 k chars ≈ full 2-hour lecture transcript
+const MAX_TERMS  = 80
 
 function corsHeaders(origin: string | null) {
   const allowed = origin && ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0]
@@ -19,7 +27,64 @@ function sanitize(s: string) {
   return String(s ?? '').replace(/[<>"]/g, '').trim()
 }
 
-// Detect up to 3 terms in a single transcript chunk.
+// ── Whisper: single slice ──────────────────────────────────────────────────────
+// Uses Groq if GROQ_API_KEY is set (9× cheaper, same quality).
+// Falls back to OpenAI Whisper otherwise.
+
+const GROQ_KEY = Deno.env.get('GROQ_API_KEY')
+const WHISPER_URL = GROQ_KEY
+  ? 'https://api.groq.com/openai/v1/audio/transcriptions'
+  : 'https://api.openai.com/v1/audio/transcriptions'
+const WHISPER_MODEL = GROQ_KEY ? 'whisper-large-v3-turbo' : 'whisper-1'
+const WHISPER_AUTH  = GROQ_KEY ?? Deno.env.get('OPENAI_API_KEY') ?? ''
+
+async function whisperSlice(buffer: ArrayBuffer, ext: string, contentType: string): Promise<string> {
+  const file = new File([buffer], `audio.${ext}`, { type: contentType })
+  const form = new FormData()
+  form.append('file', file)
+  form.append('model', WHISPER_MODEL)
+  form.append('response_format', 'json')
+
+  const res = await fetch(WHISPER_URL, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${WHISPER_AUTH}` },
+    body: form,
+  })
+  if (!res.ok) {
+    console.error(`Whisper slice error (${GROQ_KEY ? 'Groq' : 'OpenAI'}):`, await res.text())
+    return ''
+  }
+  const data = await res.json()
+  return data.text?.trim() ?? ''
+}
+
+// ── Whisper: full file, chunked if needed ─────────────────────────────────────
+// We split at raw byte boundaries. For WebM/opus (the main browser format) Whisper's
+// ffmpeg decoder re-syncs at the next cluster header — typically losing < 2 seconds
+// at each seam. That's acceptable for a lecture transcript. Slices are sent
+// sequentially to preserve order and stay within Whisper's rate limits.
+
+async function transcribeAudio(buffer: ArrayBuffer, ext: string, contentType: string): Promise<string> {
+  if (buffer.byteLength <= WHISPER_SLICE) {
+    return whisperSlice(buffer, ext, contentType)
+  }
+
+  const parts: string[] = []
+  let offset = 0
+  let sliceIndex = 0
+  while (offset < buffer.byteLength) {
+    const end = Math.min(offset + WHISPER_SLICE, buffer.byteLength)
+    console.log(`Transcribing slice ${sliceIndex + 1}: bytes ${offset}–${end} of ${buffer.byteLength}`)
+    const text = await whisperSlice(buffer.slice(offset, end), ext, contentType)
+    if (text) parts.push(text)
+    offset = end
+    sliceIndex++
+  }
+  return parts.join(' ')
+}
+
+// ── Term detection ────────────────────────────────────────────────────────────
+
 async function detectTerms(
   chunk: string,
   subject: string,
@@ -67,6 +132,8 @@ Return JSON: {"terms": [{"term": "...", "definition": "..."}]}`
   return Array.isArray(parsed.terms) ? parsed.terms : []
 }
 
+// ── Synopsis ──────────────────────────────────────────────────────────────────
+
 async function generateSynopsis(
   termList: { term: string; definition: string }[],
   subject: string | null,
@@ -103,6 +170,8 @@ Write a 1–2 sentence summary of what this lecture covered, based only on the t
   return parsed.synopsis?.trim() ?? null
 }
 
+// ── Handler ───────────────────────────────────────────────────────────────────
+
 serve(async (req) => {
   const origin = req.headers.get('origin')
   const CORS = corsHeaders(origin)
@@ -111,7 +180,7 @@ serve(async (req) => {
     return new Response(null, { headers: CORS })
   }
 
-  // ── Auth ──
+  // Auth
   const authHeader = req.headers.get('authorization')
   if (!authHeader?.startsWith('Bearer ')) {
     return new Response(JSON.stringify({ error: 'unauthorized' }), {
@@ -132,7 +201,7 @@ serve(async (req) => {
     })
   }
 
-  // Service role client — used only for storage download
+  // Service role client — storage only
   const serviceClient = createClient(
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
@@ -146,7 +215,7 @@ serve(async (req) => {
       year_of_study?: number | null
     }
 
-    // Ownership: path must start with the user's ID
+    // Ownership check: path must be scoped to the requesting user
     if (!storage_path || !storage_path.startsWith(`${user.id}/`)) {
       return new Response(JSON.stringify({ error: 'forbidden' }), {
         status: 403, headers: { ...CORS, 'Content-Type': 'application/json' },
@@ -154,11 +223,11 @@ serve(async (req) => {
     }
 
     const safeSubject = subject ? sanitize(subject).slice(0, 100) : null
-    const safeYear = Math.min(10, Math.max(1, Number(year_of_study) || 1))
-    const safeName = session_name ? sanitize(session_name).slice(0, 100) : null
-    const ext = storage_path.split('.').pop() ?? 'webm'
+    const safeYear    = Math.min(10, Math.max(1, Number(year_of_study) || 1))
+    const safeName    = session_name ? sanitize(session_name).slice(0, 100) : null
+    const ext         = storage_path.split('.').pop() ?? 'webm'
 
-    // ── Download audio from Storage ──
+    // Download from Storage
     const { data: fileBlob, error: dlErr } = await serviceClient.storage
       .from('recordings')
       .download(storage_path)
@@ -170,38 +239,24 @@ serve(async (req) => {
     }
 
     const audioBuffer = await fileBlob.arrayBuffer()
+    const fileMb = (audioBuffer.byteLength / 1024 / 1024).toFixed(1)
 
-    // Enforce Whisper's 25 MB limit with a 1 MB safety margin
-    if (audioBuffer.byteLength > WHISPER_LIMIT) {
-      // Clean up the oversized file before returning
+    // Hard ceiling: 60 MB = 3 Whisper slices
+    if (audioBuffer.byteLength > MAX_AUDIO_BYTES) {
       await serviceClient.storage.from('recordings').remove([storage_path])
-      const mb = (audioBuffer.byteLength / 1024 / 1024).toFixed(1)
       return new Response(
-        JSON.stringify({ error: `audio_too_large_for_transcription`, size_mb: mb }),
+        JSON.stringify({ error: 'file_too_large', size_mb: fileMb }),
         { status: 413, headers: { ...CORS, 'Content-Type': 'application/json' } },
       )
     }
 
-    // ── Transcribe with Whisper ──
-    const audioFile = new File([audioBuffer], `audio.${ext}`, { type: fileBlob.type || 'audio/webm' })
-    const form = new FormData()
-    form.append('file', audioFile)
-    form.append('model', 'whisper-1')
-    form.append('response_format', 'json')
+    const sliceCount = Math.ceil(audioBuffer.byteLength / WHISPER_SLICE)
+    console.log(`Transcribing ${fileMb} MB audio in ${sliceCount} slice(s)`)
 
-    const whisperRes = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${Deno.env.get('OPENAI_API_KEY')}` },
-      body: form,
-    })
+    // Transcribe — handles multi-slice automatically
+    const transcript = await transcribeAudio(audioBuffer, ext, fileBlob.type || 'audio/webm')
 
-    let transcript = ''
-    if (whisperRes.ok) {
-      const whisperData = await whisperRes.json()
-      transcript = whisperData.text?.trim() ?? ''
-    }
-
-    // ── Create session ──
+    // Create session
     const now = new Date().toISOString()
     const { data: sessionRow, error: sessionErr } = await userClient
       .from('sessions')
@@ -225,21 +280,20 @@ serve(async (req) => {
     }
     const sessionId = sessionRow.id
 
-    // ── Detect terms across transcript chunks ──
+    // Detect terms across transcript
     const allTerms: { term: string; definition: string }[] = []
     const seenTermNames = new Set<string>()
 
     if (transcript) {
-      const chunks: string[] = []
-      for (let i = 0; i < transcript.length && chunks.length < MAX_CHUNKS; i += CHUNK_SIZE) {
-        chunks.push(transcript.slice(i, i + CHUNK_SIZE))
+      const textChunks: string[] = []
+      for (let i = 0; i < transcript.length && textChunks.length < MAX_CHUNKS; i += CHUNK_SIZE) {
+        textChunks.push(transcript.slice(i, i + CHUNK_SIZE))
       }
 
-      // Process chunks in batches of 3 to avoid rate limits
-      for (let i = 0; i < chunks.length && allTerms.length < MAX_TERMS; i += 3) {
-        const batch = chunks.slice(i, i + 3)
+      for (let i = 0; i < textChunks.length && allTerms.length < MAX_TERMS; i += 3) {
+        const batch = textChunks.slice(i, i + 3)
         const results = await Promise.all(
-          batch.map(chunk => detectTerms(chunk, safeSubject ?? 'general', safeYear, seenTermNames))
+          batch.map(c => detectTerms(c, safeSubject ?? 'general', safeYear, seenTermNames))
         )
         for (const terms of results) {
           for (const t of terms) {
@@ -253,7 +307,7 @@ serve(async (req) => {
       }
     }
 
-    // ── Save terms ──
+    // Save terms
     if (allTerms.length > 0) {
       await userClient.from('terms').insert(
         allTerms.map(t => ({
@@ -266,13 +320,13 @@ serve(async (req) => {
       )
     }
 
-    // ── Generate synopsis ──
+    // Generate synopsis
     const synopsis = await generateSynopsis(allTerms, safeSubject)
     if (synopsis) {
       await userClient.from('sessions').update({ synopsis }).eq('id', sessionId)
     }
 
-    // ── Clean up storage file ──
+    // Delete from Storage — no longer needed after transcription
     await serviceClient.storage.from('recordings').remove([storage_path])
 
     return new Response(
