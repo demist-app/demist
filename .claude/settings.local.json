@@ -77,7 +77,9 @@
       "Bash(supabase db *)",
       "Bash(supabase functions *)",
       "Bash(supabase secrets *)",
-      "Bash(npm list *)"
+      "Bash(npm list *)",
+      "Bash(del \"c:/Users/shivb/Desktop/coding bits/demist/extension/sidepanel.html\" \"c:/Users/shivb/Desktop/coding bits/demist/extension/sidepanel.js\" \"c:/Users/shivb/Desktop/coding bits/demist/extension/content.js\")",
+      "Bash(powershell -Command \"Compress-Archive -Path 'manifest.json','background.js','content-bridge.js','content-overlay.js','popup.html','popup.js' -DestinationPath '../web/public/demist-extension.zip' -Force\")"
     ],
     "additionalDirectories": [
       "c:\\Users\\shivb\\Desktop\\coding bits\\demist\\web\\app\\u"

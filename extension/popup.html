@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Demist</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      width: 260px;
+      background: #080810;
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      padding: 16px;
+      user-select: none;
+    }
+
+    .logo {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      color: rgba(139,92,246,0.7);
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+
+    /* Status */
+    #status {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.07);
+      margin-bottom: 12px;
+    }
+    #status-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: rgba(255,255,255,0.2);
+      flex-shrink: 0;
+      transition: background 0.3s;
+    }
+    #status-dot.recording {
+      background: #ef4444;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+    #status-text { font-size: 13px; color: rgba(255,255,255,0.7); flex: 1; }
+    #status-timer {
+      font-size: 12px; color: rgba(255,255,255,0.35);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Main button */
+    #main-btn {
+      width: 100%;
+      padding: 12px;
+      border-radius: 14px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: all 0.15s;
+      margin-bottom: 10px;
+    }
+    #main-btn.start {
+      background: #7c3aed;
+      color: #fff;
+    }
+    #main-btn.start:hover { background: #6d28d9; }
+    #main-btn.stop {
+      background: rgba(239,68,68,0.12);
+      border: 1px solid rgba(239,68,68,0.3);
+      color: #f87171;
+    }
+    #main-btn.stop:hover { background: rgba(239,68,68,0.22); }
+    #main-btn:active { transform: scale(0.97); }
+
+    /* Links */
+    .links {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+    .link {
+      display: block;
+      text-align: center;
+      padding: 8px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 600;
+      color: rgba(255,255,255,0.4);
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.07);
+      text-decoration: none;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    .link:hover { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.8); }
+
+    .footer {
+      text-align: center;
+      font-size: 10px;
+      color: rgba(255,255,255,0.15);
+    }
+  </style>
+</head>
+<body>
+  <div class="logo">Demist</div>
+
+  <div id="status">
+    <span id="status-dot"></span>
+    <span id="status-text">Ready to record</span>
+    <span id="status-timer"></span>
+  </div>
+
+  <button id="main-btn" class="start">Start recording</button>
+
+  <div class="links">
+    <a class="link" href="https://demist.app/glossary" target="_blank">Glossary</a>
+    <a class="link" href="https://demist.app/flashcards" target="_blank">Flashcards</a>
+    <a class="link" href="https://demist.app/history" target="_blank">History</a>
+    <a class="link" href="https://demist.app/import" target="_blank">Import</a>
+  </div>
+
+  <div class="footer">Terms appear on the page you're viewing</div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -172,6 +172,13 @@ export default function Dashboard() {
       const cmd = (e.data as Record<string, unknown>).command
       if (cmd === 'start-recording' && !isActiveRef.current) startRecordingRef.current()
       else if (cmd === 'stop-recording' && isActiveRef.current) stopRecordingRef.current()
+      else if (cmd === 'mark-known') {
+        const termId = (e.data as Record<string, unknown>).termId as string | undefined
+        if (termId) {
+          createClient().from('terms').update({ known: true }).eq('id', termId)
+          knownTermsRef.current.add(termId)
+        }
+      }
     }
     window.addEventListener('message', handler)
     return () => window.removeEventListener('message', handler)
@@ -296,8 +303,16 @@ export default function Dashboard() {
       }))
     }
 
+    // Include DB id so the extension can offer "mark as known" on the overlay card
+    const savedMap = Object.fromEntries((saved ?? []).map((s: { id: string; term: string }) => [s.term.toLowerCase(), s.id]))
     for (const t of filtered) {
-      window.postMessage({ source: 'demist', type: 'term', term: t.term, definition: t.definition }, window.location.origin)
+      window.postMessage({
+        source: 'demist',
+        type: 'term',
+        term: t.term,
+        definition: t.definition,
+        termId: savedMap[t.term.toLowerCase()] ?? null,
+      }, window.location.origin)
     }
 
     const popupNow = Date.now()
@@ -417,8 +432,18 @@ export default function Dashboard() {
     // ── Try Web Speech API first (free) — fall back to Whisper if unavailable ──
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
-    const SPEECH_FLUSH_CHARS = 300       // flush buffer after this many chars
-    const SPEECH_COOLDOWN_MS = 12_000    // min ms between detect-terms calls
+    // Flush when we have ~10 words (65 chars) — roughly every 4-5 seconds of normal speech
+    const SPEECH_FLUSH_CHARS = 65
+    // Min ms between detect-terms calls to avoid hammering the API
+    const SPEECH_COOLDOWN_MS = 8_000
+
+    const flushSpeechBuffer = () => {
+      const text = speechBufferRef.current.trim()
+      if (!text || !sessionIdRef.current) return
+      speechBufferRef.current = ''
+      lastDetectTimeRef.current = Date.now()
+      processTranscriptChunk(text, sessionIdRef.current)
+    }
 
     if (SpeechRecognitionAPI) {
       speechModeRef.current = true
@@ -431,6 +456,16 @@ export default function Dashboard() {
       recognition.lang = 'en-US'
       recognitionRef.current = recognition
 
+      // Safety timer: flush every 20 seconds regardless of buffer size
+      // so terms are never missed even if the speaker talks slowly
+      const safetyFlush = setInterval(() => {
+        if (!isActiveRef.current) { clearInterval(safetyFlush); return }
+        const timeSinceLast = Date.now() - lastDetectTimeRef.current
+        if (speechBufferRef.current.trim() && timeSinceLast >= SPEECH_COOLDOWN_MS) {
+          flushSpeechBuffer()
+        }
+      }, 20_000)
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       recognition.onresult = (event: any) => {
         let newText = ''
@@ -441,12 +476,9 @@ export default function Dashboard() {
         speechBufferRef.current += newText
         transcriptRef.current += newText
 
-        const elapsed = Date.now() - lastDetectTimeRef.current
-        if (speechBufferRef.current.length >= SPEECH_FLUSH_CHARS && elapsed >= SPEECH_COOLDOWN_MS) {
-          const text = speechBufferRef.current.trim()
-          speechBufferRef.current = ''
-          lastDetectTimeRef.current = Date.now()
-          if (text && sessionIdRef.current) processTranscriptChunk(text, sessionIdRef.current)
+        const timeSinceLast = Date.now() - lastDetectTimeRef.current
+        if (speechBufferRef.current.length >= SPEECH_FLUSH_CHARS && timeSinceLast >= SPEECH_COOLDOWN_MS) {
+          flushSpeechBuffer()
         }
       }
 
@@ -459,7 +491,12 @@ export default function Dashboard() {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       recognition.onerror = (event: any) => {
-        if (event.error === 'no-speech' || event.error === 'audio-capture') return
+        if (event.error === 'no-speech') return // normal — just silence, not an error
+        if (event.error === 'audio-capture') {
+          // Speech recognition can't access mic — fall back gracefully
+          console.warn('Web Speech API audio-capture error — recognition may not work')
+          return
+        }
         console.error('SpeechRecognition error:', event.error)
       }
 
