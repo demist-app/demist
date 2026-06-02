@@ -111,6 +111,14 @@ export default function Dashboard() {
   const transcriptRef = useRef<string>('')
   const startRecordingRef = useRef<() => Promise<void>>(() => Promise.resolve())
   const stopRecordingRef = useRef<() => Promise<void>>(() => Promise.resolve())
+  const startingRef = useRef(false)
+
+  const peakLevelRef = useRef(0)           // peak audio level in current chunk (for silence detection)
+  const speechModeRef = useRef(false)       // true = Web Speech API active, false = Whisper
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const recognitionRef = useRef<any>(null)
+  const speechBufferRef = useRef('')        // accumulated Web Speech transcript waiting for detect-terms
+  const lastDetectTimeRef = useRef(0)       // timestamp of last detect-terms call
 
   const ring1Ref = useRef<HTMLSpanElement | null>(null)
   const ring2Ref = useRef<HTMLSpanElement | null>(null)
@@ -134,6 +142,8 @@ export default function Dashboard() {
         analyser.getByteFrequencyData(data)
         let sum = 0; for (let i = 0; i < usable; i++) sum += data[i]
         const level = (sum / usable) / 255
+        // Track peak for silence detection in Whisper mode
+        if (level > peakLevelRef.current) peakLevelRef.current = level
         if (ring1Ref.current) ring1Ref.current.style.transform = `scale(${1 + level * 2.8})`
         if (ring2Ref.current) ring2Ref.current.style.transform = `scale(${1 + level * 2.0})`
         if (ring3Ref.current) ring3Ref.current.style.transform = `scale(${1 + level * 1.3})`
@@ -228,8 +238,96 @@ export default function Dashboard() {
     })()
   }, [])
 
-  const processChunk = async (blob: Blob, sessionId: string) => {
+  // ── Shared: detect terms, save to DB, update UI ──────────────────────────────
+
+  const runDetection = async (transcript: string, sessionId: string, token: string) => {
+    const supabase = createClient()
+    const base = process.env.NEXT_PUBLIC_SUPABASE_URL!
+
+    const dtRes = await fetch(`${base}/functions/v1/detect-terms`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        transcript,
+        subject: profileRef.current?.course ?? 'general',
+        year: profileRef.current?.year_of_study ?? 1,
+        known_terms: Array.from(knownTermsRef.current),
+      }),
+    })
+    if (!dtRes.ok) {
+      if (dtRes.status === 401) {
+        setRecordingError('Session expired. Sign in again to continue recording.')
+        stopRecordingRef.current()
+      }
+      return
+    }
+    const detected = await dtRes.json()
+    if (!detected?.terms?.length) return
+
+    const filtered = (detected.terms as { term: string; definition: string }[]).filter(t => {
+      const key = t.term.toLowerCase()
+      return isLatinTerm(t.term) &&
+             !knownTermsRef.current.has(key) &&
+             (termFrequencyRef.current.get(key) ?? 0) < 3
+    })
+    if (!filtered.length) return
+
+    const { data: saved } = await supabase
+      .from('terms')
+      .insert(filtered.map(t => ({
+        user_id: userIdRef.current,
+        session_id: sessionId,
+        term: t.term,
+        definition: t.definition,
+        subject: profileRef.current?.course,
+      })))
+      .select('id, term, definition')
+
+    for (const t of filtered) {
+      termFrequencyRef.current.set(t.term.toLowerCase(), (termFrequencyRef.current.get(t.term.toLowerCase()) ?? 0) + 1)
+    }
+
+    if (saved?.length) {
+      setSessionGlossary(prev => [...saved.map((s: { term: string; definition: string }) => ({ term: s.term, definition: s.definition })), ...prev])
+      const dbMap = Object.fromEntries(saved.map((s: { id: string; term: string }) => [s.term.toLowerCase(), s.id]))
+      setLiveTerms(prev => prev.map(t => {
+        const dbId = dbMap[t.term.toLowerCase()]
+        return dbId ? { ...t, dbId } : t
+      }))
+    }
+
+    for (const t of filtered) {
+      window.postMessage({ source: 'demist', type: 'term', term: t.term, definition: t.definition }, window.location.origin)
+    }
+
+    const popupNow = Date.now()
+    const toShow = filtered.slice(0, popupNow - lastPopupAtRef.current >= 30_000 ? 1 : 0)
+    if (!toShow.length) return
+    lastPopupAtRef.current = popupNow
+
+    const incoming: LiveTerm[] = toShow.map(t => ({
+      id: `${Date.now()}-${Math.random()}`,
+      term: t.term,
+      definition: t.definition,
+      dismissing: false,
+    }))
+    setLiveTerms(prev => [...prev, ...incoming].slice(-3))
+    incoming.forEach(({ id }) => {
+      setTimeout(() => {
+        setLiveTerms(prev => prev.map(t => t.id === id ? { ...t, dismissing: true } : t))
+        setTimeout(() => setLiveTerms(prev => prev.filter(t => t.id !== id)), 380)
+      }, 8000)
+    })
+  }
+
+  // ── Whisper path: transcribe audio blob then detect terms ─────────────────────
+  // Skips Whisper entirely if audio level was below silence threshold.
+
+  const SILENCE_THRESHOLD = 0.015 // ~1.5% of max — filters dead air / muted mic
+
+  const processChunk = async (blob: Blob, sessionId: string, peak: number) => {
     if (blob.size < 500) return
+    if (peak < SILENCE_THRESHOLD) return // silent chunk — save the Whisper call
     const supabase = createClient()
     setIsProcessing(true)
     try {
@@ -254,86 +352,7 @@ export default function Dashboard() {
       if (!tx?.text?.trim()) return
       transcriptRef.current = transcriptRef.current ? transcriptRef.current + ' ' + tx.text.trim() : tx.text.trim()
 
-      const dtRes = await fetch(`${base}/functions/v1/detect-terms`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          transcript: tx.text,
-          subject: profileRef.current?.course ?? 'general',
-          year: profileRef.current?.year_of_study ?? 1,
-          known_terms: Array.from(knownTermsRef.current),
-        }),
-      })
-      if (!dtRes.ok) {
-        if (dtRes.status === 401) {
-          setRecordingError('Session expired. Sign in again to continue recording.')
-          stopRecordingRef.current()
-        }
-        return
-      }
-      const detected = await dtRes.json()
-      if (!detected?.terms?.length) return
-
-      const filtered = (detected.terms as { term: string; definition: string }[]).filter(t => {
-        const key = t.term.toLowerCase()
-        return isLatinTerm(t.term) &&
-               !knownTermsRef.current.has(key) &&
-               (termFrequencyRef.current.get(key) ?? 0) < 3
-      })
-      if (!filtered.length) return
-
-      const { data: saved } = await supabase
-        .from('terms')
-        .insert(filtered.map(t => ({
-          user_id: userIdRef.current,
-          session_id: sessionId,
-          term: t.term,
-          definition: t.definition,
-          subject: profileRef.current?.course,
-        })))
-        .select('id, term, definition')
-
-      for (const t of filtered) {
-        const key = t.term.toLowerCase()
-        termFrequencyRef.current.set(key, (termFrequencyRef.current.get(key) ?? 0) + 1)
-      }
-
-      if (saved?.length) {
-        setSessionGlossary(prev => [...saved.map((s: { term: string; definition: string }) => ({ term: s.term, definition: s.definition })), ...prev])
-      }
-
-      for (const t of filtered) {
-        window.postMessage({ source: 'demist', type: 'term', term: t.term, definition: t.definition }, window.location.origin)
-      }
-
-      const now = Date.now()
-      const toShow = filtered.slice(0, now - lastPopupAtRef.current >= 30_000 ? 1 : 0)
-      if (!toShow.length) return
-      lastPopupAtRef.current = now
-
-      const incoming: LiveTerm[] = toShow.map(t => ({
-        id: `${Date.now()}-${Math.random()}`,
-        term: t.term,
-        definition: t.definition,
-        dismissing: false,
-      }))
-
-      setLiveTerms(prev => [...prev, ...incoming].slice(-3))
-
-      incoming.forEach(({ id }) => {
-        setTimeout(() => {
-          setLiveTerms(prev => prev.map(t => t.id === id ? { ...t, dismissing: true } : t))
-          setTimeout(() => setLiveTerms(prev => prev.filter(t => t.id !== id)), 380)
-        }, 8000)
-      })
-
-      if (saved?.length) {
-        const dbMap = Object.fromEntries(saved.map((s: { id: string; term: string }) => [s.term.toLowerCase(), s.id]))
-        setLiveTerms(prev => prev.map(t => {
-          const dbId = dbMap[t.term.toLowerCase()]
-          return dbId ? { ...t, dbId } : t
-        }))
-      }
+      await runDetection(tx.text, sessionId, token)
     } catch (e) {
       console.error('processChunk error:', e)
     } finally {
@@ -341,11 +360,32 @@ export default function Dashboard() {
     }
   }
 
+  // ── Web Speech path: transcript already available, skip Whisper entirely ──────
+
+  const processTranscriptChunk = async (transcript: string, sessionId: string) => {
+    if (!transcript.trim()) return
+    setIsProcessing(true)
+    try {
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
+      if (!token) return
+      await runDetection(transcript, sessionId, token)
+    } catch (e) {
+      console.error('processTranscriptChunk error:', e)
+    } finally {
+      setIsProcessing(false)
+    }
+  }
+
   const startRecording = async () => {
+    if (isActiveRef.current || startingRef.current) return
+    startingRef.current = true
     let stream: MediaStream
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false })
     } catch {
+      startingRef.current = false
       alert('Microphone access is needed to use Demist.')
       return
     }
@@ -369,35 +409,109 @@ export default function Dashboard() {
     lastPopupAtRef.current = 0
     termFrequencyRef.current = new Map()
     transcriptRef.current = ''
+    startingRef.current = false
     setIsRecording(true); setElapsed(0); setLiveTerms([]); setSessionGlossary([]); setRecordingError(null)
     window.postMessage({ source: 'demist', type: 'recording-started' }, window.location.origin)
     timerRef.current = setInterval(() => setElapsed(t => t + 1), 1000)
 
-    const doChunk = () => {
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-        ? 'audio/webm;codecs=opus'
-        : MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'
-      const recorder = new MediaRecorder(stream, { mimeType })
-      recorderRef.current = recorder
-      const chunks: Blob[] = []
-      recorder.ondataavailable = (e: BlobEvent) => { if (e.data.size > 0) chunks.push(e.data) }
-      recorder.onstop = () => {
-        const blob = new Blob(chunks, { type: mimeType })
-        if (sessionId) processChunk(blob, sessionId)
-        if (isActiveRef.current) doChunk()
+    // ── Try Web Speech API first (free) — fall back to Whisper if unavailable ──
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+    const SPEECH_FLUSH_CHARS = 300       // flush buffer after this many chars
+    const SPEECH_COOLDOWN_MS = 12_000    // min ms between detect-terms calls
+
+    if (SpeechRecognitionAPI) {
+      speechModeRef.current = true
+      speechBufferRef.current = ''
+      lastDetectTimeRef.current = 0
+
+      const recognition = new SpeechRecognitionAPI()
+      recognition.continuous = true
+      recognition.interimResults = false
+      recognition.lang = 'en-US'
+      recognitionRef.current = recognition
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      recognition.onresult = (event: any) => {
+        let newText = ''
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          if (event.results[i].isFinal) newText += event.results[i][0].transcript + ' '
+        }
+        if (!newText.trim()) return
+        speechBufferRef.current += newText
+        transcriptRef.current += newText
+
+        const elapsed = Date.now() - lastDetectTimeRef.current
+        if (speechBufferRef.current.length >= SPEECH_FLUSH_CHARS && elapsed >= SPEECH_COOLDOWN_MS) {
+          const text = speechBufferRef.current.trim()
+          speechBufferRef.current = ''
+          lastDetectTimeRef.current = Date.now()
+          if (text && sessionIdRef.current) processTranscriptChunk(text, sessionIdRef.current)
+        }
       }
-      recorder.start()
-      chunkTimerRef.current = setTimeout(() => { if (recorder.state === 'recording') recorder.stop() }, 10_000)
+
+      // Browser stops recognition after silence or ~60s — restart if still recording
+      recognition.onend = () => {
+        if (isActiveRef.current) {
+          try { recognition.start() } catch { /* already started */ }
+        }
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      recognition.onerror = (event: any) => {
+        if (event.error === 'no-speech' || event.error === 'audio-capture') return
+        console.error('SpeechRecognition error:', event.error)
+      }
+
+      recognition.start()
+    } else {
+      // ── Whisper path with silence detection ────────────────────────────────
+      speechModeRef.current = false
+
+      const doChunk = () => {
+        peakLevelRef.current = 0  // reset peak at the start of each 10-second window
+        const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+          ? 'audio/webm;codecs=opus'
+          : MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'
+        const recorder = new MediaRecorder(stream, { mimeType })
+        recorderRef.current = recorder
+        const chunks: Blob[] = []
+        recorder.ondataavailable = (e: BlobEvent) => { if (e.data.size > 0) chunks.push(e.data) }
+        recorder.onstop = () => {
+          const blob = new Blob(chunks, { type: mimeType })
+          const peak = peakLevelRef.current
+          if (sessionId) processChunk(blob, sessionId, peak)
+          if (isActiveRef.current) doChunk()
+        }
+        recorder.start()
+        chunkTimerRef.current = setTimeout(() => { if (recorder.state === 'recording') recorder.stop() }, 10_000)
+      }
+      doChunk()
     }
-    doChunk()
-    posthog.capture('recording_started', { subject: profileRef.current?.course })
+
+    posthog.capture('recording_started', { subject: profileRef.current?.course, mode: SpeechRecognitionAPI ? 'speech_api' : 'whisper' })
   }
 
   const stopRecording = async () => {
     isActiveRef.current = false
-    if (chunkTimerRef.current) clearTimeout(chunkTimerRef.current)
+
+    if (speechModeRef.current) {
+      // Web Speech path — flush remaining buffer then stop recognition
+      recognitionRef.current?.stop()
+      recognitionRef.current = null
+      const remaining = speechBufferRef.current.trim()
+      if (remaining && sessionIdRef.current) {
+        speechBufferRef.current = ''
+        processTranscriptChunk(remaining, sessionIdRef.current)
+      }
+      speechModeRef.current = false
+    } else {
+      // Whisper path — stop the MediaRecorder loop
+      if (chunkTimerRef.current) clearTimeout(chunkTimerRef.current)
+      if (recorderRef.current?.state === 'recording') recorderRef.current.stop()
+    }
+
     if (timerRef.current) clearInterval(timerRef.current)
-    if (recorderRef.current?.state === 'recording') recorderRef.current.stop()
     streamRef.current?.getTracks().forEach(t => t.stop())
     const sid = sessionIdRef.current
     if (sid) {
@@ -690,7 +804,7 @@ export default function Dashboard() {
               </p>
               <p className="text-gray-600 text-[13px] mt-1.5">Tap the mic before your next lecture</p>
               {recordingError && (
-                <p className="mt-4 text-red-400 text-[13px] text-center max-w-xs">{recordingError}</p>
+                <p className="mt-4 text-red-400 text-[13px] text-center max-w-xs" role="alert">{recordingError}</p>
               )}
             </div>
 

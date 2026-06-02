@@ -14,7 +14,7 @@ function fetchWithTimeout(url: string, options: RequestInit, ms = FETCH_TIMEOUT_
 }
 
 const AUDIO_UPLOAD_ERRORS: Record<string, string> = {
-  audio_too_large_for_transcription: 'File exceeds the transcription limit. Try compressing it or splitting into segments under 25 MB (~25–60 min depending on quality).',
+  file_too_large: 'File exceeds the 50 MB limit. Try a compressed format like WebM or MP3, or split the recording into parts.',
   unauthorized: 'Your session expired. Please sign in again.',
   storage_download_failed: 'Could not retrieve your file. Please try again.',
   invalid_audio_format: 'File format not recognised. Use MP3, WAV, MP4, M4A, WebM, or OGG.',
@@ -29,8 +29,19 @@ function friendlyAudioError(code: string): string {
 
 type AudioStatus = 'idle' | 'uploading' | 'transcribing' | 'processing' | 'done' | 'error'
 type TextStatus = 'idle' | 'extracting' | 'processing' | 'done' | 'error'
+type YTStatus = 'idle' | 'fetching' | 'ready' | 'importing' | 'done' | 'error'
 type NotionPushStatus = 'idle' | 'pushing' | 'done' | 'error'
 type NotionPullStatus = 'idle' | 'loading_pages' | 'importing' | 'done' | 'error'
+
+interface YTMeta {
+  video_id: string
+  title: string
+  channel: string
+  thumbnail: string
+  duration_formatted: string
+  transcript: string
+  word_count: number
+}
 
 interface UploadResult {
   session_id: string
@@ -100,6 +111,15 @@ export default function ImportPage() {
   const [profile, setProfile] = useState<{ course: string | null; year_of_study: number | null } | null>(null)
   const [notionIntegration, setNotionIntegration] = useState<NotionIntegration | null>(null)
   const [notionConnectMsg, setNotionConnectMsg] = useState<string | null>(null)
+
+  // YouTube import state
+  const [ytUrl, setYtUrl] = useState('')
+  const [ytStatus, setYtStatus] = useState<YTStatus>('idle')
+  const [ytMeta, setYtMeta] = useState<YTMeta | null>(null)
+  const [ytResult, setYtResult] = useState<UploadResult | null>(null)
+  const [ytError, setYtError] = useState<string | null>(null)
+  const [ytProgress, setYtProgress] = useState(0)
+  const [ytRedirect, setYtRedirect] = useState<number | null>(null)
 
   // Audio upload state
   const [audioFile, setAudioFile] = useState<File | null>(null)
@@ -229,6 +249,33 @@ export default function ImportPage() {
     return () => clearInterval(interval)
   }, [textStatus])
 
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval> | null = null
+    if (ytStatus === 'fetching') {
+      setYtProgress(0)
+      interval = setInterval(() => setYtProgress(p => Math.min(p + 12, 85)), 150)
+    } else if (ytStatus === 'importing') {
+      interval = setInterval(() => setYtProgress(p => Math.min(p + 0.4, 93)), 400)
+    } else if (ytStatus === 'done') {
+      setYtProgress(100)
+    } else if (ytStatus === 'idle' || ytStatus === 'error' || ytStatus === 'ready') {
+      setYtProgress(0)
+    }
+    return () => { if (interval) clearInterval(interval) }
+  }, [ytStatus])
+
+  useEffect(() => {
+    if (ytStatus !== 'done') return
+    setYtRedirect(3)
+    const interval = setInterval(() => {
+      setYtRedirect(c => {
+        if (c === null || c <= 1) { clearInterval(interval); router.push('/history'); return null }
+        return c - 1
+      })
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [ytStatus])
+
   // ---- Audio upload ----
 
   const handleAudioUpload = async () => {
@@ -239,8 +286,8 @@ export default function ImportPage() {
       setAudioError('Unsupported file type. Use MP3, WAV, MP4, M4A, WebM, or OGG.')
       return
     }
-    if (audioFile.size > 25 * 1024 * 1024) {
-      setAudioError('File is too large. Maximum size is 25 MB (Whisper API limit).')
+    if (audioFile.size > 50 * 1024 * 1024) {
+      setAudioError('File is too large. Maximum size is 50 MB. Try a compressed format like WebM or MP3.')
       return
     }
 
@@ -290,6 +337,64 @@ export default function ImportPage() {
     } catch (err) {
       setAudioError(err instanceof Error ? err.message : 'Something went wrong')
       setAudioStatus('error')
+    }
+  }
+
+  // ---- YouTube import ----
+
+  const handleYouTubeFetch = async () => {
+    if (!ytUrl.trim()) return
+    setYtStatus('fetching')
+    setYtError(null)
+    setYtMeta(null)
+    try {
+      const res = await fetchWithTimeout(`/api/youtube?url=${encodeURIComponent(ytUrl)}`, {}, 30_000)
+      const data = await res.json()
+      if (!res.ok) {
+        const msgs: Record<string, string> = {
+          invalid_youtube_url: 'That doesn\'t look like a valid YouTube URL.',
+          no_captions: data.message ?? 'This video has no captions. Try a video with subtitles enabled.',
+          unauthorized: 'Your session expired. Please sign in again.',
+        }
+        throw new Error(msgs[data.error] ?? 'Failed to fetch video. Please try again.')
+      }
+      setYtMeta(data)
+      setYtStatus('ready')
+    } catch (err) {
+      setYtError(err instanceof Error ? err.message : 'Something went wrong.')
+      setYtStatus('error')
+    }
+  }
+
+  const handleYouTubeImport = async () => {
+    if (!ytMeta) return
+    setYtStatus('importing')
+    setYtError(null)
+    try {
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
+      const base = process.env.NEXT_PUBLIC_SUPABASE_URL!
+      if (!token) throw new Error('Not authenticated')
+
+      const res = await fetchWithTimeout(`${base}/functions/v1/process-text-upload`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: ytMeta.transcript,
+          session_name: ytMeta.title.slice(0, 100),
+          subject: profile?.course ?? null,
+          year_of_study: profile?.year_of_study ?? null,
+          source: 'youtube_import',
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.ok) throw new Error(data.error ?? 'Processing failed')
+      setYtResult(data)
+      setYtStatus('done')
+    } catch (err) {
+      setYtError(err instanceof Error ? err.message : 'Something went wrong.')
+      setYtStatus('error')
     }
   }
 
@@ -490,7 +595,9 @@ export default function ImportPage() {
   const audioLabel: Record<AudioStatus, string> = {
     idle: 'Upload Recording',
     uploading: 'Uploading...',
-    transcribing: 'Transcribing...',
+    transcribing: audioFile && audioFile.size > 20 * 1024 * 1024
+      ? 'Transcribing in segments — this may take a few minutes...'
+      : 'Transcribing...',
     processing: 'Detecting terms...',
     done: 'Done',
     error: 'Try again',
@@ -516,8 +623,108 @@ export default function ImportPage() {
           <p className="mt-1 text-sm text-gray-500">Upload recordings, slides, or sync with Notion to build your glossary.</p>
         </div>
 
-        {/* Section 1: Audio */}
+        {/* Section 0: YouTube */}
         <section className="mb-5 animate-step opacity-0" style={{ animationDelay: '60ms', animationFillMode: 'forwards' }}>
+          <div className="rounded-2xl bg-white/[0.03] border border-white/[0.07] overflow-hidden">
+            <div className="px-5 pt-5 pb-4">
+              <div className="flex items-center gap-3 mb-1">
+                <span className="flex items-center justify-center w-8 h-8 rounded-xl bg-red-500/[0.12] text-red-400">
+                  <YouTubeIcon />
+                </span>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-[15px] font-semibold text-white">YouTube Lecture</h2>
+                  <span className="text-[10px] font-bold tracking-[0.1em] text-violet-400 bg-violet-600/15 border border-violet-500/25 rounded-full px-2 py-0.5 uppercase">New</span>
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mt-1 ml-11">Paste any YouTube lecture URL. Demist reads the captions and detects unfamiliar terms — no recording needed.</p>
+            </div>
+
+            <div className="px-5 pb-2">
+              <div className="flex gap-2">
+                <input
+                  type="url"
+                  value={ytUrl}
+                  onChange={e => { setYtUrl(e.target.value); if (ytStatus === 'error' || ytStatus === 'ready') { setYtStatus('idle'); setYtMeta(null); setYtError(null) } }}
+                  onKeyDown={e => e.key === 'Enter' && ytUrl.trim() && ytStatus === 'idle' && handleYouTubeFetch()}
+                  placeholder="https://youtube.com/watch?v=..."
+                  className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2.5 text-[13px] text-white placeholder-gray-600 focus:outline-none focus:border-violet-500/40 transition-colors"
+                />
+                <button
+                  onClick={handleYouTubeFetch}
+                  disabled={!ytUrl.trim() || ytStatus === 'fetching' || ytStatus === 'importing'}
+                  className="px-4 py-2.5 rounded-xl bg-white/[0.05] border border-white/[0.08] text-[13px] font-medium text-gray-300 hover:bg-white/[0.08] disabled:opacity-40 transition-colors shrink-0"
+                >
+                  {ytStatus === 'fetching' ? <span className="flex items-center gap-1.5"><SpinnerIcon />Fetching...</span> : 'Fetch'}
+                </button>
+              </div>
+            </div>
+
+            {/* Video preview once fetched */}
+            {ytMeta && ytStatus !== 'idle' && ytStatus !== 'fetching' && (
+              <div className="mx-5 mb-3 bg-white/[0.03] border border-white/[0.06] rounded-xl p-3 flex items-start gap-3">
+                {ytMeta.thumbnail && (
+                  <img src={ytMeta.thumbnail} alt="" className="w-20 h-14 object-cover rounded-lg shrink-0 bg-white/[0.05]" />
+                )}
+                <div className="min-w-0">
+                  <p className="text-[13px] font-medium text-white truncate">{ytMeta.title}</p>
+                  <p className="text-[11px] text-gray-500 mt-0.5">{ytMeta.channel} · {ytMeta.duration_formatted}</p>
+                  <p className="text-[11px] text-gray-600 mt-0.5">~{ytMeta.word_count.toLocaleString()} words</p>
+                </div>
+              </div>
+            )}
+
+            {/* Progress bar during import */}
+            {(ytStatus === 'fetching' || ytStatus === 'importing') && (
+              <div className="mx-5 mb-3">
+                <div className="h-1 rounded-full bg-white/[0.06] overflow-hidden">
+                  <div className="h-full rounded-full bg-red-500 transition-all duration-500 ease-out" style={{ width: `${ytProgress}%` }} />
+                </div>
+                <p className="text-[11px] text-gray-600 mt-1.5" aria-live="polite">
+                  {ytStatus === 'fetching' ? 'Fetching captions...' : 'Detecting terms...'}
+                </p>
+              </div>
+            )}
+
+            {/* Success state */}
+            {ytStatus === 'done' && ytResult && (
+              <div className="mx-5 mb-5 flex flex-col gap-2">
+                <div className="flex items-center gap-2 text-emerald-400">
+                  <CheckCircleIcon />
+                  <span className="text-sm font-medium">Imported successfully</span>
+                </div>
+                <p className="text-xs text-gray-400">
+                  {ytResult.term_count} term{ytResult.term_count !== 1 ? 's' : ''} detected.
+                  {ytResult.synopsis ? ' AI summary generated.' : ''}
+                </p>
+                <div className="flex items-center justify-between">
+                  <div className="flex gap-2">
+                    <button onClick={() => router.push('/history')} className="text-xs font-medium text-violet-400 hover:text-violet-300 transition-colors active:scale-[0.97]">View in History</button>
+                    <span className="text-gray-700">·</span>
+                    <button onClick={() => { setYtRedirect(null); setYtUrl(''); setYtStatus('idle'); setYtMeta(null); setYtResult(null) }} className="text-xs text-gray-500 hover:text-gray-400 transition-colors active:scale-[0.97]">Import another</button>
+                  </div>
+                  {ytRedirect !== null && <span className="text-xs text-gray-600">Redirecting in {ytRedirect}s</span>}
+                </div>
+              </div>
+            )}
+
+            {ytError && <p className="mx-5 mb-4 text-xs text-red-400" role="alert">{ytError}</p>}
+
+            {/* Import button — shown once video is fetched */}
+            {ytMeta && (ytStatus === 'ready' || ytStatus === 'error') && (
+              <div className="px-5 pb-5">
+                <button
+                  onClick={handleYouTubeImport}
+                  className="w-full h-10 rounded-xl text-sm font-semibold bg-red-600 hover:bg-red-500 text-white transition-colors active:scale-[0.97]"
+                >
+                  Import this lecture
+                </button>
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* Section 1: Audio */}
+        <section className="mb-5 animate-step opacity-0" style={{ animationDelay: '90ms', animationFillMode: 'forwards' }}>
           <div className="rounded-2xl bg-white/[0.03] border border-white/[0.07] overflow-hidden">
             <div className="px-5 pt-5 pb-4">
               <div className="flex items-center gap-3 mb-1">
@@ -526,7 +733,7 @@ export default function ImportPage() {
                 </span>
                 <h2 className="text-[15px] font-semibold text-white">Lecture Recording</h2>
               </div>
-              <p className="text-xs text-gray-500 mt-1 ml-11">MP3, WAV, MP4, M4A, WebM, OGG — up to 25 MB (roughly 25–60 min depending on recording quality). We transcribe then detect unfamiliar terms.</p>
+              <p className="text-xs text-gray-500 mt-1 ml-11">MP3, WAV, MP4, M4A, WebM, OGG — up to 50 MB. At typical browser recording quality (WebM/opus) that covers roughly 2–3 hours. Large files are transcribed in segments automatically.</p>
             </div>
 
             <div
@@ -587,7 +794,12 @@ export default function ImportPage() {
                     <span className="flex-shrink-0 text-violet-400"><AudioFileIcon /></span>
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-white truncate">{audioFile.name}</p>
-                      <p className="text-xs text-gray-500">{(audioFile.size / 1024 / 1024).toFixed(1)} MB</p>
+                      <p className="text-xs text-gray-500">
+                    {(audioFile.size / 1024 / 1024).toFixed(1)} MB
+                    {audioFile.size > 20 * 1024 * 1024 && (
+                      <span className="ml-1.5 text-amber-500/70">· will be split into segments</span>
+                    )}
+                  </p>
                     </div>
                   </div>
                   <button
@@ -601,7 +813,7 @@ export default function ImportPage() {
                 <div className="p-8 flex flex-col items-center gap-2 text-center">
                   <span className="text-gray-600"><UploadIcon /></span>
                   <p className="text-sm text-gray-500">Drag a recording here or <span className="text-violet-400">browse</span></p>
-                  <p className="text-xs text-gray-600">MP3, WAV, MP4, M4A, WebM, OGG</p>
+                  <p className="text-xs text-gray-600">MP3, WAV, MP4, M4A, WebM, OGG · up to 50 MB</p>
                 </div>
               )}
             </div>
@@ -614,12 +826,12 @@ export default function ImportPage() {
                     style={{ width: `${audioProgress}%` }}
                   />
                 </div>
-                <p className="text-[11px] text-gray-600 mt-1.5">{audioLabel[audioStatus]}</p>
+                <p className="text-[11px] text-gray-600 mt-1.5" aria-live="polite">{audioLabel[audioStatus]}</p>
               </div>
             )}
 
             {audioError && (
-              <p className="mx-5 mb-4 text-xs text-red-400">{audioError}</p>
+              <p className="mx-5 mb-4 text-xs text-red-400" role="alert">{audioError}</p>
             )}
 
             {audioFile && audioStatus !== 'done' && (
@@ -646,7 +858,7 @@ export default function ImportPage() {
         </section>
 
         {/* Section 2: PPTX / Transcript */}
-        <section className="mb-5 animate-step opacity-0" style={{ animationDelay: '120ms', animationFillMode: 'forwards' }}>
+        <section className="mb-5 animate-step opacity-0" style={{ animationDelay: '150ms', animationFillMode: 'forwards' }}>
           <div className="rounded-2xl bg-white/[0.03] border border-white/[0.07] overflow-hidden">
             <div className="px-5 pt-5 pb-4">
               <div className="flex items-center gap-3 mb-1">
@@ -743,12 +955,12 @@ export default function ImportPage() {
                     style={{ width: `${textProgress}%` }}
                   />
                 </div>
-                <p className="text-[11px] text-gray-600 mt-1.5">{textLabel[textStatus]}</p>
+                <p className="text-[11px] text-gray-600 mt-1.5" aria-live="polite">{textLabel[textStatus]}</p>
               </div>
             )}
 
             {textError && (
-              <p className="mx-5 mb-4 text-xs text-red-400">{textError}</p>
+              <p className="mx-5 mb-4 text-xs text-red-400" role="alert">{textError}</p>
             )}
 
             {textFile && textStatus !== 'done' && (
@@ -775,7 +987,7 @@ export default function ImportPage() {
         </section>
 
         {/* Section 3: Notion Sync */}
-        <section className="animate-step opacity-0" style={{ animationDelay: '180ms', animationFillMode: 'forwards' }}>
+        <section className="animate-step opacity-0" style={{ animationDelay: '210ms', animationFillMode: 'forwards' }}>
           <div className="rounded-2xl bg-white/[0.03] border border-white/[0.07] overflow-hidden">
             <div className="px-5 pt-5 pb-5">
               <div className="flex items-center justify-between mb-1">
@@ -952,6 +1164,14 @@ export default function ImportPage() {
 }
 
 // ---- Icons ----
+
+function YouTubeIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z" />
+    </svg>
+  )
+}
 
 function MicIcon() {
   return (

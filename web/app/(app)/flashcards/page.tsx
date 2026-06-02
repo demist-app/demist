@@ -32,11 +32,11 @@ function sm2Update(ease: number, interval: number, grade: 0 | 1 | 2 | 3): { inte
   return { interval: newInterval, ease: newEase }
 }
 
-const GRADE_LABELS: { grade: 0 | 1 | 2 | 3; label: string; color: string }[] = [
-  { grade: 0, label: 'Again', color: 'border-red-500/40 hover:bg-red-500/10 text-red-400' },
-  { grade: 1, label: 'Hard',  color: 'border-orange-500/40 hover:bg-orange-500/10 text-orange-400' },
-  { grade: 2, label: 'Good',  color: 'border-emerald-500/40 hover:bg-emerald-500/10 text-emerald-400' },
-  { grade: 3, label: 'Easy',  color: 'border-violet-500/40 hover:bg-violet-500/10 text-violet-400' },
+const GRADE_LABELS: { grade: 0 | 1 | 2 | 3; label: string; ariaLabel: string; color: string }[] = [
+  { grade: 0, label: 'Again', ariaLabel: 'Again — forgotten, review again soon',     color: 'border-red-500/40 hover:bg-red-500/10 text-red-400' },
+  { grade: 1, label: 'Hard',  ariaLabel: 'Hard — remembered with difficulty',        color: 'border-orange-500/40 hover:bg-orange-500/10 text-orange-400' },
+  { grade: 2, label: 'Good',  ariaLabel: 'Good — remembered correctly',              color: 'border-emerald-500/40 hover:bg-emerald-500/10 text-emerald-400' },
+  { grade: 3, label: 'Easy',  ariaLabel: 'Easy — remembered without effort',         color: 'border-violet-500/40 hover:bg-violet-500/10 text-violet-400' },
 ]
 
 type Phase = 'loading' | 'empty' | 'review' | 'done'
@@ -317,11 +317,12 @@ export default function Flashcards() {
           {flipped && (
             <>
               <div className="shrink-0 grid grid-cols-4 gap-2 mt-4 animate-step">
-                {GRADE_LABELS.map(({ grade, label, color }) => (
+                {GRADE_LABELS.map(({ grade, label, ariaLabel, color }) => (
                   <button
                     key={grade}
                     onClick={() => handleGrade(grade)}
                     disabled={saving}
+                    aria-label={ariaLabel}
                     className={`py-3 rounded-2xl text-[13px] font-semibold border bg-transparent transition-colors duration-150 active:scale-[0.97] disabled:opacity-40 ${color}`}
                   >
                     {label}

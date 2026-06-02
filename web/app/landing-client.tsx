@@ -63,12 +63,24 @@ const FEATURES = [
     title: 'AI session summaries',
     body: 'When you stop recording, Demist generates a summary of your lecture. Find it in your history alongside the term list and transcript.',
     Icon: SummaryIcon,
+    tag: null as string | null,
+  },
+  {
+    title: 'YouTube & file import',
+    body: 'Paste a YouTube lecture URL or upload a recording, slide deck, or transcript. Demist pulls every unfamiliar term from captions and builds your glossary in seconds.',
+    Icon: ImportIcon,
     tag: 'New' as string | null,
   },
   {
     title: 'Full session history',
-    body: 'Demist stores every lecture with its terms, transcript, and summary. Rename sessions, browse past notes, and return to any recording.',
+    body: 'Every lecture — recorded or imported — is stored with its terms, transcript, and summary. Rename sessions, browse past notes, and return to anything.',
     Icon: HistoryIconFeat,
+    tag: null as string | null,
+  },
+  {
+    title: 'Notion sync',
+    body: 'Export your glossary or summaries to Notion in one tap, or import your own lecture notes to extract terms automatically.',
+    Icon: NotionIconFeat,
     tag: 'New' as string | null,
   },
 ]
@@ -76,18 +88,18 @@ const FEATURES = [
 const STEPS = [
   {
     n: '01',
-    title: 'Open Demist and hit record',
-    body: 'No download, no setup. Open the web app, tap record, and keep taking notes as normal. Demist runs in the background.',
+    title: 'Record live or import from anywhere',
+    body: 'Tap record before a lecture, paste a YouTube URL, or upload a recording or slide deck. No setup, no download — just open the app.',
   },
   {
     n: '02',
-    title: 'Definitions pop up as your lecturer speaks',
-    body: 'When Demist hears a term you might not know, it shows the definition in a small card on screen.',
+    title: 'Unfamiliar terms are explained as they appear',
+    body: 'During live recording, definitions pop up on screen the moment your lecturer says something you might not know. For imports, Demist scans the full content.',
   },
   {
     n: '03',
-    title: 'Your glossary is ready after class',
-    body: <>Demist saves every term with its definition and generates a session summary. Flashcards queue with <span className="text-violet-400 font-medium">spaced repetition</span> on a schedule built around when you&apos;ll forget.</>,
+    title: 'Your glossary and flashcards build themselves',
+    body: <>Every term is saved with its definition and an AI summary of the session. Flashcards queue with <span className="text-violet-400 font-medium">spaced repetition</span> on a schedule built around when you&apos;ll forget.</>,
   },
 ]
 
@@ -194,7 +206,7 @@ export default function LandingClient() {
           className="text-gray-500 text-[16px] sm:text-[18px] leading-relaxed mb-10 max-w-[480px]"
           {...anim(240)}
         >
-          Hit record before your lecture. Demist catches every unfamiliar term your lecturer says, explains it on screen, and builds your glossary, summaries, and flashcards automatically.
+          Record a live lecture or import from YouTube, a slide deck, or an audio file. Demist catches every unfamiliar term, explains it on screen, and builds your glossary, summaries, and flashcards automatically.
         </p>
 
         <div className="flex flex-col sm:flex-row items-center gap-3 mb-16" {...anim(320)}>
@@ -297,10 +309,11 @@ export default function LandingClient() {
         </h2>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {/* Hero tile: Live term detection - wide */}
+
+          {/* Row 1 — Live term detection (wide hero) + Automatic glossary */}
           <div
             className="sm:col-span-2 bg-violet-600/[0.06] border border-violet-500/[0.18] rounded-2xl p-7 group hover:bg-violet-600/[0.09] hover:border-violet-500/[0.26] transition-colors duration-200"
-            {...scrollAnim(featuresRef.visible, 80)}
+            {...scrollAnim(featuresRef.visible, 60)}
           >
             <div className="w-9 h-9 rounded-xl bg-violet-600/[0.14] border border-violet-500/25 flex items-center justify-center text-violet-400 mb-6">
               <MicIcon />
@@ -309,10 +322,9 @@ export default function LandingClient() {
             <p className="text-[14px] text-gray-500 leading-relaxed max-w-md">{FEATURES[0].body}</p>
           </div>
 
-          {/* Glossary */}
           <div
             className="bg-white/[0.03] border border-white/[0.07] rounded-2xl p-6 hover:bg-white/[0.05] hover:border-white/[0.11] transition-colors duration-200"
-            {...scrollAnim(featuresRef.visible, 140)}
+            {...scrollAnim(featuresRef.visible, 120)}
           >
             <div className="w-9 h-9 rounded-xl bg-white/[0.05] border border-white/[0.09] flex items-center justify-center text-gray-400 mb-5">
               <BookIcon />
@@ -321,10 +333,10 @@ export default function LandingClient() {
             <p className="text-[13px] text-gray-600 leading-relaxed">{FEATURES[1].body}</p>
           </div>
 
-          {/* Flashcards */}
+          {/* Row 2 — Flashcards, AI summaries, Session history */}
           <div
             className="bg-white/[0.03] border border-white/[0.07] rounded-2xl p-6 hover:bg-white/[0.05] hover:border-white/[0.11] transition-colors duration-200"
-            {...scrollAnim(featuresRef.visible, 200)}
+            {...scrollAnim(featuresRef.visible, 180)}
           >
             <div className="w-9 h-9 rounded-xl bg-white/[0.05] border border-white/[0.09] flex items-center justify-center text-gray-400 mb-5">
               <CardIcon />
@@ -333,35 +345,57 @@ export default function LandingClient() {
             <p className="text-[13px] text-gray-600 leading-relaxed">{FEATURES[2].body}</p>
           </div>
 
-          {/* AI summaries */}
           <div
             className="bg-white/[0.03] border border-white/[0.07] rounded-2xl p-6 hover:bg-white/[0.05] hover:border-white/[0.11] transition-colors duration-200"
-            {...scrollAnim(featuresRef.visible, 260)}
+            {...scrollAnim(featuresRef.visible, 220)}
           >
-            <div className="flex items-center justify-between mb-5">
-              <div className="w-9 h-9 rounded-xl bg-white/[0.05] border border-white/[0.09] flex items-center justify-center text-gray-400">
-                <SummaryIcon />
-              </div>
-              <span className="text-[10px] font-bold tracking-[0.1em] text-violet-400 bg-violet-600/15 border border-violet-500/25 rounded-full px-2 py-0.5 uppercase">New</span>
+            <div className="w-9 h-9 rounded-xl bg-white/[0.05] border border-white/[0.09] flex items-center justify-center text-gray-400 mb-5">
+              <SummaryIcon />
             </div>
             <p className="text-[15px] font-semibold text-white/90 mb-2">{FEATURES[3].title}</p>
             <p className="text-[13px] text-gray-600 leading-relaxed">{FEATURES[3].body}</p>
           </div>
 
-          {/* Session history */}
           <div
             className="bg-white/[0.03] border border-white/[0.07] rounded-2xl p-6 hover:bg-white/[0.05] hover:border-white/[0.11] transition-colors duration-200"
-            {...scrollAnim(featuresRef.visible, 320)}
+            {...scrollAnim(featuresRef.visible, 260)}
           >
-            <div className="flex items-center justify-between mb-5">
-              <div className="w-9 h-9 rounded-xl bg-white/[0.05] border border-white/[0.09] flex items-center justify-center text-gray-400">
-                <HistoryIconFeat />
+            <div className="w-9 h-9 rounded-xl bg-white/[0.05] border border-white/[0.09] flex items-center justify-center text-gray-400 mb-5">
+              <HistoryIconFeat />
+            </div>
+            <p className="text-[15px] font-semibold text-white/90 mb-2">{FEATURES[5].title}</p>
+            <p className="text-[13px] text-gray-600 leading-relaxed">{FEATURES[5].body}</p>
+          </div>
+
+          {/* Row 3 — YouTube & file import (wide hero) + Notion sync */}
+          <div
+            className="sm:col-span-2 bg-violet-600/[0.06] border border-violet-500/[0.18] rounded-2xl p-7 group hover:bg-violet-600/[0.09] hover:border-violet-500/[0.26] transition-colors duration-200"
+            {...scrollAnim(featuresRef.visible, 300)}
+          >
+            <div className="flex items-center justify-between mb-6">
+              <div className="w-9 h-9 rounded-xl bg-violet-600/[0.14] border border-violet-500/25 flex items-center justify-center text-violet-400">
+                <ImportIcon />
               </div>
               <span className="text-[10px] font-bold tracking-[0.1em] text-violet-400 bg-violet-600/15 border border-violet-500/25 rounded-full px-2 py-0.5 uppercase">New</span>
             </div>
-            <p className="text-[15px] font-semibold text-white/90 mb-2">{FEATURES[4].title}</p>
-            <p className="text-[13px] text-gray-600 leading-relaxed">{FEATURES[4].body}</p>
+            <p className="text-[18px] font-bold text-white/95 mb-2.5">{FEATURES[4].title}</p>
+            <p className="text-[14px] text-gray-500 leading-relaxed max-w-md">{FEATURES[4].body}</p>
           </div>
+
+          <div
+            className="bg-white/[0.03] border border-white/[0.07] rounded-2xl p-6 hover:bg-white/[0.05] hover:border-white/[0.11] transition-colors duration-200"
+            {...scrollAnim(featuresRef.visible, 340)}
+          >
+            <div className="flex items-center justify-between mb-5">
+              <div className="w-9 h-9 rounded-xl bg-white/[0.05] border border-white/[0.09] flex items-center justify-center text-gray-400">
+                <NotionIconFeat />
+              </div>
+              <span className="text-[10px] font-bold tracking-[0.1em] text-violet-400 bg-violet-600/15 border border-violet-500/25 rounded-full px-2 py-0.5 uppercase">New</span>
+            </div>
+            <p className="text-[15px] font-semibold text-white/90 mb-2">{FEATURES[6].title}</p>
+            <p className="text-[13px] text-gray-600 leading-relaxed">{FEATURES[6].body}</p>
+          </div>
+
         </div>
       </section>
 
@@ -377,8 +411,8 @@ export default function LandingClient() {
           className="text-[30px] sm:text-[42px] font-bold tracking-tight text-center mb-16 leading-tight"
           {...scrollAnim(stepsRef.visible, 80)}
         >
-          Open the app and hit record.{' '}
-          <span className="text-gray-600 font-normal">That's it.</span>
+          Record, import, or paste a link.{' '}
+          <span className="text-gray-600 font-normal">Demist handles the rest.</span>
         </h2>
         <div>
           {STEPS.map(({ n, title, body }, i) => (
@@ -568,6 +602,24 @@ function SummaryIcon() {
       <line x1="16" y1="13" x2="8" y2="13" />
       <line x1="16" y1="17" x2="8" y2="17" />
       <line x1="10" y1="9" x2="8" y2="9" />
+    </svg>
+  )
+}
+
+function ImportIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="8 17 12 21 16 17" />
+      <line x1="12" y1="12" x2="12" y2="21" />
+      <path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29" />
+    </svg>
+  )
+}
+
+function NotionIconFeat() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M4.459 4.208c.746.606 1.026.56 2.428.466l13.215-.793c.28 0 .047-.28-.046-.326L17.86 1.968c-.42-.326-.981-.7-2.055-.607L3.01 2.295c-.466.046-.56.28-.374.466zm.793 3.08v13.904c0 .747.373 1.027 1.214.98l14.523-.84c.841-.046.935-.56.935-1.167V6.354c0-.606-.233-.933-.748-.887l-15.177.887c-.56.047-.747.327-.747.933zm14.337.745c.093.42 0 .84-.42.888l-.7.14v10.264c-.608.327-1.168.514-1.635.514-.748 0-.935-.234-1.495-.933l-4.577-7.186v6.952L12.21 19s0 .84-1.168.84l-3.222.186c-.093-.186 0-.653.327-.746l.84-.233V9.854L7.822 9.76c-.094-.42.14-1.026.793-1.073l3.456-.233 4.764 7.279v-6.44l-1.215-.139c-.093-.514.28-.887.747-.933z" />
     </svg>
   )
 }

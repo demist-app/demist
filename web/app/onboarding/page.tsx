@@ -21,6 +21,7 @@ export default function Onboarding() {
   const [course, setCourse] = useState('')
   const [year, setYear] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   useEffect(() => {
     const supabase = createClient()
@@ -36,17 +37,23 @@ export default function Onboarding() {
   }, [])
 
   const handleFinish = async () => {
-    if (!year) return
+    if (!year || saving) return
     setSaving(true)
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (user) {
+    setSaveError(null)
+    try {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { router.replace('/login'); return }
       const { error } = await supabase
         .from('profiles')
         .upsert({ id: user.id, course: course.trim() || null, year_of_study: year })
-      if (error) console.error('onboarding save failed:', error)
+      if (error) throw error
+      router.replace('/dashboard')
+    } catch (e) {
+      console.error('onboarding save failed:', e)
+      setSaveError('Could not save your profile. Check your connection and try again.')
+      setSaving(false)
     }
-    router.replace('/dashboard')
   }
 
   return (
@@ -130,10 +137,14 @@ export default function Onboarding() {
                 disabled={!year || saving}
                 className="flex-1 py-4 rounded-2xl text-[15px] font-semibold bg-violet-600 hover:bg-violet-500 disabled:opacity-25 disabled:cursor-not-allowed text-white transition-all"
               >
-                {saving ? "Setting up…" : "Let's go →"}
+                {saving ? 'Setting up…' : "Let's go →"}
               </button>
             </div>
           </div>
+        )}
+
+        {saveError && (
+          <p className="mt-4 text-sm text-red-400 text-center" role="alert">{saveError}</p>
         )}
 
         {/* Step dots */}

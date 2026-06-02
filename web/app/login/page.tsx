@@ -242,7 +242,7 @@ export default function Login() {
         )}
 
         {error && (
-          <p className="mt-4 text-red-400 text-[13px] text-center">{error}</p>
+          <p className="mt-4 text-red-400 text-[13px] text-center" role="alert">{error}</p>
         )}
       </div>
     </main>

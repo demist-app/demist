@@ -3,6 +3,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 
+const POPUP_WIDTH = 280
+const POPUP_HALF  = POPUP_WIDTH / 2
+const EXPLAIN_TIMEOUT_MS = 10_000
+
 interface Popup {
   text: string
   explanation: string | null
@@ -26,6 +30,7 @@ export function SummaryViewer({
 }) {
   const [popup, setPopup] = useState<Popup | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const abortRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const handlePointerUp = async () => {
     const sel = window.getSelection()
@@ -38,8 +43,19 @@ export function SummaryViewer({
     if (!containerRef.current?.contains(range.commonAncestorContainer)) return
 
     const rect = range.getBoundingClientRect()
-    const x = Math.min(Math.max(rect.left + rect.width / 2, 150), window.innerWidth - 150)
+    // Clamp x so the 280px popup never clips off either edge (8px screen margin)
+    const rawX = rect.left + rect.width / 2
+    const x = Math.min(Math.max(rawX, POPUP_HALF + 8), window.innerWidth - POPUP_HALF - 8)
+
     setPopup({ text, explanation: null, loading: true, saving: false, saved: false, x, y: rect.top })
+
+    // Cancel any in-flight timeout from a previous selection
+    if (abortRef.current) clearTimeout(abortRef.current)
+
+    // Auto-dismiss if detection hangs
+    abortRef.current = setTimeout(() => {
+      setPopup(prev => prev?.loading ? { ...prev, loading: false, explanation: null } : prev)
+    }, EXPLAIN_TIMEOUT_MS)
 
     try {
       const supabase = createClient()
@@ -54,12 +70,14 @@ export function SummaryViewer({
       const explanation: string | null = data?.terms?.[0]?.definition ?? null
       setPopup(prev => prev ? { ...prev, explanation, loading: false } : null)
     } catch {
-      setPopup(null)
+      setPopup(prev => prev ? { ...prev, loading: false, explanation: null } : null)
+    } finally {
+      if (abortRef.current) { clearTimeout(abortRef.current); abortRef.current = null }
     }
   }
 
   const saveFlashcard = async () => {
-    if (!popup?.explanation) return
+    if (!popup?.explanation || popup.saving) return
     setPopup(prev => prev ? { ...prev, saving: true } : null)
     try {
       const supabase = createClient()
@@ -80,6 +98,7 @@ export function SummaryViewer({
     }
   }
 
+  // Close popup when clicking outside
   useEffect(() => {
     const close = (e: MouseEvent) => {
       if (!containerRef.current?.contains(e.target as Node)) setPopup(null)
@@ -87,6 +106,9 @@ export function SummaryViewer({
     document.addEventListener('mousedown', close)
     return () => document.removeEventListener('mousedown', close)
   }, [])
+
+  // Cleanup timeout on unmount
+  useEffect(() => () => { if (abortRef.current) clearTimeout(abortRef.current) }, [])
 
   return (
     <div ref={containerRef} className="relative">
@@ -96,20 +118,39 @@ export function SummaryViewer({
       >
         {synopsis}
       </p>
-      <p className="text-[11px] text-gray-700 mt-1.5 select-none">Select any text to explain or save as a flashcard</p>
+      <p className="text-[11px] text-gray-700 mt-1.5 select-none">
+        Select any text to explain or save as a flashcard
+      </p>
 
       {popup && (
         <div
-          className="fixed z-[100] w-[280px] bg-[#0e0e1c] border border-violet-500/25 rounded-xl px-4 py-3 shadow-[0_8px_32px_rgba(0,0,0,0.7)]"
-          style={{ left: popup.x, top: popup.y - 10, transform: 'translate(-50%, -100%)' }}
+          role="dialog"
+          aria-label="Term explanation"
+          className="fixed z-[100] bg-[#0e0e1c] border border-violet-500/25 rounded-xl px-4 py-3 shadow-[0_8px_32px_rgba(0,0,0,0.7)]"
+          style={{
+            width: POPUP_WIDTH,
+            left: popup.x,
+            top: popup.y - 10,
+            transform: 'translate(-50%, -100%)',
+          }}
           onMouseDown={e => e.stopPropagation()}
           onPointerUp={e => e.stopPropagation()}
         >
-          <p className="text-[10px] font-bold tracking-[0.15em] text-violet-400/60 uppercase mb-1.5 line-clamp-2 leading-snug">
-            {popup.text}
-          </p>
+          <div className="flex items-start justify-between gap-2 mb-1.5">
+            <p className="text-[10px] font-bold tracking-[0.15em] text-violet-400/60 uppercase line-clamp-2 leading-snug flex-1">
+              {popup.text}
+            </p>
+            <button
+              onClick={() => setPopup(null)}
+              aria-label="Close"
+              className="text-gray-700 hover:text-gray-400 transition-colors shrink-0 leading-none text-[18px] -mt-0.5"
+            >
+              ×
+            </button>
+          </div>
+
           {popup.loading ? (
-            <p className="text-[12px] text-gray-600">Explaining...</p>
+            <p className="text-[12px] text-gray-600" aria-live="polite">Explaining…</p>
           ) : popup.explanation ? (
             <>
               <p className="text-[12px] text-gray-400 leading-relaxed mb-2.5">{popup.explanation}</p>
@@ -118,11 +159,11 @@ export function SummaryViewer({
                 disabled={popup.saving || popup.saved}
                 className="w-full text-[12px] font-medium py-1.5 rounded-lg bg-violet-600/20 hover:bg-violet-600/30 text-violet-400 hover:text-violet-300 transition-all disabled:opacity-50"
               >
-                {popup.saved ? 'Saved to flashcards ✓' : popup.saving ? 'Saving...' : '+ Save as flashcard'}
+                {popup.saved ? 'Saved ✓' : popup.saving ? 'Saving…' : '+ Save as flashcard'}
               </button>
             </>
           ) : (
-            <p className="text-[12px] text-gray-600">Nothing found to explain.</p>
+            <p className="text-[12px] text-gray-600">Nothing to explain here.</p>
           )}
         </div>
       )}

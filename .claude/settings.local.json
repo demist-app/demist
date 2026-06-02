@@ -76,7 +76,8 @@
       "Bash(supabase projects *)",
       "Bash(supabase db *)",
       "Bash(supabase functions *)",
-      "Bash(supabase secrets *)"
+      "Bash(supabase secrets *)",
+      "Bash(npm list *)"
     ],
     "additionalDirectories": [
       "c:\\Users\\shivb\\Desktop\\coding bits\\demist\\web\\app\\u"
