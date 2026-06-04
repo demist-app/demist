@@ -3,6 +3,17 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
 const NOTION_VERSION = '2022-06-28'
+const VALID_ACTIONS = new Set(['push_glossary', 'push_summaries', 'list_pages', 'pull_page', 'disconnect'])
+
+const _rl = new Map<string, number[]>()
+function rateLimit(key: string, max: number, windowMs = 3_600_000): boolean {
+  const now = Date.now()
+  const hits = (_rl.get(key) ?? []).filter(t => now - t < windowMs)
+  if (hits.length >= max) return false
+  hits.push(now)
+  _rl.set(key, hits)
+  return true
+}
 
 function notionHeaders(token: string) {
   return {
@@ -204,6 +215,11 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
+  // Rate limit: 20 Notion sync operations/hour
+  if (!rateLimit(user.id, 20)) {
+    return NextResponse.json({ error: 'rate_limited' }, { status: 429, headers: { 'Retry-After': '3600' } })
+  }
+
   const { data: integration } = await supabase
     .from('integrations')
     .select('access_token')
@@ -218,6 +234,10 @@ export async function POST(req: NextRequest) {
   const token = integration.access_token
   const body = await req.json()
   const { action } = body
+
+  if (typeof action !== 'string' || !VALID_ACTIONS.has(action)) {
+    return NextResponse.json({ error: 'unknown_action' }, { status: 400 })
+  }
 
   if (action === 'push_glossary') {
     const result = await pushGlossary(token, user.id, supabase)
@@ -254,10 +274,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, text })
   }
 
-  if (action === 'disconnect') {
-    await supabase.from('integrations').delete().eq('user_id', user.id).eq('provider', 'notion')
-    return NextResponse.json({ ok: true })
-  }
-
-  return NextResponse.json({ error: 'unknown_action' }, { status: 400 })
+  // action === 'disconnect'
+  await supabase.from('integrations').delete().eq('user_id', user.id).eq('provider', 'notion')
+  return NextResponse.json({ ok: true })
 }

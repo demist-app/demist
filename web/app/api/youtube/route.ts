@@ -5,6 +5,16 @@ import { cookies } from 'next/headers'
 
 const YT_ID_RE = /(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/
 
+const _rl = new Map<string, number[]>()
+function rateLimit(key: string, max: number, windowMs = 3_600_000): boolean {
+  const now = Date.now()
+  const hits = (_rl.get(key) ?? []).filter(t => now - t < windowMs)
+  if (hits.length >= max) return false
+  hits.push(now)
+  _rl.set(key, hits)
+  return true
+}
+
 function extractVideoId(url: string): string | null {
   const m = url.match(YT_ID_RE)
   return m?.[1] ?? null
@@ -34,8 +44,13 @@ export async function GET(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
+  // Rate limit: 20 YouTube imports/hour
+  if (!rateLimit(user.id, 20)) {
+    return NextResponse.json({ error: 'rate_limited' }, { status: 429, headers: { 'Retry-After': '3600' } })
+  }
+
   const url = req.nextUrl.searchParams.get('url')?.trim()
-  if (!url) return NextResponse.json({ error: 'missing_url' }, { status: 400 })
+  if (!url || url.length > 200) return NextResponse.json({ error: 'invalid_youtube_url' }, { status: 400 })
 
   const videoId = extractVideoId(url)
   if (!videoId) {

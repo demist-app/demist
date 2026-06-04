@@ -2,6 +2,17 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const ALLOWED_ORIGINS = ['https://demist.app', 'https://www.demist.app']
+const SAFE_AUDIO_EXTS = new Set(['webm', 'mp4', 'mp3', 'ogg', 'm4a', 'wav', 'flac'])
+
+const _rl = new Map<string, number[]>()
+function rateLimit(key: string, max: number, windowMs = 3_600_000): boolean {
+  const now = Date.now()
+  const hits = (_rl.get(key) ?? []).filter(t => now - t < windowMs)
+  if (hits.length >= max) return false
+  hits.push(now)
+  _rl.set(key, hits)
+  return true
+}
 
 // Audio limits
 // Each Whisper request must be ≤ 25 MB. We send 20 MB slices with 5 MB headroom
@@ -201,6 +212,14 @@ serve(async (req) => {
     })
   }
 
+  // Rate limit: 5 audio imports/hour — each can burn significant Whisper credits
+  if (!rateLimit(user.id, 5)) {
+    return new Response(JSON.stringify({ error: 'rate_limited' }), {
+      status: 429,
+      headers: { ...CORS, 'Content-Type': 'application/json', 'Retry-After': '3600' },
+    })
+  }
+
   // Service role client — storage only
   const serviceClient = createClient(
     Deno.env.get('SUPABASE_URL')!,
@@ -225,7 +244,8 @@ serve(async (req) => {
     const safeSubject = subject ? sanitize(subject).slice(0, 100) : null
     const safeYear    = Math.min(10, Math.max(1, Number(year_of_study) || 1))
     const safeName    = session_name ? sanitize(session_name).slice(0, 100) : null
-    const ext         = storage_path.split('.').pop() ?? 'webm'
+    const rawExt      = storage_path.split('.').pop()?.toLowerCase() ?? ''
+    const ext         = SAFE_AUDIO_EXTS.has(rawExt) ? rawExt : 'webm'
 
     // Download from Storage
     const { data: fileBlob, error: dlErr } = await serviceClient.storage

@@ -3,6 +3,17 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const ALLOWED_ORIGINS = ['https://demist.app', 'https://www.demist.app']
 const CHUNK_SIZE = 3500      // chars per GPT detection pass
+const VALID_SOURCES = new Set(['audio_import', 'text_upload', 'youtube', 'notion', 'pptx', 'docx'])
+
+const _rl = new Map<string, number[]>()
+function rateLimit(key: string, max: number, windowMs = 3_600_000): boolean {
+  const now = Date.now()
+  const hits = (_rl.get(key) ?? []).filter(t => now - t < windowMs)
+  if (hits.length >= max) return false
+  hits.push(now)
+  _rl.set(key, hits)
+  return true
+}
 const MAX_CHUNKS = 30        // cap: 105k chars ~= 15,000 words (~2 hr lecture)
 const MAX_TERMS = 80         // hard cap on saved terms per import
 const MAX_TEXT_BYTES = 5_000_000 // 5 MB of extracted text (generous for large PPTX)
@@ -131,6 +142,14 @@ serve(async (req) => {
     })
   }
 
+  // Rate limit: 10 text imports/hour
+  if (!rateLimit(user.id, 10)) {
+    return new Response(JSON.stringify({ error: 'rate_limited' }), {
+      status: 429,
+      headers: { ...CORS, 'Content-Type': 'application/json', 'Retry-After': '3600' },
+    })
+  }
+
   try {
     const { text, session_name, subject, year_of_study, source } = await req.json() as {
       text: string
@@ -156,6 +175,7 @@ serve(async (req) => {
     const safeSubject = subject ? sanitize(subject).slice(0, 100) : null
     const safeYear = Math.min(10, Math.max(1, Number(year_of_study) || 1))
     const safeName = session_name ? sanitize(session_name).slice(0, 100) : null
+    const safeSource = (typeof source === 'string' && VALID_SOURCES.has(source)) ? source : 'text_upload'
 
     // ── Create session ──
     const now = new Date().toISOString()
@@ -168,7 +188,7 @@ serve(async (req) => {
         year_of_study: safeYear,
         started_at: now,
         ended_at: now,
-        source: source ?? 'text_upload',
+        source: safeSource,
         transcript: text, // store full transcript — PostgreSQL text has no practical limit
       })
       .select('id')

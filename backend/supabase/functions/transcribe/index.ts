@@ -4,6 +4,18 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const ALLOWED_ORIGINS = ['https://demist.app', 'https://www.demist.app', 'http://localhost:3000', 'http://localhost:3001']
 const MAX_AUDIO_BYTES = 25 * 1024 * 1024 // 25 MB
 
+// In-memory sliding-window rate limiter.
+// Resets on cold start; effective against burst abuse within a warm instance.
+const _rl = new Map<string, number[]>()
+function rateLimit(key: string, max: number, windowMs = 3_600_000): boolean {
+  const now = Date.now()
+  const hits = (_rl.get(key) ?? []).filter(t => now - t < windowMs)
+  if (hits.length >= max) return false
+  hits.push(now)
+  _rl.set(key, hits)
+  return true
+}
+
 function corsHeaders(origin: string | null) {
   const allowed = origin && ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0]
   return {
@@ -42,6 +54,14 @@ serve(async (req) => {
     })
   }
 
+  // Rate limit: 400 requests/hour (covers ~66-min recording at 10s chunks)
+  if (!rateLimit(user.id, 400)) {
+    return new Response(JSON.stringify({ error: 'rate_limited' }), {
+      status: 429,
+      headers: { ...CORS, 'Content-Type': 'application/json', 'Retry-After': '3600' },
+    })
+  }
+
   try {
     const contentType = req.headers.get('content-type') ?? 'audio/webm'
     const audioBytes = await req.arrayBuffer()
@@ -59,7 +79,7 @@ serve(async (req) => {
       })
     }
 
-    // Infer extension from content-type — Whisper validates the audio itself
+    // Whitelist extensions — never trust Content-Type from the client blindly
     const ext = contentType.includes('mp4') || contentType.includes('m4a') ? 'mp4'
       : contentType.includes('mpeg') || contentType.includes('mp3') ? 'mp3'
       : contentType.includes('ogg') ? 'ogg'
