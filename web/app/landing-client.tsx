@@ -168,11 +168,11 @@ export default function LandingClient() {
       <div aria-hidden className="pointer-events-none fixed inset-0 overflow-hidden z-0">
         <div
           className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] h-[900px] rounded-full blur-[150px] animate-float"
-          style={{ background: 'radial-gradient(ellipse, color-mix(in srgb, var(--accent) 9%, transparent), transparent)' }}
+          style={{ background: 'radial-gradient(ellipse, var(--accent-glow), transparent)' }}
         />
         <div
           className="absolute bottom-0 right-0 w-[500px] h-[500px] rounded-full blur-[110px] animate-float"
-          style={{ background: 'radial-gradient(ellipse, color-mix(in srgb, var(--accent) 5%, transparent), transparent)', animationDelay: '-4s' }}
+          style={{ background: 'radial-gradient(ellipse, var(--accent-soft), transparent)', animationDelay: '-4s' }}
         />
       </div>
 
@@ -297,7 +297,7 @@ export default function LandingClient() {
                   style={{
                     height: `${h}px`,
                     transformOrigin: 'bottom',
-                    background: `color-mix(in srgb, var(--accent) ${Math.round((0.22 + (h / 42) * 0.58) * 100)}%, transparent)`,
+                    background: `rgba(var(--accent-rgb), ${(0.22 + (h / 42) * 0.58).toFixed(2)})`,
                     animation: `equalizer ${0.9 + (i % 5) * 0.15}s ease-in-out ${i * 55}ms infinite alternate`,
                   }}
                 />
@@ -322,9 +322,9 @@ export default function LandingClient() {
 
           <div
             className="sm:col-span-2 rounded-2xl p-7 transition-colors duration-200"
-            style={{ background: 'var(--accent-soft)', border: '1px solid color-mix(in srgb, var(--accent) 22%, transparent)', ...scrollAnim(featuresRef.visible, 60).style }}
+            style={{ background: 'var(--accent-soft)', border: '1px solid var(--accent-border)', ...scrollAnim(featuresRef.visible, 60).style }}
           >
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-6" style={{ background: 'color-mix(in srgb, var(--accent) 15%, transparent)', color: 'var(--accent)', border: '1px solid color-mix(in srgb, var(--accent) 28%, transparent)' }}>
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-6" style={{ background: 'var(--accent-icon-bg)', color: 'var(--accent)', border: '1px solid var(--accent-border)' }}>
               <MicIcon />
             </div>
             <p className="text-[18px] font-bold mb-2.5" style={{ color: 'var(--fg)' }}>{FEATURES[0].title}</p>
@@ -347,10 +347,10 @@ export default function LandingClient() {
 
           <div
             className="sm:col-span-2 rounded-2xl p-7 transition-colors duration-200"
-            style={{ background: 'var(--accent-soft)', border: '1px solid color-mix(in srgb, var(--accent) 22%, transparent)', ...scrollAnim(featuresRef.visible, 300).style }}
+            style={{ background: 'var(--accent-soft)', border: '1px solid var(--accent-border)', ...scrollAnim(featuresRef.visible, 300).style }}
           >
             <div className="flex items-center justify-between mb-6">
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'color-mix(in srgb, var(--accent) 15%, transparent)', color: 'var(--accent)', border: '1px solid color-mix(in srgb, var(--accent) 28%, transparent)' }}>
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'var(--accent-icon-bg)', color: 'var(--accent)', border: '1px solid var(--accent-border)' }}>
                 <ImportIcon />
               </div>
               <NewTag />
@@ -446,7 +446,7 @@ export default function LandingClient() {
                 <ChromeIcon />
                 Add to Chrome
               </div>
-              <span className="absolute -top-2.5 -right-2.5 text-[10px] font-bold tracking-[0.1em] rounded-full px-2 py-0.5 uppercase" style={{ color: 'var(--accent)', background: 'var(--accent-soft)', border: '1px solid color-mix(in srgb, var(--accent) 28%, transparent)' }}>
+              <span className="absolute -top-2.5 -right-2.5 text-[10px] font-bold tracking-[0.1em] rounded-full px-2 py-0.5 uppercase" style={{ color: 'var(--accent)', background: 'var(--accent-soft)', border: '1px solid var(--accent-border)' }}>
                 Soon
               </span>
             </div>
@@ -614,7 +614,7 @@ function HistoryIconFeat() {
 
 function NewTag() {
   return (
-    <span className="text-[10px] font-bold tracking-[0.1em] rounded-full px-2 py-0.5 uppercase" style={{ color: 'var(--accent)', background: 'var(--accent-soft)', border: '1px solid color-mix(in srgb, var(--accent) 28%, transparent)' }}>
+    <span className="text-[10px] font-bold tracking-[0.1em] rounded-full px-2 py-0.5 uppercase" style={{ color: 'var(--accent)', background: 'var(--accent-soft)', border: '1px solid var(--accent-border)' }}>
       New
     </span>
   )

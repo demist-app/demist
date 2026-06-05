@@ -145,14 +145,14 @@ export default function Login() {
   }
 
   return (
-    <main className="relative min-h-dvh bg-[#080810] text-white flex items-center justify-center px-6 overflow-y-auto py-12">
+    <main className="relative min-h-dvh dark:bg-[#080810] bg-[#FAFAF7] dark:text-white text-gray-900 flex items-center justify-center px-6 overflow-y-auto py-12">
       {/* Ambient glow */}
       <div aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center">
-        <div className="w-[700px] h-[700px] rounded-full bg-amber-600/[0.07] blur-[130px]" />
+        <div className="w-[700px] h-[700px] rounded-full dark:bg-yellow-600/[0.07] bg-yellow-500/[0.12] blur-[130px]" />
       </div>
 
       <div className="relative w-full max-w-[400px]">
-        <p className="text-[11px] font-bold tracking-[0.22em] text-amber-400/70 uppercase mb-10">
+        <p className="text-[11px] font-bold tracking-[0.22em] uppercase mb-10" style={{ color: 'var(--accent)' }}>
           Demist
         </p>
 
@@ -163,7 +163,7 @@ export default function Login() {
               Sign in
             </h1>
             <p className="text-gray-500 mb-8">
-              We'll send a code to your email.
+              We&apos;ll send a code to your email.
             </p>
 
             <form onSubmit={handleSendCode} className="flex flex-col gap-3">
@@ -174,12 +174,16 @@ export default function Login() {
                 placeholder="your@email.com"
                 autoFocus
                 required
-                className="w-full bg-white/[0.05] border border-white/[0.1] rounded-2xl px-5 py-4 text-white text-[15px] placeholder-gray-600 focus:outline-none focus:border-amber-500/50 focus:bg-white/[0.07] transition-all"
+                className="w-full dark:bg-white/[0.05] bg-black/[0.04] border dark:border-white/[0.1] border-black/[0.10] rounded-2xl px-5 py-4 dark:text-white text-gray-900 text-[15px] placeholder-gray-500 focus:outline-none transition-all"
+                style={{ '--tw-ring-color': 'var(--accent)' } as React.CSSProperties}
+                onFocus={e => (e.target.style.borderColor = 'var(--accent)')}
+                onBlur={e => (e.target.style.borderColor = '')}
               />
               <button
                 type="submit"
                 disabled={loading || !email.trim()}
-                className="py-4 rounded-2xl text-[15px] font-semibold bg-amber-600 hover:bg-amber-500 disabled:opacity-25 disabled:cursor-not-allowed text-white transition-all"
+                className="py-4 rounded-2xl text-[15px] font-semibold text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-[0.97]"
+                style={{ background: 'var(--accent)' }}
               >
                 {loading ? 'Sending…' : 'Send code'}
               </button>
@@ -196,7 +200,7 @@ export default function Login() {
             <p className="text-gray-500 mb-1">
               We sent a sign-in code to
             </p>
-            <p className="text-white font-medium mb-8">{email}</p>
+            <p className="font-medium mb-8">{email}</p>
 
             <form onSubmit={handleVerifyCode} className="flex flex-col gap-3">
               <input
@@ -212,12 +216,15 @@ export default function Login() {
                   setCode(pasted)
                 }}
                 placeholder="000000"
-                className="w-full bg-white/[0.05] border border-white/[0.1] rounded-2xl px-5 py-4 text-white text-[22px] font-mono tracking-[0.3em] text-center placeholder-gray-700 focus:outline-none focus:border-amber-500/50 focus:bg-white/[0.07] transition-all"
+                className="w-full dark:bg-white/[0.05] bg-black/[0.04] border dark:border-white/[0.1] border-black/[0.10] rounded-2xl px-5 py-4 dark:text-white text-gray-900 text-[22px] font-mono tracking-[0.3em] text-center placeholder-gray-400 focus:outline-none transition-all"
+                onFocus={e => (e.target.style.borderColor = 'var(--accent)')}
+                onBlur={e => (e.target.style.borderColor = '')}
               />
               <button
                 type="submit"
                 disabled={loading || code.length < 6}
-                className="py-4 rounded-2xl text-[15px] font-semibold bg-amber-600 hover:bg-amber-500 disabled:opacity-25 disabled:cursor-not-allowed text-white transition-all"
+                className="py-4 rounded-2xl text-[15px] font-semibold text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-[0.97]"
+                style={{ background: 'var(--accent)' }}
               >
                 {loading ? 'Verifying…' : 'Verify →'}
               </button>

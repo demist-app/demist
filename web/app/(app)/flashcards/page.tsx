@@ -162,7 +162,7 @@ export default function Flashcards() {
   ].filter(Boolean).join(' · ')
 
   return (
-    <main className="min-h-dvh dark:bg-[#080810] bg-[#FAFAF7] dark:dark:text-white text-gray-900 text-gray-900 flex flex-col nav-bottom-pad">
+    <main className="min-h-dvh dark:bg-[#080810] bg-[#FAFAF7] dark:text-white text-gray-900 flex flex-col nav-bottom-pad">
       <header className="sm:hidden shrink-0 flex items-center justify-between px-6 h-14 border-b dark:border-white/[0.05] border-black/[0.06]">
         <span className="font-semibold tracking-tight text-[15px]">Flashcards</span>
         {phase === 'review' && (

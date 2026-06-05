@@ -164,11 +164,33 @@ export default function Profile() {
 
   const initials = (displayName || profile?.email || '?').slice(0, 1).toUpperCase()
 
-  if (!profile) return <div className="min-h-dvh dark:bg-[#080810] bg-[#FAFAF7]" />
+  if (!profile) return (
+    <main className="min-h-dvh dark:bg-[#080810] bg-[#FAFAF7] flex flex-col nav-bottom-pad">
+      <header className="sm:hidden shrink-0 flex items-center px-6 h-14 border-b dark:border-white/[0.05] border-black/[0.06]">
+        <span className="font-semibold text-[15px] dark:text-white text-gray-900">Profile</span>
+      </header>
+      <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-8 w-full max-w-lg mx-auto animate-pulse">
+        {/* Avatar */}
+        <div className="flex flex-col items-center gap-3 mb-10">
+          <div className="w-20 h-20 rounded-full dark:bg-white/[0.07] bg-black/[0.06]" />
+          <div className="h-3 w-28 dark:bg-white/[0.05] bg-black/[0.04] rounded-full" />
+          <div className="h-2.5 w-36 dark:bg-white/[0.04] bg-black/[0.03] rounded-full" />
+        </div>
+        {/* Fields */}
+        {[0,1,2].map(i => (
+          <div key={i} className="mb-5">
+            <div className="h-2.5 w-16 dark:bg-white/[0.05] bg-black/[0.04] rounded-full mb-2.5" />
+            <div className="h-12 dark:bg-white/[0.04] bg-black/[0.03] border dark:border-white/[0.07] border-black/[0.07] rounded-2xl" />
+          </div>
+        ))}
+        <div className="h-12 dark:bg-white/[0.06] bg-black/[0.05] rounded-2xl mt-6" />
+      </div>
+    </main>
+  )
 
   return (
     <main
-      className="min-h-dvh dark:bg-[#080810] bg-[#FAFAF7] dark:dark:text-white text-gray-900 text-gray-900 flex flex-col nav-bottom-pad"
+      className="min-h-dvh dark:bg-[#080810] bg-[#FAFAF7] dark:text-white text-gray-900 flex flex-col nav-bottom-pad"
     >
       <header className="sm:hidden shrink-0 flex items-center px-6 h-14 border-b dark:border-white/[0.05] border-black/[0.06]">
         <span className="font-semibold tracking-tight text-[15px]">Profile</span>

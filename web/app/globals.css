@@ -14,11 +14,17 @@
   --surface-2:   rgba(0, 0, 0, 0.07);
   --border:      rgba(0, 0, 0, 0.09);
   --border-strong: rgba(0, 0, 0, 0.16);
-  --accent:      #A16207;   /* yellow-700 — AA on light bg */
+  --accent:      #A16207;
+  --accent-rgb:  161, 98, 7;
   --accent-soft: rgba(161, 98, 7, 0.10);
   --accent-glow: rgba(161, 98, 7, 0.20);
+  --accent-border: rgba(161, 98, 7, 0.28);
+  --accent-icon-bg: rgba(161, 98, 7, 0.12);
   --shadow-sm:   0 1px 4px rgba(0,0,0,0.09);
   --shadow-md:   0 4px 16px rgba(0,0,0,0.10);
+  /* Pre-computed nav backgrounds — avoids color-mix() for browser compat */
+  --nav-bg:         rgba(250, 250, 247, 0.92);
+  --mobile-nav-bg:  rgba(250, 250, 247, 0.96);
 }
 
 .dark {
@@ -31,11 +37,16 @@
   --surface-2:   rgba(255, 255, 255, 0.08);
   --border:      rgba(255, 255, 255, 0.08);
   --border-strong: rgba(255, 255, 255, 0.15);
-  --accent:      #FBBF24;   /* yellow-400 — visible on dark bg */
+  --accent:      #FBBF24;
+  --accent-rgb:  251, 191, 36;
   --accent-soft: rgba(251, 191, 36, 0.10);
   --accent-glow: rgba(251, 191, 36, 0.20);
+  --accent-border: rgba(251, 191, 36, 0.28);
+  --accent-icon-bg: rgba(251, 191, 36, 0.12);
   --shadow-sm:   0 1px 4px rgba(0,0,0,0.40);
   --shadow-md:   0 4px 20px rgba(0,0,0,0.50);
+  --nav-bg:         rgba(8, 8, 16, 0.92);
+  --mobile-nav-bg:  rgba(8, 8, 16, 0.96);
 }
 
 /* ── Tailwind theme ── */

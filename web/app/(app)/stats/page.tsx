@@ -114,12 +114,50 @@ export default function Stats() {
   const maxWeekly = Math.max(...weeklyTerms.map(w => w.count), 1)
   const maxSubject = Math.max(...subjects.map(s => s.count), 1)
 
-  if (loading) return <div className="min-h-dvh dark:bg-[#080810] bg-[#FAFAF7]" />
+  if (loading) return (
+    <main className="min-h-dvh dark:bg-[#080810] bg-[#FAFAF7] flex flex-col nav-bottom-pad">
+      <header className="sm:hidden shrink-0 flex items-center px-6 h-14 border-b dark:border-white/[0.05] border-black/[0.06]">
+        <span className="font-semibold text-[15px] dark:text-white text-gray-900">Stats</span>
+      </header>
+      <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 w-full max-w-2xl mx-auto animate-pulse">
+        {/* Stat chips */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
+          {[0,1,2,3].map(i => (
+            <div key={i} className="dark:bg-white/[0.03] bg-black/[0.025] border dark:border-white/[0.06] border-black/[0.07] rounded-2xl px-4 py-4">
+              <div className="h-2 w-12 dark:bg-white/[0.06] bg-black/[0.05] rounded-full mb-3" />
+              <div className="h-7 w-10 dark:bg-white/[0.09] bg-black/[0.07] rounded-md" />
+            </div>
+          ))}
+        </div>
+        {/* Bar chart placeholder */}
+        <div className="dark:bg-white/[0.03] bg-black/[0.025] border dark:border-white/[0.06] border-black/[0.07] rounded-2xl px-4 py-5 mb-4">
+          <div className="h-3 w-24 dark:bg-white/[0.06] bg-black/[0.05] rounded-full mb-5" />
+          <div className="flex items-end gap-2 h-24">
+            {[40,65,30,80,55,70,45].map((h,i) => (
+              <div key={i} className="flex-1 rounded-md dark:bg-white/[0.06] bg-black/[0.05]" style={{ height: `${h}%` }} />
+            ))}
+          </div>
+        </div>
+        {/* Subject bars */}
+        <div className="dark:bg-white/[0.03] bg-black/[0.025] border dark:border-white/[0.06] border-black/[0.07] rounded-2xl px-4 py-5">
+          <div className="h-3 w-20 dark:bg-white/[0.06] bg-black/[0.05] rounded-full mb-5" />
+          {[0,1,2].map(i => (
+            <div key={i} className="flex items-center gap-3 mb-3">
+              <div className="h-2.5 w-20 dark:bg-white/[0.06] bg-black/[0.05] rounded-full shrink-0" />
+              <div className="flex-1 h-2 dark:bg-white/[0.04] bg-black/[0.04] rounded-full">
+                <div className="h-full dark:bg-white/[0.10] bg-black/[0.08] rounded-full" style={{ width: `${[75,50,35][i]}%` }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </main>
+  )
 
   const hasAnyData = totalTerms > 0 || totalSessions > 0
 
   return (
-    <main className="min-h-dvh dark:bg-[#080810] bg-[#FAFAF7] dark:dark:text-white text-gray-900 text-gray-900 flex flex-col nav-bottom-pad">
+    <main className="min-h-dvh dark:bg-[#080810] bg-[#FAFAF7] dark:text-white text-gray-900 flex flex-col nav-bottom-pad">
       <header className="sm:hidden shrink-0 flex items-center px-6 h-14 border-b dark:border-white/[0.05] border-black/[0.06]">
         <span className="font-semibold tracking-tight text-[15px]">Stats</span>
       </header>
