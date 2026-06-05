@@ -88,7 +88,17 @@
       "Bash(Select-Object -ExpandProperty FullName)",
       "Bash(ls app/login/)",
       "Bash(ls app/\\\\\\(auth\\\\\\)/)",
-      "Bash(find app *)"
+      "Bash(find app *)",
+      "Bash(cat next.config.ts)",
+      "Bash(cat next.config.js)",
+      "Bash(cat next.config.mjs)",
+      "Bash(node -e \"const pkg = require\\('./package.json'\\); const deps = {...pkg.dependencies, ...pkg.devDependencies}; Object.keys\\(deps\\).sort\\(\\).forEach\\(k => console.log\\(k, deps[k]\\)\\)\")",
+      "Bash(xargs grep -l \"class-variance\\\\|lucide-react\\\\|tailwind-merge\\\\|from 'motion'\")",
+      "Bash(xargs grep -l \"@radix-ui\\\\|lucide-react\")",
+      "Bash(ls \"c:\\\\Users\\\\shivb\\\\.claude\\\\projects\\\\c--Users-shivb-Desktop-coding-bits-demist\\\\memory\\\\\")",
+      "Read(//c/Users/shivb/.claude/projects/c--Users-shivb-Desktop-coding-bits-demist/**)",
+      "PowerShell(Remove-Item -Recurse -Force \"c:\\\\Users\\\\shivb\\\\Desktop\\\\coding bits\\\\demist\\\\web\\\\components\" -Confirm:$false)",
+      "PowerShell(Remove-Item -Force \"c:\\\\Users\\\\shivb\\\\Desktop\\\\coding bits\\\\demist\\\\web\\\\lib\\\\utils.ts\" -Confirm:$false)"
     ],
     "additionalDirectories": [
       "c:\\Users\\shivb\\Desktop\\coding bits\\demist\\web\\app\\u"

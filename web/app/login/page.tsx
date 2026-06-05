@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -145,7 +145,7 @@ export default function Login() {
   }
 
   return (
-    <main className="relative min-h-dvh dark:bg-[#080810] bg-[#FAFAF7] dark:text-white text-gray-900 flex items-center justify-center px-6 overflow-y-auto py-12">
+    <main className="relative min-h-dvh dark:bg-[#080810] bg-[#EDEAE3] dark:text-white text-gray-900 flex items-center justify-center px-6 overflow-y-auto py-12">
       {/* Ambient glow */}
       <div aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center">
         <div className="w-[700px] h-[700px] rounded-full dark:bg-yellow-600/[0.07] bg-yellow-500/[0.12] blur-[130px]" />
@@ -162,7 +162,7 @@ export default function Login() {
             <h1 className="text-[30px] sm:text-[36px] font-bold tracking-tight leading-tight mb-2">
               Sign in
             </h1>
-            <p className="text-gray-500 mb-8">
+            <p className="text-gray-700 mb-8">
               We&apos;ll send a code to your email.
             </p>
 
@@ -174,7 +174,7 @@ export default function Login() {
                 placeholder="your@email.com"
                 autoFocus
                 required
-                className="w-full dark:bg-white/[0.05] bg-black/[0.04] border dark:border-white/[0.1] border-black/[0.10] rounded-2xl px-5 py-4 dark:text-white text-gray-900 text-[15px] placeholder-gray-500 focus:outline-none transition-all"
+                className="w-full dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.1] border-black/[0.15] rounded-2xl px-5 py-4 dark:text-white text-gray-900 text-[15px] placeholder-gray-500 focus:outline-none transition-all"
                 style={{ '--tw-ring-color': 'var(--accent)' } as React.CSSProperties}
                 onFocus={e => (e.target.style.borderColor = 'var(--accent)')}
                 onBlur={e => (e.target.style.borderColor = '')}
@@ -197,7 +197,7 @@ export default function Login() {
             <h1 className="text-[30px] sm:text-[36px] font-bold tracking-tight leading-tight mb-2">
               Check your email
             </h1>
-            <p className="text-gray-500 mb-1">
+            <p className="text-gray-700 mb-1">
               We sent a sign-in code to
             </p>
             <p className="font-medium mb-8">{email}</p>
@@ -216,7 +216,7 @@ export default function Login() {
                   setCode(pasted)
                 }}
                 placeholder="000000"
-                className="w-full dark:bg-white/[0.05] bg-black/[0.04] border dark:border-white/[0.1] border-black/[0.10] rounded-2xl px-5 py-4 dark:text-white text-gray-900 text-[22px] font-mono tracking-[0.3em] text-center placeholder-gray-400 focus:outline-none transition-all"
+                className="w-full dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.1] border-black/[0.15] rounded-2xl px-5 py-4 dark:text-white text-gray-900 text-[22px] font-mono tracking-[0.3em] text-center placeholder-gray-500 focus:outline-none transition-all"
                 onFocus={e => (e.target.style.borderColor = 'var(--accent)')}
                 onBlur={e => (e.target.style.borderColor = '')}
               />
@@ -233,14 +233,14 @@ export default function Login() {
             <div className="mt-4 flex items-center justify-between">
               <button
                 onClick={() => { setStep('email'); setCode(''); setError('') }}
-                className="text-[13px] text-gray-600 hover:text-gray-400 transition-colors"
+                className="text-[13px] text-gray-600 hover:text-gray-600 transition-colors"
               >
                 ← Different email
               </button>
               <button
                 onClick={handleResend}
                 disabled={resending || resendCooldown > 0}
-                className="text-[13px] text-gray-600 hover:text-gray-400 disabled:opacity-40 transition-colors"
+                className="text-[13px] text-gray-600 hover:text-gray-600 disabled:opacity-40 transition-colors"
               >
                 {resent ? 'Code sent ✓' : resending ? 'Sending…' : resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend code'}
               </button>

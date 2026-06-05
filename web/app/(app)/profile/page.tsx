@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -165,32 +165,32 @@ export default function Profile() {
   const initials = (displayName || profile?.email || '?').slice(0, 1).toUpperCase()
 
   if (!profile) return (
-    <main className="min-h-dvh dark:bg-[#080810] bg-[#FAFAF7] flex flex-col nav-bottom-pad">
+    <main className="min-h-dvh dark:bg-[#080810] bg-[#EDEAE3] flex flex-col nav-bottom-pad">
       <header className="sm:hidden shrink-0 flex items-center px-6 h-14 border-b dark:border-white/[0.05] border-black/[0.06]">
         <span className="font-semibold text-[15px] dark:text-white text-gray-900">Profile</span>
       </header>
       <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-8 w-full max-w-lg mx-auto animate-pulse">
         {/* Avatar */}
         <div className="flex flex-col items-center gap-3 mb-10">
-          <div className="w-20 h-20 rounded-full dark:bg-white/[0.07] bg-black/[0.06]" />
-          <div className="h-3 w-28 dark:bg-white/[0.05] bg-black/[0.04] rounded-full" />
-          <div className="h-2.5 w-36 dark:bg-white/[0.04] bg-black/[0.03] rounded-full" />
+          <div className="w-20 h-20 rounded-full dark:bg-white/[0.07] bg-[#EFEDE7]" />
+          <div className="h-3 w-28 dark:bg-white/[0.05] bg-[#F6F5F2] rounded-full" />
+          <div className="h-2.5 w-36 dark:bg-white/[0.04] bg-[#FAF9F6] rounded-full" />
         </div>
         {/* Fields */}
         {[0,1,2].map(i => (
           <div key={i} className="mb-5">
-            <div className="h-2.5 w-16 dark:bg-white/[0.05] bg-black/[0.04] rounded-full mb-2.5" />
-            <div className="h-12 dark:bg-white/[0.04] bg-black/[0.03] border dark:border-white/[0.07] border-black/[0.07] rounded-2xl" />
+            <div className="h-2.5 w-16 dark:bg-white/[0.05] bg-[#F6F5F2] rounded-full mb-2.5" />
+            <div className="h-12 dark:bg-white/[0.04] bg-[#FAF9F6] border dark:border-white/[0.07] border-black/[0.16] rounded-2xl" />
           </div>
         ))}
-        <div className="h-12 dark:bg-white/[0.06] bg-black/[0.05] rounded-2xl mt-6" />
+        <div className="h-12 dark:bg-white/[0.06] bg-[#F3F1EC] rounded-2xl mt-6" />
       </div>
     </main>
   )
 
   return (
     <main
-      className="min-h-dvh dark:bg-[#080810] bg-[#FAFAF7] dark:text-white text-gray-900 flex flex-col nav-bottom-pad"
+      className="min-h-dvh dark:bg-[#080810] bg-[#EDEAE3] dark:text-white text-gray-900 flex flex-col nav-bottom-pad"
     >
       <header className="sm:hidden shrink-0 flex items-center px-6 h-14 border-b dark:border-white/[0.05] border-black/[0.06]">
         <span className="font-semibold tracking-tight text-[15px]">Profile</span>
@@ -200,22 +200,22 @@ export default function Profile() {
       <div className="w-full max-w-xl mx-auto px-4 sm:px-6 py-6 space-y-6">
         {/* Avatar + name */}
         <div className="flex items-center gap-4 animate-step opacity-0" style={{ animationFillMode: 'forwards' }}>
-          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-yellow-600/40 to-amber-600/30 border border-yellow-500/40 flex items-center justify-center text-[24px] font-bold dark:text-yellow-300 text-yellow-700 shrink-0 shadow-[0_0_24px_rgba(139,92,246,0.2)]">
+          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-yellow-600/40 to-amber-600/30 border border-yellow-500/40 flex items-center justify-center text-[24px] font-bold dark:text-yellow-300 text-yellow-700 shrink-0 shadow-[0_0_24px_rgba(161,98,7,0.22)] dark:shadow-[0_0_24px_rgba(251,191,36,0.22)]">
             {initials}
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-[17px] font-bold truncate">{displayName || 'No name set'}</p>
-            <p className="text-[13px] text-gray-500 truncate">{profile.email}</p>
+            <p className="text-[13px] text-gray-700 truncate">{profile.email}</p>
           </div>
         </div>
 
         {/* Anki export */}
         {totalTerms > 0 && (
-          <div className="dark:bg-white/[0.03] bg-black/[0.025] border dark:border-white/[0.06] border-black/[0.07] rounded-2xl overflow-hidden animate-step opacity-0" style={{ animationDelay: '30ms', animationFillMode: 'forwards' }}>
+          <div className="dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl overflow-hidden animate-step opacity-0" style={{ animationDelay: '30ms', animationFillMode: 'forwards' }}>
             <button
               onClick={exportToAnki}
               disabled={exporting}
-              className="w-full flex items-center justify-between px-4 py-3 hover:dark:bg-white/[0.03] bg-black/[0.025] transition-all disabled:opacity-40"
+              className="w-full flex items-center justify-between px-4 py-3 hover:dark:bg-white/[0.03] bg-[#FAF9F6] transition-all disabled:opacity-40"
             >
               <div className="text-left">
                 <p className="text-[14px] dark:text-white/80 text-gray-800 font-medium">Export to Anki</p>
@@ -237,7 +237,7 @@ export default function Profile() {
                     ].map((step, i) => (
                       <li key={i} className="flex items-start gap-2.5">
                         <span className="text-[11px] font-bold text-yellow-500/50 shrink-0 tabular-nums mt-[2px]">{i + 1}.</span>
-                        <span className="text-[12px] text-gray-500">{step}</span>
+                        <span className="text-[12px] text-gray-700">{step}</span>
                       </li>
                     ))}
                   </ol>
@@ -254,7 +254,7 @@ export default function Profile() {
                     ].map((step, i) => (
                       <li key={i} className="flex items-start gap-2.5">
                         <span className="text-[11px] font-bold text-yellow-500/50 shrink-0 tabular-nums mt-[2px]">{i + 1}.</span>
-                        <span className="text-[12px] text-gray-500">{step}</span>
+                        <span className="text-[12px] text-gray-700">{step}</span>
                       </li>
                     ))}
                   </ol>
@@ -270,7 +270,7 @@ export default function Profile() {
                     ].map((step, i) => (
                       <li key={i} className="flex items-start gap-2.5">
                         <span className="text-[11px] font-bold text-yellow-500/50 shrink-0 tabular-nums mt-[2px]">{i + 1}.</span>
-                        <span className="text-[12px] text-gray-500">{step}</span>
+                        <span className="text-[12px] text-gray-700">{step}</span>
                       </li>
                     ))}
                   </ol>
@@ -293,7 +293,7 @@ export default function Profile() {
               onChange={e => setDisplayName(e.target.value)}
               placeholder="Your name"
               maxLength={50}
-              className="w-full dark:bg-white/[0.05] bg-black/[0.04] border border-white/[0.1] rounded-2xl px-5 py-3.5 dark:text-white text-gray-900 text-[15px] placeholder-gray-700 focus:outline-none focus:border-yellow-500/50 transition-all"
+              className="w-full dark:bg-white/[0.05] bg-[#F6F5F2] border border-white/[0.1] rounded-2xl px-5 py-3.5 dark:text-white text-gray-900 text-[15px] placeholder-gray-700 focus:outline-none focus:border-yellow-500/50 transition-all"
             />
           </div>
 
@@ -305,7 +305,7 @@ export default function Profile() {
               onChange={e => setCourse(e.target.value)}
               placeholder="e.g. Molecular Biology"
               maxLength={80}
-              className="w-full dark:bg-white/[0.05] bg-black/[0.04] border border-white/[0.1] rounded-2xl px-5 py-3.5 dark:text-white text-gray-900 text-[15px] placeholder-gray-700 focus:outline-none focus:border-yellow-500/50 transition-all"
+              className="w-full dark:bg-white/[0.05] bg-[#F6F5F2] border border-white/[0.1] rounded-2xl px-5 py-3.5 dark:text-white text-gray-900 text-[15px] placeholder-gray-700 focus:outline-none focus:border-yellow-500/50 transition-all"
             />
           </div>
 
@@ -319,7 +319,7 @@ export default function Profile() {
                   className={`py-3 rounded-2xl text-[13px] font-medium transition-all ${
                     year === value
                       ? 'bg-yellow-600 border border-yellow-400/40 dark:text-white text-gray-900'
-                      : 'dark:bg-white/[0.05] bg-black/[0.04] border dark:border-white/[0.08] border-black/[0.08] text-gray-400 hover:bg-white/[0.09]'
+                      : 'dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.08] border-black/[0.13] text-gray-600 hover:bg-white/[0.09]'
                   }`}
                 >
                   {label}
@@ -345,7 +345,7 @@ export default function Profile() {
         <div className="space-y-3 animate-step opacity-0" style={{ animationDelay: '120ms', animationFillMode: 'forwards' }}>
           <p className="text-[10px] font-bold tracking-[0.18em] text-gray-600 uppercase">Sharing</p>
 
-          <div className="dark:bg-white/[0.03] bg-black/[0.025] border dark:border-white/[0.06] border-black/[0.07] rounded-2xl px-4 py-4 space-y-3">
+          <div className="dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl px-4 py-4 space-y-3">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-[14px] dark:text-white/80 text-gray-800 font-medium">Public profile</p>
@@ -360,8 +360,8 @@ export default function Profile() {
             </div>
 
             {isPublic && (
-              <div className="flex items-center gap-2 dark:bg-white/[0.04] bg-black/[0.03] rounded-xl px-3 py-2">
-                <span className="flex-1 text-[12px] text-gray-400 truncate">
+              <div className="flex items-center gap-2 dark:bg-white/[0.04] bg-[#FAF9F6] rounded-xl px-3 py-2">
+                <span className="flex-1 text-[12px] text-gray-600 truncate">
                   {typeof window !== 'undefined' ? `${window.location.origin}/u/${userId}` : `/u/${userId}`}
                 </span>
                 <button
@@ -376,7 +376,7 @@ export default function Profile() {
 
           <a
             href="/stats"
-            className="flex items-center justify-between w-full dark:bg-white/[0.03] bg-black/[0.025] border dark:border-white/[0.06] border-black/[0.07] rounded-2xl px-4 py-3 hover:dark:bg-white/[0.05] bg-black/[0.04] transition-colors duration-150 active:scale-[0.97]"
+            className="flex items-center justify-between w-full dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl px-4 py-3 hover:dark:bg-white/[0.05] bg-[#F6F5F2] transition-colors duration-150 active:scale-[0.97]"
           >
             <span className="text-[14px] dark:text-white/80 text-gray-800">View your stats</span>
             <span className="text-gray-600 text-[18px] leading-none">›</span>
@@ -386,7 +386,7 @@ export default function Profile() {
         {/* Sign out */}
         <button
           onClick={handleSignOut}
-          className="w-full py-4 rounded-2xl text-[15px] font-medium dark:bg-white/[0.03] bg-black/[0.025] border dark:border-white/[0.06] border-black/[0.07] text-gray-500 hover:text-red-400 hover:border-red-500/20 transition-all animate-step opacity-0"
+          className="w-full py-4 rounded-2xl text-[15px] font-medium dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] text-gray-700 hover:text-red-400 hover:border-red-500/20 transition-all animate-step opacity-0"
           style={{ animationDelay: '180ms', animationFillMode: 'forwards' }}
         >
           Sign out

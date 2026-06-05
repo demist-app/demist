@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase'
@@ -274,7 +274,7 @@ export default function History() {
   })
 
   return (
-    <main className="min-h-dvh dark:bg-[#080810] bg-[#FAFAF7] dark:text-white text-gray-900 flex flex-col nav-bottom-pad">
+    <main className="min-h-dvh dark:bg-[#080810] bg-[#EDEAE3] dark:text-white text-gray-900 flex flex-col nav-bottom-pad">
       <header className="sm:hidden shrink-0 flex items-center px-6 h-14 border-b dark:border-white/[0.05] border-black/[0.06]">
         <span className="font-semibold tracking-tight text-[15px]">Session History</span>
       </header>
@@ -285,17 +285,17 @@ export default function History() {
           <div className="animate-pulse space-y-6">
             {[0,1].map(g => (
               <div key={g}>
-                <div className="h-2 w-16 dark:bg-white/[0.05] bg-black/[0.04] rounded-full mb-3" />
+                <div className="h-2 w-16 dark:bg-white/[0.05] bg-[#F6F5F2] rounded-full mb-3" />
                 <div className="space-y-2">
                   {[0,1,2].map(i => (
-                    <div key={i} className="flex items-center gap-3 dark:bg-white/[0.03] bg-black/[0.025] border dark:border-white/[0.06] border-black/[0.07] rounded-2xl px-4 py-3">
+                    <div key={i} className="flex items-center gap-3 dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl px-4 py-3">
                       <div className="flex-1 flex flex-col gap-2">
-                        <div className="h-3.5 w-40 dark:bg-white/[0.07] bg-black/[0.06] rounded-full" />
-                        <div className="h-3 w-24 dark:bg-white/[0.05] bg-black/[0.04] rounded-full" />
+                        <div className="h-3.5 w-40 dark:bg-white/[0.07] bg-[#EFEDE7] rounded-full" />
+                        <div className="h-3 w-24 dark:bg-white/[0.05] bg-[#F6F5F2] rounded-full" />
                       </div>
                       <div className="flex flex-col items-end gap-1.5 mr-8">
-                        <div className="h-4 w-6 dark:bg-white/[0.07] bg-black/[0.06] rounded" />
-                        <div className="h-2.5 w-8 dark:bg-white/[0.05] bg-black/[0.04] rounded-full" />
+                        <div className="h-4 w-6 dark:bg-white/[0.07] bg-[#EFEDE7] rounded" />
+                        <div className="h-2.5 w-8 dark:bg-white/[0.05] bg-[#F6F5F2] rounded-full" />
                       </div>
                     </div>
                   ))}
@@ -322,7 +322,7 @@ export default function History() {
                 <div
                   key={s.id}
                   id={`session-${s.id}`}
-                  className="dark:bg-white/[0.03] bg-black/[0.025] border dark:border-white/[0.07] border-black/[0.07] rounded-2xl overflow-hidden hover:bg-yellow-500/[0.04] hover:border-yellow-500/[0.15] transition-colors duration-200"
+                  className="dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.07] border-black/[0.16] rounded-2xl overflow-hidden hover:bg-yellow-500/[0.04] hover:border-yellow-500/[0.15] transition-colors duration-200"
                 >
                   <div className="flex items-center px-4 py-3.5 gap-3">
                     <div className="flex-1 min-w-0">
@@ -345,7 +345,7 @@ export default function History() {
                           className="flex items-center gap-1.5 group"
                           onClick={() => { if (s.termCount === 0) return; setConfirmingId(null); toggleExpand(s.id) }}
                         >
-                          <p className={`text-[14px] font-medium truncate ${s.termCount > 0 ? 'cursor-pointer' : ''} ${s.name ? 'dark:text-white/90 text-gray-900' : 'text-gray-400'}`}>
+                          <p className={`text-[14px] font-medium truncate ${s.termCount > 0 ? 'cursor-pointer' : ''} ${s.name ? 'dark:text-white/90 text-gray-900' : 'text-gray-600'}`}>
                             {s.name || sessionLabel(n, s.started_at)}
                           </p>
                         </div>
@@ -365,7 +365,7 @@ export default function History() {
                         <div className="flex items-center gap-1">
                           <button
                             onClick={() => setConfirmingId(null)}
-                            className="text-[12px] text-gray-500 hover:text-gray-300 transition-colors px-2 py-1"
+                            className="text-[12px] text-gray-700 hover:text-gray-500 transition-colors px-2 py-1"
                           >
                             Cancel
                           </button>

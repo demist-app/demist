@@ -25,8 +25,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
-    createClient().auth.getUser().then(({ data }) => {
-      if (!data.user) { router.replace('/login'); return }
+    // getSession() reads from local cache — no network round trip
+    createClient().auth.getSession().then(({ data }) => {
+      if (!data.session) { router.replace('/login'); return }
       setReady(true)
     })
   }, [])

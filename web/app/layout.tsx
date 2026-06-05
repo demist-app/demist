@@ -6,12 +6,14 @@ import "./globals.css";
 const jakartaSans = Plus_Jakarta_Sans({
   variable: "--font-jakarta",
   subsets: ["latin"],
-  weight: ['400', '500', '600', '700', '800'],
+  weight: ['400', '500', '600', '700'],
+  display: 'swap',
 });
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+  display: 'swap',
 });
 
 export const metadata: Metadata = {
@@ -62,9 +64,16 @@ export default function RootLayout({
       className={`${jakartaSans.variable} ${geistMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >
+      <head>
+        {/* Preconnect to Supabase and PostHog to cut DNS + TLS time on first API call */}
+        <link rel="preconnect" href={`https://${process.env.NEXT_PUBLIC_SUPABASE_URL?.split('//')[1]}`} />
+        <link rel="dns-prefetch" href={`https://${process.env.NEXT_PUBLIC_SUPABASE_URL?.split('//')[1]}`} />
+        <link rel="preconnect" href="https://eu.i.posthog.com" />
+        <link rel="dns-prefetch" href="https://eu.i.posthog.com" />
+      </head>
       <body className="min-h-full flex flex-col">
-          <PHProvider>{children}</PHProvider>
-        </body>
+        <PHProvider>{children}</PHProvider>
+      </body>
     </html>
   );
 }

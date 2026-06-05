@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
@@ -162,7 +162,7 @@ export default function Flashcards() {
   ].filter(Boolean).join(' · ')
 
   return (
-    <main className="min-h-dvh dark:bg-[#080810] bg-[#FAFAF7] dark:text-white text-gray-900 flex flex-col nav-bottom-pad">
+    <main className="min-h-dvh dark:bg-[#080810] bg-[#EDEAE3] dark:text-white text-gray-900 flex flex-col nav-bottom-pad">
       <header className="sm:hidden shrink-0 flex items-center justify-between px-6 h-14 border-b dark:border-white/[0.05] border-black/[0.06]">
         <span className="font-semibold tracking-tight text-[15px]">Flashcards</span>
         {phase === 'review' && (
@@ -172,17 +172,17 @@ export default function Flashcards() {
 
       {phase === 'loading' && (
         <div className="flex-1 flex flex-col px-4 sm:px-6 pt-4 pb-4 animate-pulse">
-          <div className="h-1 dark:bg-white/[0.06] bg-black/[0.05] rounded-full mb-6" />
+          <div className="h-1 dark:bg-white/[0.06] bg-[#F3F1EC] rounded-full mb-6" />
           <div className="flex items-center gap-2 mb-4">
-            <div className="h-5 w-16 dark:bg-white/[0.06] bg-black/[0.05] rounded-full" />
-            <div className="h-5 w-14 dark:bg-white/[0.06] bg-black/[0.05] rounded-full" />
+            <div className="h-5 w-16 dark:bg-white/[0.06] bg-[#F3F1EC] rounded-full" />
+            <div className="h-5 w-14 dark:bg-white/[0.06] bg-[#F3F1EC] rounded-full" />
           </div>
           <div className="flex-1 flex items-center justify-center">
-            <div className="w-full max-w-[380px] dark:bg-white/[0.03] bg-black/[0.025] border dark:border-white/[0.06] border-black/[0.07] rounded-[24px] h-[220px]" />
+            <div className="w-full max-w-[380px] dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-[24px] h-[220px]" />
           </div>
           <div className="grid grid-cols-4 gap-2 mt-4">
             {[0,1,2,3].map(i => (
-              <div key={i} className="h-12 dark:bg-white/[0.04] bg-black/[0.03] border dark:border-white/[0.06] border-black/[0.07] rounded-2xl" />
+              <div key={i} className="h-12 dark:bg-white/[0.04] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl" />
             ))}
           </div>
         </div>
@@ -192,12 +192,12 @@ export default function Flashcards() {
         <div className="flex-1 flex flex-col px-4 sm:px-6 py-8">
           <div className="flex flex-col items-center text-center gap-3 mb-8">
             <p className="text-[22px] font-bold">All caught up</p>
-            <p className="text-gray-500 text-[14px] leading-relaxed max-w-xs">
+            <p className="text-gray-700 text-[14px] leading-relaxed max-w-xs">
               No cards due today. Record a lecture to add more terms.
             </p>
             <Link
               href="/history"
-              className="mt-2 px-5 py-2.5 rounded-2xl dark:bg-white/[0.05] bg-black/[0.04] border dark:border-white/[0.09] border-black/[0.09] text-[14px] font-medium text-gray-400 hover:dark:text-white text-gray-900 hover:dark:bg-white/[0.08] bg-black/[0.06] transition-all"
+              className="mt-2 px-5 py-2.5 rounded-2xl dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.09] border-black/[0.14] text-[14px] font-medium text-gray-600 hover:dark:text-white text-gray-900 hover:dark:bg-white/[0.08] bg-[#EFEDE7] transition-all"
             >
               Browse past sessions
             </Link>
@@ -209,12 +209,12 @@ export default function Flashcards() {
         <div className="flex-1 flex flex-col px-4 sm:px-6 py-6 overflow-y-auto">
           <div className="flex flex-col items-center text-center gap-2 mb-6">
             <p className="text-[22px] font-bold">Session done</p>
-            <p className="text-gray-500 text-[14px]">
+            <p className="text-gray-700 text-[14px]">
               {reviewed} card{reviewed !== 1 ? 's' : ''} reviewed. Come back tomorrow for the next batch.
             </p>
             <Link
               href="/history"
-              className="mt-2 px-5 py-2.5 rounded-2xl dark:bg-white/[0.05] bg-black/[0.04] border dark:border-white/[0.09] border-black/[0.09] text-[14px] font-medium text-gray-400 hover:dark:text-white text-gray-900 hover:dark:bg-white/[0.08] bg-black/[0.06] transition-all"
+              className="mt-2 px-5 py-2.5 rounded-2xl dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.09] border-black/[0.14] text-[14px] font-medium text-gray-600 hover:dark:text-white text-gray-900 hover:dark:bg-white/[0.08] bg-[#EFEDE7] transition-all"
             >
               Browse past sessions
             </Link>
@@ -225,9 +225,9 @@ export default function Flashcards() {
               <p className="text-[10px] font-bold tracking-[0.18em] text-gray-600 uppercase mb-3">Cards you just reviewed</p>
               <div className="space-y-2">
                 {reviewedCards.map(c => (
-                  <div key={c.id} className="dark:bg-white/[0.03] bg-black/[0.025] border dark:border-white/[0.06] border-black/[0.07] rounded-2xl px-4 py-3">
+                  <div key={c.id} className="dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl px-4 py-3">
                     <p className="text-[14px] font-medium dark:text-white/90 text-gray-900">{c.term}</p>
-                    <p className="text-[12px] text-gray-500 mt-1 leading-relaxed">{c.definition}</p>
+                    <p className="text-[12px] text-gray-700 mt-1 leading-relaxed">{c.definition}</p>
                   </div>
                 ))}
               </div>
@@ -239,7 +239,7 @@ export default function Flashcards() {
       {phase === 'review' && current && (
         <div className="flex-1 flex flex-col px-4 sm:px-6 pt-4 pb-4">
           {/* Progress bar */}
-          <div className="shrink-0 h-1 dark:bg-white/[0.06] bg-black/[0.05] rounded-full mb-2 overflow-hidden">
+          <div className="shrink-0 h-1 dark:bg-white/[0.06] bg-[#F3F1EC] rounded-full mb-2 overflow-hidden">
             <div
               className="h-full bg-yellow-500 rounded-full transition-all duration-300"
               style={{ width: `${progressPct}%` }}
@@ -281,13 +281,13 @@ export default function Flashcards() {
               >
                 {/* Front */}
                 <div
-                  className="absolute inset-0 dark:bg-[#0d0d1c] bg-gray-50 border dark:border-white/[0.09] border-black/[0.09] rounded-[24px] flex flex-col items-center justify-center p-8"
+                  className="absolute inset-0 dark:bg-[#0d0d1c] bg-gray-50 border dark:border-white/[0.09] border-black/[0.14] rounded-[24px] flex flex-col items-center justify-center p-8"
                   style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' }}
                 >
                   {current.isNew ? (
                     <span className="text-[10px] font-bold tracking-[0.18em] dark:text-yellow-400 text-yellow-700/70 bg-yellow-500/10 border border-yellow-500/20 rounded-full px-3 py-1 uppercase mb-4">New</span>
                   ) : (
-                    <span className="text-[10px] font-bold tracking-[0.18em] text-gray-500/70 dark:bg-white/[0.04] bg-black/[0.03] border dark:border-white/[0.06] border-black/[0.07] rounded-full px-3 py-1 uppercase mb-4">Review</span>
+                    <span className="text-[10px] font-bold tracking-[0.18em] text-gray-700/70 dark:bg-white/[0.04] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-full px-3 py-1 uppercase mb-4">Review</span>
                   )}
                   <p className="text-[26px] font-bold text-center leading-snug">{current.term}</p>
                   {!flipped && (
@@ -302,12 +302,12 @@ export default function Flashcards() {
                     backfaceVisibility: 'hidden',
                     WebkitBackfaceVisibility: 'hidden',
                     transform: 'rotateY(180deg)',
-                    background: 'linear-gradient(160deg, rgba(139,92,246,0.07) 0%, #0d0d1c 60%)',
-                    border: '1px solid rgba(139,92,246,0.22)',
+                    background: 'linear-gradient(160deg, var(--accent-soft) 0%, var(--surface) 100%)',
+                    border: '1px solid var(--accent-border)',
                   }}
                 >
                   <p className="text-[11px] font-bold tracking-[0.18em] dark:text-yellow-400 text-yellow-700/60 uppercase mb-4">Definition</p>
-                  <p className="text-[16px] text-gray-200 text-center leading-relaxed">{current.definition}</p>
+                  <p className="text-[16px] text-center leading-relaxed" style={{ color: 'var(--fg)' }}>{current.definition}</p>
                 </div>
               </div>
             </div>
@@ -332,7 +332,7 @@ export default function Flashcards() {
               {stuckOnLast && (
                 <button
                   onClick={() => setPhase('done')}
-                  className="shrink-0 mt-3 w-full text-center text-[13px] text-gray-600 hover:text-gray-400 transition-colors"
+                  className="shrink-0 mt-3 w-full text-center text-[13px] text-gray-600 hover:text-gray-600 transition-colors"
                 >
                   Done for today →
                 </button>
@@ -344,7 +344,7 @@ export default function Flashcards() {
             <div className="shrink-0 mt-4">
               <button
                 onClick={() => setFlipped(true)}
-                className="w-full py-4 rounded-2xl text-[15px] font-semibold dark:bg-white/[0.06] bg-black/[0.05] border dark:border-white/[0.08] border-black/[0.08] dark:text-white text-gray-900 hover:bg-white/[0.09] active:scale-[0.97] transition-colors duration-150"
+                className="w-full py-4 rounded-2xl text-[15px] font-semibold dark:bg-white/[0.06] bg-[#F3F1EC] border dark:border-white/[0.08] border-black/[0.13] dark:text-white text-gray-900 hover:bg-white/[0.09] active:scale-[0.97] transition-colors duration-150"
               >
                 Show definition
               </button>

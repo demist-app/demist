@@ -113,12 +113,12 @@ export function SummaryViewer({
   return (
     <div ref={containerRef} className="relative">
       <p
-        className="text-[13px] text-gray-500 leading-relaxed select-text cursor-text"
+        className="text-[13px] text-gray-700 leading-relaxed select-text cursor-text"
         onPointerUp={handlePointerUp}
       >
         {synopsis}
       </p>
-      <p className="text-[11px] text-gray-700 mt-1.5 select-none">
+      <p className="text-[11px] text-gray-600 mt-1.5 select-none">
         Select any text to explain or save as a flashcard
       </p>
 
@@ -143,17 +143,17 @@ export function SummaryViewer({
             <button
               onClick={() => setPopup(null)}
               aria-label="Close"
-              className="text-gray-700 hover:text-gray-400 transition-colors shrink-0 leading-none text-[18px] -mt-0.5"
+              className="text-gray-400 hover:text-white transition-colors shrink-0 leading-none text-[18px] -mt-0.5"
             >
               ×
             </button>
           </div>
 
           {popup.loading ? (
-            <p className="text-[12px] text-gray-600" aria-live="polite">Explaining…</p>
+            <p className="text-[12px] text-gray-300" aria-live="polite">Explaining…</p>
           ) : popup.explanation ? (
             <>
-              <p className="text-[12px] text-gray-400 leading-relaxed mb-2.5">{popup.explanation}</p>
+              <p className="text-[12px] text-gray-300 leading-relaxed mb-2.5">{popup.explanation}</p>
               <button
                 onClick={saveFlashcard}
                 disabled={popup.saving || popup.saved}
@@ -163,7 +163,7 @@ export function SummaryViewer({
               </button>
             </>
           ) : (
-            <p className="text-[12px] text-gray-600">Nothing to explain here.</p>
+            <p className="text-[12px] text-gray-300">Nothing to explain here.</p>
           )}
         </div>
       )}

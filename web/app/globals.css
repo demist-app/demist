@@ -5,26 +5,26 @@
 
 /* ── Design tokens (light default, dark override) ── */
 :root {
-  --bg:          #FAFAF7;
-  --bg-subtle:   #F2F1EB;
+  --bg:          #EDEAE3;
+  --bg-subtle:   #E3E0D8;
   --fg:          #0F0F14;
-  --fg-muted:    rgba(15, 15, 20, 0.52);
-  --fg-faint:    rgba(15, 15, 20, 0.30);
-  --surface:     rgba(0, 0, 0, 0.04);
-  --surface-2:   rgba(0, 0, 0, 0.07);
-  --border:      rgba(0, 0, 0, 0.09);
-  --border-strong: rgba(0, 0, 0, 0.16);
+  --fg-muted:    rgba(15, 15, 20, 0.65);
+  --fg-faint:    rgba(15, 15, 20, 0.42);
+  --surface:     #FAF9F6;
+  --surface-2:   #FFFFFF;
+  --border:      rgba(0, 0, 0, 0.10);
+  --border-strong: rgba(0, 0, 0, 0.20);
   --accent:      #A16207;
   --accent-rgb:  161, 98, 7;
   --accent-soft: rgba(161, 98, 7, 0.10);
-  --accent-glow: rgba(161, 98, 7, 0.20);
-  --accent-border: rgba(161, 98, 7, 0.28);
+  --accent-glow: rgba(161, 98, 7, 0.18);
+  --accent-border: rgba(161, 98, 7, 0.30);
   --accent-icon-bg: rgba(161, 98, 7, 0.12);
-  --shadow-sm:   0 1px 4px rgba(0,0,0,0.09);
-  --shadow-md:   0 4px 16px rgba(0,0,0,0.10);
+  --shadow-sm:   0 1px 3px rgba(0,0,0,0.09), 0 0 0 1px rgba(0,0,0,0.06);
+  --shadow-md:   0 4px 16px rgba(0,0,0,0.11), 0 1px 4px rgba(0,0,0,0.07);
   /* Pre-computed nav backgrounds — avoids color-mix() for browser compat */
-  --nav-bg:         rgba(250, 250, 247, 0.92);
-  --mobile-nav-bg:  rgba(250, 250, 247, 0.96);
+  --nav-bg:         rgba(237, 234, 227, 0.94);
+  --mobile-nav-bg:  rgba(237, 234, 227, 0.97);
 }
 
 .dark {

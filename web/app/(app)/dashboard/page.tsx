@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
@@ -745,35 +745,35 @@ export default function Dashboard() {
   stopRecordingRef.current = stopRecording
 
   if (loading) return (
-    <main className="min-h-dvh dark:bg-[#080810] bg-[#FAFAF7] dark:text-white text-gray-900 flex flex-col overflow-hidden nav-bottom-pad">
+    <main className="min-h-dvh dark:bg-[#080810] bg-[#EDEAE3] dark:text-white text-gray-900 flex flex-col overflow-hidden nav-bottom-pad">
       <header className="sm:hidden shrink-0 flex items-center px-6 h-14 border-b dark:border-white/[0.05] border-black/[0.06]">
         <span className="font-bold tracking-tight text-[15px]">Demist</span>
       </header>
       <div className="flex-1 overflow-y-auto animate-pulse">
         <div className="w-full max-w-4xl mx-auto">
           <div className="flex flex-col items-center pt-12 pb-8 px-6 gap-3">
-            <div className="w-[96px] h-[96px] rounded-full dark:bg-white/[0.06] bg-black/[0.05]" />
-            <div className="h-4 w-32 dark:bg-white/[0.04] bg-black/[0.03] rounded-full" />
-            <div className="h-3 w-48 dark:bg-white/[0.03] bg-black/[0.025] rounded-full" />
+            <div className="w-[96px] h-[96px] rounded-full dark:bg-white/[0.06] bg-[#F3F1EC]" />
+            <div className="h-4 w-32 dark:bg-white/[0.04] bg-[#FAF9F6] rounded-full" />
+            <div className="h-3 w-48 dark:bg-white/[0.03] bg-[#FAF9F6] rounded-full" />
           </div>
           <div className="grid grid-cols-2 gap-3 px-4 sm:px-6 pb-5">
             {[0,1].map(i => (
-              <div key={i} className="dark:bg-white/[0.03] bg-black/[0.025] border dark:border-white/[0.06] border-black/[0.07] rounded-2xl px-4 py-4">
-                <div className="h-2 w-12 dark:bg-white/[0.06] bg-black/[0.05] rounded-full mb-3" />
-                <div className="h-7 w-14 dark:bg-white/[0.08] bg-black/[0.06] rounded-md" />
+              <div key={i} className="dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl px-4 py-4">
+                <div className="h-2 w-12 dark:bg-white/[0.06] bg-[#F3F1EC] rounded-full mb-3" />
+                <div className="h-7 w-14 dark:bg-white/[0.08] bg-[#EFEDE7] rounded-md" />
               </div>
             ))}
           </div>
           <div className="px-4 sm:px-6 pb-4">
-            <div className="h-2 w-28 dark:bg-white/[0.05] bg-black/[0.04] rounded-full mb-3" />
+            <div className="h-2 w-28 dark:bg-white/[0.05] bg-[#F6F5F2] rounded-full mb-3" />
             <div className="space-y-2">
               {[0,1,2].map(i => (
-                <div key={i} className="flex items-center gap-3 dark:bg-white/[0.03] bg-black/[0.025] border dark:border-white/[0.06] border-black/[0.07] rounded-2xl px-4 py-3.5">
+                <div key={i} className="flex items-center gap-3 dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl px-4 py-3.5">
                   <div className="flex-1 flex flex-col gap-2">
-                    <div className="h-3.5 w-36 dark:bg-white/[0.07] bg-black/[0.06] rounded-full" />
-                    <div className="h-3 w-20 dark:bg-white/[0.05] bg-black/[0.04] rounded-full" />
+                    <div className="h-3.5 w-36 dark:bg-white/[0.07] bg-[#EFEDE7] rounded-full" />
+                    <div className="h-3 w-20 dark:bg-white/[0.05] bg-[#F6F5F2] rounded-full" />
                   </div>
-                  <div className="h-5 w-12 dark:bg-white/[0.05] bg-black/[0.04] rounded-full" />
+                  <div className="h-5 w-12 dark:bg-white/[0.05] bg-[#F6F5F2] rounded-full" />
                 </div>
               ))}
             </div>
@@ -784,7 +784,7 @@ export default function Dashboard() {
   )
 
   return (
-    <main className="min-h-dvh dark:bg-[#080810] bg-[#FAFAF7] dark:text-white text-gray-900 flex flex-col overflow-hidden nav-bottom-pad">
+    <main className="min-h-dvh dark:bg-[#080810] bg-[#EDEAE3] dark:text-white text-gray-900 flex flex-col overflow-hidden nav-bottom-pad">
       {/* Ambient blobs */}
       <div aria-hidden className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
         <div
@@ -854,15 +854,15 @@ export default function Dashboard() {
 
             {sessionGlossary.length > 0 && (
               <div className="shrink-0 px-4 sm:px-6 pb-4 max-h-[32vh] overflow-y-auto">
-                <p className="text-[10px] font-bold tracking-[0.18em] text-gray-600 uppercase mb-3 sticky top-0 dark:bg-[#080810] bg-[#FAFAF7]">
+                <p className="text-[10px] font-bold tracking-[0.18em] text-gray-600 uppercase mb-3 sticky top-0 dark:bg-[#080810] bg-[#EDEAE3]">
                   This Session
                 </p>
                 <div className="space-y-2">
                   {sessionGlossary.map((t, i) => (
-                    <div key={i} className="flex gap-3 dark:bg-white/[0.03] bg-black/[0.025] border dark:border-white/[0.07] border-black/[0.07] rounded-xl px-3 py-2.5">
+                    <div key={i} className="flex gap-3 dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.07] border-black/[0.16] rounded-xl px-3 py-2.5">
                       <div className="min-w-0">
                         <span className="text-[13px] font-semibold dark:text-white/90 text-gray-900">{t.term}</span>
-                        <p className="text-[12px] text-gray-500 mt-0.5 leading-relaxed">{t.definition}</p>
+                        <p className="text-[12px] text-gray-700 mt-0.5 leading-relaxed">{t.definition}</p>
                       </div>
                     </div>
                   ))}
@@ -885,7 +885,7 @@ export default function Dashboard() {
                   ref={btnRef}
                   onClick={startRecording}
                   aria-label="Start recording"
-                  className="relative z-10 w-[96px] h-[96px] rounded-full dark:bg-white/[0.07] bg-black/[0.06] border border-yellow-500/30 hover:bg-yellow-600/20 hover:border-yellow-500/50 hover:shadow-[0_0_56px_rgba(139,92,246,0.3)] active:scale-[0.97] flex items-center justify-center transition-all duration-200 select-none"
+                  className="relative z-10 w-[96px] h-[96px] rounded-full dark:bg-white/[0.08] bg-[#FAF9F6] border border-yellow-500/40 hover:bg-yellow-500/10 hover:border-yellow-500/60 hover:shadow-[0_0_48px_rgba(161,98,7,0.30)] dark:hover:shadow-[0_0_48px_rgba(251,191,36,0.30)] active:scale-[0.97] flex items-center justify-center transition-all duration-200 select-none shadow-sm"
                 >
                   <MicIcon />
                 </button>
@@ -913,7 +913,7 @@ export default function Dashboard() {
                   <span className="text-amber-400/60 group-hover:text-amber-300 transition-colors text-[20px] leading-none">›</span>
                 </Link>
               )}
-              <div className="dark:bg-white/[0.03] bg-black/[0.025] border dark:border-white/[0.07] border-black/[0.07] rounded-2xl px-4 py-4">
+              <div className="dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.07] border-black/[0.16] rounded-2xl px-4 py-4">
                 <div className="flex items-center gap-1.5 mb-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
                   <p className="text-[11px] text-gray-600 uppercase tracking-[0.12em]">Streak</p>
@@ -922,7 +922,7 @@ export default function Dashboard() {
                   {stats.streak}<span className="text-[14px] font-normal text-gray-600 ml-1">days</span>
                 </p>
               </div>
-              <div className="dark:bg-white/[0.03] bg-black/[0.025] border dark:border-white/[0.07] border-black/[0.07] rounded-2xl px-4 py-4">
+              <div className="dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.07] border-black/[0.16] rounded-2xl px-4 py-4">
                 <div className="flex items-center gap-1.5 mb-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-yellow-500" />
                   <p className="text-[11px] text-gray-600 uppercase tracking-[0.12em]">This week</p>
@@ -943,13 +943,13 @@ export default function Dashboard() {
                   </div>
                   <div className="space-y-2">
                     {recentSessions.map(s => (
-                      <div key={s.id} className="dark:bg-white/[0.03] bg-black/[0.025] border dark:border-white/[0.07] border-black/[0.07] rounded-2xl overflow-hidden hover:bg-yellow-500/[0.04] hover:border-yellow-500/[0.15] transition-colors duration-200">
+                      <div key={s.id} className="dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.07] border-black/[0.16] rounded-2xl overflow-hidden hover:bg-yellow-500/[0.04] hover:border-yellow-500/[0.15] transition-colors duration-200">
                         <div
                           onClick={() => s.termCount > 0 && toggleExpandSession(s.id)}
                           className={`flex items-center gap-3 px-4 py-3.5 ${s.termCount > 0 ? 'cursor-pointer' : ''}`}
                         >
                           <div className="flex-1 min-w-0">
-                            <p className={`text-[14px] font-semibold truncate ${s.name ? 'dark:text-white/90 text-gray-900' : 'text-gray-400'}`}>
+                            <p className={`text-[14px] font-semibold truncate ${s.name ? 'dark:text-white/90 text-gray-900' : 'text-gray-600'}`}>
                               {s.name || sessionLabel(s.sessionNumber, s.started_at)}
                             </p>
                             <p className="text-[12px] text-gray-600 mt-0.5">{fmtRelative(s.started_at)}</p>
@@ -987,7 +987,7 @@ export default function Dashboard() {
                                 <p className="text-[10px] font-bold tracking-[0.15em] text-gray-600 uppercase mb-2">Terms</p>
                                 <div className="space-y-1.5">
                                   {s.terms.slice(0, 3).map(t => (
-                                    <p key={t.id} className="text-[13px] text-gray-500 leading-snug">
+                                    <p key={t.id} className="text-[13px] text-gray-700 leading-snug">
                                       <span className="dark:text-white/70 text-gray-700 font-medium">{t.term}</span>
                                       {' '}- {t.definition}
                                     </p>
@@ -1011,7 +1011,7 @@ export default function Dashboard() {
                 </>
               ) : (
                 <div className="flex flex-col items-center justify-center py-10 text-center gap-2">
-                  <div className="w-12 h-12 rounded-2xl dark:bg-white/[0.03] bg-black/[0.025] border dark:border-white/[0.06] border-black/[0.07] flex items-center justify-center mb-1">
+                  <div className="w-12 h-12 rounded-2xl dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] flex items-center justify-center mb-1">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="text-gray-700">
                       <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" />
                       <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
@@ -1074,7 +1074,7 @@ function TermCard({
             <button
               onClick={onDismiss}
               aria-label="Dismiss"
-              className="text-gray-600 hover:text-gray-300 transition-colors shrink-0 text-[20px] leading-none mt-[-2px]"
+              className="text-gray-600 hover:text-gray-500 transition-colors shrink-0 text-[20px] leading-none mt-[-2px]"
             >
               ×
             </button>
