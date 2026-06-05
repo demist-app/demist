@@ -904,13 +904,13 @@ export default function Dashboard() {
               {stats.dueFlashcards > 0 && (
                 <Link
                   href="/flashcards"
-                  className="col-span-2 flex items-center justify-between bg-amber-500/[0.07] border border-amber-500/20 rounded-2xl px-4 py-3.5 hover:bg-amber-500/[0.11] transition-all group"
+                  className="col-span-2 flex items-center justify-between dark:bg-amber-500/[0.07] bg-amber-50 dark:border-amber-500/20 border-amber-300/70 border rounded-2xl px-4 py-3.5 dark:hover:bg-amber-500/[0.11] hover:bg-amber-100 transition-all group"
                 >
                   <div>
-                    <p className="text-[14px] font-semibold text-amber-300">{stats.dueFlashcards} flashcards due</p>
-                    <p className="text-[12px] text-amber-400/50 mt-0.5">Review now to stay on track</p>
+                    <p className="text-[14px] font-semibold dark:text-amber-300 text-amber-800">{stats.dueFlashcards} flashcards due</p>
+                    <p className="text-[12px] dark:text-amber-400/50 text-amber-700/80 mt-0.5">Review now to stay on track</p>
                   </div>
-                  <span className="text-amber-400/60 group-hover:text-amber-300 transition-colors text-[20px] leading-none">›</span>
+                  <span className="dark:text-amber-400/60 text-amber-700/50 dark:group-hover:text-amber-300 group-hover:text-amber-900 transition-colors text-[20px] leading-none">›</span>
                 </Link>
               )}
               <div className="dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.07] border-black/[0.16] rounded-2xl px-4 py-4">
