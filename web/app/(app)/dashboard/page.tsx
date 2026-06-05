@@ -116,6 +116,7 @@ export default function Dashboard() {
   const peakLevelRef = useRef(0)           // peak audio level in current chunk (for silence detection)
   const speechModeRef = useRef(false)       // true = Web Speech API active, false = Whisper
   const audioProcessingCtxRef = useRef<AudioContext | null>(null)
+  const vizAnalyserRef = useRef<AnalyserNode | null>(null)
   const processedStreamRef = useRef<MediaStream | null>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null)
@@ -129,18 +130,11 @@ export default function Dashboard() {
   const btnRef = useRef<HTMLButtonElement | null>(null)
 
   useEffect(() => {
-    if (!isRecording || !streamRef.current) return
-    const stream = streamRef.current
-    // Reuse the already-resumed processing AudioContext instead of creating a new one.
-    // A new AudioContext created here (outside a user gesture) stays suspended on iOS Safari,
-    // which means peakLevelRef never updates and every chunk gets dropped as "silence".
-    const ctx = audioProcessingCtxRef.current
-    if (!ctx) { console.warn('[demist] visualizer: no AudioContext available'); return }
-    console.log('[demist] visualizer: starting, ctx state:', ctx.state)
+    if (!isRecording) return
+    const analyser = vizAnalyserRef.current
+    if (!analyser) { console.warn('[demist] visualizer: no analyser available'); return }
+    console.log('[demist] visualizer: starting, analyser fftSize:', analyser.fftSize)
 
-    const analyser = ctx.createAnalyser()
-    analyser.fftSize = 512; analyser.smoothingTimeConstant = 0.78
-    ctx.createMediaStreamSource(stream).connect(analyser)
     const data = new Uint8Array(analyser.frequencyBinCount)
     const usable = Math.floor(analyser.frequencyBinCount * 0.55)
     const BAR_COUNT = 28
@@ -153,7 +147,7 @@ export default function Dashboard() {
       if (level > peakLevelRef.current) peakLevelRef.current = level
       // Log every ~2 seconds (120 frames at 60fps) so we can see if audio is flowing
       tickCount++
-      if (tickCount % 120 === 0) console.log('[demist] visualizer tick — level:', level.toFixed(4), '| ctx state:', ctx.state)
+      if (tickCount % 120 === 0) console.log('[demist] visualizer tick — level:', level.toFixed(4))
       if (ring1Ref.current) ring1Ref.current.style.transform = `scale(${1 + level * 2.8})`
       if (ring2Ref.current) ring2Ref.current.style.transform = `scale(${1 + level * 2.0})`
       if (ring3Ref.current) ring3Ref.current.style.transform = `scale(${1 + level * 1.3})`
@@ -455,6 +449,12 @@ export default function Dashboard() {
     compressor.attack.value = 0.003
     compressor.release.value = 0.15
     const dest = audioCtx.createMediaStreamDestination()
+    // Branch the analyser off src so the visualizer reads raw levels without
+    // a second MediaStreamAudioSourceNode (Chrome only allows one per stream per context).
+    const vizAnalyser = audioCtx.createAnalyser()
+    vizAnalyser.fftSize = 512; vizAnalyser.smoothingTimeConstant = 0.78
+    src.connect(vizAnalyser)
+    vizAnalyserRef.current = vizAnalyser
     src.connect(gain)
     gain.connect(compressor)
     compressor.connect(dest)
@@ -637,6 +637,7 @@ export default function Dashboard() {
     if (timerRef.current) clearInterval(timerRef.current)
     audioProcessingCtxRef.current?.close()
     audioProcessingCtxRef.current = null
+    vizAnalyserRef.current = null
     processedStreamRef.current = null
     streamRef.current?.getTracks().forEach(t => t.stop())
     const sid = sessionIdRef.current
