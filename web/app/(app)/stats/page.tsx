@@ -61,7 +61,8 @@ export default function Stats() {
   useEffect(() => {
     const supabase = createClient()
     ;(async () => {
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { session } } = await supabase.auth.getSession()
+      const user = session?.user
       if (!user) { router.replace('/login'); return }
 
       const now = new Date().toISOString()

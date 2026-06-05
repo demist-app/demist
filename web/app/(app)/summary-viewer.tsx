@@ -81,7 +81,8 @@ export function SummaryViewer({
     setPopup(prev => prev ? { ...prev, saving: true } : null)
     try {
       const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { session } } = await supabase.auth.getSession()
+      const user = session?.user
       if (!user) return
       const term = popup.text.length > 80 ? popup.text.slice(0, 77) + '...' : popup.text
       await supabase.from('terms').insert({

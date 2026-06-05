@@ -156,13 +156,14 @@ export default function ImportPage() {
 
   useEffect(() => {
     const supabase = createClient()
-    supabase.auth.getUser().then(async ({ data }) => {
-      if (!data.user) { router.replace('/login'); return }
-      setUserId(data.user.id)
+    supabase.auth.getSession().then(async ({ data }) => {
+      const user = data.session?.user
+      if (!user) { router.replace('/login'); return }
+      setUserId(user.id)
 
       const [{ data: prof }, { data: integration }] = await Promise.all([
-        supabase.from('profiles').select('course, year_of_study').eq('id', data.user.id).maybeSingle(),
-        supabase.from('integrations').select('workspace_name').eq('user_id', data.user.id).eq('provider', 'notion').maybeSingle(),
+        supabase.from('profiles').select('course, year_of_study').eq('id', user.id).maybeSingle(),
+        supabase.from('integrations').select('workspace_name').eq('user_id', user.id).eq('provider', 'notion').maybeSingle(),
       ])
       setProfile(prof)
       setNotionIntegration(integration)

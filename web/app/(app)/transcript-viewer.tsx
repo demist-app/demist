@@ -112,7 +112,8 @@ export function TranscriptViewer({
     setPopup(prev => prev ? { ...prev, saving: true } : null)
     try {
       const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { session } } = await supabase.auth.getSession()
+      const user = session?.user
       if (!user) return
       const term = popup.term.length > 80 ? popup.term.slice(0, 77) + '...' : popup.term
       await supabase.from('terms').insert({

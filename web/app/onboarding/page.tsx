@@ -25,12 +25,13 @@ export default function Onboarding() {
 
   useEffect(() => {
     const supabase = createClient()
-    supabase.auth.getUser().then(async ({ data }) => {
-      if (!data.user) { router.replace('/login'); return }
+    supabase.auth.getSession().then(async ({ data }) => {
+      const user = data.session?.user
+      if (!user) { router.replace('/login'); return }
       const { data: profile } = await supabase
         .from('profiles')
         .select('course, year_of_study')
-        .eq('id', data.user.id)
+        .eq('id', user.id)
         .maybeSingle()
       if (profile?.course || profile?.year_of_study) router.replace('/dashboard')
     })
@@ -42,7 +43,8 @@ export default function Onboarding() {
     setSaveError(null)
     try {
       const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { session } } = await supabase.auth.getSession()
+      const user = session?.user
       if (!user) { router.replace('/login'); return }
       const { error } = await supabase
         .from('profiles')

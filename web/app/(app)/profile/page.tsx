@@ -43,7 +43,8 @@ export default function Profile() {
   useEffect(() => {
     const supabase = createClient()
     ;(async () => {
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { session } } = await supabase.auth.getSession()
+      const user = session?.user
       if (!user) return
       setUserId(user.id)
 
@@ -107,7 +108,8 @@ export default function Profile() {
     setExporting(true)
     try {
       const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { session } } = await supabase.auth.getSession()
+      const user = session?.user
       if (!user) { alert('Not signed in.'); return }
       const { data: terms, error } = await supabase
         .from('terms')

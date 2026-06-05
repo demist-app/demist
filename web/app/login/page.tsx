@@ -60,8 +60,8 @@ export default function Login() {
   const codeRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    createClient().auth.getUser().then(({ data }) => {
-      if (data.user) router.replace('/dashboard')
+    createClient().auth.getSession().then(({ data }) => {
+      if (data.session?.user) router.replace('/dashboard')
     })
   }, [])
 
