@@ -131,38 +131,41 @@ export default function Dashboard() {
   useEffect(() => {
     if (!isRecording || !streamRef.current) return
     const stream = streamRef.current
-    let raf: number; let ctx: AudioContext
-    ;(async () => {
-      ctx = new AudioContext(); await ctx.resume()
-      const analyser = ctx.createAnalyser()
-      analyser.fftSize = 512; analyser.smoothingTimeConstant = 0.78
-      ctx.createMediaStreamSource(stream).connect(analyser)
-      const data = new Uint8Array(analyser.frequencyBinCount)
-      const usable = Math.floor(analyser.frequencyBinCount * 0.55)
-      const BAR_COUNT = 28
-      const tick = () => {
-        analyser.getByteFrequencyData(data)
-        let sum = 0; for (let i = 0; i < usable; i++) sum += data[i]
-        const level = (sum / usable) / 255
-        // Track peak for silence detection in Whisper mode
-        if (level > peakLevelRef.current) peakLevelRef.current = level
-        if (ring1Ref.current) ring1Ref.current.style.transform = `scale(${1 + level * 2.8})`
-        if (ring2Ref.current) ring2Ref.current.style.transform = `scale(${1 + level * 2.0})`
-        if (ring3Ref.current) ring3Ref.current.style.transform = `scale(${1 + level * 1.3})`
-        if (btnRef.current) btnRef.current.style.boxShadow = `0 0 ${20 + Math.round(level * 60)}px rgba(239,68,68,${(0.3 + level * 0.5).toFixed(2)})`
-        if (barsRef.current) {
-          const bars = barsRef.current.children; const step = usable / BAR_COUNT
-          for (let i = 0; i < bars.length; i++) {
-            const val = data[Math.floor(i * step)] / 255
-            ;(bars[i] as HTMLElement).style.height = `${4 + val * 44}px`
-          }
+    // Reuse the already-resumed processing AudioContext instead of creating a new one.
+    // A new AudioContext created here (outside a user gesture) stays suspended on iOS Safari,
+    // which means peakLevelRef never updates and every chunk gets dropped as "silence".
+    const ctx = audioProcessingCtxRef.current
+    if (!ctx) return
+
+    const analyser = ctx.createAnalyser()
+    analyser.fftSize = 512; analyser.smoothingTimeConstant = 0.78
+    ctx.createMediaStreamSource(stream).connect(analyser)
+    const data = new Uint8Array(analyser.frequencyBinCount)
+    const usable = Math.floor(analyser.frequencyBinCount * 0.55)
+    const BAR_COUNT = 28
+    let raf: number
+    const tick = () => {
+      analyser.getByteFrequencyData(data)
+      let sum = 0; for (let i = 0; i < usable; i++) sum += data[i]
+      const level = (sum / usable) / 255
+      if (level > peakLevelRef.current) peakLevelRef.current = level
+      if (ring1Ref.current) ring1Ref.current.style.transform = `scale(${1 + level * 2.8})`
+      if (ring2Ref.current) ring2Ref.current.style.transform = `scale(${1 + level * 2.0})`
+      if (ring3Ref.current) ring3Ref.current.style.transform = `scale(${1 + level * 1.3})`
+      if (btnRef.current) btnRef.current.style.boxShadow = `0 0 ${20 + Math.round(level * 60)}px rgba(239,68,68,${(0.3 + level * 0.5).toFixed(2)})`
+      if (barsRef.current) {
+        const bars = barsRef.current.children; const step = usable / BAR_COUNT
+        for (let i = 0; i < bars.length; i++) {
+          const val = data[Math.floor(i * step)] / 255
+          ;(bars[i] as HTMLElement).style.height = `${4 + val * 44}px`
         }
-        raf = requestAnimationFrame(tick)
       }
       raf = requestAnimationFrame(tick)
-    })()
+    }
+    raf = requestAnimationFrame(tick)
     return () => {
-      cancelAnimationFrame(raf); ctx?.close()
+      cancelAnimationFrame(raf)
+      // Do NOT close ctx here — it's the processing context owned by startRecording/stopRecording
       if (btnRef.current) btnRef.current.style.boxShadow = ''
       if (barsRef.current) Array.from(barsRef.current.children).forEach(b => { (b as HTMLElement).style.height = '4px' })
     }
@@ -398,6 +401,14 @@ export default function Dashboard() {
   const startRecording = async () => {
     if (isActiveRef.current || startingRef.current) return
     startingRef.current = true
+
+    // Create and resume the AudioContext synchronously within the user gesture.
+    // If deferred past any await, iOS Safari considers the gesture consumed and
+    // keeps the context suspended — making the entire processing chain produce silence.
+    const audioCtx = new AudioContext()
+    audioCtx.resume()
+    audioProcessingCtxRef.current = audioCtx
+
     let stream: MediaStream
     try {
       stream = await navigator.mediaDevices.getUserMedia({
@@ -409,6 +420,8 @@ export default function Dashboard() {
         video: false,
       })
     } catch {
+      audioCtx.close()
+      audioProcessingCtxRef.current = null
       startingRef.current = false
       alert('Microphone access is needed to use Demist.')
       return
@@ -417,10 +430,6 @@ export default function Dashboard() {
 
     // Audio processing pipeline: boost quiet audio and normalise volume.
     // Raw stream → gain(2.5×) → compressor → processedStream → MediaRecorder
-    // Waveform visualiser keeps reading from the raw stream (unchanged).
-    const audioCtx = new AudioContext()
-    await audioCtx.resume() // must resume explicitly — context can be suspended after an await on iOS Safari
-    audioProcessingCtxRef.current = audioCtx
     const src = audioCtx.createMediaStreamSource(stream)
     const gain = audioCtx.createGain()
     gain.gain.value = 2.5
