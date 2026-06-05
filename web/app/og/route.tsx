@@ -7,35 +7,57 @@ export async function GET() {
     (
       <div
         style={{
-          background: '#080810',
+          background: '#0f0e0b',
           width: '100%',
           height: '100%',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: 20,
+          gap: 24,
         }}
       >
-        {/* background glow */}
+        {/* amber ambient glow */}
         <div
           style={{
             position: 'absolute',
             width: 900,
             height: 900,
             borderRadius: 450,
-            background: 'rgba(139,92,246,0.09)',
+            background: 'rgba(200,130,20,0.10)',
             filter: 'blur(130px)',
             display: 'flex',
           }}
         />
+
+        {/* waveform icon */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 4 }}>
+          {[
+            { h: 20, color: '#b36a00' },
+            { h: 36, color: '#c97d10' },
+            { h: 52, color: '#f5a623' },
+            { h: 36, color: '#c97d10' },
+            { h: 20, color: '#b36a00' },
+          ].map((bar, i) => (
+            <div
+              key={i}
+              style={{
+                width: 9,
+                height: bar.h,
+                borderRadius: 6,
+                background: bar.color,
+                display: 'flex',
+              }}
+            />
+          ))}
+        </div>
 
         <p
           style={{
             fontSize: 13,
             fontWeight: 700,
             letterSpacing: '0.22em',
-            color: 'rgba(167,139,250,0.6)',
+            color: 'rgba(245,166,35,0.75)',
             textTransform: 'uppercase',
             margin: 0,
             display: 'flex',
@@ -48,7 +70,7 @@ export async function GET() {
           style={{
             fontSize: 66,
             fontWeight: 800,
-            color: '#ffffff',
+            color: '#f5f3ef',
             textAlign: 'center',
             lineHeight: 1.08,
             margin: 0,
@@ -62,7 +84,7 @@ export async function GET() {
         <p
           style={{
             fontSize: 22,
-            color: 'rgba(107,114,128,1)',
+            color: 'rgba(130,120,100,1)',
             textAlign: 'center',
             margin: 0,
             display: 'flex',

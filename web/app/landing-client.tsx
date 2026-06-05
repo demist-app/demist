@@ -117,8 +117,10 @@ export default function LandingClient() {
   const ctaRef = useInView()
 
   useEffect(() => {
-    createClient().auth.getUser().then(({ data }) => {
-      if (data.user) setAuthed(true)
+    // getSession() reads from cookie — no network round-trip. getUser() requires a
+    // server validation call that can take 5-30s on a cold Supabase instance.
+    createClient().auth.getSession().then(({ data }) => {
+      if (data.session) setAuthed(true)
     })
   }, [])
 
