@@ -4,18 +4,6 @@ import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { TranscriptViewer } from '../transcript-viewer'
 import { SummaryViewer } from '../summary-viewer'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { cn } from '@/lib/utils'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from '@/components/ui/dialog'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 
 interface SessionTerm {
   id: string
@@ -285,302 +273,204 @@ export default function History() {
     }
   })
 
-  // The session pending deletion confirmation
-  const confirmingSession = sessions.find(s => s.id === confirmingId) ?? null
-
   return (
-    <main className="min-h-dvh bg-[#08080E] text-white flex flex-col nav-bottom-pad">
-      {/* Mobile top bar */}
-      <header className="sm:hidden shrink-0 flex items-center px-6 h-14 border-b border-white/[0.05]">
+    <main className="min-h-dvh dark:bg-[#080810] bg-[#FAFAF7] dark:dark:text-white text-gray-900 text-gray-900 flex flex-col nav-bottom-pad">
+      <header className="sm:hidden shrink-0 flex items-center px-6 h-14 border-b dark:border-white/[0.05] border-black/[0.06]">
         <span className="font-semibold tracking-tight text-[15px]">Session History</span>
       </header>
 
       <div className="flex-1 overflow-y-auto">
-        <div className="w-full max-w-3xl mx-auto px-4 sm:px-6 py-8 animate-step opacity-0" style={{ animationFillMode: 'forwards' }}>
-
-          {/* Page header */}
-          {!loading && (
-            <div className="mb-7">
-              <h1 className="text-[22px] font-bold text-white leading-tight">Session History</h1>
-              {sessions.length > 0 && (
-                <p className="text-[13px] text-white/40 mt-1">
-                  {totalCount} {totalCount === 1 ? 'session' : 'sessions'} recorded
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* Loading skeleton */}
-          {loading && (
-            <div className="animate-pulse space-y-6">
-              {[0, 1].map(g => (
-                <div key={g}>
-                  <div className="h-2 w-16 bg-white/[0.05] rounded-full mb-3" />
-                  <div className="space-y-2">
-                    {[0, 1, 2].map(i => (
-                      <div key={i} className="flex items-center gap-3 bg-white/[0.03] border border-white/[0.06] rounded-2xl px-5 py-4">
-                        <div className="flex-1 flex flex-col gap-2">
-                          <div className="h-3.5 w-40 bg-white/[0.07] rounded-full" />
-                          <div className="h-3 w-24 bg-white/[0.05] rounded-full" />
-                        </div>
-                        <div className="flex flex-col items-end gap-1.5 mr-8">
-                          <div className="h-4 w-6 bg-white/[0.07] rounded" />
-                          <div className="h-2.5 w-8 bg-white/[0.05] rounded-full" />
-                        </div>
+      <div className="w-full max-w-3xl mx-auto px-4 sm:px-6 py-4 animate-step opacity-0" style={{ animationFillMode: 'forwards' }}>
+        {loading && (
+          <div className="animate-pulse space-y-6">
+            {[0,1].map(g => (
+              <div key={g}>
+                <div className="h-2 w-16 dark:bg-white/[0.05] bg-black/[0.04] rounded-full mb-3" />
+                <div className="space-y-2">
+                  {[0,1,2].map(i => (
+                    <div key={i} className="flex items-center gap-3 dark:bg-white/[0.03] bg-black/[0.025] border dark:border-white/[0.06] border-black/[0.07] rounded-2xl px-4 py-3">
+                      <div className="flex-1 flex flex-col gap-2">
+                        <div className="h-3.5 w-40 dark:bg-white/[0.07] bg-black/[0.06] rounded-full" />
+                        <div className="h-3 w-24 dark:bg-white/[0.05] bg-black/[0.04] rounded-full" />
                       </div>
-                    ))}
+                      <div className="flex flex-col items-end gap-1.5 mr-8">
+                        <div className="h-4 w-6 dark:bg-white/[0.07] bg-black/[0.06] rounded" />
+                        <div className="h-2.5 w-8 dark:bg-white/[0.05] bg-black/[0.04] rounded-full" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {!loading && sessions.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
+            <p className="text-gray-600">No sessions yet.</p>
+            <p className="text-gray-700 text-[13px]">Go to Home and record your first lecture.</p>
+          </div>
+        )}
+
+        {grouped.map(group => (
+          <div key={group.label} className="mb-6">
+            <p className="text-[10px] font-bold tracking-[0.18em] text-gray-600 uppercase mb-3">
+              {group.label}
+            </p>
+            <div className="space-y-2">
+              {group.sessions.map(({ s, n }) => (
+                <div
+                  key={s.id}
+                  id={`session-${s.id}`}
+                  className="dark:bg-white/[0.03] bg-black/[0.025] border dark:border-white/[0.07] border-black/[0.07] rounded-2xl overflow-hidden hover:bg-yellow-500/[0.04] hover:border-yellow-500/[0.15] transition-colors duration-200"
+                >
+                  <div className="flex items-center px-4 py-3.5 gap-3">
+                    <div className="flex-1 min-w-0">
+                      {editingNameId === s.id ? (
+                        <input
+                          autoFocus
+                          value={nameInput}
+                          onChange={e => setNameInput(e.target.value)}
+                          onBlur={() => saveSessionName(s.id)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') saveSessionName(s.id)
+                            if (e.key === 'Escape') setEditingNameId(null)
+                          }}
+                          placeholder={sessionLabel(n, s.started_at)}
+                          maxLength={80}
+                          className="text-[14px] font-medium bg-transparent border-b border-yellow-500/50 focus:outline-none dark:text-white/90 text-gray-900 w-full pb-0.5"
+                        />
+                      ) : (
+                        <div
+                          className="flex items-center gap-1.5 group"
+                          onClick={() => { if (s.termCount === 0) return; setConfirmingId(null); toggleExpand(s.id) }}
+                        >
+                          <p className={`text-[14px] font-medium truncate ${s.termCount > 0 ? 'cursor-pointer' : ''} ${s.name ? 'dark:text-white/90 text-gray-900' : 'text-gray-400'}`}>
+                            {s.name || sessionLabel(n, s.started_at)}
+                          </p>
+                        </div>
+                      )}
+                      <p className="text-[12px] text-gray-600 mt-0.5">
+                        {fmtTime(s.started_at)} · {fmtDuration(s.started_at, s.ended_at)}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <div className="text-right mr-1">
+                        <p className="text-[14px] font-semibold dark:text-yellow-400 text-yellow-700">{s.termCount}</p>
+                        <p className="text-[11px] text-gray-600">terms</p>
+                      </div>
+
+                      {confirmingId === s.id ? (
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => setConfirmingId(null)}
+                            className="text-[12px] text-gray-500 hover:text-gray-300 transition-colors px-2 py-1"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={() => deleteSession(s.id)}
+                            disabled={deletingId === s.id}
+                            className="text-[12px] font-medium text-red-400 hover:text-red-300 transition-colors px-2 py-1 disabled:opacity-40"
+                          >
+                            {deletingId === s.id ? '…' : 'Delete'}
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-0.5">
+                          <button
+                            onClick={() => startRename(s)}
+                            title="Rename session"
+                            className="text-gray-700 hover:dark:text-yellow-400 text-yellow-700 transition-colors p-1"
+                          >
+                            <PencilIcon />
+                          </button>
+                          <button
+                            onClick={() => setConfirmingId(s.id)}
+                            title="Delete session"
+                            className="text-gray-700 hover:text-red-400 transition-colors p-1"
+                          >
+                            <TrashIcon />
+                          </button>
+                        </div>
+                      )}
+
+                      {s.termCount > 0 && (
+                        <button onClick={() => { setConfirmingId(null); toggleExpand(s.id) }}>
+                          <ChevronIcon expanded={s.expanded} />
+                        </button>
+                      )}
+                    </div>
                   </div>
+
+                  {s.expanded && (
+                    <div className="px-4 pb-4 border-t dark:border-white/[0.04] border-black/[0.05]">
+                      {s.synopsis ? (
+                        <div className="pt-3 pb-1">
+                          <SummaryViewer synopsis={s.synopsis} sessionId={s.id} subject={s.subject} year={null} />
+                        </div>
+                      ) : generatingIds.has(s.id) ? (
+                        <p className="text-[12px] text-gray-700 pt-3 pb-1">Generating summary…</p>
+                      ) : failedIds.has(s.id) ? (
+                        <div className="flex items-center gap-3 pt-3 pb-1">
+                          <p className="text-[12px] text-gray-700">Couldn't generate summary.</p>
+                          <button
+                            onClick={() => retrySummarize(s)}
+                            className="text-[12px] text-yellow-500 hover:dark:text-yellow-400 text-yellow-700 transition-colors shrink-0"
+                          >
+                            Retry
+                          </button>
+                        </div>
+                      ) : null}
+
+                      {loadingTerms === s.id && (
+                        <p className="text-gray-700 text-[13px] py-3">Loading…</p>
+                      )}
+                      {s.terms && s.terms.length === 0 && (
+                        <p className="text-gray-700 text-[13px] py-3">No terms detected.</p>
+                      )}
+                      {s.terms && s.terms.length > 0 && (
+                        <div className="pt-3">
+                          <p className="text-[10px] font-bold tracking-[0.15em] text-gray-600 uppercase mb-2">Terms</p>
+                          <div className="space-y-2">
+                            {s.terms.map(t => (
+                              <div key={t.id} className="flex items-start gap-3">
+                                <div className="flex-1 min-w-0">
+                                  <span className={`text-[13px] font-medium ${t.known ? 'text-gray-600 line-through' : 'dark:text-white/80 text-gray-800'}`}>
+                                    {t.term}
+                                  </span>
+                                  <span className="text-gray-600 text-[13px]"> - {t.definition}</span>
+                                </div>
+                                <button
+                                  onClick={() => toggleKnown(t.id, t.known)}
+                                  title={t.known ? 'Mark as not known' : 'Mark as known'}
+                                  className={`shrink-0 mt-0.5 text-[17px] leading-none transition-colors ${
+                                    t.known ? 'text-emerald-500 hover:text-gray-600' : 'text-gray-700 hover:text-emerald-500'
+                                  }`}
+                                >
+                                  ✓
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {s.transcript && (
+                        <div className="mt-4 pt-3 border-t dark:border-white/[0.04] border-black/[0.05]">
+                          <p className="text-[10px] font-bold tracking-[0.15em] text-gray-600 uppercase mb-2">Transcript</p>
+                          <TranscriptViewer transcript={s.transcript} subject={s.subject} year={null} sessionId={s.id} terms={s.terms?.map(t => ({ term: t.term, definition: t.definition }))} />
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
-          )}
-
-          {/* Empty state */}
-          {!loading && sessions.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-20 text-center gap-4">
-              <div className="w-14 h-14 rounded-full bg-white/[0.04] border border-white/[0.08] flex items-center justify-center">
-                <MicIcon />
-              </div>
-              <div className="flex flex-col gap-1">
-                <p className="text-[15px] font-semibold text-white/60">No sessions yet</p>
-                <p className="text-[13px] text-white/30">Go to Home and record your first lecture.</p>
-              </div>
-            </div>
-          )}
-
-          {/* Grouped session list */}
-          {grouped.map(group => (
-            <div key={group.label} className="mb-8">
-              {/* Date group header */}
-              <div className="flex items-center gap-3 mb-3">
-                <span className="text-[11px] font-semibold text-white/30 uppercase tracking-wide shrink-0">
-                  {group.label}
-                </span>
-                <div className="flex-1 h-px bg-white/[0.06]" />
-              </div>
-
-              <div className="space-y-2">
-                {group.sessions.map(({ s, n }) => (
-                  <div
-                    key={s.id}
-                    id={`session-${s.id}`}
-                    className={cn(
-                      'group/card bg-white/[0.04] border border-white/[0.08] rounded-2xl overflow-hidden',
-                      'hover:bg-white/[0.07] hover:border-white/[0.12] transition-all duration-150'
-                    )}
-                  >
-                    {/* Card header row */}
-                    <div className="flex items-center px-5 py-4 gap-3">
-                      {/* Left: name + time */}
-                      <div
-                        className="flex-1 min-w-0 cursor-pointer"
-                        onClick={() => { if (s.termCount === 0) return; setConfirmingId(null); toggleExpand(s.id) }}
-                      >
-                        {editingNameId === s.id ? (
-                          <input
-                            autoFocus
-                            value={nameInput}
-                            onChange={e => setNameInput(e.target.value)}
-                            onBlur={() => saveSessionName(s.id)}
-                            onKeyDown={e => {
-                              if (e.key === 'Enter') saveSessionName(s.id)
-                              if (e.key === 'Escape') setEditingNameId(null)
-                            }}
-                            placeholder={sessionLabel(n, s.started_at)}
-                            maxLength={80}
-                            onClick={e => e.stopPropagation()}
-                            className="text-[14px] font-semibold bg-transparent border-b border-amber-500/50 focus:outline-none text-white w-full pb-0.5"
-                          />
-                        ) : (
-                          <p className={cn(
-                            'text-[14px] font-semibold truncate leading-snug',
-                            s.name ? 'text-white' : 'text-white/50'
-                          )}>
-                            {s.name || sessionLabel(n, s.started_at)}
-                          </p>
-                        )}
-                        <p className="text-[13px] text-white/40 mt-0.5">
-                          {fmtTime(s.started_at)} · {fmtDuration(s.started_at, s.ended_at)}
-                        </p>
-                      </div>
-
-                      {/* Right: term count badge + actions + chevron */}
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        {/* Term count */}
-                        <div className="flex flex-col items-end mr-1">
-                          <Badge variant="primary" className="tabular-nums">
-                            {s.termCount} terms
-                          </Badge>
-                        </div>
-
-                        {/* Rename + delete — visible on hover */}
-                        <div className="flex items-center gap-0.5 opacity-0 group-hover/card:opacity-100 transition-opacity duration-150">
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            title="Rename session"
-                            onClick={e => { e.stopPropagation(); startRename(s) }}
-                            className="text-white/30 hover:text-amber-400"
-                          >
-                            <PencilIcon />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            title="Delete session"
-                            onClick={e => { e.stopPropagation(); setConfirmingId(s.id) }}
-                            className="text-white/30 hover:text-red-400"
-                          >
-                            <TrashIcon />
-                          </Button>
-                        </div>
-
-                        {/* Expand chevron */}
-                        {s.termCount > 0 && (
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            onClick={() => { setConfirmingId(null); toggleExpand(s.id) }}
-                            className="text-white/30 hover:text-white/70"
-                          >
-                            <ChevronIcon expanded={s.expanded} />
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Expanded panel */}
-                    {s.expanded && (
-                      <div className="border-t border-white/[0.05]">
-                        <Tabs defaultValue="summary" className="px-5 pb-5 pt-4">
-                          <TabsList className="mb-4">
-                            <TabsTrigger value="summary">Summary</TabsTrigger>
-                            <TabsTrigger value="terms">
-                              Terms
-                              {s.terms && s.terms.length > 0 && (
-                                <span className="ml-1 text-[10px] text-white/40">{s.terms.length}</span>
-                              )}
-                            </TabsTrigger>
-                            {s.transcript && (
-                              <TabsTrigger value="transcript">Transcript</TabsTrigger>
-                            )}
-                          </TabsList>
-
-                          {/* Summary tab */}
-                          <TabsContent value="summary">
-                            {s.synopsis ? (
-                              <SummaryViewer synopsis={s.synopsis} sessionId={s.id} subject={s.subject} year={null} />
-                            ) : generatingIds.has(s.id) ? (
-                              <p className="text-[13px] text-white/30 py-2">Generating summary…</p>
-                            ) : failedIds.has(s.id) ? (
-                              <div className="flex items-center gap-3 py-2">
-                                <p className="text-[13px] text-white/30">Couldn&apos;t generate summary.</p>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => retrySummarize(s)}
-                                  className="text-amber-400 hover:text-amber-300 h-auto py-0.5 px-2 text-[13px]"
-                                >
-                                  Retry
-                                </Button>
-                              </div>
-                            ) : (
-                              <p className="text-[13px] text-white/30 py-2">No summary available.</p>
-                            )}
-                          </TabsContent>
-
-                          {/* Terms tab */}
-                          <TabsContent value="terms">
-                            {loadingTerms === s.id && (
-                              <p className="text-[13px] text-white/30 py-2">Loading…</p>
-                            )}
-                            {s.terms && s.terms.length === 0 && (
-                              <p className="text-[13px] text-white/30 py-2">No terms detected.</p>
-                            )}
-                            {s.terms && s.terms.length > 0 && (
-                              <div className="flex flex-wrap gap-2 pt-1">
-                                {s.terms.map(t => (
-                                  <button
-                                    key={t.id}
-                                    onClick={() => toggleKnown(t.id, t.known)}
-                                    title={t.known ? 'Mark as not known' : 'Mark as known'}
-                                    className={cn(
-                                      'rounded-lg bg-white/[0.06] border border-white/[0.08] px-2.5 py-1',
-                                      'text-[12px] text-white/70 transition-all duration-150',
-                                      'hover:bg-white/[0.10] hover:border-white/[0.14] active:scale-[0.97]',
-                                      t.known && 'opacity-40 line-through'
-                                    )}
-                                  >
-                                    {t.term}
-                                  </button>
-                                ))}
-                              </div>
-                            )}
-                          </TabsContent>
-
-                          {/* Transcript tab */}
-                          {s.transcript && (
-                            <TabsContent value="transcript">
-                              <TranscriptViewer
-                                transcript={s.transcript}
-                                subject={s.subject}
-                                year={null}
-                                sessionId={s.id}
-                                terms={s.terms?.map(t => ({ term: t.term, definition: t.definition }))}
-                              />
-                            </TabsContent>
-                          )}
-                        </Tabs>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
+          </div>
+        ))}
       </div>
-
-      {/* Delete confirmation dialog */}
-      <Dialog open={confirmingId !== null} onOpenChange={open => { if (!open) setConfirmingId(null) }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete session?</DialogTitle>
-            <DialogDescription>
-              {confirmingSession
-                ? <>
-                    <span className="text-white/70 font-medium">
-                      {confirmingSession.name || sessionLabel(
-                        sessions.findIndex(s => s.id === confirmingId) >= 0
-                          ? sessionNumber(sessions.findIndex(s => s.id === confirmingId))
-                          : 0,
-                        confirmingSession.started_at
-                      )}
-                    </span>
-                    {' '}and all its terms will be permanently deleted. This cannot be undone.
-                  </>
-                : 'This session and all its terms will be permanently deleted. This cannot be undone.'
-              }
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="secondary"
-              onClick={() => setConfirmingId(null)}
-              disabled={deletingId === confirmingId}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => confirmingId && deleteSession(confirmingId)}
-              disabled={deletingId === confirmingId}
-            >
-              {deletingId === confirmingId ? 'Deleting…' : 'Delete'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      </div>
     </main>
   )
 }
@@ -590,7 +480,7 @@ function ChevronIcon({ expanded }: { expanded: boolean }) {
     <svg
       width="16" height="16" viewBox="0 0 24 24" fill="none"
       stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
-      className={cn('transition-transform duration-200', expanded ? 'rotate-180' : '')}
+      className={`text-gray-600 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}
     >
       <polyline points="6 9 12 15 18 9" />
     </svg>
@@ -615,19 +505,6 @@ function TrashIcon() {
       <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
       <path d="M10 11v6M14 11v6" />
       <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-    </svg>
-  )
-}
-
-function MicIcon() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"
-      className="text-white/25">
-      <rect x="9" y="2" width="6" height="12" rx="3" />
-      <path d="M5 10a7 7 0 0 0 14 0" />
-      <line x1="12" y1="19" x2="12" y2="22" />
-      <line x1="9" y1="22" x2="15" y2="22" />
     </svg>
   )
 }

@@ -4,12 +4,6 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import JSZip from 'jszip'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
-import { Progress } from '@/components/ui/progress'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { cn } from '@/lib/utils'
 
 const FETCH_TIMEOUT_MS = 300_000 // 5 min — long audio files take time
 
@@ -620,658 +614,549 @@ export default function ImportPage() {
   const textWorking = ['extracting', 'processing'].includes(textStatus)
 
   return (
-    <div className="min-h-dvh bg-[#08080E] pb-24 sm:pb-10">
+    <div className="min-h-dvh dark:bg-[#080810] bg-[#FAFAF7] pb-20 sm:pb-10">
       <div className="w-full max-w-2xl mx-auto px-4 sm:px-6 pt-6 sm:pt-8">
 
-        {/* ---- Page Header ---- */}
+        {/* Header */}
         <div className="mb-8 animate-step opacity-0" style={{ animationDelay: '0ms', animationFillMode: 'forwards' }}>
-          <h1 className="text-2xl font-bold tracking-tight text-white">Import</h1>
-          <p className="mt-1 text-sm text-white/60">Add content to your glossary from any source</p>
+          <h1 className="text-2xl font-bold tracking-tight dark:text-white text-gray-900">Import</h1>
+          <p className="mt-1 text-sm text-gray-500">Upload recordings, slides, or sync with Notion to build your glossary.</p>
         </div>
 
-        {/* ---- Tabs ---- */}
-        <div className="animate-step opacity-0" style={{ animationDelay: '60ms', animationFillMode: 'forwards' }}>
-          <Tabs defaultValue="youtube">
+        {/* Section 0: YouTube */}
+        <section className="mb-5 animate-step opacity-0" style={{ animationDelay: '60ms', animationFillMode: 'forwards' }}>
+          <div className="rounded-2xl dark:bg-white/[0.03] bg-black/[0.025] border dark:border-white/[0.07] border-black/[0.07] overflow-hidden">
+            <div className="px-5 pt-5 pb-4">
+              <div className="flex items-center gap-3 mb-1">
+                <span className="flex items-center justify-center w-8 h-8 rounded-xl bg-red-500/[0.12] text-red-400">
+                  <YouTubeIcon />
+                </span>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-[15px] font-semibold dark:text-white text-gray-900">YouTube Lecture</h2>
+                  <span className="text-[10px] font-bold tracking-[0.1em] dark:text-yellow-400 text-yellow-700 bg-yellow-600/15 border border-yellow-500/25 rounded-full px-2 py-0.5 uppercase">New</span>
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mt-1 ml-11">Paste any YouTube lecture URL. Demist reads the captions and detects unfamiliar terms — no recording needed.</p>
+            </div>
 
-            {/* Tab bar */}
-            <TabsList className="w-full mb-5">
-              <TabsTrigger value="youtube" className="flex-1">
-                <YouTubeIcon />
-                YouTube
-              </TabsTrigger>
-              <TabsTrigger value="audio" className="flex-1">
-                <MicIcon />
-                Audio
-              </TabsTrigger>
-              <TabsTrigger value="text" className="flex-1">
-                <SlidesIcon />
-                Files
-              </TabsTrigger>
-              <TabsTrigger value="notion" className="flex-1">
-                <NotionIcon />
-                Notion
-              </TabsTrigger>
-            </TabsList>
+            <div className="px-5 pb-2">
+              <div className="flex gap-2">
+                <input
+                  type="url"
+                  value={ytUrl}
+                  onChange={e => { setYtUrl(e.target.value); if (ytStatus === 'error' || ytStatus === 'ready') { setYtStatus('idle'); setYtMeta(null); setYtError(null) } }}
+                  onKeyDown={e => e.key === 'Enter' && ytUrl.trim() && ytStatus === 'idle' && handleYouTubeFetch()}
+                  placeholder="https://youtube.com/watch?v=..."
+                  className="flex-1 dark:bg-white/[0.04] bg-black/[0.03] border dark:border-white/[0.08] border-black/[0.08] rounded-xl px-3 py-2.5 text-[13px] dark:text-white text-gray-900 placeholder-gray-600 focus:outline-none focus:border-yellow-500/40 transition-colors"
+                />
+                <button
+                  onClick={handleYouTubeFetch}
+                  disabled={!ytUrl.trim() || ytStatus === 'fetching' || ytStatus === 'importing'}
+                  className="px-4 py-2.5 rounded-xl dark:bg-white/[0.05] bg-black/[0.04] border dark:border-white/[0.08] border-black/[0.08] text-[13px] font-medium text-gray-300 hover:dark:bg-white/[0.08] bg-black/[0.06] disabled:opacity-40 transition-colors shrink-0"
+                >
+                  {ytStatus === 'fetching' ? <span className="flex items-center gap-1.5"><SpinnerIcon />Fetching...</span> : 'Fetch'}
+                </button>
+              </div>
+            </div>
 
-            {/* ===== YouTube tab ===== */}
-            <TabsContent value="youtube">
-              <div className={cn(
-                'rounded-2xl border p-5 transition-colors',
-                ytStatus === 'importing' || ytStatus === 'fetching'
-                  ? 'bg-amber-500/[0.04] border-amber-500/[0.25]'
-                  : ytStatus === 'done'
-                  ? 'bg-emerald-500/[0.04] border-emerald-500/[0.25]'
-                  : ytStatus === 'error'
-                  ? 'bg-red-500/[0.04] border-red-500/[0.25]'
-                  : 'bg-white/[0.04] border-white/[0.08]'
-              )}>
-                {/* Header */}
-                <div className="flex items-start gap-3 mb-4">
-                  <span className="flex items-center justify-center w-8 h-8 rounded-xl bg-red-500/[0.12] text-red-400 shrink-0 mt-0.5">
-                    <YouTubeIcon />
-                  </span>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-[15px] font-semibold text-white">YouTube Lecture</h2>
-                      <Badge variant="new">New</Badge>
-                    </div>
-                    <p className="text-xs text-white/35 mt-0.5">
-                      Paste any YouTube lecture URL. Demist reads the captions and detects unfamiliar terms — no recording needed.
-                    </p>
+            {/* Video preview once fetched */}
+            {ytMeta && ytStatus !== 'idle' && ytStatus !== 'fetching' && (
+              <div className="mx-5 mb-3 dark:bg-white/[0.03] bg-black/[0.025] border dark:border-white/[0.06] border-black/[0.07] rounded-xl p-3 flex items-start gap-3">
+                {ytMeta.thumbnail && (
+                  <img src={ytMeta.thumbnail} alt="" className="w-20 h-14 object-cover rounded-lg shrink-0 dark:bg-white/[0.05] bg-black/[0.04]" />
+                )}
+                <div className="min-w-0">
+                  <p className="text-[13px] font-medium dark:text-white text-gray-900 truncate">{ytMeta.title}</p>
+                  <p className="text-[11px] text-gray-500 mt-0.5">{ytMeta.channel} · {ytMeta.duration_formatted}</p>
+                  <p className="text-[11px] text-gray-600 mt-0.5">~{ytMeta.word_count.toLocaleString()} words</p>
+                </div>
+              </div>
+            )}
+
+            {/* Progress bar during import */}
+            {(ytStatus === 'fetching' || ytStatus === 'importing') && (
+              <div className="mx-5 mb-3">
+                <div className="h-1 rounded-full dark:bg-white/[0.06] bg-black/[0.05] overflow-hidden">
+                  <div className="h-full rounded-full bg-red-500 transition-all duration-500 ease-out" style={{ width: `${ytProgress}%` }} />
+                </div>
+                <p className="text-[11px] text-gray-600 mt-1.5" aria-live="polite">
+                  {ytStatus === 'fetching' ? 'Fetching captions...' : 'Detecting terms...'}
+                </p>
+              </div>
+            )}
+
+            {/* Success state */}
+            {ytStatus === 'done' && ytResult && (
+              <div className="mx-5 mb-5 flex flex-col gap-2">
+                <div className="flex items-center gap-2 text-emerald-400">
+                  <CheckCircleIcon />
+                  <span className="text-sm font-medium">Imported successfully</span>
+                </div>
+                <p className="text-xs text-gray-400">
+                  {ytResult.term_count} term{ytResult.term_count !== 1 ? 's' : ''} detected.
+                  {ytResult.synopsis ? ' AI summary generated.' : ''}
+                </p>
+                <div className="flex items-center justify-between">
+                  <div className="flex gap-2">
+                    <button onClick={() => router.push('/history')} className="text-xs font-medium dark:text-yellow-400 text-yellow-700 hover:dark:text-yellow-300 text-yellow-700 transition-colors active:scale-[0.97]">View in History</button>
+                    <span className="text-gray-700">·</span>
+                    <button onClick={() => { setYtRedirect(null); setYtUrl(''); setYtStatus('idle'); setYtMeta(null); setYtResult(null) }} className="text-xs text-gray-500 hover:text-gray-400 transition-colors active:scale-[0.97]">Import another</button>
                   </div>
+                  {ytRedirect !== null && <span className="text-xs text-gray-600">Redirecting in {ytRedirect}s</span>}
                 </div>
+              </div>
+            )}
 
-                {/* URL input row */}
-                <div className="flex gap-2 mb-3">
-                  <Input
-                    type="url"
-                    value={ytUrl}
-                    onChange={e => {
-                      setYtUrl(e.target.value)
-                      if (ytStatus === 'error' || ytStatus === 'ready') {
-                        setYtStatus('idle'); setYtMeta(null); setYtError(null)
-                      }
-                    }}
-                    onKeyDown={e => e.key === 'Enter' && ytUrl.trim() && ytStatus === 'idle' && handleYouTubeFetch()}
-                    placeholder="https://youtube.com/watch?v=..."
-                    className="flex-1"
-                  />
-                  <Button
-                    variant="secondary"
-                    onClick={handleYouTubeFetch}
-                    disabled={!ytUrl.trim() || ytStatus === 'fetching' || ytStatus === 'importing'}
-                    className="shrink-0"
-                  >
-                    {ytStatus === 'fetching' ? <><SpinnerIcon />Fetching...</> : 'Fetch'}
-                  </Button>
-                </div>
+            {ytError && <p className="mx-5 mb-4 text-xs text-red-400" role="alert">{ytError}</p>}
 
-                {/* Video preview */}
-                {ytMeta && ytStatus !== 'idle' && ytStatus !== 'fetching' && (
-                  <div className="bg-white/[0.04] border border-white/[0.08] rounded-xl p-3 flex items-start gap-3 mb-3">
-                    {ytMeta.thumbnail && (
-                      <img
-                        src={ytMeta.thumbnail}
-                        alt=""
-                        className="w-20 h-14 object-cover rounded-lg shrink-0 bg-white/[0.05]"
-                      />
+            {/* Import button — shown once video is fetched */}
+            {ytMeta && (ytStatus === 'ready' || ytStatus === 'error') && (
+              <div className="px-5 pb-5">
+                <button
+                  onClick={handleYouTubeImport}
+                  className="w-full h-10 rounded-xl text-sm font-semibold bg-red-600 hover:bg-red-500 dark:text-white text-gray-900 transition-colors active:scale-[0.97]"
+                >
+                  Import this lecture
+                </button>
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* Section 1: Audio */}
+        <section className="mb-5 animate-step opacity-0" style={{ animationDelay: '90ms', animationFillMode: 'forwards' }}>
+          <div className="rounded-2xl dark:bg-white/[0.03] bg-black/[0.025] border dark:border-white/[0.07] border-black/[0.07] overflow-hidden">
+            <div className="px-5 pt-5 pb-4">
+              <div className="flex items-center gap-3 mb-1">
+                <span className="flex items-center justify-center w-8 h-8 rounded-xl bg-yellow-500/[0.12] dark:text-yellow-400 text-yellow-700">
+                  <MicIcon />
+                </span>
+                <h2 className="text-[15px] font-semibold dark:text-white text-gray-900">Lecture Recording</h2>
+              </div>
+              <p className="text-xs text-gray-500 mt-1 ml-11">MP3, WAV, MP4, M4A, WebM, OGG — up to 50 MB. At typical browser recording quality (WebM/opus) that covers roughly 2–3 hours. Large files are transcribed in segments automatically.</p>
+            </div>
+
+            <div
+              {...audioDropHandlers}
+              className={`mx-5 mb-5 rounded-xl border-2 border-dashed transition-colors duration-150 ${
+                audioDragOver ? 'border-yellow-500/50 bg-yellow-500/[0.05]' : 'dark:border-white/[0.08] border-black/[0.08] bg-white/[0.02]'
+              } ${audioFile ? '' : 'cursor-pointer'}`}
+              onClick={() => { if (!audioFile) document.getElementById('audio-input')?.click() }}
+            >
+              <input
+                id="audio-input"
+                type="file"
+                accept=".mp3,.wav,.mp4,.m4a,.webm,.ogg"
+                className="sr-only"
+                onChange={e => {
+                  const f = e.target.files?.[0] ?? null
+                  setAudioFile(f)
+                  setAudioStatus('idle')
+                  setAudioError(null)
+                  setAudioResult(null)
+                }}
+              />
+
+              {audioStatus === 'done' && audioResult ? (
+                <div className="p-5 flex flex-col gap-3">
+                  <div className="flex items-center gap-2 text-emerald-400">
+                    <CheckCircleIcon />
+                    <span className="text-sm font-medium">Imported successfully</span>
+                  </div>
+                  <p className="text-xs text-gray-400">
+                    {audioResult.term_count} term{audioResult.term_count !== 1 ? 's' : ''} detected.
+                    {audioResult.synopsis ? ' AI summary generated.' : ''}
+                  </p>
+                  <div className="flex items-center justify-between">
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => router.push('/history')}
+                        className="text-xs font-medium dark:text-yellow-400 text-yellow-700 hover:dark:text-yellow-300 text-yellow-700 transition-colors duration-150 active:scale-[0.97]"
+                      >
+                        View in History
+                      </button>
+                      <span className="text-gray-700">·</span>
+                      <button
+                        onClick={() => { setAudioRedirect(null); setAudioFile(null); setAudioStatus('idle'); setAudioResult(null) }}
+                        className="text-xs text-gray-500 hover:text-gray-400 transition-colors duration-150 active:scale-[0.97]"
+                      >
+                        Upload another
+                      </button>
+                    </div>
+                    {audioRedirect !== null && (
+                      <span className="text-xs text-gray-600">Redirecting in {audioRedirect}s</span>
                     )}
+                  </div>
+                </div>
+              ) : audioFile ? (
+                <div className="p-5 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="flex-shrink-0 dark:text-yellow-400 text-yellow-700"><AudioFileIcon /></span>
                     <div className="min-w-0">
-                      <p className="text-[13px] font-medium text-white truncate">{ytMeta.title}</p>
-                      <p className="text-[11px] text-white/60 mt-0.5">{ytMeta.channel} · {ytMeta.duration_formatted}</p>
-                      <p className="text-[11px] text-white/35 mt-0.5">~{ytMeta.word_count.toLocaleString()} words</p>
+                      <p className="text-sm font-medium dark:text-white text-gray-900 truncate">{audioFile.name}</p>
+                      <p className="text-xs text-gray-500">
+                    {(audioFile.size / 1024 / 1024).toFixed(1)} MB
+                    {audioFile.size > 20 * 1024 * 1024 && (
+                      <span className="ml-1.5 text-amber-500/70">· will be split into segments</span>
+                    )}
+                  </p>
                     </div>
                   </div>
-                )}
-
-                {/* Progress */}
-                {(ytStatus === 'fetching' || ytStatus === 'importing') && (
-                  <div className="mb-3 space-y-1.5">
-                    <Progress value={ytProgress} />
-                    <p className="text-[11px] text-white/35" aria-live="polite">
-                      {ytStatus === 'fetching' ? 'Fetching captions...' : 'Detecting terms...'}
-                    </p>
-                  </div>
-                )}
-
-                {/* Success */}
-                {ytStatus === 'done' && ytResult && (
-                  <div className="bg-emerald-500/[0.04] border border-emerald-500/[0.25] rounded-xl p-4 mb-3">
-                    <div className="flex items-center gap-2 text-emerald-400 mb-1">
-                      <CheckCircleIcon />
-                      <span className="text-sm font-medium">Imported successfully</span>
-                    </div>
-                    <p className="text-xs text-white/60 mb-3">
-                      {ytResult.term_count} term{ytResult.term_count !== 1 ? 's' : ''} detected.
-                      {ytResult.synopsis ? ' AI summary generated.' : ''}
-                    </p>
-                    <div className="flex items-center justify-between">
-                      <div className="flex gap-3">
-                        <Button variant="link" size="sm" onClick={() => router.push('/history')} className="h-auto p-0 text-xs">
-                          View in History
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => { setYtRedirect(null); setYtUrl(''); setYtStatus('idle'); setYtMeta(null); setYtResult(null) }}
-                          className="h-auto p-0 text-xs text-white/35 hover:text-white/60"
-                        >
-                          Import another
-                        </Button>
-                      </div>
-                      {ytRedirect !== null && <span className="text-xs text-white/35">Redirecting in {ytRedirect}s</span>}
-                    </div>
-                  </div>
-                )}
-
-                {/* Error */}
-                {ytError && (
-                  <div className="bg-red-500/[0.04] border border-red-500/[0.25] rounded-xl px-4 py-3 mb-3" role="alert">
-                    <p className="text-xs text-red-400">{ytError}</p>
-                  </div>
-                )}
-
-                {/* Import button */}
-                {ytMeta && (ytStatus === 'ready' || ytStatus === 'error') && (
-                  <Button onClick={handleYouTubeImport} className="w-full bg-red-600 hover:bg-red-500 shadow-none hover:shadow-none">
-                    Import this lecture
-                  </Button>
-                )}
-              </div>
-            </TabsContent>
-
-            {/* ===== Audio tab ===== */}
-            <TabsContent value="audio">
-              <div className={cn(
-                'rounded-2xl border p-5 transition-colors',
-                audioWorking
-                  ? 'bg-amber-500/[0.04] border-amber-500/[0.25]'
-                  : audioStatus === 'done'
-                  ? 'bg-emerald-500/[0.04] border-emerald-500/[0.25]'
-                  : audioStatus === 'error'
-                  ? 'bg-red-500/[0.04] border-red-500/[0.25]'
-                  : 'bg-white/[0.04] border-white/[0.08]'
-              )}>
-                {/* Header */}
-                <div className="flex items-start gap-3 mb-4">
-                  <span className="flex items-center justify-center w-8 h-8 rounded-xl bg-amber-500/[0.12] text-amber-400 shrink-0 mt-0.5">
-                    <MicIcon />
-                  </span>
-                  <div>
-                    <h2 className="text-[15px] font-semibold text-white">Lecture Recording</h2>
-                    <p className="text-xs text-white/35 mt-0.5">
-                      MP3, WAV, MP4, M4A, WebM, OGG — up to 50 MB. Large files are transcribed in segments automatically.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Drag-drop zone */}
-                <div
-                  {...audioDropHandlers}
-                  className={cn(
-                    'rounded-2xl border-2 border-dashed transition-colors duration-150 mb-4',
-                    audioDragOver
-                      ? 'border-amber-500/[0.40] bg-amber-500/[0.04]'
-                      : 'border-white/[0.10]',
-                    !audioFile && 'cursor-pointer'
-                  )}
-                  onClick={() => { if (!audioFile) document.getElementById('audio-input')?.click() }}
-                >
-                  <input
-                    id="audio-input"
-                    type="file"
-                    accept=".mp3,.wav,.mp4,.m4a,.webm,.ogg"
-                    className="sr-only"
-                    onChange={e => {
-                      const f = e.target.files?.[0] ?? null
-                      setAudioFile(f)
-                      setAudioStatus('idle')
-                      setAudioError(null)
-                      setAudioResult(null)
-                    }}
-                  />
-
-                  {/* Success state inside drop zone */}
-                  {audioStatus === 'done' && audioResult ? (
-                    <div className="p-5 flex flex-col gap-3">
-                      <div className="flex items-center gap-2 text-emerald-400">
-                        <CheckCircleIcon />
-                        <span className="text-sm font-medium">Imported successfully</span>
-                      </div>
-                      <p className="text-xs text-white/60">
-                        {audioResult.term_count} term{audioResult.term_count !== 1 ? 's' : ''} detected.
-                        {audioResult.synopsis ? ' AI summary generated.' : ''}
-                      </p>
-                      <div className="flex items-center justify-between">
-                        <div className="flex gap-3">
-                          <Button variant="link" size="sm" onClick={() => router.push('/history')} className="h-auto p-0 text-xs">
-                            View in History
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => { setAudioRedirect(null); setAudioFile(null); setAudioStatus('idle'); setAudioResult(null) }}
-                            className="h-auto p-0 text-xs text-white/35 hover:text-white/60"
-                          >
-                            Upload another
-                          </Button>
-                        </div>
-                        {audioRedirect !== null && (
-                          <span className="text-xs text-white/35">Redirecting in {audioRedirect}s</span>
-                        )}
-                      </div>
-                    </div>
-
-                  /* File selected */
-                  ) : audioFile ? (
-                    <div className="p-4 flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <span className="flex-shrink-0 text-amber-400"><AudioFileIcon /></span>
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-white truncate">{audioFile.name}</p>
-                          <p className="text-xs text-white/60">
-                            {(audioFile.size / 1024 / 1024).toFixed(1)} MB
-                            {audioFile.size > 20 * 1024 * 1024 && (
-                              <span className="ml-1.5 text-amber-400/70">· will be split into segments</span>
-                            )}
-                          </p>
-                        </div>
-                      </div>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setAudioFile(null); setAudioStatus('idle'); setAudioError(null) }}
-                        className="flex-shrink-0 text-white/35 hover:text-white/60 transition-colors active:scale-[0.97]"
-                      >
-                        <CloseIcon />
-                      </button>
-                    </div>
-
-                  /* Empty state */
-                  ) : (
-                    <div className="p-8 flex flex-col items-center gap-2 text-center">
-                      <span className="text-white/35 mb-1"><CloudUploadIcon /></span>
-                      <p className="text-sm text-white/60">
-                        Drop audio file or <span className="text-amber-400">click to browse</span>
-                      </p>
-                      <p className="text-xs text-white/35">MP3, WAV, MP4, M4A, WebM, OGG · up to 50 MB</p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Progress bar */}
-                {audioWorking && (
-                  <div className="mb-4 space-y-1.5">
-                    <Progress value={audioProgress} />
-                    <p className="text-[11px] text-white/35" aria-live="polite">{audioLabel[audioStatus]}</p>
-                  </div>
-                )}
-
-                {/* Error */}
-                {audioError && (
-                  <div className="bg-red-500/[0.04] border border-red-500/[0.25] rounded-xl px-4 py-3 mb-4" role="alert">
-                    <p className="text-xs text-red-400">{audioError}</p>
-                  </div>
-                )}
-
-                {/* Upload button */}
-                {audioFile && audioStatus !== 'done' && (
-                  <Button
-                    onClick={handleAudioUpload}
-                    disabled={audioWorking}
-                    className={cn('w-full', audioWorking && 'bg-amber-500/30 text-amber-300 shadow-none hover:bg-amber-500/30 hover:shadow-none')}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setAudioFile(null); setAudioStatus('idle'); setAudioError(null) }}
+                    className="flex-shrink-0 text-gray-600 hover:text-gray-400 transition-colors duration-150 active:scale-[0.97]"
                   >
-                    {audioWorking ? <><SpinnerIcon />{audioLabel[audioStatus]}</> : audioLabel[audioStatus]}
-                  </Button>
-                )}
-              </div>
-            </TabsContent>
-
-            {/* ===== Text / Files tab ===== */}
-            <TabsContent value="text">
-              <div className={cn(
-                'rounded-2xl border p-5 transition-colors',
-                textWorking
-                  ? 'bg-amber-500/[0.04] border-amber-500/[0.25]'
-                  : textStatus === 'done'
-                  ? 'bg-emerald-500/[0.04] border-emerald-500/[0.25]'
-                  : textStatus === 'error'
-                  ? 'bg-red-500/[0.04] border-red-500/[0.25]'
-                  : 'bg-white/[0.04] border-white/[0.08]'
-              )}>
-                {/* Header */}
-                <div className="flex items-start gap-3 mb-4">
-                  <span className="flex items-center justify-center w-8 h-8 rounded-xl bg-amber-500/[0.12] text-amber-400 shrink-0 mt-0.5">
-                    <SlidesIcon />
-                  </span>
-                  <div>
-                    <h2 className="text-[15px] font-semibold text-white">Slides or Transcript</h2>
-                    <p className="text-xs text-white/35 mt-0.5">
-                      PPTX, DOCX, or TXT. Text is extracted locally then processed for terms.
-                    </p>
-                  </div>
+                    <CloseIcon />
+                  </button>
                 </div>
+              ) : (
+                <div className="p-8 flex flex-col items-center gap-2 text-center">
+                  <span className="text-gray-600"><UploadIcon /></span>
+                  <p className="text-sm text-gray-500">Drag a recording here or <span className="dark:text-yellow-400 text-yellow-700">browse</span></p>
+                  <p className="text-xs text-gray-600">MP3, WAV, MP4, M4A, WebM, OGG · up to 50 MB</p>
+                </div>
+              )}
+            </div>
 
-                {/* Drag-drop zone */}
-                <div
-                  {...textDropHandlers}
-                  className={cn(
-                    'rounded-2xl border-2 border-dashed transition-colors duration-150 mb-4',
-                    textDragOver
-                      ? 'border-amber-500/[0.40] bg-amber-500/[0.04]'
-                      : 'border-white/[0.10]',
-                    !textFile && 'cursor-pointer'
-                  )}
-                  onClick={() => { if (!textFile) document.getElementById('text-input')?.click() }}
-                >
-                  <input
-                    id="text-input"
-                    type="file"
-                    accept=".pptx,.docx,.txt"
-                    className="sr-only"
-                    onChange={e => {
-                      const f = e.target.files?.[0] ?? null
-                      setTextFile(f)
-                      setTextStatus('idle')
-                      setTextError(null)
-                      setTextResult(null)
-                    }}
+            {audioWorking && (
+              <div className="mx-5 mb-3">
+                <div className="h-1 rounded-full dark:bg-white/[0.06] bg-black/[0.05] overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-yellow-500 transition-all duration-500 ease-out"
+                    style={{ width: `${audioProgress}%` }}
                   />
-
-                  {/* Success state inside drop zone */}
-                  {textStatus === 'done' && textResult ? (
-                    <div className="p-5 flex flex-col gap-3">
-                      <div className="flex items-center gap-2 text-emerald-400">
-                        <CheckCircleIcon />
-                        <span className="text-sm font-medium">Imported successfully</span>
-                      </div>
-                      <p className="text-xs text-white/60">
-                        {textResult.term_count} term{textResult.term_count !== 1 ? 's' : ''} detected.
-                        {textResult.synopsis ? ' AI summary generated.' : ''}
-                      </p>
-                      <div className="flex items-center justify-between">
-                        <div className="flex gap-3">
-                          <Button variant="link" size="sm" onClick={() => router.push('/history')} className="h-auto p-0 text-xs">
-                            View in History
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => { setTextRedirect(null); setTextFile(null); setTextStatus('idle'); setTextResult(null) }}
-                            className="h-auto p-0 text-xs text-white/35 hover:text-white/60"
-                          >
-                            Upload another
-                          </Button>
-                        </div>
-                        {textRedirect !== null && (
-                          <span className="text-xs text-white/35">Redirecting in {textRedirect}s</span>
-                        )}
-                      </div>
-                    </div>
-
-                  /* File selected */
-                  ) : textFile ? (
-                    <div className="p-4 flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <span className="flex-shrink-0 text-amber-400"><DocFileIcon /></span>
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-white truncate">{textFile.name}</p>
-                          <p className="text-xs text-white/60">{(textFile.size / 1024).toFixed(0)} KB</p>
-                        </div>
-                      </div>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setTextFile(null); setTextStatus('idle'); setTextError(null) }}
-                        className="flex-shrink-0 text-white/35 hover:text-white/60 transition-colors active:scale-[0.97]"
-                      >
-                        <CloseIcon />
-                      </button>
-                    </div>
-
-                  /* Empty state */
-                  ) : (
-                    <div className="p-8 flex flex-col items-center gap-2 text-center">
-                      <span className="text-white/35 mb-1"><CloudUploadIcon /></span>
-                      <p className="text-sm text-white/60">
-                        Drop a file or <span className="text-amber-400">browse</span>
-                      </p>
-                      <p className="text-xs text-white/35">PPTX, DOCX, TXT</p>
-                    </div>
-                  )}
                 </div>
-
-                {/* Progress */}
-                {textWorking && (
-                  <div className="mb-4 space-y-1.5">
-                    <Progress value={textProgress} />
-                    <p className="text-[11px] text-white/35" aria-live="polite">{textLabel[textStatus]}</p>
-                  </div>
-                )}
-
-                {/* Error */}
-                {textError && (
-                  <div className="bg-red-500/[0.04] border border-red-500/[0.25] rounded-xl px-4 py-3 mb-4" role="alert">
-                    <p className="text-xs text-red-400">{textError}</p>
-                  </div>
-                )}
-
-                {/* Process button */}
-                {textFile && textStatus !== 'done' && (
-                  <Button
-                    onClick={handleTextUpload}
-                    disabled={textWorking}
-                    className={cn('w-full', textWorking && 'bg-amber-500/30 text-amber-300 shadow-none hover:bg-amber-500/30 hover:shadow-none')}
-                  >
-                    {textWorking ? <><SpinnerIcon />{textLabel[textStatus]}</> : textLabel[textStatus]}
-                  </Button>
-                )}
+                <p className="text-[11px] text-gray-600 mt-1.5" aria-live="polite">{audioLabel[audioStatus]}</p>
               </div>
-            </TabsContent>
+            )}
 
-            {/* ===== Notion tab ===== */}
-            <TabsContent value="notion">
-              <div className="rounded-2xl bg-white/[0.04] border border-white/[0.08] p-5">
-                {/* Header */}
-                <div className="flex items-start justify-between mb-1">
-                  <div className="flex items-start gap-3">
-                    <span className="flex items-center justify-center w-8 h-8 rounded-xl bg-white/[0.06] shrink-0 mt-0.5">
-                      <NotionIcon />
+            {audioError && (
+              <p className="mx-5 mb-4 text-xs text-red-400" role="alert">{audioError}</p>
+            )}
+
+            {audioFile && audioStatus !== 'done' && (
+              <div className="px-5 pb-5">
+                <button
+                  onClick={handleAudioUpload}
+                  disabled={audioWorking}
+                  className={`w-full h-10 rounded-xl text-sm font-semibold transition-colors duration-150 active:scale-[0.97] ${
+                    audioWorking
+                      ? 'bg-yellow-500/30 dark:text-yellow-300 text-yellow-700 cursor-not-allowed'
+                      : 'bg-yellow-600 hover:bg-yellow-500 dark:text-white text-gray-900'
+                  }`}
+                >
+                  {audioWorking ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <SpinnerIcon />
+                      {audioLabel[audioStatus]}
                     </span>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h2 className="text-[15px] font-semibold text-white">Notion</h2>
-                        {notionIntegration && (
-                          <Badge variant="success">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
-                            Connected
-                          </Badge>
-                        )}
-                      </div>
-                      {notionIntegration ? (
-                        <p className="text-xs text-white/35 mt-0.5">
-                          {notionIntegration.workspace_name
-                            ? `Workspace: ${notionIntegration.workspace_name}`
-                            : 'Connected'}
-                        </p>
-                      ) : (
-                        <p className="text-xs text-white/35 mt-0.5">
-                          Export your glossary and summaries, or import notes from a Notion page.
-                        </p>
-                      )}
+                  ) : audioLabel[audioStatus]}
+                </button>
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* Section 2: PPTX / Transcript */}
+        <section className="mb-5 animate-step opacity-0" style={{ animationDelay: '150ms', animationFillMode: 'forwards' }}>
+          <div className="rounded-2xl dark:bg-white/[0.03] bg-black/[0.025] border dark:border-white/[0.07] border-black/[0.07] overflow-hidden">
+            <div className="px-5 pt-5 pb-4">
+              <div className="flex items-center gap-3 mb-1">
+                <span className="flex items-center justify-center w-8 h-8 rounded-xl bg-yellow-500/[0.12] dark:text-yellow-400 text-yellow-700">
+                  <SlidesIcon />
+                </span>
+                <h2 className="text-[15px] font-semibold dark:text-white text-gray-900">Slides or Transcript</h2>
+              </div>
+              <p className="text-xs text-gray-500 mt-1 ml-11">PPTX, DOCX, or TXT. Text is extracted locally then processed for terms.</p>
+            </div>
+
+            <div
+              {...textDropHandlers}
+              className={`mx-5 mb-5 rounded-xl border-2 border-dashed transition-colors duration-150 ${
+                textDragOver ? 'border-yellow-500/50 bg-yellow-500/[0.05]' : 'dark:border-white/[0.08] border-black/[0.08] bg-white/[0.02]'
+              } ${textFile ? '' : 'cursor-pointer'}`}
+              onClick={() => { if (!textFile) document.getElementById('text-input')?.click() }}
+            >
+              <input
+                id="text-input"
+                type="file"
+                accept=".pptx,.docx,.txt"
+                className="sr-only"
+                onChange={e => {
+                  const f = e.target.files?.[0] ?? null
+                  setTextFile(f)
+                  setTextStatus('idle')
+                  setTextError(null)
+                  setTextResult(null)
+                }}
+              />
+
+              {textStatus === 'done' && textResult ? (
+                <div className="p-5 flex flex-col gap-3">
+                  <div className="flex items-center gap-2 text-emerald-400">
+                    <CheckCircleIcon />
+                    <span className="text-sm font-medium">Imported successfully</span>
+                  </div>
+                  <p className="text-xs text-gray-400">
+                    {textResult.term_count} term{textResult.term_count !== 1 ? 's' : ''} detected.
+                    {textResult.synopsis ? ' AI summary generated.' : ''}
+                  </p>
+                  <div className="flex items-center justify-between">
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => router.push('/history')}
+                        className="text-xs font-medium dark:text-yellow-400 text-yellow-700 hover:dark:text-yellow-300 text-yellow-700 transition-colors duration-150 active:scale-[0.97]"
+                      >
+                        View in History
+                      </button>
+                      <span className="text-gray-700">·</span>
+                      <button
+                        onClick={() => { setTextRedirect(null); setTextFile(null); setTextStatus('idle'); setTextResult(null) }}
+                        className="text-xs text-gray-500 hover:text-gray-400 transition-colors duration-150 active:scale-[0.97]"
+                      >
+                        Upload another
+                      </button>
                     </div>
+                    {textRedirect !== null && (
+                      <span className="text-xs text-gray-600">Redirecting in {textRedirect}s</span>
+                    )}
                   </div>
                 </div>
-
-                {/* Connection message */}
-                {notionConnectMsg && (
-                  <div className={cn(
-                    'rounded-xl px-4 py-3 mb-4 mt-3 text-xs',
-                    notionConnectMsg.includes('failed') || notionConnectMsg.includes('failed')
-                      ? 'bg-red-500/[0.04] border border-red-500/[0.25] text-red-400'
-                      : 'bg-emerald-500/[0.04] border border-emerald-500/[0.25] text-emerald-400'
-                  )}>
-                    {notionConnectMsg}
-                  </div>
-                )}
-
-                {!notionIntegration ? (
-                  /* Connect button */
-                  <div className="mt-5">
-                    <Button variant="secondary" className="w-full" asChild>
-                      <a href="/api/notion">
-                        <NotionIcon />
-                        Connect Notion
-                      </a>
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="flex flex-col gap-4 mt-5">
-
-                    {/* Export section */}
-                    <div>
-                      <p className="text-[13px] font-semibold text-white/50 uppercase tracking-wide mb-3">Export to Notion</p>
-                      <div className="flex flex-col sm:flex-row gap-2">
-                        {/* Export Glossary */}
-                        <Button
-                          onClick={() => handleNotionPush('glossary')}
-                          disabled={glossaryPushStatus === 'pushing'}
-                          variant={
-                            glossaryPushStatus === 'done' ? 'ghost'
-                            : glossaryPushStatus === 'error' ? 'destructive'
-                            : 'secondary'
-                          }
-                          size="sm"
-                          className={cn(
-                            'flex-1',
-                            glossaryPushStatus === 'done' && 'text-emerald-400 hover:text-emerald-400 bg-emerald-500/[0.08] border border-emerald-500/[0.20] hover:bg-emerald-500/[0.12]'
-                          )}
-                        >
-                          {glossaryPushStatus === 'pushing' ? (
-                            <><SpinnerIcon />Exporting...</>
-                          ) : glossaryPushStatus === 'done' ? (
-                            <>
-                              <CheckCircleIcon />
-                              {glossaryPageUrl
-                                ? <a href={glossaryPageUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>Glossary exported</a>
-                                : 'Glossary exported'
-                              }
-                            </>
-                          ) : glossaryPushStatus === 'error' ? 'Export failed — retry'
-                          : 'Export Glossary'}
-                        </Button>
-
-                        {/* Export Summaries */}
-                        <Button
-                          onClick={() => handleNotionPush('summaries')}
-                          disabled={summaryPushStatus === 'pushing'}
-                          variant={
-                            summaryPushStatus === 'done' ? 'ghost'
-                            : summaryPushStatus === 'error' ? 'destructive'
-                            : 'secondary'
-                          }
-                          size="sm"
-                          className={cn(
-                            'flex-1',
-                            summaryPushStatus === 'done' && 'text-emerald-400 hover:text-emerald-400 bg-emerald-500/[0.08] border border-emerald-500/[0.20] hover:bg-emerald-500/[0.12]'
-                          )}
-                        >
-                          {summaryPushStatus === 'pushing' ? (
-                            <><SpinnerIcon />Exporting...</>
-                          ) : summaryPushStatus === 'done' ? (
-                            <>
-                              <CheckCircleIcon />
-                              {summaryPageUrl
-                                ? <a href={summaryPageUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>Summaries exported</a>
-                                : 'Summaries exported'
-                              }
-                            </>
-                          ) : summaryPushStatus === 'error' ? 'Export failed — retry'
-                          : 'Export Summaries'}
-                        </Button>
-                      </div>
+              ) : textFile ? (
+                <div className="p-5 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="flex-shrink-0 dark:text-yellow-400 text-yellow-700"><DocFileIcon /></span>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium dark:text-white text-gray-900 truncate">{textFile.name}</p>
+                      <p className="text-xs text-gray-500">{(textFile.size / 1024).toFixed(0)} KB</p>
                     </div>
-
-                    {/* Import section */}
-                    <div>
-                      <p className="text-[13px] font-semibold text-white/50 uppercase tracking-wide mb-3">Import from Notion</p>
-
-                      {notionPages.length === 0 ? (
-                        <Button
-                          variant="secondary"
-                          onClick={loadNotionPages}
-                          disabled={notionPullStatus === 'loading_pages'}
-                          className="w-full"
-                          size="sm"
-                        >
-                          {notionPullStatus === 'loading_pages'
-                            ? <><SpinnerIcon />Loading pages...</>
-                            : 'Browse my Notion pages'
-                          }
-                        </Button>
-                      ) : (
-                        <div className="flex flex-col gap-2">
-                          <select
-                            value={selectedPageId}
-                            onChange={e => setSelectedPageId(e.target.value)}
-                            className="w-full h-10 rounded-xl bg-white/[0.04] border border-white/[0.09] text-sm text-white/80 px-3.5 focus:outline-none focus:border-amber-500/50 transition-colors appearance-none"
-                          >
-                            {notionPages.map(p => (
-                              <option key={p.id} value={p.id} className="bg-[#0d0d1c]">{p.title}</option>
-                            ))}
-                          </select>
-
-                          {notionPullStatus === 'done' && notionPullResult ? (
-                            <div className="bg-emerald-500/[0.04] border border-emerald-500/[0.25] rounded-xl px-4 py-3 flex items-center justify-between">
-                              <span className="text-xs text-emerald-400 flex items-center gap-1.5">
-                                <CheckCircleIcon />
-                                {notionPullResult.term_count} terms detected
-                              </span>
-                              <Button variant="link" size="sm" onClick={() => router.push('/history')} className="h-auto p-0 text-xs">
-                                View in History
-                              </Button>
-                            </div>
-                          ) : (
-                            <Button
-                              onClick={handleNotionImport}
-                              disabled={!selectedPageId || notionPullStatus === 'importing'}
-                              size="sm"
-                              className={cn(
-                                'w-full',
-                                notionPullStatus === 'importing' && 'bg-amber-500/30 text-amber-300 shadow-none hover:bg-amber-500/30 hover:shadow-none'
-                              )}
-                            >
-                              {notionPullStatus === 'importing'
-                                ? <><SpinnerIcon />Importing...</>
-                                : 'Import Selected Page'
-                              }
-                            </Button>
-                          )}
-
-                          {notionPullError && (
-                            <div className="bg-red-500/[0.04] border border-red-500/[0.25] rounded-xl px-4 py-3" role="alert">
-                              <p className="text-xs text-red-400">{notionPullError}</p>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Disconnect */}
-                    <div className="pt-2 border-t border-white/[0.05]">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleDisconnectNotion}
-                        className="text-white/35 hover:text-white/60 h-auto p-0 text-xs"
-                      >
-                        Disconnect Notion
-                      </Button>
-                    </div>
-
                   </div>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setTextFile(null); setTextStatus('idle'); setTextError(null) }}
+                    className="flex-shrink-0 text-gray-600 hover:text-gray-400 transition-colors duration-150 active:scale-[0.97]"
+                  >
+                    <CloseIcon />
+                  </button>
+                </div>
+              ) : (
+                <div className="p-8 flex flex-col items-center gap-2 text-center">
+                  <span className="text-gray-600"><UploadIcon /></span>
+                  <p className="text-sm text-gray-500">Drag a file here or <span className="dark:text-yellow-400 text-yellow-700">browse</span></p>
+                  <p className="text-xs text-gray-600">PPTX, DOCX, TXT</p>
+                </div>
+              )}
+            </div>
+
+            {textWorking && (
+              <div className="mx-5 mb-3">
+                <div className="h-1 rounded-full dark:bg-white/[0.06] bg-black/[0.05] overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-yellow-500 transition-all duration-500 ease-out"
+                    style={{ width: `${textProgress}%` }}
+                  />
+                </div>
+                <p className="text-[11px] text-gray-600 mt-1.5" aria-live="polite">{textLabel[textStatus]}</p>
+              </div>
+            )}
+
+            {textError && (
+              <p className="mx-5 mb-4 text-xs text-red-400" role="alert">{textError}</p>
+            )}
+
+            {textFile && textStatus !== 'done' && (
+              <div className="px-5 pb-5">
+                <button
+                  onClick={handleTextUpload}
+                  disabled={textWorking}
+                  className={`w-full h-10 rounded-xl text-sm font-semibold transition-colors duration-150 active:scale-[0.97] ${
+                    textWorking
+                      ? 'bg-yellow-500/30 dark:text-yellow-300 text-yellow-700 cursor-not-allowed'
+                      : 'bg-yellow-600 hover:bg-yellow-500 dark:text-white text-gray-900'
+                  }`}
+                >
+                  {textWorking ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <SpinnerIcon />
+                      {textLabel[textStatus]}
+                    </span>
+                  ) : textLabel[textStatus]}
+                </button>
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* Section 3: Notion Sync */}
+        <section className="animate-step opacity-0" style={{ animationDelay: '210ms', animationFillMode: 'forwards' }}>
+          <div className="rounded-2xl dark:bg-white/[0.03] bg-black/[0.025] border dark:border-white/[0.07] border-black/[0.07] overflow-hidden">
+            <div className="px-5 pt-5 pb-5">
+              <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center gap-3">
+                  <span className="flex items-center justify-center w-8 h-8 rounded-xl dark:bg-white/[0.06] bg-black/[0.05]">
+                    <NotionIcon />
+                  </span>
+                  <h2 className="text-[15px] font-semibold dark:text-white text-gray-900">Notion</h2>
+                </div>
+                {notionIntegration && (
+                  <span className="flex items-center gap-1.5 text-xs text-emerald-400 bg-emerald-500/[0.1] px-2.5 py-1 rounded-full">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
+                    Connected
+                  </span>
                 )}
               </div>
-            </TabsContent>
 
-          </Tabs>
-        </div>
+              {notionIntegration && (
+                <p className="text-xs text-gray-500 ml-11 mb-5">
+                  {notionIntegration.workspace_name ? `Workspace: ${notionIntegration.workspace_name}` : 'Connected'}
+                </p>
+              )}
+
+              {!notionIntegration && (
+                <p className="text-xs text-gray-500 mt-1 ml-11 mb-5">
+                  Connect to export your glossary and summaries, or import notes from a Notion page.
+                </p>
+              )}
+
+              {notionConnectMsg && (
+                <p className={`text-xs mb-4 ${notionConnectMsg.includes('failed') ? 'text-red-400' : 'text-emerald-400'}`}>
+                  {notionConnectMsg}
+                </p>
+              )}
+
+              {!notionIntegration ? (
+                <a
+                  href="/api/notion"
+                  className="flex items-center justify-center gap-2 w-full h-10 rounded-xl dark:bg-white/[0.05] bg-black/[0.04] hover:dark:bg-white/[0.08] bg-black/[0.06] border dark:border-white/[0.08] border-black/[0.08] text-sm font-medium dark:text-white text-gray-900 transition-colors duration-150 active:scale-[0.97]"
+                >
+                  <NotionIcon />
+                  Connect Notion
+                </a>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {/* Push section */}
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-600">Export to Notion</p>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <button
+                      onClick={() => handleNotionPush('glossary')}
+                      disabled={glossaryPushStatus === 'pushing'}
+                      className={`flex-1 h-9 rounded-xl text-xs font-semibold border transition-colors duration-150 active:scale-[0.97] ${
+                        glossaryPushStatus === 'done'
+                          ? 'bg-emerald-500/[0.1] border-emerald-500/20 text-emerald-400'
+                          : glossaryPushStatus === 'error'
+                          ? 'bg-red-500/[0.08] border-red-500/20 text-red-400'
+                          : 'dark:bg-white/[0.03] bg-black/[0.025] dark:border-white/[0.08] border-black/[0.08] text-gray-300 hover:dark:bg-white/[0.05] bg-black/[0.04]'
+                      }`}
+                    >
+                      {glossaryPushStatus === 'pushing' ? (
+                        <span className="flex items-center justify-center gap-1.5"><SpinnerIcon />Exporting...</span>
+                      ) : glossaryPushStatus === 'done' ? (
+                        <span className="flex items-center justify-center gap-1.5">
+                          <CheckCircleIcon />
+                          {glossaryPageUrl ? (
+                            <a href={glossaryPageUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>
+                              Glossary exported
+                            </a>
+                          ) : 'Glossary exported'}
+                        </span>
+                      ) : glossaryPushStatus === 'error' ? 'Export failed, retry' : 'Export Glossary'}
+                    </button>
+                    <button
+                      onClick={() => handleNotionPush('summaries')}
+                      disabled={summaryPushStatus === 'pushing'}
+                      className={`flex-1 h-9 rounded-xl text-xs font-semibold border transition-colors duration-150 active:scale-[0.97] ${
+                        summaryPushStatus === 'done'
+                          ? 'bg-emerald-500/[0.1] border-emerald-500/20 text-emerald-400'
+                          : summaryPushStatus === 'error'
+                          ? 'bg-red-500/[0.08] border-red-500/20 text-red-400'
+                          : 'dark:bg-white/[0.03] bg-black/[0.025] dark:border-white/[0.08] border-black/[0.08] text-gray-300 hover:dark:bg-white/[0.05] bg-black/[0.04]'
+                      }`}
+                    >
+                      {summaryPushStatus === 'pushing' ? (
+                        <span className="flex items-center justify-center gap-1.5"><SpinnerIcon />Exporting...</span>
+                      ) : summaryPushStatus === 'done' ? (
+                        <span className="flex items-center justify-center gap-1.5">
+                          <CheckCircleIcon />
+                          {summaryPageUrl ? (
+                            <a href={summaryPageUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>
+                              Summaries exported
+                            </a>
+                          ) : 'Summaries exported'}
+                        </span>
+                      ) : summaryPushStatus === 'error' ? 'Export failed, retry' : 'Export Summaries'}
+                    </button>
+                  </div>
+
+                  {/* Pull section */}
+                  <div className="mt-1">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-600 mb-2">Import from Notion</p>
+                    {notionPages.length === 0 ? (
+                      <button
+                        onClick={loadNotionPages}
+                        disabled={notionPullStatus === 'loading_pages'}
+                        className="w-full h-9 rounded-xl dark:bg-white/[0.03] bg-black/[0.025] border dark:border-white/[0.08] border-black/[0.08] text-xs font-medium text-gray-300 hover:dark:bg-white/[0.05] bg-black/[0.04] transition-colors duration-150 active:scale-[0.97]"
+                      >
+                        {notionPullStatus === 'loading_pages' ? (
+                          <span className="flex items-center justify-center gap-1.5"><SpinnerIcon />Loading pages...</span>
+                        ) : 'Browse my Notion pages'}
+                      </button>
+                    ) : (
+                      <div className="flex flex-col gap-2">
+                        <select
+                          value={selectedPageId}
+                          onChange={e => setSelectedPageId(e.target.value)}
+                          className="w-full h-9 rounded-xl dark:bg-white/[0.04] bg-black/[0.03] border dark:border-white/[0.08] border-black/[0.08] text-sm text-gray-200 px-3 focus:outline-none focus:border-yellow-500/40 transition-colors duration-150 appearance-none"
+                        >
+                          {notionPages.map(p => (
+                            <option key={p.id} value={p.id} className="dark:bg-[#0d0d1c] bg-gray-50">{p.title}</option>
+                          ))}
+                        </select>
+                        {notionPullStatus === 'done' && notionPullResult ? (
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-emerald-400 flex items-center gap-1.5">
+                              <CheckCircleIcon />
+                              {notionPullResult.term_count} terms detected
+                            </span>
+                            <button
+                              onClick={() => router.push('/history')}
+                              className="text-xs font-medium dark:text-yellow-400 text-yellow-700 hover:dark:text-yellow-300 text-yellow-700 transition-colors duration-150 active:scale-[0.97]"
+                            >
+                              View in History
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={handleNotionImport}
+                            disabled={!selectedPageId || notionPullStatus === 'importing'}
+                            className={`w-full h-9 rounded-xl text-xs font-semibold transition-colors duration-150 active:scale-[0.97] ${
+                              notionPullStatus === 'importing'
+                                ? 'bg-yellow-500/30 dark:text-yellow-300 text-yellow-700 cursor-not-allowed'
+                                : 'bg-yellow-600 hover:bg-yellow-500 dark:text-white text-gray-900'
+                            }`}
+                          >
+                            {notionPullStatus === 'importing' ? (
+                              <span className="flex items-center justify-center gap-1.5"><SpinnerIcon />Importing...</span>
+                            ) : 'Import Selected Page'}
+                          </button>
+                        )}
+                        {notionPullError && <p className="text-xs text-red-400">{notionPullError}</p>}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Disconnect */}
+                  <div className="pt-2 border-t dark:border-white/[0.05] border-black/[0.06]">
+                    <button
+                      onClick={handleDisconnectNotion}
+                      className="text-xs text-gray-600 hover:text-gray-400 transition-colors duration-150 active:scale-[0.97]"
+                    >
+                      Disconnect Notion
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
 
       </div>
     </div>
@@ -1316,9 +1201,9 @@ function NotionIcon() {
   )
 }
 
-function CloudUploadIcon() {
+function UploadIcon() {
   return (
-    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
       <polyline points="16 16 12 12 8 16" />
       <line x1="12" y1="12" x2="12" y2="21" />
       <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3" />

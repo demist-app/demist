@@ -4,12 +4,6 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import posthog from 'posthog-js'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
-import { cn } from '@/lib/utils'
-import { Separator } from '@/components/ui/separator'
-import { Switch } from '@/components/ui/switch'
 
 interface ProfileData {
   display_name: string | null
@@ -29,6 +23,7 @@ const YEAR_OPTIONS = [
   { value: 7, label: 'Masters' },
   { value: 8, label: 'PhD' },
 ]
+
 
 export default function Profile() {
   const router = useRouter()
@@ -169,257 +164,212 @@ export default function Profile() {
 
   const initials = (displayName || profile?.email || '?').slice(0, 1).toUpperCase()
 
-  if (!profile) return <div className="min-h-dvh bg-[#08080E]" />
+  if (!profile) return <div className="min-h-dvh dark:bg-[#080810] bg-[#FAFAF7]" />
 
   return (
-    <main className="min-h-dvh bg-[#08080E] text-white flex flex-col nav-bottom-pad">
-      <header className="sm:hidden shrink-0 flex items-center px-6 h-14 border-b border-white/[0.05]">
+    <main
+      className="min-h-dvh dark:bg-[#080810] bg-[#FAFAF7] dark:dark:text-white text-gray-900 text-gray-900 flex flex-col nav-bottom-pad"
+    >
+      <header className="sm:hidden shrink-0 flex items-center px-6 h-14 border-b dark:border-white/[0.05] border-black/[0.06]">
         <span className="font-semibold tracking-tight text-[15px]">Profile</span>
       </header>
 
       <div className="flex-1 overflow-y-auto">
-        <div className="w-full max-w-xl mx-auto px-4 sm:px-6 py-6 space-y-4">
-
-          {/* Avatar + user info */}
-          <div
-            className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-5 flex items-center gap-4 animate-step opacity-0"
-            style={{ animationFillMode: 'forwards' }}
-          >
-            {/* Avatar */}
-            <div className="w-[72px] h-[72px] shrink-0 rounded-full bg-gradient-to-br from-amber-700 to-amber-900 flex items-center justify-center ring-2 ring-amber-500/20 ring-offset-2 ring-offset-[#08080E] shadow-[0_0_28px_rgba(245,158,11,0.25)]">
-              <span className="text-[24px] font-bold text-white select-none">{initials}</span>
-            </div>
-            {/* Info */}
-            <div className="flex-1 min-w-0">
-              <p className="text-[17px] font-bold truncate leading-tight">
-                {displayName || 'No name set'}
-              </p>
-              <p className="text-[13px] text-white/40 truncate mt-0.5">{profile.email}</p>
-            </div>
+      <div className="w-full max-w-xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+        {/* Avatar + name */}
+        <div className="flex items-center gap-4 animate-step opacity-0" style={{ animationFillMode: 'forwards' }}>
+          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-yellow-600/40 to-amber-600/30 border border-yellow-500/40 flex items-center justify-center text-[24px] font-bold dark:text-yellow-300 text-yellow-700 shrink-0 shadow-[0_0_24px_rgba(139,92,246,0.2)]">
+            {initials}
           </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[17px] font-bold truncate">{displayName || 'No name set'}</p>
+            <p className="text-[13px] text-gray-500 truncate">{profile.email}</p>
+          </div>
+        </div>
 
-          {/* Settings card */}
-          <div
-            className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-5 space-y-4 animate-step opacity-0"
-            style={{ animationDelay: '40ms', animationFillMode: 'forwards' }}
-          >
-            <p className="text-[11px] font-bold tracking-[0.14em] text-white/30 uppercase mb-3">Settings</p>
-
-            {/* Display name */}
-            <div className="space-y-1.5">
-              <label className="text-[12px] text-white/35 block">Display name</label>
-              <Input
-                type="text"
-                value={displayName}
-                onChange={e => setDisplayName(e.target.value)}
-                placeholder="Your name"
-                maxLength={50}
-              />
-            </div>
-
-            {/* Course */}
-            <div className="space-y-1.5">
-              <label className="text-[12px] text-white/35 block">Course / subject</label>
-              <Input
-                type="text"
-                value={course}
-                onChange={e => setCourse(e.target.value)}
-                placeholder="e.g. Molecular Biology"
-                maxLength={80}
-              />
-            </div>
-
-            {/* Year of study */}
-            <div className="space-y-1.5">
-              <label className="text-[12px] text-white/35 block">Year of study</label>
-              <div className="grid grid-cols-4 gap-2">
-                {YEAR_OPTIONS.map(({ value, label }) => (
-                  <button
-                    key={value}
-                    onClick={() => setYear(value)}
-                    className={cn(
-                      'py-3 rounded-xl text-[13px] font-medium transition-all active:scale-[0.97]',
-                      year === value
-                        ? 'bg-amber-600 border border-amber-400/40 text-white'
-                        : 'bg-white/[0.05] border border-white/[0.09] text-white/60 hover:bg-white/[0.09]'
-                    )}
-                  >
-                    {label}
-                  </button>
-                ))}
+        {/* Anki export */}
+        {totalTerms > 0 && (
+          <div className="dark:bg-white/[0.03] bg-black/[0.025] border dark:border-white/[0.06] border-black/[0.07] rounded-2xl overflow-hidden animate-step opacity-0" style={{ animationDelay: '30ms', animationFillMode: 'forwards' }}>
+            <button
+              onClick={exportToAnki}
+              disabled={exporting}
+              className="w-full flex items-center justify-between px-4 py-3 hover:dark:bg-white/[0.03] bg-black/[0.025] transition-all disabled:opacity-40"
+            >
+              <div className="text-left">
+                <p className="text-[14px] dark:text-white/80 text-gray-800 font-medium">Export to Anki</p>
+                <p className="text-[12px] text-gray-600 mt-0.5">{totalTerms} terms ready to export</p>
               </div>
-            </div>
+              <span className="text-gray-600 text-[18px] leading-none">{exporting ? '...' : exported ? '✓' : '↓'}</span>
+            </button>
+            {exported && (
+              <div className="border-t dark:border-white/[0.05] border-black/[0.06] px-4 py-4 space-y-5">
+                <div>
+                  <p className="text-[11px] font-bold tracking-[0.14em] dark:text-yellow-400 text-yellow-700/70 uppercase mb-3">Android (AnkiDroid)</p>
+                  <ol className="space-y-2">
+                    {[
+                      'Download the file above',
+                      'Open AnkiDroid',
+                      'Tap the three-dot menu in the top right',
+                      'Tap Import, then select demist-flashcards.txt',
+                      'Your cards will appear in a new deck',
+                    ].map((step, i) => (
+                      <li key={i} className="flex items-start gap-2.5">
+                        <span className="text-[11px] font-bold text-yellow-500/50 shrink-0 tabular-nums mt-[2px]">{i + 1}.</span>
+                        <span className="text-[12px] text-gray-500">{step}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+                <div>
+                  <p className="text-[11px] font-bold tracking-[0.14em] dark:text-yellow-400 text-yellow-700/70 uppercase mb-3">iPhone (AnkiMobile)</p>
+                  <ol className="space-y-2">
+                    {[
+                      'Download the file above',
+                      'Open the Downloads folder in the Files app',
+                      'Tap and hold demist-flashcards.txt',
+                      'Tap Share, then Copy to AnkiMobile',
+                      'AnkiMobile will import the cards automatically',
+                    ].map((step, i) => (
+                      <li key={i} className="flex items-start gap-2.5">
+                        <span className="text-[11px] font-bold text-yellow-500/50 shrink-0 tabular-nums mt-[2px]">{i + 1}.</span>
+                        <span className="text-[12px] text-gray-500">{step}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+                <div>
+                  <p className="text-[11px] font-bold tracking-[0.14em] dark:text-yellow-400 text-yellow-700/70 uppercase mb-3">Desktop (Anki)</p>
+                  <ol className="space-y-2">
+                    {[
+                      'Download the file above',
+                      'Open Anki, click File then Import',
+                      'Select demist-flashcards.txt',
+                      'Set "Fields separated by" to Tab, then click Import',
+                    ].map((step, i) => (
+                      <li key={i} className="flex items-start gap-2.5">
+                        <span className="text-[11px] font-bold text-yellow-500/50 shrink-0 tabular-nums mt-[2px]">{i + 1}.</span>
+                        <span className="text-[12px] text-gray-500">{step}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+                <p className="text-[11px] text-gray-700">Cards are tagged with your course name so they are easy to find.</p>
+              </div>
+            )}
+          </div>
+        )}
 
-            {/* Save button */}
-            <Button
-              onClick={handleSave}
-              disabled={saving}
-              variant={saved ? 'default' : 'default'}
-              size="lg"
-              className={cn(
-                'w-full',
-                saved && 'bg-emerald-600 hover:bg-emerald-600 shadow-none'
-              )}
-            >
-              {saved ? 'Saved ✓' : saving ? 'Saving…' : 'Save changes'}
-            </Button>
+        {/* Edit form */}
+        <div className="space-y-3 animate-step opacity-0" style={{ animationDelay: '60ms', animationFillMode: 'forwards' }}>
+          <p className="text-[10px] font-bold tracking-[0.18em] text-gray-600 uppercase">Settings</p>
+
+          <div>
+            <label className="text-[12px] text-gray-600 mb-1.5 block">Display name</label>
+            <input
+              type="text"
+              value={displayName}
+              onChange={e => setDisplayName(e.target.value)}
+              placeholder="Your name"
+              maxLength={50}
+              className="w-full dark:bg-white/[0.05] bg-black/[0.04] border border-white/[0.1] rounded-2xl px-5 py-3.5 dark:text-white text-gray-900 text-[15px] placeholder-gray-700 focus:outline-none focus:border-yellow-500/50 transition-all"
+            />
           </div>
 
-          {/* Anki export card */}
-          {totalTerms > 0 && (
-            <div
-              className="bg-white/[0.04] border border-white/[0.08] rounded-2xl overflow-hidden animate-step opacity-0"
-              style={{ animationDelay: '80ms', animationFillMode: 'forwards' }}
-            >
-              <div className="p-5">
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <p className="text-[11px] font-bold tracking-[0.14em] text-white/30 uppercase mb-1">Export</p>
-                    <p className="text-[15px] font-semibold text-white">Export to Anki</p>
-                    <p className="text-[13px] text-white/40 mt-0.5">{totalTerms} terms ready to export</p>
-                  </div>
-                </div>
-                <Button
-                  onClick={exportToAnki}
-                  disabled={exporting}
-                  variant="secondary"
-                  size="lg"
-                  className="w-full"
+          <div>
+            <label className="text-[12px] text-gray-600 mb-1.5 block">Course / subject</label>
+            <input
+              type="text"
+              value={course}
+              onChange={e => setCourse(e.target.value)}
+              placeholder="e.g. Molecular Biology"
+              maxLength={80}
+              className="w-full dark:bg-white/[0.05] bg-black/[0.04] border border-white/[0.1] rounded-2xl px-5 py-3.5 dark:text-white text-gray-900 text-[15px] placeholder-gray-700 focus:outline-none focus:border-yellow-500/50 transition-all"
+            />
+          </div>
+
+          <div>
+            <label className="text-[12px] text-gray-600 mb-1.5 block">Year of study</label>
+            <div className="grid grid-cols-4 gap-2">
+              {YEAR_OPTIONS.map(({ value, label }) => (
+                <button
+                  key={value}
+                  onClick={() => setYear(value)}
+                  className={`py-3 rounded-2xl text-[13px] font-medium transition-all ${
+                    year === value
+                      ? 'bg-yellow-600 border border-yellow-400/40 dark:text-white text-gray-900'
+                      : 'dark:bg-white/[0.05] bg-black/[0.04] border dark:border-white/[0.08] border-black/[0.08] text-gray-400 hover:bg-white/[0.09]'
+                  }`}
                 >
-                  {/* Download icon */}
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                    className="w-4 h-4 shrink-0"
-                  >
-                    <path d="M10.75 2.75a.75.75 0 0 0-1.5 0v8.614L6.295 8.235a.75.75 0 1 0-1.09 1.03l4.25 4.5a.75.75 0 0 0 1.09 0l4.25-4.5a.75.75 0 0 0-1.09-1.03l-2.955 3.129V2.75Z" />
-                    <path d="M3.5 12.75a.75.75 0 0 0-1.5 0v2.5A2.75 2.75 0 0 0 4.75 18h10.5A2.75 2.75 0 0 0 18 15.25v-2.5a.75.75 0 0 0-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5Z" />
-                  </svg>
-                  {exporting ? 'Exporting…' : exported ? 'Downloaded ✓' : 'Download .txt file'}
-                </Button>
-              </div>
-
-              {exported && (
-                <div className="border-t border-white/[0.06] px-5 py-5 space-y-5">
-                  {[
-                    {
-                      title: 'Android (AnkiDroid)',
-                      steps: [
-                        'Download the file above',
-                        'Open AnkiDroid',
-                        'Tap the three-dot menu in the top right',
-                        'Tap Import, then select demist-flashcards.txt',
-                        'Your cards will appear in a new deck',
-                      ],
-                    },
-                    {
-                      title: 'iPhone (AnkiMobile)',
-                      steps: [
-                        'Download the file above',
-                        'Open the Downloads folder in the Files app',
-                        'Tap and hold demist-flashcards.txt',
-                        'Tap Share, then Copy to AnkiMobile',
-                        'AnkiMobile will import the cards automatically',
-                      ],
-                    },
-                    {
-                      title: 'Desktop (Anki)',
-                      steps: [
-                        'Download the file above',
-                        'Open Anki, click File then Import',
-                        'Select demist-flashcards.txt',
-                        'Set "Fields separated by" to Tab, then click Import',
-                      ],
-                    },
-                  ].map(({ title, steps }) => (
-                    <div key={title}>
-                      <p className="text-[11px] font-bold tracking-[0.14em] text-amber-400/70 uppercase mb-3">{title}</p>
-                      <ol className="space-y-2">
-                        {steps.map((step, i) => (
-                          <li key={i} className="flex items-start gap-2.5">
-                            <span className="text-[11px] font-bold text-amber-500/50 shrink-0 tabular-nums mt-[2px]">{i + 1}.</span>
-                            <span className="text-[12px] text-white/35">{step}</span>
-                          </li>
-                        ))}
-                      </ol>
-                    </div>
-                  ))}
-                  <p className="text-[11px] text-white/20">Cards are tagged with your course name so they are easy to find.</p>
-                </div>
-              )}
+                  {label}
+                </button>
+              ))}
             </div>
-          )}
+          </div>
 
-          {/* Sharing card */}
-          <div
-            className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-5 space-y-3 animate-step opacity-0"
-            style={{ animationDelay: '120ms', animationFillMode: 'forwards' }}
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className={`w-full py-4 rounded-2xl text-[15px] font-semibold transition-all ${
+              saved
+                ? 'bg-emerald-600 dark:text-white text-gray-900'
+                : 'bg-yellow-600 hover:bg-yellow-500 dark:text-white text-gray-900 disabled:opacity-40'
+            }`}
           >
-            <p className="text-[11px] font-bold tracking-[0.14em] text-white/30 uppercase mb-3">Sharing</p>
+            {saved ? 'Saved ✓' : saving ? 'Saving…' : 'Save changes'}
+          </button>
+        </div>
 
-            {/* Public profile toggle */}
-            <div className="flex items-center justify-between gap-4">
+        {/* Share & leaderboard */}
+        <div className="space-y-3 animate-step opacity-0" style={{ animationDelay: '120ms', animationFillMode: 'forwards' }}>
+          <p className="text-[10px] font-bold tracking-[0.18em] text-gray-600 uppercase">Sharing</p>
+
+          <div className="dark:bg-white/[0.03] bg-black/[0.025] border dark:border-white/[0.06] border-black/[0.07] rounded-2xl px-4 py-4 space-y-3">
+            <div className="flex items-center justify-between">
               <div>
-                <p className="text-[14px] text-white font-medium">Public profile</p>
-                <p className="text-[12px] text-white/40 mt-0.5">Anyone with the link can see your stats</p>
+                <p className="text-[14px] dark:text-white/80 text-gray-800 font-medium">Public profile</p>
+                <p className="text-[12px] text-gray-600 mt-0.5">Anyone with the link can see your stats</p>
               </div>
-              <Switch
-                checked={isPublic}
-                onCheckedChange={togglePublic}
-                aria-label="Toggle public profile"
-              />
+              <button
+                onClick={togglePublic}
+                className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${isPublic ? 'bg-yellow-600' : 'bg-white/[0.1]'}`}
+              >
+                <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 ${isPublic ? 'translate-x-5' : 'translate-x-0'}`} />
+              </button>
             </div>
 
             {isPublic && (
-              <div className="flex items-center gap-2 bg-white/[0.04] border border-white/[0.07] rounded-xl px-3 py-2.5">
-                <span className="flex-1 text-[12px] text-white/40 truncate">
+              <div className="flex items-center gap-2 dark:bg-white/[0.04] bg-black/[0.03] rounded-xl px-3 py-2">
+                <span className="flex-1 text-[12px] text-gray-400 truncate">
                   {typeof window !== 'undefined' ? `${window.location.origin}/u/${userId}` : `/u/${userId}`}
                 </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
+                <button
                   onClick={copyShareLink}
-                  className="shrink-0 text-amber-400 hover:text-amber-300 hover:bg-transparent px-1 h-auto py-0 font-medium text-[12px]"
+                  className="shrink-0 text-[12px] font-medium dark:text-yellow-400 text-yellow-700 hover:dark:text-yellow-300 text-yellow-700 transition-colors"
                 >
                   {copied ? 'Copied ✓' : 'Copy'}
-                </Button>
+                </button>
               </div>
             )}
-
-            <a
-              href="/stats"
-              className="flex items-center justify-between w-full bg-white/[0.03] border border-white/[0.07] rounded-xl px-4 py-3 hover:bg-white/[0.06] transition-colors duration-150 active:scale-[0.97]"
-            >
-              <span className="text-[14px] text-white/60">View your stats</span>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-                className="w-4 h-4 text-white/30"
-              >
-                <path fillRule="evenodd" d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
-              </svg>
-            </a>
           </div>
 
-          {/* Danger zone — sign out */}
-          <div
-            className="animate-step opacity-0"
-            style={{ animationDelay: '160ms', animationFillMode: 'forwards' }}
+          <a
+            href="/stats"
+            className="flex items-center justify-between w-full dark:bg-white/[0.03] bg-black/[0.025] border dark:border-white/[0.06] border-black/[0.07] rounded-2xl px-4 py-3 hover:dark:bg-white/[0.05] bg-black/[0.04] transition-colors duration-150 active:scale-[0.97]"
           >
-            <Separator className="mb-4" />
-            <Button
-              onClick={handleSignOut}
-              variant="ghost"
-              size="lg"
-              className="w-full text-white/40 hover:text-red-400 hover:bg-red-500/[0.06]"
-            >
-              Sign out
-            </Button>
-          </div>
-
+            <span className="text-[14px] dark:text-white/80 text-gray-800">View your stats</span>
+            <span className="text-gray-600 text-[18px] leading-none">›</span>
+          </a>
         </div>
+
+        {/* Sign out */}
+        <button
+          onClick={handleSignOut}
+          className="w-full py-4 rounded-2xl text-[15px] font-medium dark:bg-white/[0.03] bg-black/[0.025] border dark:border-white/[0.06] border-black/[0.07] text-gray-500 hover:text-red-400 hover:border-red-500/20 transition-all animate-step opacity-0"
+          style={{ animationDelay: '180ms', animationFillMode: 'forwards' }}
+        >
+          Sign out
+        </button>
+      </div>
       </div>
     </main>
   )

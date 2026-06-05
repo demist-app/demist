@@ -3,12 +3,6 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
-import { cn } from '@/lib/utils'
-import { Separator } from '@/components/ui/separator'
-import { Progress } from '@/components/ui/progress'
 
 interface DayBar { label: string; count: number }
 interface WeekBar { label: string; count: number }
@@ -120,179 +114,130 @@ export default function Stats() {
   const maxWeekly = Math.max(...weeklyTerms.map(w => w.count), 1)
   const maxSubject = Math.max(...subjects.map(s => s.count), 1)
 
-  if (loading) return <div className="min-h-dvh bg-[#08080E]" />
+  if (loading) return <div className="min-h-dvh dark:bg-[#080810] bg-[#FAFAF7]" />
 
   const hasAnyData = totalTerms > 0 || totalSessions > 0
 
   return (
-    <main className="min-h-dvh bg-[#08080E] text-white flex flex-col nav-bottom-pad">
-      <header className="sm:hidden shrink-0 flex items-center px-6 h-14 border-b border-white/[0.05]">
+    <main className="min-h-dvh dark:bg-[#080810] bg-[#FAFAF7] dark:dark:text-white text-gray-900 text-gray-900 flex flex-col nav-bottom-pad">
+      <header className="sm:hidden shrink-0 flex items-center px-6 h-14 border-b dark:border-white/[0.05] border-black/[0.06]">
         <span className="font-semibold tracking-tight text-[15px]">Stats</span>
       </header>
 
       <div className="flex-1 overflow-y-auto">
-        <div className="w-full max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-4">
+        <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-5">
 
-          {/* Page header */}
+          {/* Header */}
           <div className="animate-step opacity-0" style={{ animationFillMode: 'forwards' }}>
-            <p className="text-[11px] font-bold tracking-[0.14em] text-white/30 uppercase mb-1">Your progress</p>
+            <p className="text-[10px] font-bold tracking-[0.18em] text-gray-600 uppercase mb-1">Your progress</p>
             <p className="text-[22px] font-bold leading-tight">Stats</p>
           </div>
 
-          {/* 4 metric cards — 2x2 mobile, 4-col desktop */}
-          <div
-            className="grid grid-cols-2 sm:grid-cols-4 gap-3 animate-step opacity-0"
-            style={{ animationDelay: '50ms', animationFillMode: 'forwards' }}
-          >
-            {/* Terms */}
-            <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-5">
-              <div className="flex items-center gap-2 mb-3">
-                {/* Book icon — violet */}
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-amber-400 shrink-0">
-                  <path d="M10.75 16.82A7.462 7.462 0 0 1 15 15.5c.71 0 1.396.098 2.046.282A.75.75 0 0 0 18 15.06v-11a.75.75 0 0 0-.546-.721A9.006 9.006 0 0 0 15 3a8.963 8.963 0 0 0-4.25 1.065V16.82ZM9.25 4.065A8.963 8.963 0 0 0 5 3c-.85 0-1.673.118-2.454.339A.75.75 0 0 0 2 4.06v11a.75.75 0 0 0 .954.721A7.506 7.506 0 0 1 5 15.5c1.579 0 3.042.487 4.25 1.32V4.065Z" />
-                </svg>
-                <p className="text-[11px] text-white/35 uppercase tracking-[0.12em]">Terms</p>
+          {/* Key numbers — 2 cols mobile, 4 cols desktop */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 animate-step opacity-0" style={{ animationDelay: '50ms', animationFillMode: 'forwards' }}>
+            <div className="dark:bg-white/[0.03] bg-black/[0.025] border dark:border-white/[0.07] border-black/[0.07] rounded-2xl px-4 py-4">
+              <div className="flex items-center gap-1.5 mb-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                <p className="text-[11px] text-gray-600 uppercase tracking-[0.12em]">Terms</p>
               </div>
-              <p className="text-[32px] font-bold leading-none text-amber-400 tabular-nums">{totalTerms}</p>
-              <p className="text-[11px] text-white/30 mt-2">total terms learned</p>
+              <p className="text-[28px] font-bold leading-none text-emerald-400">{totalTerms}</p>
               {masteredTerms > 0 && (
-                <p className="text-[11px] text-white/35 mt-1">{masteredTerms} mastered</p>
+                <p className="text-[11px] text-gray-600 mt-1.5">{masteredTerms} mastered</p>
               )}
             </div>
-
-            {/* Sessions */}
-            <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-5">
-              <div className="flex items-center gap-2 mb-3">
-                {/* Play icon — indigo */}
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-indigo-400 shrink-0">
-                  <path d="M6.3 2.84A1.5 1.5 0 0 0 4 4.11v11.78a1.5 1.5 0 0 0 2.3 1.27l9.344-5.891a1.5 1.5 0 0 0 0-2.538L6.3 2.841Z" />
-                </svg>
-                <p className="text-[11px] text-white/35 uppercase tracking-[0.12em]">Sessions</p>
+            <div className="dark:bg-white/[0.03] bg-black/[0.025] border dark:border-white/[0.07] border-black/[0.07] rounded-2xl px-4 py-4">
+              <div className="flex items-center gap-1.5 mb-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-yellow-500" />
+                <p className="text-[11px] text-gray-600 uppercase tracking-[0.12em]">Sessions</p>
               </div>
-              <p className="text-[32px] font-bold leading-none text-indigo-400 tabular-nums">{totalSessions}</p>
-              <p className="text-[11px] text-white/30 mt-2">total sessions</p>
+              <p className="text-[28px] font-bold leading-none dark:text-yellow-400 text-yellow-700">{totalSessions}</p>
             </div>
-
-            {/* Streak */}
-            <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-5">
-              <div className="flex items-center gap-2 mb-3">
-                {/* Flame SVG icon — amber */}
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-amber-400 shrink-0">
-                  <path fillRule="evenodd" d="M13.5 4.938a7 7 0 1 1-7.313 11.424A5.5 5.5 0 0 0 13.5 4.938ZM10 3a7 7 0 0 0-1.398.14c-.362.074-.72.177-1.063.311C8.898 4.374 9.5 5.8 9.5 7.5c0 2.485-1.336 4.657-3.329 5.837A7 7 0 0 1 10 3Z" clipRule="evenodd" />
-                </svg>
-                <p className="text-[11px] text-white/35 uppercase tracking-[0.12em]">Streak</p>
+            <div className="dark:bg-white/[0.03] bg-black/[0.025] border dark:border-white/[0.07] border-black/[0.07] rounded-2xl px-4 py-4">
+              <div className="flex items-center gap-1.5 mb-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                <p className="text-[11px] text-gray-600 uppercase tracking-[0.12em]">Streak</p>
               </div>
-              <p className="text-[32px] font-bold leading-none text-amber-400 tabular-nums">{streak}</p>
-              <p className="text-[11px] text-white/30 mt-2">{streak === 1 ? 'day' : 'days'}</p>
+              <p className="text-[28px] font-bold leading-none text-amber-400">{streak}</p>
+              <p className="text-[11px] text-gray-600 mt-1.5">{streak === 1 ? 'day' : 'days'}</p>
             </div>
-
-            {/* Due flashcards */}
-            <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-5">
-              <div className="flex items-center gap-2 mb-3">
-                {/* Cards/stack icon — emerald */}
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-emerald-400 shrink-0">
-                  <path d="M3 3.5A1.5 1.5 0 0 1 4.5 2h11A1.5 1.5 0 0 1 17 3.5v1A1.5 1.5 0 0 1 15.5 6h-11A1.5 1.5 0 0 1 3 4.5v-1ZM3.25 8A.75.75 0 0 1 4 7.25h12a.75.75 0 0 1 .75.75v1a.75.75 0 0 1-.75.75H4A.75.75 0 0 1 3.25 9V8ZM4 11.25a.75.75 0 0 0-.75.75v1c0 .414.336.75.75.75h12a.75.75 0 0 0 .75-.75v-1a.75.75 0 0 0-.75-.75H4Z" />
-                </svg>
-                <p className="text-[11px] text-white/35 uppercase tracking-[0.12em]">Due</p>
+            <div className="dark:bg-white/[0.03] bg-black/[0.025] border dark:border-white/[0.07] border-black/[0.07] rounded-2xl px-4 py-4">
+              <div className="flex items-center gap-1.5 mb-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-yellow-400" />
+                <p className="text-[11px] text-gray-600 uppercase tracking-[0.12em]">Due</p>
               </div>
-              <p className="text-[32px] font-bold leading-none text-emerald-400 tabular-nums">{dueFlashcards}</p>
-              <p className="text-[11px] text-white/30 mt-2">flashcards due</p>
+              <p className="text-[28px] font-bold leading-none dark:text-white/80 text-gray-800">{dueFlashcards}</p>
+              <p className="text-[11px] text-gray-600 mt-1.5">flashcards</p>
             </div>
           </div>
 
-          {/* Charts */}
+          {/* Charts row — side by side on desktop */}
           {(dailySessions.some(d => d.count > 0) || weeklyTerms.some(w => w.count > 0)) && (
-            <div
-              className="grid grid-cols-1 sm:grid-cols-2 gap-3 animate-step opacity-0"
-              style={{ animationDelay: '100ms', animationFillMode: 'forwards' }}
-            >
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 animate-step opacity-0" style={{ animationDelay: '100ms', animationFillMode: 'forwards' }}>
               {/* Sessions this week */}
               {dailySessions.some(d => d.count > 0) && (
-                <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl px-5 py-5">
-                  <p className="text-[11px] font-bold tracking-[0.14em] text-white/30 uppercase mb-4">Sessions this week</p>
-                  <div className="flex items-end gap-1.5 h-[64px]">
-                    {dailySessions.map((d, i) => {
-                      const h = Math.max(4, Math.round((d.count / maxDaily) * 56))
-                      const isToday = i === dailySessions.length - 1
-                      return (
-                        <div key={i} className="flex flex-col items-center gap-1.5 flex-1 group">
-                          <div
-                            className={cn(
-                              'w-full rounded-full transition-all duration-200',
-                              isToday
-                                ? 'bg-amber-500 group-hover:bg-amber-400'
-                                : d.count > 0
-                                  ? 'bg-white/[0.12] group-hover:bg-white/[0.20]'
-                                  : 'bg-white/[0.05]'
-                            )}
-                            style={{ height: `${h}px` }}
-                          />
-                          <span className={cn(
-                            'text-[9px]',
-                            isToday ? 'text-amber-400' : 'text-white/25'
-                          )}>
-                            {d.label}
-                          </span>
-                        </div>
-                      )
-                    })}
-                  </div>
+              <div className="dark:bg-white/[0.03] bg-black/[0.025] border dark:border-white/[0.06] border-black/[0.07] rounded-2xl px-4 py-4">
+                <p className="text-[10px] font-bold tracking-[0.18em] text-gray-600 uppercase mb-4">Sessions this week</p>
+                <div className="flex items-end gap-1.5 h-[60px]">
+                  {dailySessions.map((d, i) => {
+                    const h = Math.max(3, Math.round((d.count / maxDaily) * 52))
+                    const isToday = i === dailySessions.length - 1
+                    return (
+                      <div key={i} className="flex flex-col items-center gap-1 flex-1">
+                        <div
+                          className={`w-full rounded-sm transition-all ${isToday ? 'bg-yellow-500' : d.count > 0 ? 'bg-white/[0.18]' : 'dark:bg-white/[0.05] bg-black/[0.04]'}`}
+                          style={{ height: `${h}px` }}
+                        />
+                        <span className={`text-[9px] ${isToday ? 'dark:text-yellow-400 text-yellow-700' : 'text-gray-700'}`}>{d.label}</span>
+                      </div>
+                    )
+                  })}
                 </div>
+              </div>
               )}
 
               {/* Terms over 8 weeks */}
               {weeklyTerms.some(w => w.count > 0) && (
-                <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl px-5 py-5">
-                  <p className="text-[11px] font-bold tracking-[0.14em] text-white/30 uppercase mb-4">Terms detected (8 weeks)</p>
-                  <div className="flex items-end gap-1 h-[64px]">
-                    {weeklyTerms.map((w, i) => {
-                      const h = Math.max(4, Math.round((w.count / maxWeekly) * 56))
-                      const isThis = i === weeklyTerms.length - 1
-                      return (
-                        <div key={i} className="flex flex-col items-center gap-1.5 flex-1 group">
-                          <div
-                            className={cn(
-                              'w-full rounded-full transition-all duration-200',
-                              isThis
-                                ? 'bg-amber-500 group-hover:bg-amber-400'
-                                : w.count > 0
-                                  ? 'bg-white/[0.12] group-hover:bg-white/[0.20]'
-                                  : 'bg-white/[0.05]'
-                            )}
-                            style={{ height: `${h}px` }}
-                          />
-                          <span className={cn(
-                            'text-[8px] truncate w-full text-center',
-                            isThis ? 'text-amber-400' : 'text-white/25'
-                          )}>
-                            {w.label}
-                          </span>
-                        </div>
-                      )
-                    })}
-                  </div>
+              <div className="dark:bg-white/[0.03] bg-black/[0.025] border dark:border-white/[0.06] border-black/[0.07] rounded-2xl px-4 py-4">
+                <p className="text-[10px] font-bold tracking-[0.18em] text-gray-600 uppercase mb-4">Terms detected (8 weeks)</p>
+                <div className="flex items-end gap-1 h-[60px]">
+                  {weeklyTerms.map((w, i) => {
+                    const h = Math.max(3, Math.round((w.count / maxWeekly) * 52))
+                    const isThis = i === weeklyTerms.length - 1
+                    return (
+                      <div key={i} className="flex flex-col items-center gap-1 flex-1">
+                        <div
+                          className={`w-full rounded-sm transition-all ${isThis ? 'bg-emerald-500' : w.count > 0 ? 'bg-white/[0.15]' : 'dark:bg-white/[0.04] bg-black/[0.03]'}`}
+                          style={{ height: `${h}px` }}
+                        />
+                        <span className={`text-[8px] truncate w-full text-center ${isThis ? 'text-emerald-400' : 'text-gray-700'}`}>{w.label}</span>
+                      </div>
+                    )
+                  })}
                 </div>
+              </div>
               )}
             </div>
           )}
 
-          {/* Subject breakdown */}
+          {/* Subjects breakdown */}
           {subjects.length > 0 && (
-            <div
-              className="bg-white/[0.04] border border-white/[0.08] rounded-2xl px-5 py-5 animate-step opacity-0"
-              style={{ animationDelay: '150ms', animationFillMode: 'forwards' }}
-            >
-              <p className="text-[11px] font-bold tracking-[0.14em] text-white/30 uppercase mb-4">Terms by subject</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
+            <div className="dark:bg-white/[0.03] bg-black/[0.025] border dark:border-white/[0.06] border-black/[0.07] rounded-2xl px-4 py-4 animate-step opacity-0" style={{ animationDelay: '150ms', animationFillMode: 'forwards' }}>
+              <p className="text-[10px] font-bold tracking-[0.18em] text-gray-600 uppercase mb-4">Terms by subject</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3">
                 {subjects.map(({ subject, count }) => {
                   const pct = Math.round((count / maxSubject) * 100)
                   return (
                     <div key={subject}>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-[13px] text-white/80 truncate max-w-[80%]">{subject}</span>
-                        <span className="text-[12px] text-white/35 tabular-nums">{count}</span>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[13px] dark:text-white/80 text-gray-800 truncate max-w-[80%]">{subject}</span>
+                        <span className="text-[12px] text-gray-500 tabular-nums">{count}</span>
                       </div>
-                      <Progress value={pct} />
+                      <div className="h-1 rounded-full dark:bg-white/[0.06] bg-black/[0.05]">
+                        <div
+                          className="h-full rounded-full bg-yellow-500/60"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
                     </div>
                   )
                 })}
@@ -302,8 +247,8 @@ export default function Stats() {
 
           {!hasAnyData && (
             <div className="flex flex-col items-center justify-center py-24 text-center gap-3">
-              <p className="text-white/30">No data yet.</p>
-              <p className="text-white/20 text-[13px]">Record your first lecture on the Home tab to get started.</p>
+              <p className="text-gray-600">No data yet.</p>
+              <p className="text-gray-700 text-[13px]">Record your first lecture on the Home tab to get started.</p>
             </div>
           )}
 
