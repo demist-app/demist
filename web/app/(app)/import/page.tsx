@@ -658,7 +658,7 @@ export default function ImportPage() {
               <div className={cn(
                 'rounded-2xl border p-5 transition-colors',
                 ytStatus === 'importing' || ytStatus === 'fetching'
-                  ? 'bg-violet-500/[0.04] border-violet-500/[0.25]'
+                  ? 'bg-amber-500/[0.04] border-amber-500/[0.25]'
                   : ytStatus === 'done'
                   ? 'bg-emerald-500/[0.04] border-emerald-500/[0.25]'
                   : ytStatus === 'error'
@@ -785,7 +785,7 @@ export default function ImportPage() {
               <div className={cn(
                 'rounded-2xl border p-5 transition-colors',
                 audioWorking
-                  ? 'bg-violet-500/[0.04] border-violet-500/[0.25]'
+                  ? 'bg-amber-500/[0.04] border-amber-500/[0.25]'
                   : audioStatus === 'done'
                   ? 'bg-emerald-500/[0.04] border-emerald-500/[0.25]'
                   : audioStatus === 'error'
@@ -794,7 +794,7 @@ export default function ImportPage() {
               )}>
                 {/* Header */}
                 <div className="flex items-start gap-3 mb-4">
-                  <span className="flex items-center justify-center w-8 h-8 rounded-xl bg-violet-500/[0.12] text-violet-400 shrink-0 mt-0.5">
+                  <span className="flex items-center justify-center w-8 h-8 rounded-xl bg-amber-500/[0.12] text-amber-400 shrink-0 mt-0.5">
                     <MicIcon />
                   </span>
                   <div>
@@ -811,7 +811,7 @@ export default function ImportPage() {
                   className={cn(
                     'rounded-2xl border-2 border-dashed transition-colors duration-150 mb-4',
                     audioDragOver
-                      ? 'border-violet-500/[0.40] bg-violet-500/[0.04]'
+                      ? 'border-amber-500/[0.40] bg-amber-500/[0.04]'
                       : 'border-white/[0.10]',
                     !audioFile && 'cursor-pointer'
                   )}
@@ -866,7 +866,7 @@ export default function ImportPage() {
                   ) : audioFile ? (
                     <div className="p-4 flex items-center justify-between gap-3">
                       <div className="flex items-center gap-3 min-w-0">
-                        <span className="flex-shrink-0 text-violet-400"><AudioFileIcon /></span>
+                        <span className="flex-shrink-0 text-amber-400"><AudioFileIcon /></span>
                         <div className="min-w-0">
                           <p className="text-sm font-medium text-white truncate">{audioFile.name}</p>
                           <p className="text-xs text-white/60">
@@ -890,7 +890,7 @@ export default function ImportPage() {
                     <div className="p-8 flex flex-col items-center gap-2 text-center">
                       <span className="text-white/35 mb-1"><CloudUploadIcon /></span>
                       <p className="text-sm text-white/60">
-                        Drop audio file or <span className="text-violet-400">click to browse</span>
+                        Drop audio file or <span className="text-amber-400">click to browse</span>
                       </p>
                       <p className="text-xs text-white/35">MP3, WAV, MP4, M4A, WebM, OGG · up to 50 MB</p>
                     </div>
@@ -917,7 +917,7 @@ export default function ImportPage() {
                   <Button
                     onClick={handleAudioUpload}
                     disabled={audioWorking}
-                    className={cn('w-full', audioWorking && 'bg-violet-500/30 text-violet-300 shadow-none hover:bg-violet-500/30 hover:shadow-none')}
+                    className={cn('w-full', audioWorking && 'bg-amber-500/30 text-amber-300 shadow-none hover:bg-amber-500/30 hover:shadow-none')}
                   >
                     {audioWorking ? <><SpinnerIcon />{audioLabel[audioStatus]}</> : audioLabel[audioStatus]}
                   </Button>
@@ -930,7 +930,7 @@ export default function ImportPage() {
               <div className={cn(
                 'rounded-2xl border p-5 transition-colors',
                 textWorking
-                  ? 'bg-violet-500/[0.04] border-violet-500/[0.25]'
+                  ? 'bg-amber-500/[0.04] border-amber-500/[0.25]'
                   : textStatus === 'done'
                   ? 'bg-emerald-500/[0.04] border-emerald-500/[0.25]'
                   : textStatus === 'error'
@@ -939,7 +939,7 @@ export default function ImportPage() {
               )}>
                 {/* Header */}
                 <div className="flex items-start gap-3 mb-4">
-                  <span className="flex items-center justify-center w-8 h-8 rounded-xl bg-violet-500/[0.12] text-violet-400 shrink-0 mt-0.5">
+                  <span className="flex items-center justify-center w-8 h-8 rounded-xl bg-amber-500/[0.12] text-amber-400 shrink-0 mt-0.5">
                     <SlidesIcon />
                   </span>
                   <div>
@@ -956,7 +956,7 @@ export default function ImportPage() {
                   className={cn(
                     'rounded-2xl border-2 border-dashed transition-colors duration-150 mb-4',
                     textDragOver
-                      ? 'border-violet-500/[0.40] bg-violet-500/[0.04]'
+                      ? 'border-amber-500/[0.40] bg-amber-500/[0.04]'
                       : 'border-white/[0.10]',
                     !textFile && 'cursor-pointer'
                   )}
@@ -1011,7 +1011,7 @@ export default function ImportPage() {
                   ) : textFile ? (
                     <div className="p-4 flex items-center justify-between gap-3">
                       <div className="flex items-center gap-3 min-w-0">
-                        <span className="flex-shrink-0 text-violet-400"><DocFileIcon /></span>
+                        <span className="flex-shrink-0 text-amber-400"><DocFileIcon /></span>
                         <div className="min-w-0">
                           <p className="text-sm font-medium text-white truncate">{textFile.name}</p>
                           <p className="text-xs text-white/60">{(textFile.size / 1024).toFixed(0)} KB</p>
@@ -1030,7 +1030,7 @@ export default function ImportPage() {
                     <div className="p-8 flex flex-col items-center gap-2 text-center">
                       <span className="text-white/35 mb-1"><CloudUploadIcon /></span>
                       <p className="text-sm text-white/60">
-                        Drop a file or <span className="text-violet-400">browse</span>
+                        Drop a file or <span className="text-amber-400">browse</span>
                       </p>
                       <p className="text-xs text-white/35">PPTX, DOCX, TXT</p>
                     </div>
@@ -1057,7 +1057,7 @@ export default function ImportPage() {
                   <Button
                     onClick={handleTextUpload}
                     disabled={textWorking}
-                    className={cn('w-full', textWorking && 'bg-violet-500/30 text-violet-300 shadow-none hover:bg-violet-500/30 hover:shadow-none')}
+                    className={cn('w-full', textWorking && 'bg-amber-500/30 text-amber-300 shadow-none hover:bg-amber-500/30 hover:shadow-none')}
                   >
                     {textWorking ? <><SpinnerIcon />{textLabel[textStatus]}</> : textLabel[textStatus]}
                   </Button>
@@ -1210,7 +1210,7 @@ export default function ImportPage() {
                           <select
                             value={selectedPageId}
                             onChange={e => setSelectedPageId(e.target.value)}
-                            className="w-full h-10 rounded-xl bg-white/[0.04] border border-white/[0.09] text-sm text-white/80 px-3.5 focus:outline-none focus:border-violet-500/50 transition-colors appearance-none"
+                            className="w-full h-10 rounded-xl bg-white/[0.04] border border-white/[0.09] text-sm text-white/80 px-3.5 focus:outline-none focus:border-amber-500/50 transition-colors appearance-none"
                           >
                             {notionPages.map(p => (
                               <option key={p.id} value={p.id} className="bg-[#0d0d1c]">{p.title}</option>
@@ -1234,7 +1234,7 @@ export default function ImportPage() {
                               size="sm"
                               className={cn(
                                 'w-full',
-                                notionPullStatus === 'importing' && 'bg-violet-500/30 text-violet-300 shadow-none hover:bg-violet-500/30 hover:shadow-none'
+                                notionPullStatus === 'importing' && 'bg-amber-500/30 text-amber-300 shadow-none hover:bg-amber-500/30 hover:shadow-none'
                               )}
                             >
                               {notionPullStatus === 'importing'

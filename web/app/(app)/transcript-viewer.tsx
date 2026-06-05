@@ -149,7 +149,7 @@ export function TranscriptViewer({
           seg.highlight ? (
             <span
               key={i}
-              className="text-violet-400/80 underline decoration-violet-500/40 decoration-dotted underline-offset-2 cursor-pointer"
+              className="text-amber-400/80 underline decoration-amber-500/40 decoration-dotted underline-offset-2 cursor-pointer"
               onPointerUp={e => handleTermClick(seg.content, seg.definition, e)}
             >
               {seg.content}
@@ -162,12 +162,12 @@ export function TranscriptViewer({
 
       {popup && (
         <div
-          className="fixed z-[100] w-[260px] bg-[#0e0e1c] border border-violet-500/25 rounded-xl px-4 py-3 shadow-[0_8px_32px_rgba(0,0,0,0.7)]"
+          className="fixed z-[100] w-[260px] bg-[#0e0e1c] border border-amber-500/25 rounded-xl px-4 py-3 shadow-[0_8px_32px_rgba(0,0,0,0.7)]"
           style={{ left: popup.x, top: popup.y - 10, transform: 'translate(-50%, -100%)' }}
           onMouseDown={e => e.stopPropagation()}
           onPointerUp={e => e.stopPropagation()}
         >
-          <p className="text-[10px] font-bold tracking-[0.15em] text-violet-400/60 uppercase mb-1.5 truncate">
+          <p className="text-[10px] font-bold tracking-[0.15em] text-amber-400/60 uppercase mb-1.5 truncate">
             {popup.term}
           </p>
           {popup.loading ? (
@@ -179,7 +179,7 @@ export function TranscriptViewer({
                 <button
                   onClick={saveFlashcard}
                   disabled={popup.saving || popup.saved}
-                  className="w-full text-[12px] font-medium py-1.5 rounded-lg bg-violet-600/20 hover:bg-violet-600/30 text-violet-400 hover:text-violet-300 transition-all disabled:opacity-50"
+                  className="w-full text-[12px] font-medium py-1.5 rounded-lg bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 hover:text-amber-300 transition-all disabled:opacity-50"
                 >
                   {popup.saved ? 'Saved to flashcards ✓' : popup.saving ? 'Saving...' : '+ Save as flashcard'}
                 </button>

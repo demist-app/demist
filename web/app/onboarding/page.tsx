@@ -60,12 +60,12 @@ export default function Onboarding() {
     <main className="relative min-h-dvh bg-[#080810] text-white flex items-center justify-center px-6 overflow-y-auto py-12">
       {/* Background glow */}
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-        <div className="w-[800px] h-[800px] rounded-full bg-violet-600/[0.07] blur-[140px]" />
+        <div className="w-[800px] h-[800px] rounded-full bg-amber-600/[0.07] blur-[140px]" />
       </div>
 
       <div className="relative w-full max-w-[420px]">
         {/* Logo */}
-        <p className="text-[13px] font-semibold tracking-[0.2em] text-violet-400/70 uppercase mb-10">
+        <p className="text-[13px] font-semibold tracking-[0.2em] text-amber-400/70 uppercase mb-10">
           Demist
         </p>
 
@@ -86,13 +86,13 @@ export default function Onboarding() {
               onKeyDown={e => e.key === 'Enter' && course.trim() && setStep(2)}
               placeholder="e.g. Molecular Biology, Computer Science…"
               autoFocus
-              className="w-full bg-white/[0.05] border border-white/[0.1] rounded-2xl px-5 py-4 text-white text-[15px] placeholder-gray-600 focus:outline-none focus:border-violet-500/50 focus:bg-white/[0.07] transition-all"
+              className="w-full bg-white/[0.05] border border-white/[0.1] rounded-2xl px-5 py-4 text-white text-[15px] placeholder-gray-600 focus:outline-none focus:border-amber-500/50 focus:bg-white/[0.07] transition-all"
             />
 
             <button
               onClick={() => setStep(2)}
               disabled={!course.trim()}
-              className="mt-4 w-full py-4 rounded-2xl text-[15px] font-semibold transition-all bg-violet-600 hover:bg-violet-500 disabled:opacity-25 disabled:cursor-not-allowed text-white"
+              className="mt-4 w-full py-4 rounded-2xl text-[15px] font-semibold transition-all bg-amber-600 hover:bg-amber-500 disabled:opacity-25 disabled:cursor-not-allowed text-white"
             >
               Continue →
             </button>
@@ -116,7 +116,7 @@ export default function Onboarding() {
                   onClick={() => setYear(value)}
                   className={`py-4 rounded-2xl text-[15px] font-medium transition-all ${
                     year === value
-                      ? 'bg-violet-600 border border-violet-400/40 text-white shadow-[0_0_24px_rgba(139,92,246,0.35)]'
+                      ? 'bg-amber-600 border border-amber-400/40 text-white shadow-[0_0_24px_rgba(245,158,11,0.35)]'
                       : 'bg-white/[0.05] border border-white/[0.08] text-gray-300 hover:bg-white/[0.09] hover:border-white/[0.15]'
                   }`}
                 >
@@ -135,7 +135,7 @@ export default function Onboarding() {
               <button
                 onClick={handleFinish}
                 disabled={!year || saving}
-                className="flex-1 py-4 rounded-2xl text-[15px] font-semibold bg-violet-600 hover:bg-violet-500 disabled:opacity-25 disabled:cursor-not-allowed text-white transition-all"
+                className="flex-1 py-4 rounded-2xl text-[15px] font-semibold bg-amber-600 hover:bg-amber-500 disabled:opacity-25 disabled:cursor-not-allowed text-white transition-all"
               >
                 {saving ? 'Setting up…' : "Let's go →"}
               </button>
@@ -149,8 +149,8 @@ export default function Onboarding() {
 
         {/* Step dots */}
         <div className="flex items-center gap-2 mt-10">
-          <div className={`h-1 rounded-full transition-all duration-400 ${step === 1 ? 'w-8 bg-violet-500' : 'w-2 bg-white/20'}`} />
-          <div className={`h-1 rounded-full transition-all duration-400 ${step === 2 ? 'w-8 bg-violet-500' : 'w-2 bg-white/20'}`} />
+          <div className={`h-1 rounded-full transition-all duration-400 ${step === 1 ? 'w-8 bg-amber-500' : 'w-2 bg-white/20'}`} />
+          <div className={`h-1 rounded-full transition-all duration-400 ${step === 2 ? 'w-8 bg-amber-500' : 'w-2 bg-white/20'}`} />
         </div>
       </div>
     </main>

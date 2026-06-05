@@ -348,14 +348,14 @@ export default function Flashcards() {
 
                 {/* Back face */}
                 <div
-                  className="flashcard-back absolute inset-0 bg-gradient-to-br from-violet-950/80 to-[#0F0F1B] border border-violet-500/[0.25] rounded-2xl flex flex-col items-center justify-center p-8 sm:min-h-64"
+                  className="flashcard-back absolute inset-0 bg-gradient-to-br from-amber-950/80 to-[#0F0F1B] border border-amber-500/[0.25] rounded-2xl flex flex-col items-center justify-center p-8 sm:min-h-64"
                   style={{
                     backfaceVisibility: 'hidden',
                     WebkitBackfaceVisibility: 'hidden',
                     transform: 'rotateY(180deg)',
                   }}
                 >
-                  <p className="text-[11px] font-bold tracking-[0.18em] text-violet-400/60 uppercase mb-4">
+                  <p className="text-[11px] font-bold tracking-[0.18em] text-amber-400/60 uppercase mb-4">
                     Definition
                   </p>
                   <p className="text-[15px] text-white/75 text-center leading-relaxed">

@@ -148,11 +148,11 @@ export default function Login() {
     <main className="relative min-h-dvh bg-[#080810] text-white flex items-center justify-center px-6 overflow-y-auto py-12">
       {/* Ambient glow */}
       <div aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center">
-        <div className="w-[700px] h-[700px] rounded-full bg-violet-600/[0.07] blur-[130px]" />
+        <div className="w-[700px] h-[700px] rounded-full bg-amber-600/[0.07] blur-[130px]" />
       </div>
 
       <div className="relative w-full max-w-[400px]">
-        <p className="text-[11px] font-bold tracking-[0.22em] text-violet-400/70 uppercase mb-10">
+        <p className="text-[11px] font-bold tracking-[0.22em] text-amber-400/70 uppercase mb-10">
           Demist
         </p>
 
@@ -174,12 +174,12 @@ export default function Login() {
                 placeholder="your@email.com"
                 autoFocus
                 required
-                className="w-full bg-white/[0.05] border border-white/[0.1] rounded-2xl px-5 py-4 text-white text-[15px] placeholder-gray-600 focus:outline-none focus:border-violet-500/50 focus:bg-white/[0.07] transition-all"
+                className="w-full bg-white/[0.05] border border-white/[0.1] rounded-2xl px-5 py-4 text-white text-[15px] placeholder-gray-600 focus:outline-none focus:border-amber-500/50 focus:bg-white/[0.07] transition-all"
               />
               <button
                 type="submit"
                 disabled={loading || !email.trim()}
-                className="py-4 rounded-2xl text-[15px] font-semibold bg-violet-600 hover:bg-violet-500 disabled:opacity-25 disabled:cursor-not-allowed text-white transition-all"
+                className="py-4 rounded-2xl text-[15px] font-semibold bg-amber-600 hover:bg-amber-500 disabled:opacity-25 disabled:cursor-not-allowed text-white transition-all"
               >
                 {loading ? 'Sending…' : 'Send code'}
               </button>
@@ -212,12 +212,12 @@ export default function Login() {
                   setCode(pasted)
                 }}
                 placeholder="000000"
-                className="w-full bg-white/[0.05] border border-white/[0.1] rounded-2xl px-5 py-4 text-white text-[22px] font-mono tracking-[0.3em] text-center placeholder-gray-700 focus:outline-none focus:border-violet-500/50 focus:bg-white/[0.07] transition-all"
+                className="w-full bg-white/[0.05] border border-white/[0.1] rounded-2xl px-5 py-4 text-white text-[22px] font-mono tracking-[0.3em] text-center placeholder-gray-700 focus:outline-none focus:border-amber-500/50 focus:bg-white/[0.07] transition-all"
               />
               <button
                 type="submit"
                 disabled={loading || code.length < 6}
-                className="py-4 rounded-2xl text-[15px] font-semibold bg-violet-600 hover:bg-violet-500 disabled:opacity-25 disabled:cursor-not-allowed text-white transition-all"
+                className="py-4 rounded-2xl text-[15px] font-semibold bg-amber-600 hover:bg-amber-500 disabled:opacity-25 disabled:cursor-not-allowed text-white transition-all"
               >
                 {loading ? 'Verifying…' : 'Verify →'}
               </button>

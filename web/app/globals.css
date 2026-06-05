@@ -34,10 +34,10 @@
   --border-default: rgba(255, 255, 255, 0.085);
   --border-strong:  rgba(255, 255, 255, 0.14);
 
-  /* Violet system */
-  --violet-dim:   rgba(124, 58, 237, 0.12);
-  --violet-glow:  rgba(124, 58, 237, 0.28);
-  --violet-ring:  rgba(124, 58, 237, 0.50);
+  /* Amber accent system */
+  --accent-dim:   rgba(217, 119, 6, 0.12);
+  --accent-glow:  rgba(217, 119, 6, 0.28);
+  --accent-ring:  rgba(217, 119, 6, 0.50);
 
   /* Elevation shadows */
   --shadow-sm:  0 2px 8px rgba(0, 0, 0, 0.25);

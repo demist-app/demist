@@ -35,7 +35,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   if (!ready) return (
     <div className="min-h-dvh bg-[#08080E] flex items-center justify-center">
-      <div className="w-5 h-5 rounded-full border-2 border-violet-500/30 border-t-violet-500 animate-spin" />
+      <div className="w-5 h-5 rounded-full border-2 border-amber-500/30 border-t-amber-500 animate-spin" />
     </div>
   )
 
@@ -45,13 +45,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <aside className="hidden sm:flex flex-col fixed left-0 top-0 bottom-0 w-[216px] z-40 bg-[#09090F]/95 backdrop-blur-xl border-r border-white/[0.07]">
         {/* Logo */}
         <div className="flex items-center gap-2.5 px-4 py-5">
-          <div className="w-7 h-7 rounded-lg bg-violet-600 flex items-center justify-center shadow-[0_0_14px_rgba(124,58,237,0.5)] shrink-0">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
-              <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-              <line x1="12" y1="19" x2="12" y2="22"/>
-            </svg>
-          </div>
           <span className="text-[15px] font-bold text-white tracking-tight">Demist</span>
         </div>
 
@@ -104,18 +97,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               href={href}
               className={cn(
                 'flex flex-col items-center justify-center gap-[3px] flex-1 pt-1 transition-colors duration-150',
-                active ? 'text-violet-400' : 'text-white/30 hover:text-white/60'
+                active ? 'text-amber-400' : 'text-white/30 hover:text-white/60'
               )}
             >
               <Icon active={active} />
               <span className={cn(
                 'text-[9.5px] font-semibold tracking-wide',
-                active ? 'text-violet-400' : 'text-white/30'
+                active ? 'text-amber-400' : 'text-white/30'
               )}>
                 {label}
               </span>
               {active && (
-                <span className="absolute bottom-0 w-5 h-[2px] rounded-full bg-violet-400" style={{ marginBottom: 'env(safe-area-inset-bottom)' }} />
+                <span className="absolute bottom-0 w-5 h-[2px] rounded-full bg-amber-400" style={{ marginBottom: 'env(safe-area-inset-bottom)' }} />
               )}
             </Link>
           )
@@ -133,7 +126,7 @@ function SidebarLink({ href, active, children }: { href: string; active: boolean
       className={cn(
         'flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13.5px] font-medium transition-all duration-150',
         active
-          ? 'bg-violet-500/[0.14] text-violet-300 shadow-[inset_0_0_0_1px_rgba(139,92,246,0.18)]'
+          ? 'bg-amber-500/[0.14] text-amber-300 shadow-[inset_0_0_0_1px_rgba(217,119,6,0.18)]'
           : 'text-white/50 hover:bg-white/[0.05] hover:text-white/80'
       )}
     >
@@ -145,7 +138,7 @@ function SidebarLink({ href, active, children }: { href: string; active: boolean
 /* ─── Icons ─────────────────────────────────────────────────────────────── */
 function HomeIcon({ active }: { active: boolean }) {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill={active ? 'rgba(167,139,250,0.18)' : 'none'} stroke="currentColor"
+    <svg width="18" height="18" viewBox="0 0 24 24" fill={active ? 'rgba(251,191,36,0.18)' : 'none'} stroke="currentColor"
       strokeWidth={active ? 2 : 1.7} strokeLinecap="round" strokeLinejoin="round">
       <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
       <polyline points="9 22 9 12 15 12 15 22" />
@@ -155,7 +148,7 @@ function HomeIcon({ active }: { active: boolean }) {
 
 function CardsIcon({ active }: { active: boolean }) {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill={active ? 'rgba(167,139,250,0.18)' : 'none'} stroke="currentColor"
+    <svg width="18" height="18" viewBox="0 0 24 24" fill={active ? 'rgba(251,191,36,0.18)' : 'none'} stroke="currentColor"
       strokeWidth={active ? 2 : 1.7} strokeLinecap="round" strokeLinejoin="round">
       <rect x="2" y="5" width="20" height="14" rx="3" />
       <line x1="2" y1="10" x2="22" y2="10" />
@@ -165,7 +158,7 @@ function CardsIcon({ active }: { active: boolean }) {
 
 function GlossaryIcon({ active }: { active: boolean }) {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill={active ? 'rgba(167,139,250,0.18)' : 'none'} stroke="currentColor"
+    <svg width="18" height="18" viewBox="0 0 24 24" fill={active ? 'rgba(251,191,36,0.18)' : 'none'} stroke="currentColor"
       strokeWidth={active ? 2 : 1.7} strokeLinecap="round" strokeLinejoin="round">
       <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
       <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
@@ -175,7 +168,7 @@ function GlossaryIcon({ active }: { active: boolean }) {
 
 function HistoryIcon({ active }: { active: boolean }) {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill={active ? 'rgba(167,139,250,0.18)' : 'none'} stroke="currentColor"
+    <svg width="18" height="18" viewBox="0 0 24 24" fill={active ? 'rgba(251,191,36,0.18)' : 'none'} stroke="currentColor"
       strokeWidth={active ? 2 : 1.7} strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="9" />
       <polyline points="12 7 12 12 15 15" />
@@ -196,7 +189,7 @@ function ImportIcon({ active }: { active: boolean }) {
 
 function StatsIcon({ active }: { active: boolean }) {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill={active ? 'rgba(167,139,250,0.18)' : 'none'} stroke="currentColor"
+    <svg width="18" height="18" viewBox="0 0 24 24" fill={active ? 'rgba(251,191,36,0.18)' : 'none'} stroke="currentColor"
       strokeWidth={active ? 2 : 1.7} strokeLinecap="round" strokeLinejoin="round">
       <line x1="18" y1="20" x2="18" y2="10" />
       <line x1="12" y1="20" x2="12" y2="4" />
@@ -207,7 +200,7 @@ function StatsIcon({ active }: { active: boolean }) {
 
 function ProfileIcon({ active }: { active: boolean }) {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill={active ? 'rgba(167,139,250,0.18)' : 'none'} stroke="currentColor"
+    <svg width="18" height="18" viewBox="0 0 24 24" fill={active ? 'rgba(251,191,36,0.18)' : 'none'} stroke="currentColor"
       strokeWidth={active ? 2 : 1.7} strokeLinecap="round" strokeLinejoin="round">
       <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
       <circle cx="12" cy="7" r="4" />

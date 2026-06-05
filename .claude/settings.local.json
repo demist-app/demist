@@ -83,7 +83,9 @@
       "Bash(python .claude/skills/ui-ux-pro-max/scripts/search.py \"edtech SaaS productivity tool dark premium lecture AI transcription\" --design-system -p \"Demist\" -f markdown)",
       "Bash(python .claude/skills/ui-ux-pro-max/scripts/search.py \"glassmorphism dark premium\" --domain style -n 3)",
       "Bash(python .claude/skills/ui-ux-pro-max/scripts/search.py \"edtech SaaS productivity tool AI\" --domain color -n 3)",
-      "Bash(npx shadcn@latest init --yes --base-color zinc --style new-york)"
+      "Bash(npx shadcn@latest init --yes --base-color zinc --style new-york)",
+      "Bash(Get-ChildItem -Path \"app/\\(app\\)\" -Filter \"*.tsx\" -Recurse)",
+      "Bash(Select-Object -ExpandProperty FullName)"
     ],
     "additionalDirectories": [
       "c:\\Users\\shivb\\Desktop\\coding bits\\demist\\web\\app\\u"

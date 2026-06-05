@@ -186,7 +186,7 @@ export default function Profile() {
             style={{ animationFillMode: 'forwards' }}
           >
             {/* Avatar */}
-            <div className="w-[72px] h-[72px] shrink-0 rounded-full bg-gradient-to-br from-violet-700 to-violet-900 flex items-center justify-center ring-2 ring-violet-500/20 ring-offset-2 ring-offset-[#08080E] shadow-[0_0_28px_rgba(139,92,246,0.25)]">
+            <div className="w-[72px] h-[72px] shrink-0 rounded-full bg-gradient-to-br from-amber-700 to-amber-900 flex items-center justify-center ring-2 ring-amber-500/20 ring-offset-2 ring-offset-[#08080E] shadow-[0_0_28px_rgba(245,158,11,0.25)]">
               <span className="text-[24px] font-bold text-white select-none">{initials}</span>
             </div>
             {/* Info */}
@@ -240,7 +240,7 @@ export default function Profile() {
                     className={cn(
                       'py-3 rounded-xl text-[13px] font-medium transition-all active:scale-[0.97]',
                       year === value
-                        ? 'bg-violet-600 border border-violet-400/40 text-white'
+                        ? 'bg-amber-600 border border-amber-400/40 text-white'
                         : 'bg-white/[0.05] border border-white/[0.09] text-white/60 hover:bg-white/[0.09]'
                     )}
                   >
@@ -334,11 +334,11 @@ export default function Profile() {
                     },
                   ].map(({ title, steps }) => (
                     <div key={title}>
-                      <p className="text-[11px] font-bold tracking-[0.14em] text-violet-400/70 uppercase mb-3">{title}</p>
+                      <p className="text-[11px] font-bold tracking-[0.14em] text-amber-400/70 uppercase mb-3">{title}</p>
                       <ol className="space-y-2">
                         {steps.map((step, i) => (
                           <li key={i} className="flex items-start gap-2.5">
-                            <span className="text-[11px] font-bold text-violet-500/50 shrink-0 tabular-nums mt-[2px]">{i + 1}.</span>
+                            <span className="text-[11px] font-bold text-amber-500/50 shrink-0 tabular-nums mt-[2px]">{i + 1}.</span>
                             <span className="text-[12px] text-white/35">{step}</span>
                           </li>
                         ))}
@@ -380,7 +380,7 @@ export default function Profile() {
                   variant="ghost"
                   size="sm"
                   onClick={copyShareLink}
-                  className="shrink-0 text-violet-400 hover:text-violet-300 hover:bg-transparent px-1 h-auto py-0 font-medium text-[12px]"
+                  className="shrink-0 text-amber-400 hover:text-amber-300 hover:bg-transparent px-1 h-auto py-0 font-medium text-[12px]"
                 >
                   {copied ? 'Copied ✓' : 'Copy'}
                 </Button>

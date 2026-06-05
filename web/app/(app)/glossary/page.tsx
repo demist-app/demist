@@ -117,7 +117,7 @@ export default function Glossary() {
           <div className="relative overflow-hidden px-4 sm:px-6 pt-8 pb-5">
             <div
               aria-hidden
-              className="pointer-events-none absolute -top-10 -left-10 w-[280px] h-[180px] rounded-full bg-violet-600/[0.08] blur-[60px]"
+              className="pointer-events-none absolute -top-10 -left-10 w-[280px] h-[180px] rounded-full bg-amber-600/[0.08] blur-[60px]"
             />
 
             {loading ? (
@@ -142,7 +142,7 @@ export default function Glossary() {
                   <div className="flex gap-3 mt-4">
                     <div className="flex items-center gap-2 bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-2.5">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                        strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-violet-400 shrink-0">
+                        strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-400 shrink-0">
                         <path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
                       </svg>
                       <div>
@@ -152,7 +152,7 @@ export default function Glossary() {
                     </div>
                     <div className="flex items-center gap-2 bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-2.5">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                        strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-violet-400 shrink-0">
+                        strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-400 shrink-0">
                         <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
                         <line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" />
                         <line x1="3" y1="10" x2="21" y2="10" />
@@ -199,7 +199,7 @@ export default function Glossary() {
                     <div className="flex items-center gap-3 mb-3">
                       <div className="h-4 w-28 bg-white/[0.05] rounded-full" />
                       <div className="h-3 w-16 bg-white/[0.04] rounded-full" />
-                      <div className="h-5 w-10 bg-violet-500/10 rounded-md" />
+                      <div className="h-5 w-10 bg-amber-500/10 rounded-md" />
                     </div>
                     <div className="space-y-2">
                       {Array.from({ length: count }).map((_, j) => (
@@ -217,9 +217,9 @@ export default function Glossary() {
             {/* Empty state — no terms at all */}
             {!loading && totalCount === 0 && (
               <div className="flex flex-col items-center justify-center py-20 text-center gap-3">
-                <div className="w-14 h-14 rounded-2xl bg-violet-600/[0.12] border border-violet-500/[0.20] flex items-center justify-center mb-1">
+                <div className="w-14 h-14 rounded-2xl bg-amber-600/[0.12] border border-amber-500/[0.20] flex items-center justify-center mb-1">
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                    strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="text-violet-400">
+                    strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="text-amber-400">
                     <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
                     <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
                   </svg>

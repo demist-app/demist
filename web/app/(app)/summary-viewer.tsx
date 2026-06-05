@@ -126,7 +126,7 @@ export function SummaryViewer({
         <div
           role="dialog"
           aria-label="Term explanation"
-          className="fixed z-[100] bg-[#0e0e1c] border border-violet-500/25 rounded-xl px-4 py-3 shadow-[0_8px_32px_rgba(0,0,0,0.7)]"
+          className="fixed z-[100] bg-[#0e0e1c] border border-amber-500/25 rounded-xl px-4 py-3 shadow-[0_8px_32px_rgba(0,0,0,0.7)]"
           style={{
             width: POPUP_WIDTH,
             left: popup.x,
@@ -137,7 +137,7 @@ export function SummaryViewer({
           onPointerUp={e => e.stopPropagation()}
         >
           <div className="flex items-start justify-between gap-2 mb-1.5">
-            <p className="text-[10px] font-bold tracking-[0.15em] text-violet-400/60 uppercase line-clamp-2 leading-snug flex-1">
+            <p className="text-[10px] font-bold tracking-[0.15em] text-amber-400/60 uppercase line-clamp-2 leading-snug flex-1">
               {popup.text}
             </p>
             <button
@@ -157,7 +157,7 @@ export function SummaryViewer({
               <button
                 onClick={saveFlashcard}
                 disabled={popup.saving || popup.saved}
-                className="w-full text-[12px] font-medium py-1.5 rounded-lg bg-violet-600/20 hover:bg-violet-600/30 text-violet-400 hover:text-violet-300 transition-all disabled:opacity-50"
+                className="w-full text-[12px] font-medium py-1.5 rounded-lg bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 hover:text-amber-300 transition-all disabled:opacity-50"
               >
                 {popup.saved ? 'Saved ✓' : popup.saving ? 'Saving…' : '+ Save as flashcard'}
               </button>

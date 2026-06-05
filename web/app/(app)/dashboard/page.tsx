@@ -812,7 +812,7 @@ export default function Dashboard() {
       {/* Ambient blobs */}
       <div aria-hidden className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
         <div
-          className="absolute -top-32 -left-32 w-[500px] h-[500px] rounded-full bg-violet-700/[0.06] blur-[120px]"
+          className="absolute -top-32 -left-32 w-[500px] h-[500px] rounded-full bg-amber-700/[0.06] blur-[120px]"
           style={{ animation: 'blob-drift 22s ease-in-out infinite' }}
         />
         <div
@@ -830,7 +830,7 @@ export default function Dashboard() {
             {isProcessing && <span className="text-white/35 text-[11px] ml-1 font-medium tracking-wide">processing</span>}
           </div>
         ) : (
-          <Link href="/dashboard" className="font-bold tracking-tight text-[15px] hover:text-violet-300 active:scale-[0.97] transition-all duration-150 select-none">Demist</Link>
+          <Link href="/dashboard" className="font-bold tracking-tight text-[15px] hover:text-amber-300 active:scale-[0.97] transition-all duration-150 select-none">Demist</Link>
         )}
       </header>
 
@@ -937,7 +937,7 @@ export default function Dashboard() {
                     <span className="text-[12px] text-white/35">day streak</span>
                   </div>
                   <div className="flex items-center gap-1.5 bg-white/[0.04] border border-white/[0.08] rounded-full px-3.5 py-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-violet-400 shrink-0" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
                     <span className="text-[12px] font-semibold text-white/70 tabular-nums">{stats.termsThisWeek}</span>
                     <span className="text-[12px] text-white/35">terms this week</span>
                   </div>
@@ -957,14 +957,14 @@ export default function Dashboard() {
               {/* Mic hero */}
               <div className="flex flex-col items-center pt-4 pb-8 px-5 animate-step opacity-0" style={{ animationDelay: '40ms', animationFillMode: 'forwards' }}>
                 <div className="relative flex items-center justify-center mb-5">
-                  <span className="absolute w-[130px] h-[130px] rounded-full bg-violet-600/[0.08]" style={{ animation: 'glow-float 4s ease-in-out infinite' }} />
-                  <span className="absolute w-[162px] h-[162px] rounded-full bg-violet-600/[0.05]" style={{ animation: 'glow-float 4s ease-in-out -1.3s infinite' }} />
-                  <span className="absolute w-[194px] h-[194px] rounded-full bg-violet-600/[0.025]" style={{ animation: 'glow-float 4s ease-in-out -2.7s infinite' }} />
+                  <span className="absolute w-[130px] h-[130px] rounded-full bg-amber-600/[0.08]" style={{ animation: 'glow-float 4s ease-in-out infinite' }} />
+                  <span className="absolute w-[162px] h-[162px] rounded-full bg-amber-600/[0.05]" style={{ animation: 'glow-float 4s ease-in-out -1.3s infinite' }} />
+                  <span className="absolute w-[194px] h-[194px] rounded-full bg-amber-600/[0.025]" style={{ animation: 'glow-float 4s ease-in-out -2.7s infinite' }} />
                   <button
                     ref={btnRef}
                     onClick={startRecording}
                     aria-label="Start recording"
-                    className="relative z-10 w-[80px] h-[80px] rounded-full bg-violet-600 hover:bg-violet-500 active:scale-[0.97] flex items-center justify-center transition-all duration-150 select-none shadow-[0_0_48px_rgba(124,58,237,0.5)] hover:shadow-[0_0_64px_rgba(124,58,237,0.65)]"
+                    className="relative z-10 w-[80px] h-[80px] rounded-full bg-amber-600 hover:bg-amber-500 active:scale-[0.97] flex items-center justify-center transition-all duration-150 select-none shadow-[0_0_48px_rgba(217,119,6,0.5)] hover:shadow-[0_0_64px_rgba(217,119,6,0.65)]"
                   >
                     <MicIcon />
                   </button>
@@ -993,13 +993,13 @@ export default function Dashboard() {
 
                 {/* Terms this week */}
                 <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-1">
-                  <div className="w-7 h-7 rounded-lg bg-violet-500/[0.12] flex items-center justify-center mb-1">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-violet-400">
+                  <div className="w-7 h-7 rounded-lg bg-amber-500/[0.12] flex items-center justify-center mb-1">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-400">
                       <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
                       <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
                     </svg>
                   </div>
-                  <p className="text-[26px] font-bold leading-none text-violet-400 tabular-nums">{stats.termsThisWeek}</p>
+                  <p className="text-[26px] font-bold leading-none text-amber-400 tabular-nums">{stats.termsThisWeek}</p>
                   <p className="text-[10px] font-bold tracking-[0.16em] text-white/35 uppercase">terms this week</p>
                 </div>
 
@@ -1033,7 +1033,7 @@ export default function Dashboard() {
                   <>
                     <div className="flex items-center justify-between mb-3">
                       <p className="text-[10px] font-bold tracking-[0.16em] text-white/35 uppercase">Recent Sessions</p>
-                      <Link href="/history" className="text-[12px] text-violet-400/70 hover:text-violet-400 transition-colors duration-150">See all</Link>
+                      <Link href="/history" className="text-[12px] text-amber-400/70 hover:text-amber-400 transition-colors duration-150">See all</Link>
                     </div>
                     <div className="space-y-2">
                       {recentSessions.map(s => (
@@ -1086,7 +1086,7 @@ export default function Dashboard() {
                                   <p className="text-[12px] text-white/35">Could not generate summary.</p>
                                   <button
                                     onClick={() => retrySessionSummarize(s)}
-                                    className="text-[12px] text-violet-400 hover:text-violet-300 transition-colors duration-150 shrink-0"
+                                    className="text-[12px] text-amber-400 hover:text-amber-300 transition-colors duration-150 shrink-0"
                                   >
                                     Retry
                                   </button>
@@ -1110,7 +1110,7 @@ export default function Dashboard() {
                                   {s.terms.length > 3 && (
                                     <Link
                                       href={`/history?session=${s.id}`}
-                                      className="inline-block mt-2 text-[12px] text-violet-400 hover:text-violet-300 transition-colors duration-150"
+                                      className="inline-block mt-2 text-[12px] text-amber-400 hover:text-amber-300 transition-colors duration-150"
                                     >
                                       +{s.terms.length - 3} more in History
                                     </Link>
@@ -1198,7 +1198,7 @@ function TermCard({
           </div>
           <button
             onClick={onKnown}
-            className="mt-3 text-[12px] text-white/35 hover:text-violet-400 transition-colors duration-150"
+            className="mt-3 text-[12px] text-white/35 hover:text-amber-400 transition-colors duration-150"
           >
             I already know this
           </button>

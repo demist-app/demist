@@ -389,7 +389,7 @@ export default function History() {
                             placeholder={sessionLabel(n, s.started_at)}
                             maxLength={80}
                             onClick={e => e.stopPropagation()}
-                            className="text-[14px] font-semibold bg-transparent border-b border-violet-500/50 focus:outline-none text-white w-full pb-0.5"
+                            className="text-[14px] font-semibold bg-transparent border-b border-amber-500/50 focus:outline-none text-white w-full pb-0.5"
                           />
                         ) : (
                           <p className={cn(
@@ -420,7 +420,7 @@ export default function History() {
                             size="icon-sm"
                             title="Rename session"
                             onClick={e => { e.stopPropagation(); startRename(s) }}
-                            className="text-white/30 hover:text-violet-400"
+                            className="text-white/30 hover:text-amber-400"
                           >
                             <PencilIcon />
                           </Button>
@@ -479,7 +479,7 @@ export default function History() {
                                   variant="ghost"
                                   size="sm"
                                   onClick={() => retrySummarize(s)}
-                                  className="text-violet-400 hover:text-violet-300 h-auto py-0.5 px-2 text-[13px]"
+                                  className="text-amber-400 hover:text-amber-300 h-auto py-0.5 px-2 text-[13px]"
                                 >
                                   Retry
                                 </Button>

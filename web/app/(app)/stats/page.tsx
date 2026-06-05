@@ -148,12 +148,12 @@ export default function Stats() {
             <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-5">
               <div className="flex items-center gap-2 mb-3">
                 {/* Book icon — violet */}
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-violet-400 shrink-0">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-amber-400 shrink-0">
                   <path d="M10.75 16.82A7.462 7.462 0 0 1 15 15.5c.71 0 1.396.098 2.046.282A.75.75 0 0 0 18 15.06v-11a.75.75 0 0 0-.546-.721A9.006 9.006 0 0 0 15 3a8.963 8.963 0 0 0-4.25 1.065V16.82ZM9.25 4.065A8.963 8.963 0 0 0 5 3c-.85 0-1.673.118-2.454.339A.75.75 0 0 0 2 4.06v11a.75.75 0 0 0 .954.721A7.506 7.506 0 0 1 5 15.5c1.579 0 3.042.487 4.25 1.32V4.065Z" />
                 </svg>
                 <p className="text-[11px] text-white/35 uppercase tracking-[0.12em]">Terms</p>
               </div>
-              <p className="text-[32px] font-bold leading-none text-violet-400 tabular-nums">{totalTerms}</p>
+              <p className="text-[32px] font-bold leading-none text-amber-400 tabular-nums">{totalTerms}</p>
               <p className="text-[11px] text-white/30 mt-2">total terms learned</p>
               {masteredTerms > 0 && (
                 <p className="text-[11px] text-white/35 mt-1">{masteredTerms} mastered</p>
@@ -220,7 +220,7 @@ export default function Stats() {
                             className={cn(
                               'w-full rounded-full transition-all duration-200',
                               isToday
-                                ? 'bg-violet-500 group-hover:bg-violet-400'
+                                ? 'bg-amber-500 group-hover:bg-amber-400'
                                 : d.count > 0
                                   ? 'bg-white/[0.12] group-hover:bg-white/[0.20]'
                                   : 'bg-white/[0.05]'
@@ -229,7 +229,7 @@ export default function Stats() {
                           />
                           <span className={cn(
                             'text-[9px]',
-                            isToday ? 'text-violet-400' : 'text-white/25'
+                            isToday ? 'text-amber-400' : 'text-white/25'
                           )}>
                             {d.label}
                           </span>
@@ -254,7 +254,7 @@ export default function Stats() {
                             className={cn(
                               'w-full rounded-full transition-all duration-200',
                               isThis
-                                ? 'bg-violet-500 group-hover:bg-violet-400'
+                                ? 'bg-amber-500 group-hover:bg-amber-400'
                                 : w.count > 0
                                   ? 'bg-white/[0.12] group-hover:bg-white/[0.20]'
                                   : 'bg-white/[0.05]'
@@ -263,7 +263,7 @@ export default function Stats() {
                           />
                           <span className={cn(
                             'text-[8px] truncate w-full text-center',
-                            isThis ? 'text-violet-400' : 'text-white/25'
+                            isThis ? 'text-amber-400' : 'text-white/25'
                           )}>
                             {w.label}
                           </span>
