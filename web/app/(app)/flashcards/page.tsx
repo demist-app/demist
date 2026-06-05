@@ -163,7 +163,10 @@ export default function Flashcards() {
 
   return (
     <main className="min-h-dvh dark:bg-[#080810] bg-[#EDEAE3] dark:text-white text-gray-900 flex flex-col nav-bottom-pad">
-      <header className="sm:hidden shrink-0 flex items-center justify-between px-6 h-14 border-b dark:border-white/[0.05] border-black/[0.06]">
+      <div aria-hidden className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
+        <div className="absolute -top-32 -left-32 w-[500px] h-[500px] rounded-full bg-yellow-700/[0.05] blur-[120px]" />
+      </div>
+      <header className="sm:hidden relative z-10 shrink-0 flex items-center justify-between px-6 h-14 border-b dark:border-white/[0.05] border-black/[0.06]">
         <span className="font-semibold tracking-tight text-[15px]">Flashcards</span>
         {phase === 'review' && (
           <span className="text-[13px] text-gray-600">{queueLabel}</span>
@@ -250,7 +253,7 @@ export default function Flashcards() {
           <div className="shrink-0 flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               {dueCount > 0 && (
-                <span className="text-[11px] font-medium text-orange-400/80 bg-orange-500/10 border border-orange-500/20 rounded-full px-2 py-0.5">
+                <span className="text-[11px] font-medium dark:text-orange-400/80 text-orange-700 dark:bg-orange-500/10 bg-orange-100 dark:border-orange-500/20 border-orange-200 rounded-full px-2 py-0.5">
                   {dueCount} due
                 </span>
               )}

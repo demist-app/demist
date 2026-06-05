@@ -615,7 +615,10 @@ export default function ImportPage() {
 
   return (
     <div className="min-h-dvh dark:bg-[#080810] bg-[#EDEAE3] pb-20 sm:pb-10">
-      <div className="w-full max-w-2xl mx-auto px-4 sm:px-6 pt-6 sm:pt-8">
+      <div aria-hidden className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
+        <div className="absolute -top-32 -left-32 w-[500px] h-[500px] rounded-full bg-yellow-700/[0.05] blur-[120px]" />
+      </div>
+      <div className="relative z-10 w-full max-w-2xl mx-auto px-4 sm:px-6 pt-6 sm:pt-8">
 
         {/* Header */}
         <div className="mb-8 animate-step opacity-0" style={{ animationDelay: '0ms', animationFillMode: 'forwards' }}>

@@ -101,18 +101,19 @@ export default function Glossary() {
 
   return (
     <main className="min-h-dvh dark:bg-[#080810] bg-[#EDEAE3] dark:text-white text-gray-900 flex flex-col nav-bottom-pad">
-      <header className="sm:hidden shrink-0 flex items-center px-6 h-14 border-b dark:border-white/[0.05] border-black/[0.06]">
+      {/* Ambient glow */}
+      <div aria-hidden className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
+        <div className="absolute -top-32 -left-32 w-[500px] h-[500px] rounded-full bg-yellow-700/[0.05] blur-[120px]" />
+      </div>
+
+      <header className="sm:hidden relative z-10 shrink-0 flex items-center px-6 h-14 border-b dark:border-white/[0.05] border-black/[0.06]">
         <span className="font-semibold tracking-tight text-[15px]">Glossary</span>
       </header>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto relative z-10">
       <div className="w-full max-w-2xl mx-auto animate-step opacity-0" style={{ animationFillMode: 'forwards' }}>
       {/* Hero */}
-      <div className="relative overflow-hidden px-4 sm:px-6 pt-6 pb-5">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -top-10 -left-10 w-[280px] h-[180px] rounded-full bg-yellow-600/[0.08] blur-[60px]"
-        />
+      <div className="px-4 sm:px-6 pt-6 pb-5">
         {loading ? (
           <div className="animate-pulse">
             <div className="h-10 w-24 dark:bg-white/[0.07] bg-[#EFEDE7] rounded-xl mb-2" />
