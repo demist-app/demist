@@ -419,6 +419,7 @@ export default function Dashboard() {
     // Raw stream → gain(2.5×) → compressor → processedStream → MediaRecorder
     // Waveform visualiser keeps reading from the raw stream (unchanged).
     const audioCtx = new AudioContext()
+    await audioCtx.resume() // must resume explicitly — context can be suspended after an await on iOS Safari
     audioProcessingCtxRef.current = audioCtx
     const src = audioCtx.createMediaStreamSource(stream)
     const gain = audioCtx.createGain()
@@ -444,6 +445,9 @@ export default function Dashboard() {
 
     if (sessionErr || !session) {
       streamRef.current?.getTracks().forEach(t => t.stop())
+      audioProcessingCtxRef.current?.close()
+      audioProcessingCtxRef.current = null
+      startingRef.current = false
       alert('Could not start session. Check your connection and try again.')
       return
     }
