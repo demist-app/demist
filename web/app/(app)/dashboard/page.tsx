@@ -343,11 +343,12 @@ export default function Dashboard() {
   // ── Whisper path: transcribe audio blob then detect terms ─────────────────────
   // Skips Whisper entirely if audio level was below silence threshold.
 
-  const SILENCE_THRESHOLD = 0.003 // lowered for distant lecturers — only skips true dead air
+  const SILENCE_THRESHOLD = 0.003
 
   const processChunk = async (blob: Blob, sessionId: string, peak: number) => {
-    if (blob.size < 500) { console.log('[demist] processChunk: DROPPED — blob too small', blob.size); return }
-    if (peak < SILENCE_THRESHOLD) { console.log('[demist] processChunk: DROPPED — silence (peak:', peak.toFixed(4), '< threshold:', SILENCE_THRESHOLD, ')'); return }
+    if (blob.size < 1000) { console.log('[demist] processChunk: DROPPED — blob too small', blob.size); return }
+    // Silence check disabled: Web Audio analyser unreliable on some hardware/browser combos.
+    // Whisper handles silent audio gracefully (returns empty string).
     console.log('[demist] processChunk: sending to transcribe — size:', blob.size, 'type:', blob.type, 'peak:', peak.toFixed(4))
     const supabase = createClient()
     setIsProcessing(true)
@@ -497,8 +498,11 @@ export default function Dashboard() {
       const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
         ? 'audio/webm;codecs=opus'
         : MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'
-      console.log(`[demist] chunk #${idx} start — mimeType: ${mimeType}`)
-      const recorder = new MediaRecorder(processedStreamRef.current ?? streamRef.current!, { mimeType })
+      // Use raw stream — Web Audio API processedStream silences on some browser/hardware combos.
+      // The gain/compression chain is kept for visualization only.
+      const recordingStream = streamRef.current!
+      console.log(`[demist] chunk #${idx} start — mimeType: ${mimeType} | stream tracks: ${recordingStream.getAudioTracks().length}`)
+      const recorder = new MediaRecorder(recordingStream, { mimeType })
       recorderRef.current = recorder
       const chunks: Blob[] = []
       recorder.ondataavailable = (e: BlobEvent) => { if (e.data.size > 0) chunks.push(e.data) }
