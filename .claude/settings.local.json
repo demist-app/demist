@@ -79,7 +79,11 @@
       "Bash(supabase secrets *)",
       "Bash(npm list *)",
       "Bash(del \"c:/Users/shivb/Desktop/coding bits/demist/extension/sidepanel.html\" \"c:/Users/shivb/Desktop/coding bits/demist/extension/sidepanel.js\" \"c:/Users/shivb/Desktop/coding bits/demist/extension/content.js\")",
-      "Bash(powershell -Command \"Compress-Archive -Path 'manifest.json','background.js','content-bridge.js','content-overlay.js','popup.html','popup.js' -DestinationPath '../web/public/demist-extension.zip' -Force\")"
+      "Bash(powershell -Command \"Compress-Archive -Path 'manifest.json','background.js','content-bridge.js','content-overlay.js','popup.html','popup.js' -DestinationPath '../web/public/demist-extension.zip' -Force\")",
+      "Bash(python .claude/skills/ui-ux-pro-max/scripts/search.py \"edtech SaaS productivity tool dark premium lecture AI transcription\" --design-system -p \"Demist\" -f markdown)",
+      "Bash(python .claude/skills/ui-ux-pro-max/scripts/search.py \"glassmorphism dark premium\" --domain style -n 3)",
+      "Bash(python .claude/skills/ui-ux-pro-max/scripts/search.py \"edtech SaaS productivity tool AI\" --domain color -n 3)",
+      "Bash(npx shadcn@latest init --yes --base-color zinc --style new-york)"
     ],
     "additionalDirectories": [
       "c:\\Users\\shivb\\Desktop\\coding bits\\demist\\web\\app\\u"

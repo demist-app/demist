@@ -4,6 +4,10 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import posthog from 'posthog-js'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Progress } from '@/components/ui/progress'
+import { cn } from '@/lib/utils'
 
 const NEW_CARDS_PER_DAY = 15
 
@@ -32,11 +36,35 @@ function sm2Update(ease: number, interval: number, grade: 0 | 1 | 2 | 3): { inte
   return { interval: newInterval, ease: newEase }
 }
 
-const GRADE_LABELS: { grade: 0 | 1 | 2 | 3; label: string; ariaLabel: string; color: string }[] = [
-  { grade: 0, label: 'Again', ariaLabel: 'Again — forgotten, review again soon',     color: 'border-red-500/40 hover:bg-red-500/10 text-red-400' },
-  { grade: 1, label: 'Hard',  ariaLabel: 'Hard — remembered with difficulty',        color: 'border-orange-500/40 hover:bg-orange-500/10 text-orange-400' },
-  { grade: 2, label: 'Good',  ariaLabel: 'Good — remembered correctly',              color: 'border-emerald-500/40 hover:bg-emerald-500/10 text-emerald-400' },
-  { grade: 3, label: 'Easy',  ariaLabel: 'Easy — remembered without effort',         color: 'border-violet-500/40 hover:bg-violet-500/10 text-violet-400' },
+const GRADE_LABELS: { grade: 0 | 1 | 2 | 3; label: string; ariaLabel: string; className: string }[] = [
+  {
+    grade: 0,
+    label: 'Again',
+    ariaLabel: 'Again — forgotten, review again soon',
+    className:
+      'bg-red-500/[0.10] border border-red-500/[0.20] text-red-400 hover:bg-red-500/[0.18] rounded-xl h-12 font-semibold text-[13px] active:scale-[0.97] transition-all duration-150',
+  },
+  {
+    grade: 1,
+    label: 'Hard',
+    ariaLabel: 'Hard — remembered with difficulty',
+    className:
+      'bg-orange-500/[0.10] border border-orange-500/[0.20] text-orange-400 hover:bg-orange-500/[0.18] rounded-xl h-12 font-semibold text-[13px] active:scale-[0.97] transition-all duration-150',
+  },
+  {
+    grade: 2,
+    label: 'Good',
+    ariaLabel: 'Good — remembered correctly',
+    className:
+      'bg-emerald-500/[0.10] border border-emerald-500/[0.20] text-emerald-400 hover:bg-emerald-500/[0.18] rounded-xl h-12 font-semibold text-[13px] active:scale-[0.97] transition-all duration-150',
+  },
+  {
+    grade: 3,
+    label: 'Easy',
+    ariaLabel: 'Easy — remembered without effort',
+    className:
+      'bg-blue-500/[0.10] border border-blue-500/[0.20] text-blue-400 hover:bg-blue-500/[0.18] rounded-xl h-12 font-semibold text-[13px] active:scale-[0.97] transition-all duration-150',
+  },
 ]
 
 type Phase = 'loading' | 'empty' | 'review' | 'done'
@@ -156,78 +184,101 @@ export default function Flashcards() {
   const total = dueCount + newCount
   const progressPct = total > 0 ? Math.round((reviewed / total) * 100) : 0
 
-  const queueLabel = [
-    dueCount > 0 && `${dueCount} due`,
-    newCount > 0 && `${newCount} new`,
-  ].filter(Boolean).join(' · ')
-
   return (
-    <main className="min-h-dvh bg-[#080810] text-white flex flex-col nav-bottom-pad">
+    <main className="min-h-dvh bg-[#08080E] text-white flex flex-col nav-bottom-pad">
+      {/* Mobile header */}
       <header className="sm:hidden shrink-0 flex items-center justify-between px-6 h-14 border-b border-white/[0.05]">
         <span className="font-semibold tracking-tight text-[15px]">Flashcards</span>
         {phase === 'review' && (
-          <span className="text-[13px] text-gray-600">{queueLabel}</span>
+          <span className="text-[12px] text-white/30">
+            {reviewed}/{total}
+          </span>
         )}
       </header>
 
+      {/* ── LOADING ── */}
       {phase === 'loading' && (
         <div className="flex-1 flex flex-col px-4 sm:px-6 pt-4 pb-4 animate-pulse">
-          <div className="h-1 bg-white/[0.06] rounded-full mb-6" />
-          <div className="flex items-center gap-2 mb-4">
-            <div className="h-5 w-16 bg-white/[0.06] rounded-full" />
-            <div className="h-5 w-14 bg-white/[0.06] rounded-full" />
+          <div className="h-1.5 bg-white/[0.06] rounded-full mb-5" />
+          <div className="flex items-center gap-2 mb-5">
+            <div className="h-5 w-16 bg-white/[0.06] rounded-md" />
+            <div className="h-5 w-14 bg-white/[0.06] rounded-md" />
           </div>
           <div className="flex-1 flex items-center justify-center">
-            <div className="w-full max-w-[380px] bg-white/[0.03] border border-white/[0.06] rounded-[24px] h-[220px]" />
+            <div className="w-full max-w-md h-56 sm:h-64 bg-white/[0.03] border border-white/[0.06] rounded-2xl" />
           </div>
-          <div className="grid grid-cols-4 gap-2 mt-4">
-            {[0,1,2,3].map(i => (
-              <div key={i} className="h-12 bg-white/[0.04] border border-white/[0.06] rounded-2xl" />
+          <div className="grid grid-cols-4 gap-2 mt-5">
+            {[0, 1, 2, 3].map(i => (
+              <div key={i} className="h-12 bg-white/[0.04] border border-white/[0.06] rounded-xl" />
             ))}
           </div>
         </div>
       )}
 
+      {/* ── EMPTY ── */}
       {phase === 'empty' && (
-        <div className="flex-1 flex flex-col px-4 sm:px-6 py-8">
-          <div className="flex flex-col items-center text-center gap-3 mb-8">
-            <p className="text-[22px] font-bold">All caught up</p>
-            <p className="text-gray-500 text-[14px] leading-relaxed max-w-xs">
-              No cards due today. Record a lecture to add more terms.
-            </p>
-            <Link
-              href="/history"
-              className="mt-2 px-5 py-2.5 rounded-2xl bg-white/[0.05] border border-white/[0.09] text-[14px] font-medium text-gray-400 hover:text-white hover:bg-white/[0.08] transition-all"
-            >
-              Browse past sessions
-            </Link>
+        <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 text-center gap-4">
+          <div className="w-14 h-14 rounded-full bg-white/[0.04] border border-white/[0.08] flex items-center justify-center mb-1">
+            <svg className="w-6 h-6 text-white/30" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
           </div>
+          <p className="text-[22px] font-bold text-white">All caught up</p>
+          <p className="text-white/40 text-[14px] leading-relaxed max-w-xs">
+            No cards due today. Record a lecture to add more terms.
+          </p>
+          <Button variant="secondary" size="lg" asChild className="mt-2">
+            <Link href="/history">Browse past sessions</Link>
+          </Button>
         </div>
       )}
 
+      {/* ── DONE ── */}
       {phase === 'done' && (
-        <div className="flex-1 flex flex-col px-4 sm:px-6 py-6 overflow-y-auto">
-          <div className="flex flex-col items-center text-center gap-2 mb-6">
-            <p className="text-[22px] font-bold">Session done</p>
-            <p className="text-gray-500 text-[14px]">
-              {reviewed} card{reviewed !== 1 ? 's' : ''} reviewed. Come back tomorrow for the next batch.
+        <div className="flex-1 flex flex-col px-4 sm:px-6 pt-8 pb-4 overflow-y-auto">
+          {/* Completion hero */}
+          <div className="flex flex-col items-center text-center gap-3 mb-8">
+            <div className="w-16 h-16 rounded-full bg-emerald-500/[0.12] border border-emerald-500/[0.20] flex items-center justify-center mb-1">
+              <svg className="w-8 h-8 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+              </svg>
+            </div>
+            <p className="text-[24px] font-bold text-white">Session complete</p>
+            <p className="text-white/40 text-[14px] leading-relaxed max-w-xs">
+              Come back tomorrow for the next batch.
             </p>
-            <Link
-              href="/history"
-              className="mt-2 px-5 py-2.5 rounded-2xl bg-white/[0.05] border border-white/[0.09] text-[14px] font-medium text-gray-400 hover:text-white hover:bg-white/[0.08] transition-all"
-            >
-              Browse past sessions
-            </Link>
+
+            {/* Stats grid */}
+            <div className="grid grid-cols-2 gap-3 w-full max-w-xs mt-2">
+              <div className="bg-white/[0.03] border border-white/[0.07] rounded-2xl px-4 py-3 text-center">
+                <p className="text-[24px] font-bold text-white">{reviewed}</p>
+                <p className="text-[11px] text-white/40 mt-0.5">Cards reviewed</p>
+              </div>
+              <div className="bg-white/[0.03] border border-white/[0.07] rounded-2xl px-4 py-3 text-center">
+                <p className="text-[24px] font-bold text-emerald-400">100%</p>
+                <p className="text-[11px] text-white/40 mt-0.5">Completion</p>
+              </div>
+            </div>
+
+            <Button variant="secondary" size="lg" asChild className="mt-1 w-full max-w-xs">
+              <Link href="/history">Browse past sessions</Link>
+            </Button>
           </div>
 
+          {/* Reviewed cards list */}
           {reviewedCards.length > 0 && (
             <>
-              <p className="text-[10px] font-bold tracking-[0.18em] text-gray-600 uppercase mb-3">Cards you just reviewed</p>
+              <p className="text-[10px] font-bold tracking-[0.18em] text-white/25 uppercase mb-3">
+                Cards you reviewed
+              </p>
               <div className="space-y-2">
                 {reviewedCards.map(c => (
-                  <div key={c.id} className="bg-white/[0.03] border border-white/[0.06] rounded-2xl px-4 py-3">
+                  <div
+                    key={c.id}
+                    className="bg-white/[0.03] border border-white/[0.06] rounded-2xl px-4 py-3"
+                  >
                     <p className="text-[14px] font-medium text-white/90">{c.term}</p>
-                    <p className="text-[12px] text-gray-500 mt-1 leading-relaxed">{c.definition}</p>
+                    <p className="text-[12px] text-white/40 mt-1 leading-relaxed">{c.definition}</p>
                   </div>
                 ))}
               </div>
@@ -236,37 +287,29 @@ export default function Flashcards() {
         </div>
       )}
 
+      {/* ── REVIEW ── */}
       {phase === 'review' && current && (
         <div className="flex-1 flex flex-col px-4 sm:px-6 pt-4 pb-4">
           {/* Progress bar */}
-          <div className="shrink-0 h-1 bg-white/[0.06] rounded-full mb-2 overflow-hidden">
-            <div
-              className="h-full bg-violet-500 rounded-full transition-all duration-300"
-              style={{ width: `${progressPct}%` }}
-            />
-          </div>
+          <Progress value={progressPct} className="shrink-0 mb-4" />
 
-          {/* Queue breakdown - visible on desktop where header is hidden */}
+          {/* Queue badges + counter */}
           <div className="shrink-0 flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               {dueCount > 0 && (
-                <span className="text-[11px] font-medium text-orange-400/80 bg-orange-500/10 border border-orange-500/20 rounded-full px-2 py-0.5">
-                  {dueCount} due
-                </span>
+                <Badge variant="warning">{dueCount} due</Badge>
               )}
               {newCount > 0 && (
-                <span className="text-[11px] font-medium text-violet-400/80 bg-violet-500/10 border border-violet-500/20 rounded-full px-2 py-0.5">
-                  {newCount} new
-                </span>
+                <Badge variant="new">{newCount} new</Badge>
               )}
             </div>
-            <span className="text-[12px] text-gray-600">{reviewed}/{total}</span>
+            <span className="text-[12px] text-white/25">{reviewed}/{total}</span>
           </div>
 
           {/* Flip card */}
           <div className="flex-1 flex items-center justify-center">
             <div
-              className="flashcard-flip w-full max-w-[380px] cursor-pointer select-none"
+              className="flashcard-flip w-full max-w-md cursor-pointer select-none"
               onClick={() => !flipped && setFlipped(true)}
               style={{ perspective: '1000px' }}
             >
@@ -276,54 +319,67 @@ export default function Flashcards() {
                   transformStyle: 'preserve-3d',
                   transition: 'transform 0.45s cubic-bezier(0.4, 0, 0.2, 1)',
                   transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
-                  minHeight: '220px',
+                  minHeight: '224px',
                 }}
               >
-                {/* Front */}
+                {/* Front face */}
                 <div
-                  className="absolute inset-0 bg-[#0d0d1c] border border-white/[0.09] rounded-[24px] flex flex-col items-center justify-center p-8"
+                  className="flashcard-front absolute inset-0 bg-[#0F0F1B] border border-white/[0.10] rounded-2xl flex flex-col items-center justify-between p-8 sm:min-h-64"
                   style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' }}
                 >
-                  {current.isNew ? (
-                    <span className="text-[10px] font-bold tracking-[0.18em] text-violet-400/70 bg-violet-500/10 border border-violet-500/20 rounded-full px-3 py-1 uppercase mb-4">New</span>
-                  ) : (
-                    <span className="text-[10px] font-bold tracking-[0.18em] text-gray-500/70 bg-white/[0.04] border border-white/[0.06] rounded-full px-3 py-1 uppercase mb-4">Review</span>
-                  )}
-                  <p className="text-[26px] font-bold text-center leading-snug">{current.term}</p>
+                  <div className="flex-1 flex flex-col items-center justify-center gap-4">
+                    {current.isNew ? (
+                      <Badge variant="new" className="rounded-full px-3 py-1 tracking-[0.16em] uppercase text-[10px]">
+                        New
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="rounded-full px-3 py-1 tracking-[0.16em] uppercase text-[10px]">
+                        Review
+                      </Badge>
+                    )}
+                    <p className="text-[22px] sm:text-[26px] font-bold text-white text-center leading-snug">
+                      {current.term}
+                    </p>
+                  </div>
                   {!flipped && (
-                    <p className="text-[12px] text-gray-700 mt-6">Tap to reveal definition</p>
+                    <p className="text-[12px] text-white/25 mt-4">Tap to reveal</p>
                   )}
                 </div>
 
-                {/* Back */}
+                {/* Back face */}
                 <div
-                  className="absolute inset-0 rounded-[24px] flex flex-col items-center justify-center p-8"
+                  className="flashcard-back absolute inset-0 bg-gradient-to-br from-violet-950/80 to-[#0F0F1B] border border-violet-500/[0.25] rounded-2xl flex flex-col items-center justify-center p-8 sm:min-h-64"
                   style={{
                     backfaceVisibility: 'hidden',
                     WebkitBackfaceVisibility: 'hidden',
                     transform: 'rotateY(180deg)',
-                    background: 'linear-gradient(160deg, rgba(139,92,246,0.07) 0%, #0d0d1c 60%)',
-                    border: '1px solid rgba(139,92,246,0.22)',
                   }}
                 >
-                  <p className="text-[11px] font-bold tracking-[0.18em] text-violet-400/60 uppercase mb-4">Definition</p>
-                  <p className="text-[16px] text-gray-200 text-center leading-relaxed">{current.definition}</p>
+                  <p className="text-[11px] font-bold tracking-[0.18em] text-violet-400/60 uppercase mb-4">
+                    Definition
+                  </p>
+                  <p className="text-[15px] text-white/75 text-center leading-relaxed">
+                    {current.definition}
+                  </p>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Rating buttons */}
+          {/* Grade buttons (shown after flip) */}
           {flipped && (
             <>
-              <div className="shrink-0 grid grid-cols-4 gap-2 mt-4 animate-step">
-                {GRADE_LABELS.map(({ grade, label, ariaLabel, color }) => (
+              <div className="shrink-0 grid grid-cols-4 gap-2 mt-5 animate-step">
+                {GRADE_LABELS.map(({ grade, label, ariaLabel, className }) => (
                   <button
                     key={grade}
                     onClick={() => handleGrade(grade)}
                     disabled={saving}
                     aria-label={ariaLabel}
-                    className={`py-3 rounded-2xl text-[13px] font-semibold border bg-transparent transition-colors duration-150 active:scale-[0.97] disabled:opacity-40 ${color}`}
+                    className={cn(
+                      'disabled:opacity-40 disabled:cursor-not-allowed',
+                      className,
+                    )}
                   >
                     {label}
                   </button>
@@ -332,7 +388,7 @@ export default function Flashcards() {
               {stuckOnLast && (
                 <button
                   onClick={() => setPhase('done')}
-                  className="shrink-0 mt-3 w-full text-center text-[13px] text-gray-600 hover:text-gray-400 transition-colors"
+                  className="shrink-0 mt-3 w-full text-center text-[13px] text-white/25 hover:text-white/50 transition-colors"
                 >
                   Done for today →
                 </button>
@@ -340,14 +396,17 @@ export default function Flashcards() {
             </>
           )}
 
+          {/* Show definition button (before flip) */}
           {!flipped && (
-            <div className="shrink-0 mt-4">
-              <button
+            <div className="shrink-0 mt-5">
+              <Button
+                variant="secondary"
+                size="lg"
+                className="w-full text-[15px]"
                 onClick={() => setFlipped(true)}
-                className="w-full py-4 rounded-2xl text-[15px] font-semibold bg-white/[0.06] border border-white/[0.08] text-white hover:bg-white/[0.09] active:scale-[0.97] transition-colors duration-150"
               >
                 Show definition
-              </button>
+              </Button>
             </div>
           )}
         </div>

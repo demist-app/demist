@@ -1,35 +1,80 @@
 @import "tailwindcss";
 
+/* ─── Design Tokens ──────────────────────────────────────────────────────── */
 @theme inline {
-  --color-background: #080810;
-  --color-foreground: #ededed;
+  /* Backgrounds */
+  --color-background: #08080E;
+  --color-foreground: #F4F4F5;
+
+  /* Typography */
   --font-sans: var(--font-jakarta);
   --font-mono: var(--font-geist-mono);
 
-  --animate-ring: recording-ring 2.4s ease-out infinite;
-  --animate-slide-up: term-slide-up 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-  --animate-slide-down: term-slide-down 0.35s cubic-bezier(0.4, 0, 1, 1) forwards;
-  --animate-gradient: gradient-shift 5s ease infinite;
-  --animate-step: step-fade-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  --animate-float: glow-float 8s ease-in-out infinite;
+  /* Animations */
+  --animate-ring:       recording-ring 2.4s ease-out infinite;
+  --animate-slide-up:   term-slide-up 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  --animate-slide-down: term-slide-down 0.3s cubic-bezier(0.4, 0, 1, 1) forwards;
+  --animate-gradient:   gradient-shift 6s ease infinite;
+  --animate-step:       step-fade-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  --animate-float:      glow-float 9s ease-in-out infinite;
+  --animate-blob:       blob-drift 14s ease-in-out infinite;
+  --animate-pulse-glow: pulse-glow 3s ease-in-out infinite;
+  --animate-eq:         equalizer 0.6s ease-in-out infinite alternate;
+}
+
+/* ─── CSS Custom Properties (non-Tailwind uses) ──────────────────────────── */
+:root {
+  /* Surface layers */
+  --surface-1: rgba(255, 255, 255, 0.035);
+  --surface-2: rgba(255, 255, 255, 0.06);
+  --surface-3: rgba(255, 255, 255, 0.09);
+
+  /* Borders */
+  --border-subtle:  rgba(255, 255, 255, 0.055);
+  --border-default: rgba(255, 255, 255, 0.085);
+  --border-strong:  rgba(255, 255, 255, 0.14);
+
+  /* Violet system */
+  --violet-dim:   rgba(124, 58, 237, 0.12);
+  --violet-glow:  rgba(124, 58, 237, 0.28);
+  --violet-ring:  rgba(124, 58, 237, 0.50);
+
+  /* Elevation shadows */
+  --shadow-sm:  0 2px 8px rgba(0, 0, 0, 0.25);
+  --shadow-md:  0 4px 20px rgba(0, 0, 0, 0.35);
+  --shadow-lg:  0 8px 40px rgba(0, 0, 0, 0.50);
+  --shadow-xl:  0 20px 70px rgba(0, 0, 0, 0.65);
+}
+
+/* ─── Base ───────────────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: dark;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 body {
-  background: #080810;
+  background: #08080E;
   color: var(--color-foreground);
   font-family: var(--font-sans, Arial, sans-serif);
   overscroll-behavior: none;
+  min-height: 100dvh;
 }
 
 button, a {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* ─── Keyframes ──────────────────────────────────────────────────────────── */
 @keyframes term-slide-up {
   from {
-    transform: translateY(110%) scale(0.92);
+    transform: translateY(100%) scale(0.94);
     opacity: 0;
-    filter: blur(4px);
+    filter: blur(6px);
   }
   to {
     transform: translateY(0) scale(1);
@@ -45,21 +90,15 @@ button, a {
     filter: blur(0);
   }
   to {
-    transform: translateY(110%) scale(0.92);
+    transform: translateY(100%) scale(0.94);
     opacity: 0;
-    filter: blur(4px);
+    filter: blur(6px);
   }
 }
 
 @keyframes recording-ring {
-  0% {
-    transform: scale(1);
-    opacity: 0.45;
-  }
-  100% {
-    transform: scale(2.6);
-    opacity: 0;
-  }
+  0%   { transform: scale(1);   opacity: 0.50; }
+  100% { transform: scale(2.8); opacity: 0; }
 }
 
 @keyframes gradient-shift {
@@ -70,7 +109,7 @@ button, a {
 
 @keyframes step-fade-up {
   from {
-    transform: translateY(18px);
+    transform: translateY(16px);
     opacity: 0;
   }
   to {
@@ -79,46 +118,50 @@ button, a {
   }
 }
 
+@keyframes glow-float {
+  0%, 100% { transform: translateY(0px) scale(1); }
+  50%       { transform: translateY(-28px) scale(1.05); }
+}
+
+@keyframes blob-drift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%       { transform: translate(22px, -18px) scale(1.05); }
+  66%       { transform: translate(-12px, 10px) scale(0.96); }
+}
+
+@keyframes equalizer {
+  from { transform: scaleY(1); }
+  to   { transform: scaleY(0.2); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.5; }
+  50%       { opacity: 1; }
+}
+
+@keyframes shimmer {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* ─── Layout utilities ───────────────────────────────────────────────────── */
 .nav-bottom-pad {
-  padding-bottom: calc(52px + env(safe-area-inset-bottom));
+  padding-bottom: calc(64px + env(safe-area-inset-bottom));
 }
 @media (min-width: 640px) {
   .nav-bottom-pad { padding-bottom: 0; }
 }
 
 .term-overlay-bottom {
-  bottom: calc(68px + env(safe-area-inset-bottom));
+  bottom: calc(76px + env(safe-area-inset-bottom));
 }
 @media (min-width: 640px) {
-  .term-overlay-bottom { bottom: 20px; }
+  .term-overlay-bottom { bottom: 24px; }
 }
 
-@keyframes glow-float {
-  0%, 100% { transform: translateY(0px) scale(1); }
-  50%       { transform: translateY(-32px) scale(1.06); }
-}
-
-@keyframes equalizer {
-  0%   { transform: scaleY(1); }
-  100% { transform: scaleY(0.25); }
-}
-
-@keyframes blob-drift {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  33%       { transform: translate(18px, -14px) scale(1.04); }
-  66%       { transform: translate(-10px, 8px) scale(0.97); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .animate-step {
-    animation: none !important;
-    opacity: 1 !important;
-    transform: none !important;
-  }
-}
-
+/* ─── Flashcard 3D ───────────────────────────────────────────────────────── */
 .flashcard-flip {
-  perspective: 1000px;
+  perspective: 1200px;
 }
 .flashcard-inner {
   transform-style: preserve-3d;
@@ -127,4 +170,50 @@ button, a {
 .flashcard-back {
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
+}
+
+/* ─── Scrollbar ──────────────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.10);
+  border-radius: 99px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+/* ─── Glass card utility ─────────────────────────────────────────────────── */
+.card-glass {
+  background: var(--surface-1);
+  border: 1px solid var(--border-default);
+  border-radius: 16px;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.card-glass-elevated {
+  background: var(--surface-2);
+  border: 1px solid var(--border-strong);
+  border-radius: 16px;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: var(--shadow-md);
+}
+
+/* ─── Reduced motion ─────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .animate-step,
+  .animate-blob,
+  .animate-float,
+  .animate-ring {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
 }

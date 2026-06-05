@@ -5,6 +5,9 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import posthog from 'posthog-js'
 import { SummaryViewer } from '../summary-viewer'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { cn } from '@/lib/utils'
 
 interface LiveTerm {
   id: string
@@ -78,6 +81,13 @@ function sessionLabel(n: number, startedAt: string): string {
 
 function isLatinTerm(term: string): boolean {
   return /^[\x20-\x7EÀ-ɏͰ-Ͽ\s'-]+$/.test(term)
+}
+
+function getGreeting(): string {
+  const hour = new Date().getHours()
+  if (hour < 12) return 'Good morning'
+  if (hour < 17) return 'Good afternoon'
+  return 'Good evening'
 }
 
 export default function Dashboard() {
@@ -745,30 +755,44 @@ export default function Dashboard() {
   stopRecordingRef.current = stopRecording
 
   if (loading) return (
-    <main className="min-h-dvh bg-[#080810] text-white flex flex-col overflow-hidden nav-bottom-pad">
+    <main className="min-h-dvh bg-[#08080E] text-white flex flex-col overflow-hidden nav-bottom-pad">
       <header className="sm:hidden shrink-0 flex items-center px-6 h-14 border-b border-white/[0.05]">
         <span className="font-bold tracking-tight text-[15px]">Demist</span>
       </header>
       <div className="flex-1 overflow-y-auto animate-pulse">
         <div className="w-full max-w-4xl mx-auto">
-          <div className="flex flex-col items-center pt-12 pb-8 px-6 gap-3">
-            <div className="w-[96px] h-[96px] rounded-full bg-white/[0.06]" />
-            <div className="h-4 w-32 bg-white/[0.04] rounded-full" />
+          {/* Greeting skeleton */}
+          <div className="px-5 pt-8 pb-5">
+            <div className="h-5 w-40 bg-white/[0.05] rounded-full mb-2" />
+            <div className="h-3 w-56 bg-white/[0.03] rounded-full" />
+          </div>
+          {/* Stat chips skeleton */}
+          <div className="flex gap-2 px-5 pb-6">
+            {[0,1,2].map(i => (
+              <div key={i} className="h-8 w-28 bg-white/[0.04] border border-white/[0.08] rounded-full" />
+            ))}
+          </div>
+          {/* Mic hero skeleton */}
+          <div className="flex flex-col items-center py-10 px-6 gap-3">
+            <div className="w-[80px] h-[80px] rounded-full bg-white/[0.06]" />
+            <div className="h-4 w-32 bg-white/[0.04] rounded-full mt-2" />
             <div className="h-3 w-48 bg-white/[0.03] rounded-full" />
           </div>
-          <div className="grid grid-cols-2 gap-3 px-4 sm:px-6 pb-5">
-            {[0,1].map(i => (
-              <div key={i} className="bg-white/[0.03] border border-white/[0.06] rounded-2xl px-4 py-4">
-                <div className="h-2 w-12 bg-white/[0.06] rounded-full mb-3" />
-                <div className="h-7 w-14 bg-white/[0.08] rounded-md" />
+          {/* Stat cards skeleton */}
+          <div className="grid grid-cols-3 gap-3 px-5 pb-6">
+            {[0,1,2].map(i => (
+              <div key={i} className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-4">
+                <div className="h-2 w-8 bg-white/[0.06] rounded-full mb-3" />
+                <div className="h-7 w-10 bg-white/[0.08] rounded-md" />
               </div>
             ))}
           </div>
-          <div className="px-4 sm:px-6 pb-4">
+          {/* Session list skeleton */}
+          <div className="px-5 pb-4">
             <div className="h-2 w-28 bg-white/[0.05] rounded-full mb-3" />
             <div className="space-y-2">
               {[0,1,2].map(i => (
-                <div key={i} className="flex items-center gap-3 bg-white/[0.03] border border-white/[0.06] rounded-2xl px-4 py-3.5">
+                <div key={i} className="flex items-center gap-3 bg-white/[0.03] border border-white/[0.06] rounded-2xl px-4 py-4">
                   <div className="flex-1 flex flex-col gap-2">
                     <div className="h-3.5 w-36 bg-white/[0.07] rounded-full" />
                     <div className="h-3 w-20 bg-white/[0.05] rounded-full" />
@@ -784,7 +808,7 @@ export default function Dashboard() {
   )
 
   return (
-    <main className="min-h-dvh bg-[#080810] text-white flex flex-col overflow-hidden nav-bottom-pad">
+    <main className="min-h-dvh bg-[#08080E] text-white flex flex-col overflow-hidden nav-bottom-pad">
       {/* Ambient blobs */}
       <div aria-hidden className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
         <div
@@ -800,10 +824,10 @@ export default function Dashboard() {
       {/* Mobile header */}
       <header className="sm:hidden shrink-0 flex items-center px-6 h-14 border-b border-white/[0.05] relative z-20">
         {isRecording ? (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
             <span className="font-mono text-[17px] tabular-nums">{fmtTime(elapsed)}</span>
-            {isProcessing && <span className="text-gray-600 text-[12px] ml-1">processing</span>}
+            {isProcessing && <span className="text-white/35 text-[11px] ml-1 font-medium tracking-wide">processing</span>}
           </div>
         ) : (
           <Link href="/dashboard" className="font-bold tracking-tight text-[15px] hover:text-violet-300 active:scale-[0.97] transition-all duration-150 select-none">Demist</Link>
@@ -813,35 +837,45 @@ export default function Dashboard() {
       {/* Body */}
       <div className="flex-1 flex flex-col overflow-y-auto relative z-10">
         {isRecording ? (
-          <>
+          /* ── Recording state ── */
+          <div className="flex-1 flex flex-col lg:flex-row">
             {/* Red ambient glow during recording */}
             <div aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center z-0">
               <div className="w-[600px] h-[600px] rounded-full bg-red-600/[0.06] blur-[120px]" />
             </div>
 
-            {/* Visualizer */}
-            <div className="flex-1 flex flex-col items-center justify-center relative z-10">
-              <div className="hidden sm:flex items-center gap-2 mb-6">
-                <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-                <span className="font-mono text-[20px] tabular-nums">{fmtTime(elapsed)}</span>
-                {isProcessing && <span className="text-gray-600 text-[13px] ml-1">processing</span>}
+            {/* Main recording area */}
+            <div className="flex-1 flex flex-col items-center justify-center relative z-10 py-10 px-5">
+              {/* Timer — desktop only (mobile shows in header) */}
+              <div className="hidden sm:flex items-center gap-3 mb-8">
+                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                <span className="font-mono text-[32px] tabular-nums font-light tracking-tight text-white">
+                  {fmtTime(elapsed)}
+                </span>
+                {isProcessing && (
+                  <span className="text-white/35 text-[11px] font-bold tracking-[0.14em] uppercase ml-1">
+                    processing
+                  </span>
+                )}
               </div>
 
-              <div className="relative flex items-center justify-center mb-6">
-                <span ref={ring1Ref} className="absolute w-[88px] h-[88px] rounded-full bg-red-500/[0.18]" style={{ willChange: 'transform' }} />
-                <span ref={ring2Ref} className="absolute w-[88px] h-[88px] rounded-full bg-red-500/[0.11]" style={{ willChange: 'transform' }} />
-                <span ref={ring3Ref} className="absolute w-[88px] h-[88px] rounded-full bg-red-500/[0.06]" style={{ willChange: 'transform' }} />
+              {/* Mic button with rings */}
+              <div className="relative flex items-center justify-center mb-8">
+                <span ref={ring1Ref} className="absolute w-[80px] h-[80px] rounded-full bg-red-500/[0.18]" style={{ willChange: 'transform' }} />
+                <span ref={ring2Ref} className="absolute w-[80px] h-[80px] rounded-full bg-red-500/[0.11]" style={{ willChange: 'transform' }} />
+                <span ref={ring3Ref} className="absolute w-[80px] h-[80px] rounded-full bg-red-500/[0.06]" style={{ willChange: 'transform' }} />
                 <button
                   ref={btnRef}
                   onClick={stopRecording}
                   aria-label="Stop recording"
-                  className="relative z-10 w-[88px] h-[88px] rounded-full bg-red-600 hover:bg-red-500 active:scale-[0.97] flex items-center justify-center transition-colors duration-200 select-none"
+                  className="relative z-10 w-[80px] h-[80px] rounded-full bg-red-600 hover:bg-red-500 active:scale-[0.97] flex items-center justify-center transition-all duration-150 select-none shadow-[0_0_48px_rgba(239,68,68,0.4)]"
                 >
                   <StopIcon />
                 </button>
               </div>
 
-              <div ref={barsRef} className="flex items-end gap-[2.5px]" style={{ height: '48px' }}>
+              {/* Waveform bars */}
+              <div ref={barsRef} className="flex items-end gap-[2.5px] mb-8" style={{ height: '48px' }}>
                 {Array.from({ length: 28 }).map((_, i) => (
                   <div
                     key={i}
@@ -850,180 +884,263 @@ export default function Dashboard() {
                   />
                 ))}
               </div>
+
+              {/* Stop button */}
+              <Button
+                onClick={stopRecording}
+                variant="outline"
+                className="rounded-xl border-white/[0.14] bg-white/[0.05] hover:bg-white/[0.09] text-white/80 hover:text-white px-6 h-10 text-[13px] font-medium active:scale-[0.97] transition-all duration-150"
+              >
+                Stop recording
+              </Button>
             </div>
 
+            {/* Session glossary — side panel on desktop, below on mobile */}
             {sessionGlossary.length > 0 && (
-              <div className="shrink-0 px-4 sm:px-6 pb-4 max-h-[32vh] overflow-y-auto">
-                <p className="text-[10px] font-bold tracking-[0.18em] text-gray-600 uppercase mb-3 sticky top-0 bg-[#080810]">
+              <div className="lg:w-[300px] lg:border-l lg:border-white/[0.09] shrink-0 px-5 pb-5 lg:py-8 lg:overflow-y-auto lg:max-h-[calc(100dvh-56px)]">
+                <p className="text-[10px] font-bold tracking-[0.16em] text-white/35 uppercase mb-3 lg:mt-0 mt-2">
                   This Session
                 </p>
                 <div className="space-y-2">
                   {sessionGlossary.map((t, i) => (
-                    <div key={i} className="flex gap-3 bg-white/[0.03] border border-white/[0.07] rounded-xl px-3 py-2.5">
-                      <div className="min-w-0">
-                        <span className="text-[13px] font-semibold text-white/90">{t.term}</span>
-                        <p className="text-[12px] text-gray-500 mt-0.5 leading-relaxed">{t.definition}</p>
-                      </div>
+                    <div
+                      key={i}
+                      className="bg-white/[0.05] border border-white/[0.09] backdrop-blur-xl rounded-2xl px-4 py-3"
+                    >
+                      <span className="text-[13px] font-semibold text-white/90 block mb-0.5">{t.term}</span>
+                      <p className="text-[12px] text-white/60 leading-relaxed">{t.definition}</p>
                     </div>
                   ))}
                 </div>
               </div>
             )}
-          </>
+          </div>
         ) : (
-          /* Home mode */
+          /* ── Home (idle) state ── */
           <div className="flex-1 overflow-y-auto">
-          <div className="w-full max-w-4xl mx-auto flex flex-col">
+            <div className="w-full max-w-4xl mx-auto flex flex-col">
 
-            {/* Mic hero */}
-            <div className="flex flex-col items-center pt-12 pb-8 px-4 sm:px-6 animate-step opacity-0" style={{ animationFillMode: 'forwards' }}>
-              <div className="relative flex items-center justify-center mb-5">
-                <span className="absolute w-[130px] h-[130px] rounded-full bg-violet-600/[0.08]" style={{ animation: 'glow-float 4s ease-in-out infinite' }} />
-                <span className="absolute w-[162px] h-[162px] rounded-full bg-violet-600/[0.05]" style={{ animation: 'glow-float 4s ease-in-out -1.3s infinite' }} />
-                <span className="absolute w-[194px] h-[194px] rounded-full bg-violet-600/[0.025]" style={{ animation: 'glow-float 4s ease-in-out -2.7s infinite' }} />
-                <button
-                  ref={btnRef}
-                  onClick={startRecording}
-                  aria-label="Start recording"
-                  className="relative z-10 w-[96px] h-[96px] rounded-full bg-white/[0.07] border border-violet-500/30 hover:bg-violet-600/20 hover:border-violet-500/50 hover:shadow-[0_0_56px_rgba(139,92,246,0.3)] active:scale-[0.97] flex items-center justify-center transition-all duration-200 select-none"
-                >
-                  <MicIcon />
-                </button>
-              </div>
-              <p className="text-white/90 font-semibold text-[17px]">
-                {profile?.course ? `Ready for ${profile.course}` : 'Start recording'}
-              </p>
-              <p className="text-gray-600 text-[13px] mt-1.5">Tap the mic before your next lecture</p>
-              {recordingError && (
-                <p className="mt-4 text-red-400 text-[13px] text-center max-w-xs" role="alert">{recordingError}</p>
-              )}
-            </div>
-
-            {/* Stats */}
-            <div className="grid grid-cols-2 gap-3 px-4 sm:px-6 pb-5 animate-step opacity-0" style={{ animationDelay: '60ms', animationFillMode: 'forwards' }}>
-              {stats.dueFlashcards > 0 && (
-                <Link
-                  href="/flashcards"
-                  className="col-span-2 flex items-center justify-between bg-amber-500/[0.07] border border-amber-500/20 rounded-2xl px-4 py-3.5 hover:bg-amber-500/[0.11] transition-all group"
-                >
-                  <div>
-                    <p className="text-[14px] font-semibold text-amber-300">{stats.dueFlashcards} flashcards due</p>
-                    <p className="text-[12px] text-amber-400/50 mt-0.5">Review now to stay on track</p>
-                  </div>
-                  <span className="text-amber-400/60 group-hover:text-amber-300 transition-colors text-[20px] leading-none">›</span>
-                </Link>
-              )}
-              <div className="bg-white/[0.03] border border-white/[0.07] rounded-2xl px-4 py-4">
-                <div className="flex items-center gap-1.5 mb-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                  <p className="text-[11px] text-gray-600 uppercase tracking-[0.12em]">Streak</p>
-                </div>
-                <p className="text-[28px] font-bold leading-none text-amber-400">
-                  {stats.streak}<span className="text-[14px] font-normal text-gray-600 ml-1">days</span>
+              {/* Page header: greeting + stat chips */}
+              <div className="px-5 pt-8 pb-5 animate-step opacity-0" style={{ animationFillMode: 'forwards' }}>
+                <h1 className="text-[22px] font-bold tracking-tight text-white leading-tight">
+                  {getGreeting()}
+                </h1>
+                <p className="text-white/40 text-[14px] mt-0.5">
+                  {profile?.course ? `Ready for ${profile.course}` : 'Ready for your next lecture'}
                 </p>
-              </div>
-              <div className="bg-white/[0.03] border border-white/[0.07] rounded-2xl px-4 py-4">
-                <div className="flex items-center gap-1.5 mb-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-violet-500" />
-                  <p className="text-[11px] text-gray-600 uppercase tracking-[0.12em]">This week</p>
+
+                {/* Stat chips row */}
+                <div className="flex flex-wrap gap-2 mt-4">
+                  <div className="flex items-center gap-1.5 bg-white/[0.04] border border-white/[0.08] rounded-full px-3.5 py-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                    <span className="text-[12px] font-semibold text-white/70 tabular-nums">{stats.streak}</span>
+                    <span className="text-[12px] text-white/35">day streak</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 bg-white/[0.04] border border-white/[0.08] rounded-full px-3.5 py-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-violet-400 shrink-0" />
+                    <span className="text-[12px] font-semibold text-white/70 tabular-nums">{stats.termsThisWeek}</span>
+                    <span className="text-[12px] text-white/35">terms this week</span>
+                  </div>
+                  {stats.dueFlashcards > 0 && (
+                    <Link
+                      href="/flashcards"
+                      className="flex items-center gap-1.5 bg-emerald-500/[0.08] border border-emerald-500/[0.2] rounded-full px-3.5 py-1.5 hover:bg-emerald-500/[0.14] transition-all duration-150 group"
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+                      <span className="text-[12px] font-semibold text-emerald-300 tabular-nums">{stats.dueFlashcards}</span>
+                      <span className="text-[12px] text-emerald-400/60 group-hover:text-emerald-300 transition-colors">due now</span>
+                    </Link>
+                  )}
                 </div>
-                <p className="text-[28px] font-bold leading-none text-violet-400">
-                  {stats.termsThisWeek}<span className="text-[14px] font-normal text-gray-600 ml-1">terms</span>
-                </p>
               </div>
-            </div>
 
-            {/* Recent sessions */}
-            <div className="px-4 sm:px-6 pb-4 animate-step opacity-0" style={{ animationDelay: '120ms', animationFillMode: 'forwards' }}>
-              {recentSessions.length > 0 ? (
-                <>
-                  <div className="flex items-center justify-between mb-3">
-                    <p className="text-[11px] font-bold tracking-[0.18em] text-gray-600 uppercase">Recent Sessions</p>
-                    <Link href="/history" className="text-[12px] text-violet-500/70 hover:text-violet-400 transition-colors">See all</Link>
-                  </div>
-                  <div className="space-y-2">
-                    {recentSessions.map(s => (
-                      <div key={s.id} className="bg-white/[0.03] border border-white/[0.07] rounded-2xl overflow-hidden hover:bg-violet-500/[0.04] hover:border-violet-500/[0.15] transition-colors duration-200">
-                        <div
-                          onClick={() => s.termCount > 0 && toggleExpandSession(s.id)}
-                          className={`flex items-center gap-3 px-4 py-3.5 ${s.termCount > 0 ? 'cursor-pointer' : ''}`}
-                        >
-                          <div className="flex-1 min-w-0">
-                            <p className={`text-[14px] font-semibold truncate ${s.name ? 'text-white/90' : 'text-gray-400'}`}>
-                              {s.name || sessionLabel(s.sessionNumber, s.started_at)}
-                            </p>
-                            <p className="text-[12px] text-gray-600 mt-0.5">{fmtRelative(s.started_at)}</p>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            {s.termCount > 0 && (
-                              <span className="bg-violet-500/10 border border-violet-500/20 rounded-full px-2.5 py-0.5 text-[12px] font-semibold text-violet-400 tabular-nums">
-                                {s.termCount}
-                              </span>
-                            )}
-                            {s.termCount > 0 && <DashChevron expanded={s.expanded} />}
-                          </div>
-                        </div>
+              {/* Mic hero */}
+              <div className="flex flex-col items-center pt-4 pb-8 px-5 animate-step opacity-0" style={{ animationDelay: '40ms', animationFillMode: 'forwards' }}>
+                <div className="relative flex items-center justify-center mb-5">
+                  <span className="absolute w-[130px] h-[130px] rounded-full bg-violet-600/[0.08]" style={{ animation: 'glow-float 4s ease-in-out infinite' }} />
+                  <span className="absolute w-[162px] h-[162px] rounded-full bg-violet-600/[0.05]" style={{ animation: 'glow-float 4s ease-in-out -1.3s infinite' }} />
+                  <span className="absolute w-[194px] h-[194px] rounded-full bg-violet-600/[0.025]" style={{ animation: 'glow-float 4s ease-in-out -2.7s infinite' }} />
+                  <button
+                    ref={btnRef}
+                    onClick={startRecording}
+                    aria-label="Start recording"
+                    className="relative z-10 w-[80px] h-[80px] rounded-full bg-violet-600 hover:bg-violet-500 active:scale-[0.97] flex items-center justify-center transition-all duration-150 select-none shadow-[0_0_48px_rgba(124,58,237,0.5)] hover:shadow-[0_0_64px_rgba(124,58,237,0.65)]"
+                  >
+                    <MicIcon />
+                  </button>
+                </div>
+                <p className="text-white font-semibold text-[16px]">
+                  Tap to start recording
+                </p>
+                <p className="text-white/35 text-[13px] mt-1">Demist listens and captures key terms live</p>
+                {recordingError && (
+                  <p className="mt-4 text-red-400 text-[13px] text-center max-w-xs" role="alert">{recordingError}</p>
+                )}
+              </div>
 
-                        {s.expanded && (
-                          <div className="px-4 pb-4 border-t border-white/[0.04]">
-                            {s.synopsis ? (
-                              <div className="pt-3">
-                                <SummaryViewer synopsis={s.synopsis} sessionId={s.id} subject={profile?.course ?? null} year={profile?.year_of_study ?? null} />
-                              </div>
-                            ) : sessionGenIds.has(s.id) ? (
-                              <p className="text-[12px] text-gray-700 pt-3">Generating summary...</p>
-                            ) : sessionFailIds.has(s.id) ? (
-                              <div className="flex items-center gap-3 pt-3">
-                                <p className="text-[12px] text-gray-700">Could not generate summary.</p>
-                                <button onClick={() => retrySessionSummarize(s)} className="text-[12px] text-violet-500 hover:text-violet-400 transition-colors shrink-0">Retry</button>
-                              </div>
-                            ) : null}
-
-                            {sessionTermLoading === s.id && (
-                              <p className="text-gray-700 text-[13px] pt-3">Loading...</p>
-                            )}
-                            {s.terms && s.terms.length > 0 && (
-                              <div className="pt-3">
-                                <p className="text-[10px] font-bold tracking-[0.15em] text-gray-600 uppercase mb-2">Terms</p>
-                                <div className="space-y-1.5">
-                                  {s.terms.slice(0, 3).map(t => (
-                                    <p key={t.id} className="text-[13px] text-gray-500 leading-snug">
-                                      <span className="text-white/70 font-medium">{t.term}</span>
-                                      {' '}- {t.definition}
-                                    </p>
-                                  ))}
-                                </div>
-                                {s.terms.length > 3 && (
-                                  <Link href={`/history?session=${s.id}`} className="inline-block mt-2 text-[12px] text-violet-500 hover:text-violet-400 transition-colors">
-                                    +{s.terms.length - 3} more in History
-                                  </Link>
-                                )}
-                              </div>
-                            )}
-                            {s.terms && s.terms.length === 0 && (
-                              <p className="text-gray-700 text-[13px] pt-3">No terms detected.</p>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-10 text-center gap-2">
-                  <div className="w-12 h-12 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center mb-1">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="text-gray-700">
-                      <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" />
-                      <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                      <line x1="12" y1="19" x2="12" y2="22" />
+              {/* Stats row: 3 cards */}
+              <div className="grid grid-cols-3 gap-3 px-5 pb-6 animate-step opacity-0" style={{ animationDelay: '80ms', animationFillMode: 'forwards' }}>
+                {/* Streak */}
+                <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-1">
+                  <div className="w-7 h-7 rounded-lg bg-amber-500/[0.12] flex items-center justify-center mb-1">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" className="text-amber-400">
+                      <path d="M13.5 0.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5 0.67zM11.71 19c-1.78 0-3.22-1.4-3.22-3.14 0-1.62 1.05-2.76 2.81-3.12 1.77-.36 3.6-1.21 4.62-2.58.39 1.29.59 2.65.59 4.04 0 2.65-2.15 4.8-4.8 4.8z"/>
                     </svg>
                   </div>
-                  <p className="text-gray-600 text-[14px] font-medium">No sessions yet</p>
-                  <p className="text-gray-700 text-[13px]">Tap the mic above before your next lecture.</p>
+                  <p className="text-[26px] font-bold leading-none text-amber-400 tabular-nums">{stats.streak}</p>
+                  <p className="text-[10px] font-bold tracking-[0.16em] text-white/35 uppercase">day streak</p>
                 </div>
-              )}
+
+                {/* Terms this week */}
+                <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-1">
+                  <div className="w-7 h-7 rounded-lg bg-violet-500/[0.12] flex items-center justify-center mb-1">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-violet-400">
+                      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+                      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+                    </svg>
+                  </div>
+                  <p className="text-[26px] font-bold leading-none text-violet-400 tabular-nums">{stats.termsThisWeek}</p>
+                  <p className="text-[10px] font-bold tracking-[0.16em] text-white/35 uppercase">terms this week</p>
+                </div>
+
+                {/* Flashcards due */}
+                <Link
+                  href="/flashcards"
+                  className={cn(
+                    "bg-white/[0.04] border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-1 transition-all duration-150",
+                    stats.dueFlashcards > 0
+                      ? "hover:bg-emerald-500/[0.06] hover:border-emerald-500/[0.2] cursor-pointer"
+                      : "cursor-default"
+                  )}
+                >
+                  <div className="w-7 h-7 rounded-lg bg-emerald-500/[0.12] flex items-center justify-center mb-1">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-400">
+                      <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+                      <line x1="8" y1="21" x2="16" y2="21" />
+                      <line x1="12" y1="17" x2="12" y2="21" />
+                    </svg>
+                  </div>
+                  <p className={cn("text-[26px] font-bold leading-none tabular-nums", stats.dueFlashcards > 0 ? "text-emerald-400" : "text-white/40")}>
+                    {stats.dueFlashcards}
+                  </p>
+                  <p className="text-[10px] font-bold tracking-[0.16em] text-white/35 uppercase">cards due</p>
+                </Link>
+              </div>
+
+              {/* Recent sessions */}
+              <div className="px-5 pb-6 animate-step opacity-0" style={{ animationDelay: '120ms', animationFillMode: 'forwards' }}>
+                {recentSessions.length > 0 ? (
+                  <>
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-[10px] font-bold tracking-[0.16em] text-white/35 uppercase">Recent Sessions</p>
+                      <Link href="/history" className="text-[12px] text-violet-400/70 hover:text-violet-400 transition-colors duration-150">See all</Link>
+                    </div>
+                    <div className="space-y-2">
+                      {recentSessions.map(s => (
+                        <div
+                          key={s.id}
+                          className="bg-white/[0.04] border border-white/[0.08] rounded-2xl overflow-hidden hover:bg-white/[0.07] transition-all duration-150"
+                        >
+                          <div
+                            onClick={() => s.termCount > 0 && toggleExpandSession(s.id)}
+                            className={cn(
+                              "flex items-center gap-3 px-4 py-4",
+                              s.termCount > 0 ? "cursor-pointer" : ""
+                            )}
+                          >
+                            <div className="flex-1 min-w-0">
+                              <p className={cn("text-[14px] font-semibold truncate leading-tight", s.name ? "text-white" : "text-white/60")}>
+                                {s.name || sessionLabel(s.sessionNumber, s.started_at)}
+                              </p>
+                              <p className="text-[12px] text-white/35 mt-0.5">{fmtRelative(s.started_at)}</p>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              {s.termCount > 0 && (
+                                <Badge
+                                  variant="primary"
+                                  className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full tabular-nums"
+                                >
+                                  {s.termCount}
+                                </Badge>
+                              )}
+                              {s.termCount > 0 ? (
+                                <DashChevron expanded={s.expanded} />
+                              ) : (
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="text-white/20">
+                                  <polyline points="9 18 15 12 9 6" />
+                                </svg>
+                              )}
+                            </div>
+                          </div>
+
+                          {s.expanded && (
+                            <div className="px-4 pb-4 border-t border-white/[0.06]">
+                              {s.synopsis ? (
+                                <div className="pt-3">
+                                  <SummaryViewer synopsis={s.synopsis} sessionId={s.id} subject={profile?.course ?? null} year={profile?.year_of_study ?? null} />
+                                </div>
+                              ) : sessionGenIds.has(s.id) ? (
+                                <p className="text-[12px] text-white/35 pt-3">Generating summary...</p>
+                              ) : sessionFailIds.has(s.id) ? (
+                                <div className="flex items-center gap-3 pt-3">
+                                  <p className="text-[12px] text-white/35">Could not generate summary.</p>
+                                  <button
+                                    onClick={() => retrySessionSummarize(s)}
+                                    className="text-[12px] text-violet-400 hover:text-violet-300 transition-colors duration-150 shrink-0"
+                                  >
+                                    Retry
+                                  </button>
+                                </div>
+                              ) : null}
+
+                              {sessionTermLoading === s.id && (
+                                <p className="text-white/35 text-[13px] pt-3">Loading...</p>
+                              )}
+                              {s.terms && s.terms.length > 0 && (
+                                <div className="pt-3">
+                                  <p className="text-[10px] font-bold tracking-[0.16em] text-white/35 uppercase mb-2">Terms</p>
+                                  <div className="space-y-1.5">
+                                    {s.terms.slice(0, 3).map(t => (
+                                      <p key={t.id} className="text-[13px] text-white/40 leading-snug">
+                                        <span className="text-white/70 font-medium">{t.term}</span>
+                                        {' '}- {t.definition}
+                                      </p>
+                                    ))}
+                                  </div>
+                                  {s.terms.length > 3 && (
+                                    <Link
+                                      href={`/history?session=${s.id}`}
+                                      className="inline-block mt-2 text-[12px] text-violet-400 hover:text-violet-300 transition-colors duration-150"
+                                    >
+                                      +{s.terms.length - 3} more in History
+                                    </Link>
+                                  )}
+                                </div>
+                              )}
+                              {s.terms && s.terms.length === 0 && (
+                                <p className="text-white/35 text-[13px] pt-3">No terms detected.</p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-12 text-center gap-2">
+                    <div className="w-12 h-12 rounded-2xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center mb-1">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="text-white/25">
+                        <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" />
+                        <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                        <line x1="12" y1="19" x2="12" y2="22" />
+                      </svg>
+                    </div>
+                    <p className="text-white/40 text-[14px] font-medium">No sessions yet</p>
+                    <p className="text-white/25 text-[13px]">Tap the mic above before your next lecture.</p>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
           </div>
         )}
       </div>
@@ -1069,19 +1186,19 @@ function TermCard({
                 <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: 'linear-gradient(135deg, #8b5cf6, #06b6d4)' }} />
                 <span className="text-[15px] font-semibold text-white truncate">{term}</span>
               </div>
-              <p className="text-[13px] text-gray-300 leading-relaxed">{definition}</p>
+              <p className="text-[13px] text-white/60 leading-relaxed">{definition}</p>
             </div>
             <button
               onClick={onDismiss}
               aria-label="Dismiss"
-              className="text-gray-600 hover:text-gray-300 transition-colors shrink-0 text-[20px] leading-none mt-[-2px]"
+              className="text-white/25 hover:text-white/60 transition-colors duration-150 shrink-0 text-[20px] leading-none mt-[-2px]"
             >
               ×
             </button>
           </div>
           <button
             onClick={onKnown}
-            className="mt-3 text-[12px] text-gray-600 hover:text-violet-400 transition-colors"
+            className="mt-3 text-[12px] text-white/35 hover:text-violet-400 transition-colors duration-150"
           >
             I already know this
           </button>
@@ -1093,8 +1210,8 @@ function TermCard({
 
 function MicIcon() {
   return (
-    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-      strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="text-gray-200">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="text-white">
       <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" />
       <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
       <line x1="12" y1="19" x2="12" y2="22" />
@@ -1110,7 +1227,7 @@ function DashChevron({ expanded }: { expanded: boolean }) {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
       stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
-      className={`text-gray-600 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}>
+      className={cn("text-white/25 transition-transform duration-200", expanded ? "rotate-180" : "")}>
       <polyline points="6 9 12 15 18 9" />
     </svg>
   )
