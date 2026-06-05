@@ -132,22 +132,17 @@ export default function Dashboard() {
   useEffect(() => {
     if (!isRecording) return
     const analyser = vizAnalyserRef.current
-    if (!analyser) { console.warn('[demist] visualizer: no analyser available'); return }
-    console.log('[demist] visualizer: starting, analyser fftSize:', analyser.fftSize)
+    if (!analyser) return
 
     const data = new Uint8Array(analyser.frequencyBinCount)
     const usable = Math.floor(analyser.frequencyBinCount * 0.55)
     const BAR_COUNT = 28
     let raf: number
-    let tickCount = 0
     const tick = () => {
       analyser.getByteFrequencyData(data)
       let sum = 0; for (let i = 0; i < usable; i++) sum += data[i]
       const level = (sum / usable) / 255
       if (level > peakLevelRef.current) peakLevelRef.current = level
-      // Log every ~2 seconds (120 frames at 60fps) so we can see if audio is flowing
-      tickCount++
-      if (tickCount % 120 === 0) console.log('[demist] visualizer tick — level:', level.toFixed(4))
       if (ring1Ref.current) ring1Ref.current.style.transform = `scale(${1 + level * 2.8})`
       if (ring2Ref.current) ring2Ref.current.style.transform = `scale(${1 + level * 2.0})`
       if (ring3Ref.current) ring3Ref.current.style.transform = `scale(${1 + level * 1.3})`
@@ -252,7 +247,6 @@ export default function Dashboard() {
   // ── Shared: detect terms, save to DB, update UI ──────────────────────────────
 
   const runDetection = async (transcript: string, sessionId: string, token: string) => {
-    console.log('[demist] runDetection — transcript length:', transcript.length, '| preview:', transcript.slice(0, 80))
     const supabase = createClient()
     const base = process.env.NEXT_PUBLIC_SUPABASE_URL!
 
@@ -346,16 +340,14 @@ export default function Dashboard() {
   const SILENCE_THRESHOLD = 0.003
 
   const processChunk = async (blob: Blob, sessionId: string, peak: number) => {
-    if (blob.size < 1000) { console.log('[demist] processChunk: DROPPED — blob too small', blob.size); return }
-    // Silence check disabled: Web Audio analyser unreliable on some hardware/browser combos.
-    // Whisper handles silent audio gracefully (returns empty string).
-    console.log('[demist] processChunk: sending to transcribe — size:', blob.size, 'type:', blob.type, 'peak:', peak.toFixed(4))
+    if (blob.size < 500) return
+    if (peak < SILENCE_THRESHOLD) return
     const supabase = createClient()
     setIsProcessing(true)
     try {
       const { data: { session } } = await supabase.auth.getSession()
       const token = session?.access_token
-      if (!token) { console.error('[demist] processChunk: no auth token'); return }
+      if (!token) { console.error('processChunk: no auth token'); return }
       const base = process.env.NEXT_PUBLIC_SUPABASE_URL!
 
       const txRes = await fetch(`${base}/functions/v1/transcribe`, {
@@ -363,7 +355,6 @@ export default function Dashboard() {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': blob.type || 'audio/webm' },
         body: blob,
       })
-      console.log('[demist] transcribe response:', txRes.status, txRes.statusText)
       if (!txRes.ok) {
         if (txRes.status === 401) {
           setRecordingError('Session expired. Sign in again to continue recording.')
@@ -372,13 +363,12 @@ export default function Dashboard() {
         return
       }
       const tx = await txRes.json()
-      console.log('[demist] transcript:', JSON.stringify(tx))
       if (!tx?.text?.trim()) return
       transcriptRef.current = transcriptRef.current ? transcriptRef.current + ' ' + tx.text.trim() : tx.text.trim()
 
       await runDetection(tx.text, sessionId, token)
     } catch (e) {
-      console.error('[demist] processChunk error:', e)
+      console.error('processChunk error:', e)
     } finally {
       setIsProcessing(false)
     }
@@ -405,15 +395,11 @@ export default function Dashboard() {
   const startRecording = async () => {
     if (isActiveRef.current || startingRef.current) return
     startingRef.current = true
-    console.log('[demist] startRecording: begin')
 
-    // Create and resume the AudioContext synchronously within the user gesture.
-    // If deferred past any await, iOS Safari considers the gesture consumed and
-    // keeps the context suspended — making the entire processing chain produce silence.
+    // Create and resume AudioContext synchronously within the user gesture — if deferred past
+    // any await, iOS Safari considers the gesture consumed and keeps the context suspended.
     const audioCtx = new AudioContext()
-    console.log('[demist] AudioContext created, state:', audioCtx.state)
     audioCtx.resume()
-    console.log('[demist] AudioContext after resume(), state:', audioCtx.state)
     audioProcessingCtxRef.current = audioCtx
 
     let stream: MediaStream
@@ -426,9 +412,7 @@ export default function Dashboard() {
         },
         video: false,
       })
-      console.log('[demist] getUserMedia OK, tracks:', stream.getAudioTracks().map(t => `${t.label} (${t.readyState})`))
-    } catch (err) {
-      console.error('[demist] getUserMedia failed:', err)
+    } catch {
       audioCtx.close()
       audioProcessingCtxRef.current = null
       startingRef.current = false
@@ -436,7 +420,6 @@ export default function Dashboard() {
       return
     }
     streamRef.current = stream
-    console.log('[demist] AudioContext state after getUserMedia await:', audioCtx.state)
 
     // Audio processing pipeline: boost quiet audio and normalise volume.
     // Raw stream → gain(2.5×) → compressor → processedStream → MediaRecorder
@@ -460,7 +443,6 @@ export default function Dashboard() {
     gain.connect(compressor)
     compressor.connect(dest)
     processedStreamRef.current = dest.stream
-    console.log('[demist] audio pipeline ready, processedStream tracks:', dest.stream.getAudioTracks().length, '| ctx state:', audioCtx.state)
     sessionIdRef.current = null
 
     const supabase = createClient()
@@ -470,7 +452,6 @@ export default function Dashboard() {
       .select('id').single()
 
     if (sessionErr || !session) {
-      console.error('[demist] session insert failed:', sessionErr)
       streamRef.current?.getTracks().forEach(t => t.stop())
       audioProcessingCtxRef.current?.close()
       audioProcessingCtxRef.current = null
@@ -485,31 +466,23 @@ export default function Dashboard() {
     termFrequencyRef.current = new Map()
     transcriptRef.current = ''
     startingRef.current = false
-    console.log('[demist] recording started, sessionId:', sessionId)
     setIsRecording(true); setElapsed(0); setLiveTerms([]); setSessionGlossary([]); setRecordingError(null)
     window.postMessage({ source: 'demist', type: 'recording-started' }, window.location.origin)
     timerRef.current = setInterval(() => setElapsed(t => t + 1), 1000)
 
-    // ── Whisper path: 10-second chunk loop (shared by both branches) ───────────
-    let chunkIndex = 0
+    // ── Whisper path: 10-second chunk loop ──────────────────────────────────────
     const doChunk = () => {
-      const idx = ++chunkIndex
       peakLevelRef.current = 0
       const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
         ? 'audio/webm;codecs=opus'
         : MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'
-      // Use raw stream — Web Audio API processedStream silences on some browser/hardware combos.
-      // The gain/compression chain is kept for visualization only.
-      const recordingStream = streamRef.current!
-      console.log(`[demist] chunk #${idx} start — mimeType: ${mimeType} | stream tracks: ${recordingStream.getAudioTracks().length}`)
-      const recorder = new MediaRecorder(recordingStream, { mimeType })
+      const recorder = new MediaRecorder(processedStreamRef.current ?? streamRef.current!, { mimeType })
       recorderRef.current = recorder
       const chunks: Blob[] = []
       recorder.ondataavailable = (e: BlobEvent) => { if (e.data.size > 0) chunks.push(e.data) }
       recorder.onstop = () => {
         const blob = new Blob(chunks, { type: mimeType })
         const peak = peakLevelRef.current
-        console.log(`[demist] chunk #${idx} stop — size: ${blob.size}B, peak: ${peak.toFixed(4)}, threshold: ${SILENCE_THRESHOLD}`)
         if (sessionIdRef.current) processChunk(blob, sessionIdRef.current, peak)
         if (isActiveRef.current) doChunk()
       }
