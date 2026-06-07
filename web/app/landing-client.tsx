@@ -689,15 +689,39 @@ function FaqItem({ q, a, visible, delay }: { q: string; a: string; visible: bool
       >
         <span className="text-[16px] font-semibold leading-snug" style={{ color: 'var(--fg)' }}>{q}</span>
         <span
-          className="shrink-0 mt-0.5 transition-transform duration-200"
-          style={{ color: 'var(--fg-faint)', transform: open ? 'rotate(180deg)' : 'none' }}
+          className="shrink-0 mt-0.5"
+          style={{
+            color: 'var(--fg-faint)',
+            transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
+            transition: `transform 320ms ${SPRING}`,
+          }}
         >
           <ChevronIcon />
         </span>
       </button>
-      {open && (
-        <p className="mt-3 text-[14px] leading-relaxed" style={{ color: 'var(--fg-muted)' }}>{a}</p>
-      )}
+      {/* grid-template-rows 0fr→1fr is the cleanest way to animate unknown heights */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateRows: open ? '1fr' : '0fr',
+          transition: `grid-template-rows 340ms ${SPRING}`,
+        }}
+      >
+        <div style={{ overflow: 'hidden', minHeight: 0 }}>
+          <p
+            className="mt-3 pb-1 text-[14px] leading-relaxed"
+            style={{
+              color: 'var(--fg-muted)',
+              opacity: open ? 1 : 0,
+              transition: open
+                ? `opacity 260ms ease 100ms`
+                : `opacity 160ms ease 0ms`,
+            }}
+          >
+            {a}
+          </p>
+        </div>
+      </div>
     </div>
   )
 }
