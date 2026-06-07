@@ -98,7 +98,9 @@
       "Bash(ls \"c:\\\\Users\\\\shivb\\\\.claude\\\\projects\\\\c--Users-shivb-Desktop-coding-bits-demist\\\\memory\\\\\")",
       "Read(//c/Users/shivb/.claude/projects/c--Users-shivb-Desktop-coding-bits-demist/**)",
       "PowerShell(Remove-Item -Recurse -Force \"c:\\\\Users\\\\shivb\\\\Desktop\\\\coding bits\\\\demist\\\\web\\\\components\" -Confirm:$false)",
-      "PowerShell(Remove-Item -Force \"c:\\\\Users\\\\shivb\\\\Desktop\\\\coding bits\\\\demist\\\\web\\\\lib\\\\utils.ts\" -Confirm:$false)"
+      "PowerShell(Remove-Item -Force \"c:\\\\Users\\\\shivb\\\\Desktop\\\\coding bits\\\\demist\\\\web\\\\lib\\\\utils.ts\" -Confirm:$false)",
+      "Bash(powershell -Command \"Compress-Archive -Path manifest.json,content-bridge.js,popup.js,popup.html,content-overlay.js,background.js -DestinationPath '..\\\\web\\\\public\\\\demist-extension.zip' -Force\")",
+      "Bash(powershell -Command \"\\(Get-Item 'c:\\\\Users\\\\shivb\\\\Desktop\\\\coding bits\\\\demist\\\\web\\\\public\\\\demist-extension.zip'\\).LastWriteTime\")"
     ],
     "additionalDirectories": [
       "c:\\Users\\shivb\\Desktop\\coding bits\\demist\\web\\app\\u"
