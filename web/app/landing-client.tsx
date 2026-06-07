@@ -262,7 +262,7 @@ export default function LandingClient() {
         <div className="flex flex-col sm:flex-row items-center gap-3 mb-16" {...anim(320)}>
           <button
             onClick={cta}
-            className="px-8 py-4 rounded-2xl bg-yellow-600 hover:bg-yellow-500 text-white font-semibold text-[15px] transition-all duration-200 hover:shadow-[0_0_44px_rgba(161,98,7,0.45)] active:scale-[0.97] select-none"
+            className="px-8 py-4 rounded-2xl bg-yellow-600 hover:brightness-[1.1] text-white font-semibold text-[15px] transition-all duration-200 hover:shadow-[0_0_24px_rgba(161,98,7,0.25)] active:scale-[0.97] select-none"
           >
             {authed ? 'Open app →' : 'Get started free →'}
           </button>

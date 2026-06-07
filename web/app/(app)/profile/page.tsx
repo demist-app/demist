@@ -339,7 +339,7 @@ export default function Profile() {
             className={`w-full py-4 rounded-2xl text-[15px] font-semibold transition-all ${
               saved
                 ? 'bg-emerald-600 dark:text-white text-gray-900'
-                : 'bg-yellow-600 hover:bg-yellow-500 dark:text-white text-gray-900 disabled:opacity-40'
+                : 'bg-yellow-600 hover:brightness-[1.1] dark:text-white text-gray-900 disabled:opacity-40'
             }`}
           >
             {saved ? 'Saved ✓' : saving ? 'Saving…' : 'Save changes'}

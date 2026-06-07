@@ -846,7 +846,7 @@ export default function ImportPage() {
                   className={`w-full h-10 rounded-xl text-sm font-semibold transition-colors duration-150 active:scale-[0.97] ${
                     audioWorking
                       ? 'bg-yellow-500/30 dark:text-yellow-300 text-yellow-700 cursor-not-allowed'
-                      : 'bg-yellow-600 hover:bg-yellow-500 dark:text-white text-gray-900'
+                      : 'bg-yellow-600 hover:brightness-[1.1] dark:text-white text-gray-900'
                   }`}
                 >
                   {audioWorking ? (
@@ -975,7 +975,7 @@ export default function ImportPage() {
                   className={`w-full h-10 rounded-xl text-sm font-semibold transition-colors duration-150 active:scale-[0.97] ${
                     textWorking
                       ? 'bg-yellow-500/30 dark:text-yellow-300 text-yellow-700 cursor-not-allowed'
-                      : 'bg-yellow-600 hover:bg-yellow-500 dark:text-white text-gray-900'
+                      : 'bg-yellow-600 hover:brightness-[1.1] dark:text-white text-gray-900'
                   }`}
                 >
                   {textWorking ? (
@@ -1134,7 +1134,7 @@ export default function ImportPage() {
                             className={`w-full h-9 rounded-xl text-xs font-semibold transition-colors duration-150 active:scale-[0.97] ${
                               notionPullStatus === 'importing'
                                 ? 'bg-yellow-500/30 dark:text-yellow-300 text-yellow-700 cursor-not-allowed'
-                                : 'bg-yellow-600 hover:bg-yellow-500 dark:text-white text-gray-900'
+                                : 'bg-yellow-600 hover:brightness-[1.1] dark:text-white text-gray-900'
                             }`}
                           >
                             {notionPullStatus === 'importing' ? (

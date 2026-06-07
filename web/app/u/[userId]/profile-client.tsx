@@ -115,7 +115,7 @@ export default function PublicProfileClient() {
           download={`${name.replace(/\s+/g, '-').toLowerCase()}-demist.png`}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center justify-center gap-2 w-full py-4 rounded-2xl text-[15px] font-semibold bg-yellow-600 hover:bg-yellow-500 text-white transition-all"
+          className="flex items-center justify-center gap-2 w-full py-4 rounded-2xl text-[15px] font-semibold bg-yellow-600 hover:brightness-[1.1] text-white transition-all"
         >
           Download share card
         </a>

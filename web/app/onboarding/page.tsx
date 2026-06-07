@@ -94,7 +94,7 @@ export default function Onboarding() {
             <button
               onClick={() => setStep(2)}
               disabled={!course.trim()}
-              className="mt-4 w-full py-4 rounded-2xl text-[15px] font-semibold transition-all bg-amber-600 hover:bg-amber-500 disabled:opacity-25 disabled:cursor-not-allowed text-white"
+              className="mt-4 w-full py-4 rounded-2xl text-[15px] font-semibold transition-all bg-amber-600 hover:brightness-[1.1] disabled:opacity-25 disabled:cursor-not-allowed text-white"
             >
               Continue →
             </button>
@@ -137,7 +137,7 @@ export default function Onboarding() {
               <button
                 onClick={handleFinish}
                 disabled={!year || saving}
-                className="flex-1 py-4 rounded-2xl text-[15px] font-semibold bg-amber-600 hover:bg-amber-500 disabled:opacity-25 disabled:cursor-not-allowed text-white transition-all"
+                className="flex-1 py-4 rounded-2xl text-[15px] font-semibold bg-amber-600 hover:brightness-[1.1] disabled:opacity-25 disabled:cursor-not-allowed text-white transition-all"
               >
                 {saving ? 'Setting up…' : "Let's go →"}
               </button>
