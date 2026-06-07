@@ -24,7 +24,7 @@ export default function GlobalError({
             </p>
             <button
               onClick={reset}
-              style={{ padding: '12px 24px', borderRadius: 16, background: '#7c3aed', color: 'white', fontSize: 14, fontWeight: 600, border: 'none', cursor: 'pointer' }}
+              style={{ padding: '12px 24px', borderRadius: 16, background: '#D97706', color: 'white', fontSize: 14, fontWeight: 600, border: 'none', cursor: 'pointer' }}
             >
               Try again
             </button>

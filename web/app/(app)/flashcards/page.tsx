@@ -33,10 +33,10 @@ function sm2Update(ease: number, interval: number, grade: 0 | 1 | 2 | 3): { inte
 }
 
 const GRADE_LABELS: { grade: 0 | 1 | 2 | 3; label: string; ariaLabel: string; color: string }[] = [
-  { grade: 0, label: 'Again', ariaLabel: 'Again — forgotten, review again soon',     color: 'border-red-500/40 hover:bg-red-500/10 text-red-400' },
-  { grade: 1, label: 'Hard',  ariaLabel: 'Hard — remembered with difficulty',        color: 'border-orange-500/40 hover:bg-orange-500/10 text-orange-400' },
-  { grade: 2, label: 'Good',  ariaLabel: 'Good — remembered correctly',              color: 'border-emerald-500/40 hover:bg-emerald-500/10 text-emerald-400' },
-  { grade: 3, label: 'Easy',  ariaLabel: 'Easy — remembered without effort',         color: 'border-yellow-500/40 hover:bg-yellow-500/10 dark:text-yellow-400 text-yellow-700' },
+  { grade: 0, label: 'Again', ariaLabel: 'Again: forgotten, review again soon',      color: 'border-red-500/40 hover:bg-red-500/10 text-red-400' },
+  { grade: 1, label: 'Hard',  ariaLabel: 'Hard: remembered with difficulty',         color: 'border-orange-500/40 hover:bg-orange-500/10 text-orange-400' },
+  { grade: 2, label: 'Good',  ariaLabel: 'Good: remembered correctly',               color: 'border-emerald-500/40 hover:bg-emerald-500/10 text-emerald-400' },
+  { grade: 3, label: 'Easy',  ariaLabel: 'Easy: remembered without effort',          color: 'border-yellow-500/40 hover:bg-yellow-500/10 dark:text-yellow-400 text-yellow-700' },
 ]
 
 type Phase = 'loading' | 'empty' | 'review' | 'done'

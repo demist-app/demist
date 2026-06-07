@@ -38,12 +38,12 @@ export async function GET(
           position: 'relative', overflow: 'hidden',
         }}
       >
-        <div style={{ position: 'absolute', top: '-200px', right: '-200px', width: '600px', height: '600px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(139,92,246,0.25) 0%, transparent 70%)' }} />
+        <div style={{ position: 'absolute', top: '-200px', right: '-200px', width: '600px', height: '600px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(251,191,36,0.20) 0%, transparent 70%)' }} />
         <div style={{ display: 'flex', marginBottom: '48px' }}>
-          <span style={{ fontSize: '14px', fontWeight: 700, letterSpacing: '0.2em', color: 'rgba(167,139,250,0.7)', textTransform: 'uppercase' }}>Demist</span>
+          <span style={{ fontSize: '14px', fontWeight: 700, letterSpacing: '0.2em', color: 'rgba(251,191,36,0.75)', textTransform: 'uppercase' }}>Demist</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '24px', marginBottom: '48px' }}>
-          <div style={{ width: '72px', height: '72px', borderRadius: '50%', background: 'rgba(139,92,246,0.2)', border: '2px solid rgba(139,92,246,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px', fontWeight: 700, color: '#a78bfa' }}>
+          <div style={{ width: '72px', height: '72px', borderRadius: '50%', background: 'rgba(251,191,36,0.15)', border: '2px solid rgba(251,191,36,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px', fontWeight: 700, color: '#FBBF24' }}>
             {initials}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -55,8 +55,8 @@ export async function GET(
           <span style={{ fontSize: '56px', fontWeight: 800, color: '#fff', lineHeight: 1 }}>{termsWeek} new terms</span>
           <span style={{ fontSize: '28px', color: '#6b7280' }}>learned this week with Demist</span>
         </div>
-        <div style={{ display: 'flex', background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.25)', borderRadius: '100px', padding: '10px 20px' }}>
-          <span style={{ fontSize: '16px', color: '#a78bfa', fontWeight: 600 }}>{termsTotal} total terms learned</span>
+        <div style={{ display: 'flex', background: 'rgba(251,191,36,0.10)', border: '1px solid rgba(251,191,36,0.22)', borderRadius: '100px', padding: '10px 20px' }}>
+          <span style={{ fontSize: '16px', color: '#FBBF24', fontWeight: 600 }}>{termsTotal} total terms learned</span>
         </div>
       </div>
     ),

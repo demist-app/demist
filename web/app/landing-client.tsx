@@ -74,7 +74,7 @@ const FEATURES = [
   },
   {
     title: 'Full session history',
-    body: 'Every lecture — recorded or imported — is stored with its terms, transcript, and summary. Rename sessions, browse past notes, and return to anything.',
+    body: 'Every lecture you record or import is stored with its terms, transcript, and summary. Rename sessions, browse past notes, and come back to anything.',
     Icon: HistoryIconFeat,
     tag: null as string | null,
   },
@@ -89,11 +89,11 @@ const FEATURES = [
 const FAQS = [
   {
     q: 'Is Demist free?',
-    a: 'Yes — Demist is free to use. No credit card required, no trial period.',
+    a: 'Free to use. No credit card, no trial period.',
   },
   {
     q: 'What subjects does it support?',
-    a: 'Any subject. The AI adapts term detection to the vocabulary in your lecture, from biochemistry to contract law to computer science.',
+    a: 'Any subject. Term detection picks up on whatever your lecturer is covering, whether that\'s biochemistry, contract law, or computer science.',
   },
   {
     q: 'Does it work offline?',
@@ -105,7 +105,7 @@ const FAQS = [
   },
   {
     q: 'Why isn\'t Demist detecting any terms?',
-    a: 'Make sure your browser has microphone access and the session is actively recording. Terms are filtered by relevance — if the lecture content is mostly familiar vocabulary, fewer will be flagged. If the issue persists, try reloading the page and starting a new session.',
+    a: 'Check that your browser has microphone access and that the session is recording. If the lecture content is mostly familiar, fewer terms will get flagged. If it still isn\'t working, reload and start a new session.',
   },
   {
     q: 'The microphone isn\'t working',
@@ -113,15 +113,15 @@ const FAQS = [
   },
   {
     q: 'Why isn\'t the Chrome extension showing anything?',
-    a: 'The extension mirrors what the Demist app is actively recording. Start a recording session in the Demist app first — terms will then appear in the side panel as they are detected.',
+    a: 'Make sure you\'ve started recording in the Demist app first. The extension only shows terms once a session is active.',
   },
   {
-    q: 'The "Load unpacked" step failed — what did I do wrong?',
+    q: '"Load unpacked" failed. What went wrong?',
     a: 'Select the extracted folder named demist-extension, not the zip file itself. In Chrome\'s extensions page (chrome://extensions), enable Developer mode with the toggle in the top right, click Load unpacked, then navigate to and select the demist-extension folder.',
   },
   {
     q: 'Where is my data stored?',
-    a: 'Your sessions, glossary, and flashcard progress are stored securely on Supabase servers and are only accessible with your account. Audio is sent to OpenAI\'s Whisper API for transcription and is not retained beyond the active request.',
+    a: 'Your data is tied to your account and not shared. Audio is processed for transcription only and isn\'t stored after the request finishes.',
   },
 ]
 
@@ -129,7 +129,7 @@ const STEPS = [
   {
     n: '01',
     title: 'Record live or import from anywhere',
-    body: 'Tap record before a lecture, paste a YouTube URL, or upload a recording or slide deck. No setup, no download — just open the app.',
+    body: 'Tap record before a lecture, paste a YouTube URL, or upload a recording or slide deck. No setup, no download. Just open the app.',
   },
   {
     n: '02',
@@ -262,7 +262,7 @@ export default function LandingClient() {
         <div className="flex flex-col sm:flex-row items-center gap-3 mb-16" {...anim(320)}>
           <button
             onClick={cta}
-            className="px-8 py-4 rounded-2xl bg-yellow-600 hover:bg-yellow-500 text-white font-semibold text-[15px] transition-all duration-200 hover:shadow-[0_0_44px_rgba(139,92,246,0.42)] active:scale-[0.97] select-none"
+            className="px-8 py-4 rounded-2xl bg-yellow-600 hover:bg-yellow-500 text-white font-semibold text-[15px] transition-all duration-200 hover:shadow-[0_0_44px_rgba(161,98,7,0.45)] active:scale-[0.97] select-none"
           >
             {authed ? 'Open app →' : 'Get started free →'}
           </button>
@@ -511,7 +511,7 @@ export default function LandingClient() {
             <ol className="space-y-2.5">
               {[
                 'Click Download beta above and save the zip file',
-                'Unzip it — you will get a single folder called demist-extension',
+                'Unzip it. You will get a single folder called demist-extension',
                 'In Chrome, go to chrome://extensions',
                 'Turn on Developer mode using the toggle in the top right',
                 'Click Load unpacked and select the demist-extension folder',

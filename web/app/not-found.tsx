@@ -6,7 +6,7 @@ export default function NotFound() {
       <p className="text-[48px] font-bold text-white/10">404</p>
       <h1 className="text-[22px] font-bold">Page not found</h1>
       <p className="text-gray-500 text-[15px]">This page doesn&apos;t exist or has been moved.</p>
-      <Link href="/" className="mt-4 text-[14px] text-violet-400 hover:text-violet-300 transition-colors">
+      <Link href="/" className="mt-4 text-[14px] text-yellow-400 hover:text-yellow-300 transition-colors">
         ← Back to Demist
       </Link>
     </main>

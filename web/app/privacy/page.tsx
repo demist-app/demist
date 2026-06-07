@@ -12,7 +12,7 @@ export default function Privacy() {
   return (
     <main className="min-h-dvh bg-[#080810] text-white px-6 py-16">
       <div className="max-w-[680px] mx-auto">
-        <Link href="/" className="text-[11px] font-bold tracking-[0.2em] text-violet-400/70 uppercase hover:text-violet-400 transition-colors">
+        <Link href="/" className="text-[11px] font-bold tracking-[0.2em] text-yellow-400/70 uppercase hover:text-yellow-400 transition-colors">
           ← Demist
         </Link>
 
@@ -74,7 +74,7 @@ export default function Privacy() {
           <section>
             <h2 className="text-[17px] font-semibold mb-3">Contact</h2>
             <p className="text-gray-400">
-              Questions about this policy or your data: <a href="mailto:shiv.chop0301@gmail.com" className="text-violet-400 hover:text-violet-300 transition-colors">shiv.chop0301@gmail.com</a>
+              Questions about this policy or your data: <a href="mailto:shiv.chop0301@gmail.com" className="text-yellow-400 hover:text-yellow-300 transition-colors">shiv.chop0301@gmail.com</a>
             </p>
           </section>
 

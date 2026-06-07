@@ -597,7 +597,7 @@ export default function ImportPage() {
     idle: 'Upload Recording',
     uploading: 'Uploading...',
     transcribing: audioFile && audioFile.size > 20 * 1024 * 1024
-      ? 'Transcribing in segments — this may take a few minutes...'
+      ? 'Transcribing in segments. This may take a few minutes...'
       : 'Transcribing...',
     processing: 'Detecting terms...',
     done: 'Done',
@@ -640,7 +640,7 @@ export default function ImportPage() {
                   <span className="text-[10px] font-bold tracking-[0.1em] dark:text-yellow-400 text-yellow-700 bg-yellow-600/15 border border-yellow-500/25 rounded-full px-2 py-0.5 uppercase">New</span>
                 </div>
               </div>
-              <p className="text-xs text-gray-700 mt-1 ml-11">Paste any YouTube lecture URL. Demist reads the captions and detects unfamiliar terms — no recording needed.</p>
+              <p className="text-xs text-gray-700 mt-1 ml-11">Paste any YouTube lecture URL. Demist reads the captions and pulls out unfamiliar terms, no recording needed.</p>
             </div>
 
             <div className="px-5 pb-2">
@@ -698,7 +698,7 @@ export default function ImportPage() {
                 </div>
                 <p className="text-xs text-gray-600">
                   {ytResult.term_count} term{ytResult.term_count !== 1 ? 's' : ''} detected.
-                  {ytResult.synopsis ? ' AI summary generated.' : ''}
+                  {ytResult.synopsis ? ' Summary generated.' : ''}
                 </p>
                 <div className="flex items-center justify-between">
                   <div className="flex gap-2">
@@ -737,7 +737,7 @@ export default function ImportPage() {
                 </span>
                 <h2 className="text-[15px] font-semibold dark:text-white text-gray-900">Lecture Recording</h2>
               </div>
-              <p className="text-xs text-gray-700 mt-1 ml-11">MP3, WAV, MP4, M4A, WebM, OGG — up to 50 MB. At typical browser recording quality (WebM/opus) that covers roughly 2–3 hours. Large files are transcribed in segments automatically.</p>
+              <p className="text-xs text-gray-700 mt-1 ml-11">MP3, WAV, MP4, M4A, WebM, OGG. Up to 50 MB, which covers roughly 2-3 hours at typical recording quality. Large files are split into segments automatically.</p>
             </div>
 
             <div
@@ -769,7 +769,7 @@ export default function ImportPage() {
                   </div>
                   <p className="text-xs text-gray-600">
                     {audioResult.term_count} term{audioResult.term_count !== 1 ? 's' : ''} detected.
-                    {audioResult.synopsis ? ' AI summary generated.' : ''}
+                    {audioResult.synopsis ? ' Summary generated.' : ''}
                   </p>
                   <div className="flex items-center justify-between">
                     <div className="flex gap-2">
@@ -903,7 +903,7 @@ export default function ImportPage() {
                   </div>
                   <p className="text-xs text-gray-600">
                     {textResult.term_count} term{textResult.term_count !== 1 ? 's' : ''} detected.
-                    {textResult.synopsis ? ' AI summary generated.' : ''}
+                    {textResult.synopsis ? ' Summary generated.' : ''}
                   </p>
                   <div className="flex items-center justify-between">
                     <div className="flex gap-2">
