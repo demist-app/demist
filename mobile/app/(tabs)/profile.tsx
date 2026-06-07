@@ -109,7 +109,7 @@ export default function ProfileScreen() {
             <Switch
               value={profile.is_public}
               onValueChange={togglePublic}
-              trackColor={{ false: 'rgba(255,255,255,0.1)', true: '#7c3aed' }}
+              trackColor={{ false: 'rgba(255,255,255,0.1)', true: '#D97706' }}
               thumbColor="#fff"
             />
           </View>
@@ -132,10 +132,10 @@ const s = StyleSheet.create({
   avatarRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   avatar: {
     width: 56, height: 56, borderRadius: 28,
-    backgroundColor: 'rgba(139,92,246,0.2)', borderWidth: 1, borderColor: 'rgba(139,92,246,0.3)',
+    backgroundColor: 'rgba(251,191,36,0.15)', borderWidth: 1, borderColor: 'rgba(251,191,36,0.25)',
     alignItems: 'center', justifyContent: 'center',
   },
-  avatarText: { fontSize: 22, fontWeight: '700', color: '#a78bfa' },
+  avatarText: { fontSize: 22, fontWeight: '700', color: '#FBBF24' },
   name: { fontSize: 16, fontWeight: '600', color: '#fff' },
   emailText: { fontSize: 13, color: '#6b7280', marginTop: 2 },
   statsRow: { flexDirection: 'row', gap: 10 },

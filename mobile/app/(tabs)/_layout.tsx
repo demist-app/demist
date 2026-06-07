@@ -2,7 +2,7 @@ import { Tabs } from 'expo-router'
 import { StyleSheet } from 'react-native'
 import Svg, { Path, Circle, Polyline, Rect, Line } from 'react-native-svg'
 
-const ACTIVE = '#a78bfa'
+const ACTIVE = '#FBBF24'
 const INACTIVE = '#4b5563'
 const BG = '#080810'
 

@@ -9,7 +9,7 @@ let timerInterval = null
 // Track all tabs running content-overlay.js so we can message them
 const overlayTabs = new Set()
 
-chrome.runtime.onMessage.addListener((msg, sender) => {
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   switch (msg.type) {
 
     // content-bridge (demist.app) → relay to overlay tab
@@ -34,9 +34,10 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
       if (msg.termId) sendCommandToDemist('mark-known', msg.termId)
       break
 
-    // Popup queries recording state
+    // Popup/overlay queries recording state — must use sendResponse, not return value
     case 'GET_STATE':
-      return { recording, elapsed }
+      sendResponse({ recording, elapsed })
+      return true
 
     // content-overlay registers itself so background knows which tabs have the overlay
     case 'OVERLAY_READY':

@@ -75,7 +75,7 @@ export default function Glossary() {
   if (loading) {
     return (
       <View style={[s.container, s.center]}>
-        <ActivityIndicator color="#7c3aed" />
+        <ActivityIndicator color="#D97706" />
       </View>
     )
   }
@@ -171,13 +171,13 @@ const s = StyleSheet.create({
   sessionTitle: { fontSize: 14, fontWeight: '500', color: 'rgba(255,255,255,0.9)' },
   sessionMeta: { fontSize: 12, color: '#4b5563', marginTop: 2 },
   termCount: { marginRight: 12, alignItems: 'flex-end' },
-  termCountNum: { fontSize: 16, fontWeight: '600', color: '#a78bfa' },
+  termCountNum: { fontSize: 16, fontWeight: '600', color: '#FBBF24' },
   termCountLabel: { fontSize: 11, color: '#4b5563' },
   chevron: { fontSize: 20, color: '#4b5563', transform: [{ rotate: '90deg' }] },
   chevronUp: { transform: [{ rotate: '-90deg' }] },
   termList: { borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.04)', paddingHorizontal: 16, paddingVertical: 12, gap: 12 },
   termRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  dot: { width: 4, height: 4, borderRadius: 2, backgroundColor: 'rgba(139,92,246,0.5)', marginTop: 7, flexShrink: 0 },
+  dot: { width: 4, height: 4, borderRadius: 2, backgroundColor: 'rgba(251,191,36,0.45)', marginTop: 7, flexShrink: 0 },
   termName: { fontSize: 13, fontWeight: '500', color: 'rgba(255,255,255,0.9)' },
   termKnown: { color: '#4b5563', textDecorationLine: 'line-through' },
   termDef: { fontSize: 12, color: '#6b7280', marginTop: 2, lineHeight: 18 },

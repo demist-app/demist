@@ -135,7 +135,7 @@ export default function Login() {
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#080810' },
   inner: { flex: 1, justifyContent: 'center', paddingHorizontal: 28, paddingBottom: 40 },
-  brand: { fontSize: 11, fontWeight: '700', letterSpacing: 3, color: 'rgba(167,139,250,0.7)', textTransform: 'uppercase', marginBottom: 40 },
+  brand: { fontSize: 11, fontWeight: '700', letterSpacing: 3, color: 'rgba(251,191,36,0.75)', textTransform: 'uppercase', marginBottom: 40 },
   title: { fontSize: 32, fontWeight: '700', color: '#fff', letterSpacing: -0.5, marginBottom: 8 },
   subtitle: { fontSize: 15, color: '#6b7280', marginBottom: 32, lineHeight: 22 },
   emailHighlight: { color: '#fff', fontWeight: '600' },
@@ -147,7 +147,7 @@ const s = StyleSheet.create({
   },
   codeInput: { fontSize: 24, letterSpacing: 12, textAlign: 'center', fontVariant: ['tabular-nums'] },
   btn: {
-    backgroundColor: '#7c3aed', borderRadius: 18,
+    backgroundColor: '#D97706', borderRadius: 18,
     paddingVertical: 18, alignItems: 'center', marginBottom: 16,
   },
   btnDisabled: { opacity: 0.3 },

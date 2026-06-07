@@ -149,7 +149,7 @@ export default function Flashcards() {
   const frontRotateY = flipAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '180deg'] })
   const backRotateY = flipAnim.interpolate({ inputRange: [0, 1], outputRange: ['180deg', '360deg'] })
 
-  if (phase === 'loading') return <View style={[s.container, s.center]}><ActivityIndicator color="#7c3aed" /></View>
+  if (phase === 'loading') return <View style={[s.container, s.center]}><ActivityIndicator color="#D97706" /></View>
 
   if (phase === 'empty') return (
     <SafeAreaView style={[s.container, s.center]}>
@@ -222,7 +222,7 @@ export default function Flashcards() {
             { grade: 0, label: 'Again', color: '#ef4444' },
             { grade: 1, label: 'Hard', color: '#f97316' },
             { grade: 2, label: 'Good', color: '#10b981' },
-            { grade: 3, label: 'Easy', color: '#8b5cf6' },
+            { grade: 3, label: 'Easy', color: '#FBBF24' },
           ] as const).map(({ grade, label, color }) => (
             <TouchableOpacity
               key={grade}
@@ -256,13 +256,13 @@ const s = StyleSheet.create({
   headerTitle: { fontSize: 22, fontWeight: '700', color: '#fff', letterSpacing: -0.5 },
   counter: { fontSize: 13, color: '#4b5563' },
   progressTrack: { height: 3, backgroundColor: 'rgba(255,255,255,0.06)', marginHorizontal: 20, borderRadius: 2, overflow: 'hidden', marginBottom: 16 },
-  progressFill: { height: '100%', backgroundColor: '#7c3aed', borderRadius: 2 },
+  progressFill: { height: '100%', backgroundColor: '#D97706', borderRadius: 2 },
   hintRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 24, marginBottom: 8 },
   hintBadge: { paddingHorizontal: 14, paddingVertical: 5, borderRadius: 100, borderWidth: 1.5 },
   hintAgain: { borderColor: 'rgba(239,68,68,0.5)', backgroundColor: 'rgba(239,68,68,0.1)' },
-  hintEasy: { borderColor: 'rgba(139,92,246,0.5)', backgroundColor: 'rgba(139,92,246,0.1)' },
+  hintEasy: { borderColor: 'rgba(251,191,36,0.45)', backgroundColor: 'rgba(251,191,36,0.08)' },
   hintAgainText: { color: '#ef4444', fontWeight: '600', fontSize: 13 },
-  hintEasyText: { color: '#8b5cf6', fontWeight: '600', fontSize: 13 },
+  hintEasyText: { color: '#FBBF24', fontWeight: '600', fontSize: 13 },
   cardArea: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20 },
   cardWrapper: { width: '100%', height: 260 },
   card: {
@@ -273,11 +273,11 @@ const s = StyleSheet.create({
     padding: 28, backfaceVisibility: 'hidden',
   },
   cardFront: {},
-  cardBack: { borderColor: 'rgba(139,92,246,0.25)' },
-  cardLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 2, color: 'rgba(139,92,246,0.6)', textTransform: 'uppercase', marginBottom: 16 },
+  cardBack: { borderColor: 'rgba(251,191,36,0.22)' },
+  cardLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 2, color: 'rgba(251,191,36,0.65)', textTransform: 'uppercase', marginBottom: 16 },
   cardTerm: { fontSize: 26, fontWeight: '700', color: '#fff', textAlign: 'center', lineHeight: 32 },
   tapHint: { fontSize: 12, color: '#374151', marginTop: 20 },
-  defLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 2, color: 'rgba(139,92,246,0.7)', textTransform: 'uppercase', marginBottom: 16 },
+  defLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 2, color: 'rgba(251,191,36,0.75)', textTransform: 'uppercase', marginBottom: 16 },
   cardDef: { fontSize: 16, color: '#d1d5db', textAlign: 'center', lineHeight: 24 },
   gradeRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 20, paddingBottom: 16 },
   gradeBtn: {
