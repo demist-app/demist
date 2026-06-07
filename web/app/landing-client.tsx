@@ -86,6 +86,45 @@ const FEATURES = [
   },
 ]
 
+const FAQS = [
+  {
+    q: 'Is Demist free?',
+    a: 'Yes — Demist is free to use. No credit card required, no trial period.',
+  },
+  {
+    q: 'What subjects does it support?',
+    a: 'Any subject. The AI adapts term detection to the vocabulary in your lecture, from biochemistry to contract law to computer science.',
+  },
+  {
+    q: 'Does it work offline?',
+    a: 'Live recording and AI term detection require an internet connection for processing. Your saved glossary, session history, and flashcard queue are available to browse once loaded.',
+  },
+  {
+    q: 'What file formats can I import?',
+    a: 'You can paste a YouTube URL or upload an audio file (MP3, WAV, M4A), a PDF, or a slide deck. Demist extracts terms from captions or document text automatically.',
+  },
+  {
+    q: 'Why isn\'t Demist detecting any terms?',
+    a: 'Make sure your browser has microphone access and the session is actively recording. Terms are filtered by relevance — if the lecture content is mostly familiar vocabulary, fewer will be flagged. If the issue persists, try reloading the page and starting a new session.',
+  },
+  {
+    q: 'The microphone isn\'t working',
+    a: 'Go to your browser\'s site settings for demist.app and confirm microphone permission is set to Allow. In Chrome, click the padlock icon in the address bar → Site settings → Microphone → Allow, then reload the page.',
+  },
+  {
+    q: 'Why isn\'t the Chrome extension showing anything?',
+    a: 'The extension mirrors what the Demist app is actively recording. Start a recording session in the Demist app first — terms will then appear in the side panel as they are detected.',
+  },
+  {
+    q: 'The "Load unpacked" step failed — what did I do wrong?',
+    a: 'Select the extracted folder named demist-extension, not the zip file itself. In Chrome\'s extensions page (chrome://extensions), enable Developer mode with the toggle in the top right, click Load unpacked, then navigate to and select the demist-extension folder.',
+  },
+  {
+    q: 'Where is my data stored?',
+    a: 'Your sessions, glossary, and flashcard progress are stored securely on Supabase servers and are only accessible with your account. Audio is sent to OpenAI\'s Whisper API for transcription and is not retained beyond the active request.',
+  },
+]
+
 const STEPS = [
   {
     n: '01',
@@ -114,6 +153,7 @@ export default function LandingClient() {
   const featuresRef = useInView()
   const stepsRef = useInView()
   const extRef = useInView()
+  const faqRef = useInView()
   const ctaRef = useInView()
 
   useEffect(() => {
@@ -487,6 +527,28 @@ export default function LandingClient() {
         )}
       </section>
 
+      {/* ── FAQ & Troubleshooting ── */}
+      <section ref={faqRef.ref} className="relative z-10 px-6 sm:px-12 py-28 max-w-3xl mx-auto">
+        <p
+          className="text-[10px] font-bold tracking-[0.2em] uppercase mb-4 text-center"
+          style={{ color: 'var(--fg-faint)', ...scrollAnim(faqRef.visible, 0).style }}
+        >
+          FAQ & Troubleshooting
+        </p>
+        <h2
+          className="text-[30px] sm:text-[42px] font-bold tracking-tight text-center mb-16 leading-tight"
+          style={{ color: 'var(--fg)', ...scrollAnim(faqRef.visible, 80).style }}
+        >
+          Common questions.{' '}
+          <span style={{ color: 'var(--fg-muted)', fontWeight: 400 }}>Answered.</span>
+        </h2>
+        <div>
+          {FAQS.map((faq, i) => (
+            <FaqItem key={faq.q} q={faq.q} a={faq.a} visible={faqRef.visible} delay={160 + i * 50} />
+          ))}
+        </div>
+      </section>
+
       {/* ── Final CTA ── */}
       <section ref={ctaRef.ref} className="relative z-10 px-6 py-36 text-center">
         <h2
@@ -610,6 +672,40 @@ function HistoryIconFeat() {
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="9" />
       <polyline points="12 7 12 12 15 15" />
+    </svg>
+  )
+}
+
+function FaqItem({ q, a, visible, delay }: { q: string; a: string; visible: boolean; delay: number }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div
+      className="py-5 last:border-0"
+      style={{ borderBottom: '1px solid var(--border)', ...scrollAnim(visible, delay).style }}
+    >
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-start justify-between gap-4 text-left"
+      >
+        <span className="text-[16px] font-semibold leading-snug" style={{ color: 'var(--fg)' }}>{q}</span>
+        <span
+          className="shrink-0 mt-0.5 transition-transform duration-200"
+          style={{ color: 'var(--fg-faint)', transform: open ? 'rotate(180deg)' : 'none' }}
+        >
+          <ChevronIcon />
+        </span>
+      </button>
+      {open && (
+        <p className="mt-3 text-[14px] leading-relaxed" style={{ color: 'var(--fg-muted)' }}>{a}</p>
+      )}
+    </div>
+  )
+}
+
+function ChevronIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="6 9 12 15 18 9" />
     </svg>
   )
 }

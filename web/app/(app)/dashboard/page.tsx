@@ -1065,37 +1065,41 @@ function TermCard({
   onKnown,
 }: Omit<LiveTerm, 'id'> & { onDismiss: () => void; onKnown: () => void }) {
   return (
-    <div className={`pointer-events-auto w-full max-w-[400px] ${dismissing ? 'animate-slide-down' : 'animate-slide-up'}`}>
+    <div className={`pointer-events-auto w-full max-w-[420px] ${dismissing ? 'animate-slide-down' : 'animate-slide-up'}`}>
       <div
-        className="animate-gradient rounded-[22px] p-[1.5px]"
+        className="rounded-2xl px-5 py-4 dark:bg-[#13120e]/96 bg-[#FDFCF9]/96 border dark:border-amber-500/[0.18] border-amber-400/40"
         style={{
-          background: 'linear-gradient(135deg, #8b5cf6 0%, #06b6d4 35%, #a855f7 65%, #8b5cf6 100%)',
-          backgroundSize: '300% 300%',
+          backdropFilter: 'blur(28px)',
+          WebkitBackdropFilter: 'blur(28px)',
+          boxShadow: '0 8px 40px rgba(0,0,0,0.20), 0 1px 0 rgba(255,255,255,0.04) inset',
         }}
       >
-        <div
-          className="rounded-[20.5px] px-5 py-4"
-          style={{ background: 'rgba(10, 9, 22, 0.96)', backdropFilter: 'blur(28px)', WebkitBackdropFilter: 'blur(28px)' }}
-        >
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1.5">
-                <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: 'linear-gradient(135deg, #8b5cf6, #06b6d4)' }} />
-                <span className="text-[15px] font-semibold dark:text-white text-gray-900 truncate">{term}</span>
-              </div>
-              <p className="text-[13px] text-gray-300 leading-relaxed">{definition}</p>
+        <div className="flex items-start gap-3">
+          {/* Amber left accent bar */}
+          <div className="w-[3px] self-stretch rounded-full shrink-0 dark:bg-amber-400 bg-amber-600" />
+
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-3 mb-1.5">
+              <p className="text-[10px] font-bold tracking-[0.18em] uppercase dark:text-amber-400/70 text-amber-700/80">
+                Just detected
+              </p>
+              <button
+                onClick={onDismiss}
+                aria-label="Dismiss"
+                className="dark:text-white/25 text-gray-400 dark:hover:text-white/60 hover:text-gray-600 transition-colors shrink-0 text-[18px] leading-none mt-[-1px]"
+              >
+                ×
+              </button>
             </div>
-            <button
-              onClick={onDismiss}
-              aria-label="Dismiss"
-              className="text-gray-600 hover:text-gray-500 transition-colors shrink-0 text-[20px] leading-none mt-[-2px]"
-            >
-              ×
-            </button>
+            <p className="text-[15px] font-semibold truncate dark:text-white/95 text-gray-900">{term}</p>
+            <p className="text-[13px] leading-relaxed mt-1 dark:text-white/55 text-gray-600">{definition}</p>
           </div>
+        </div>
+
+        <div className="mt-3 pt-2.5 border-t dark:border-white/[0.06] border-black/[0.07] ml-[15px]">
           <button
             onClick={onKnown}
-            className="mt-3 text-[12px] text-gray-600 hover:dark:text-yellow-400 text-yellow-700 transition-colors"
+            className="text-[12px] dark:text-white/30 text-gray-400 dark:hover:text-amber-400 hover:text-amber-700 transition-colors"
           >
             I already know this
           </button>

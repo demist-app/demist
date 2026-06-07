@@ -49,7 +49,7 @@ style.textContent = `
     opacity: 1;
     transform: translateY(0);
   }
-  #badge:hover { border-color: rgba(139,92,246,0.5); box-shadow: 0 0 20px rgba(139,92,246,0.15); }
+  #badge:hover { border-color: rgba(251,191,36,0.45); box-shadow: 0 0 20px rgba(251,191,36,0.15); }
 
   #badge-dot {
     width: 8px; height: 8px; border-radius: 50%;
@@ -91,13 +91,13 @@ style.textContent = `
 
   .card {
     background: #0e0e1c;
-    border: 1px solid rgba(139,92,246,0.3);
+    border: 1px solid rgba(251,191,36,0.28);
     border-radius: 16px;
     padding: 14px 16px;
     pointer-events: all;
     position: relative;
     animation: cardIn 0.45s cubic-bezier(0.16,1,0.3,1) both;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.7), 0 0 0 1px rgba(139,92,246,0.05);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.7), 0 0 0 1px rgba(251,191,36,0.05);
     overflow: hidden;
   }
   .card.out {
@@ -114,7 +114,7 @@ style.textContent = `
 
   .card-tag {
     font-size: 10px; font-weight: 700; letter-spacing: 0.15em;
-    text-transform: uppercase; color: rgba(139,92,246,0.6);
+    text-transform: uppercase; color: rgba(251,191,36,0.75);
     margin-bottom: 6px;
   }
   .card-term {
@@ -134,10 +134,10 @@ style.textContent = `
     transition: background 0.15s, color 0.15s;
   }
   .card-btn-known {
-    background: rgba(139,92,246,0.1); border-color: rgba(139,92,246,0.3);
-    color: #a78bfa;
+    background: rgba(251,191,36,0.10); border-color: rgba(251,191,36,0.28);
+    color: #FBBF24;
   }
-  .card-btn-known:hover { background: rgba(139,92,246,0.2); }
+  .card-btn-known:hover { background: rgba(251,191,36,0.20); }
   .card-btn-dismiss {
     background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.08);
     color: rgba(255,255,255,0.4);
@@ -146,7 +146,7 @@ style.textContent = `
 
   .card-progress {
     position: absolute; bottom: 0; left: 0; height: 2px;
-    background: rgba(139,92,246,0.5);
+    background: rgba(251,191,36,0.55);
     transition: width 0.1s linear;
     border-radius: 0 0 16px 16px;
   }
@@ -184,7 +184,7 @@ style.textContent = `
     flex-shrink: 0;
   }
   .panel-title { font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.12em; }
-  .panel-count { font-size: 11px; color: rgba(139,92,246,0.7); }
+  .panel-count { font-size: 11px; color: rgba(251,191,36,0.8); }
   .panel-close { cursor: pointer; color: rgba(255,255,255,0.3); font-size: 18px; line-height: 1; padding: 2px 4px; }
   .panel-close:hover { color: rgba(255,255,255,0.7); }
 
@@ -194,7 +194,7 @@ style.textContent = `
     flex-shrink: 0;
   }
   .panel-summary-text { font-size: 12px; color: rgba(255,255,255,0.45); line-height: 1.5; }
-  .panel-summary-label { font-size: 10px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; color: rgba(139,92,246,0.5); margin-bottom: 4px; }
+  .panel-summary-label { font-size: 10px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; color: rgba(251,191,36,0.65); margin-bottom: 4px; }
 
   .panel-terms {
     overflow-y: auto; flex: 1;
@@ -233,10 +233,10 @@ style.textContent = `
   .panel-link:hover { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.85); }
   .panel-link.primary {
     grid-column: 1 / -1;
-    background: rgba(139,92,246,0.12); border-color: rgba(139,92,246,0.25);
-    color: #a78bfa;
+    background: rgba(251,191,36,0.12); border-color: rgba(251,191,36,0.25);
+    color: #FBBF24;
   }
-  .panel-link.primary:hover { background: rgba(139,92,246,0.22); }
+  .panel-link.primary:hover { background: rgba(251,191,36,0.22); }
 `
 shadow.appendChild(style)
 
