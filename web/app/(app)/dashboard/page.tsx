@@ -112,7 +112,6 @@ export default function Dashboard() {
   const stopRecordingRef = useRef<() => Promise<void>>(() => Promise.resolve())
   const startingRef = useRef(false)
 
-  const peakLevelRef = useRef(0)           // peak audio level in current chunk (for silence detection)
   const speechModeRef = useRef(false)       // true = Web Speech API active, false = Whisper
   const audioProcessingCtxRef = useRef<AudioContext | null>(null)
   const vizAnalyserRef = useRef<AnalyserNode | null>(null)
@@ -142,7 +141,6 @@ export default function Dashboard() {
       analyser.getByteFrequencyData(data)
       let sum = 0; for (let i = 0; i < usable; i++) sum += data[i]
       const level = (sum / usable) / 255
-      if (level > peakLevelRef.current) peakLevelRef.current = level
       if (ring1Ref.current) ring1Ref.current.style.transform = `scale(${1 + level * 2.8})`
       if (ring2Ref.current) ring2Ref.current.style.transform = `scale(${1 + level * 2.0})`
       if (ring3Ref.current) ring3Ref.current.style.transform = `scale(${1 + level * 1.3})`
@@ -334,11 +332,8 @@ export default function Dashboard() {
   // ── Whisper path: transcribe audio blob then detect terms ─────────────────────
   // Skips Whisper entirely if audio level was below silence threshold.
 
-  const SILENCE_THRESHOLD = 0.003
-
-  const processChunk = async (blob: Blob, sessionId: string, peak: number) => {
-    if (blob.size < 500) return
-    if (peak < SILENCE_THRESHOLD) return
+  const processChunk = async (blob: Blob, sessionId: string) => {
+    if (blob.size < 3000) return
     const supabase = createClient()
     setIsProcessing(true)
     try {
@@ -476,18 +471,18 @@ export default function Dashboard() {
 
     // ── Whisper path: 10-second chunk loop ──────────────────────────────────────
     const doChunk = () => {
-      peakLevelRef.current = 0
       const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
         ? 'audio/webm;codecs=opus'
         : MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'
-      const recorder = new MediaRecorder(processedStreamRef.current ?? streamRef.current!, { mimeType })
+      // Use raw getUserMedia stream — Chrome suspends AudioContext in background tabs
+      // but always delivers audio from getUserMedia regardless of tab visibility.
+      const recorder = new MediaRecorder(streamRef.current!, { mimeType })
       recorderRef.current = recorder
       const chunks: Blob[] = []
       recorder.ondataavailable = (e: BlobEvent) => { if (e.data.size > 0) chunks.push(e.data) }
       recorder.onstop = () => {
         const blob = new Blob(chunks, { type: mimeType })
-        const peak = peakLevelRef.current
-        if (sessionIdRef.current) processChunk(blob, sessionIdRef.current, peak)
+        if (sessionIdRef.current) processChunk(blob, sessionIdRef.current)
         if (isActiveRef.current) doChunk()
       }
       recorder.start()
