@@ -5,8 +5,7 @@
 // Guard: if already injected (programmatic re-injection on existing tabs), do nothing
 if (document.getElementById('demist-overlay-host')) {
   chrome.runtime.sendMessage({ type: 'OVERLAY_READY' }).catch(() => {})
-  // eslint-disable-next-line no-throw-literal
-  throw 'demist-overlay already loaded'
+  return  // Chrome wraps content scripts in a function — top-level return is valid
 }
 
 // ── Shadow DOM setup ─────────────────────────────────────────────────────────

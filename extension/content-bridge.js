@@ -1,7 +1,7 @@
 // Runs only on demist.app — bridges window.postMessage <-> chrome.runtime
 
 // Guard: prevent double-registration when programmatically re-injected
-if (window.__demistBridgeLoaded) { throw 'demist-bridge already loaded' }
+if (window.__demistBridgeLoaded) { return }
 window.__demistBridgeLoaded = true
 
 const DEMIST_ORIGIN = window.location.origin
