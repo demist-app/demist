@@ -395,7 +395,7 @@ export default function Dashboard() {
   // Skips Whisper entirely if audio level was below silence threshold.
 
   const processChunk = async (blob: Blob, sessionId: string) => {
-    if (blob.size < 3000) return
+    if (blob.size < 500) return
     const supabase = createClient()
     setIsProcessing(true)
     try {

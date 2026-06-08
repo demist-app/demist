@@ -11,6 +11,7 @@ interface Popup {
   saved: boolean
   x: number
   y: number
+  flipDown: boolean
 }
 
 interface TermHint {
@@ -68,7 +69,9 @@ export function TranscriptViewer({
   const showAt = (term: string, definition: string | null, loading: boolean, el: Element) => {
     const rect = el.getBoundingClientRect()
     const x = Math.min(Math.max(rect.left + rect.width / 2, 140), window.innerWidth - 140)
-    setPopup({ term, definition, loading, saving: false, saved: false, x, y: rect.top })
+    const flipDown = rect.top < 140
+    const y = flipDown ? rect.bottom : rect.top
+    setPopup({ term, definition, loading, saving: false, saved: false, x, y, flipDown })
   }
 
   const handleTermClick = (term: string, definition: string, e: React.PointerEvent<HTMLSpanElement>) => {
@@ -88,7 +91,9 @@ export function TranscriptViewer({
 
     const rect = range.getBoundingClientRect()
     const x = Math.min(Math.max(rect.left + rect.width / 2, 140), window.innerWidth - 140)
-    setPopup({ term: text, definition: null, loading: true, saving: false, saved: false, x, y: rect.top })
+    const flipDown = rect.top < 140
+    const y = flipDown ? rect.bottom : rect.top
+    setPopup({ term: text, definition: null, loading: true, saving: false, saved: false, x, y, flipDown })
 
     try {
       const supabase = createClient()
@@ -164,7 +169,11 @@ export function TranscriptViewer({
       {popup && (
         <div
           className="fixed z-[100] w-[260px] bg-[#0e0e1c] border border-amber-500/25 rounded-xl px-4 py-3 shadow-[0_8px_32px_rgba(0,0,0,0.7)]"
-          style={{ left: popup.x, top: popup.y - 10, transform: 'translate(-50%, -100%)' }}
+          style={{
+            left: popup.x,
+            top: popup.flipDown ? popup.y + 8 : popup.y - 8,
+            transform: popup.flipDown ? 'translate(-50%, 0)' : 'translate(-50%, -100%)',
+          }}
           onMouseDown={e => e.stopPropagation()}
           onPointerUp={e => e.stopPropagation()}
         >

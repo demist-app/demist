@@ -28,6 +28,77 @@ function formatDuration(seconds: number): string {
   return `${m}:${String(s).padStart(2, '0')}`
 }
 
+type CaptionSegment = { text: string; duration: number; offset: number }
+
+// Direct YouTube caption fetch — parses ytInitialPlayerResponse from the watch page.
+// More reliable than youtube-transcript@1.3.1 which breaks with YouTube format changes.
+async function fetchYouTubeCaptions(videoId: string): Promise<CaptionSegment[]> {
+  const headers = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    'Accept-Language': 'en-US,en;q=0.9',
+  }
+
+  const pageRes = await fetch(`https://www.youtube.com/watch?v=${videoId}`, { headers })
+  if (!pageRes.ok) throw new Error('page_unavailable')
+  const html = await pageRes.text()
+
+  // Find ytInitialPlayerResponse by brace-counting (regex is fragile on 500KB pages)
+  const marker = 'ytInitialPlayerResponse='
+  const markerIdx = html.indexOf(marker)
+  if (markerIdx === -1) throw new Error('no_player_response')
+
+  let depth = 0
+  let jsonStart = -1
+  let playerResponse: Record<string, unknown> | null = null
+
+  for (let i = markerIdx + marker.length; i < html.length; i++) {
+    const ch = html[i]
+    if (ch === '{') {
+      if (depth === 0) jsonStart = i
+      depth++
+    } else if (ch === '}') {
+      depth--
+      if (depth === 0 && jsonStart !== -1) {
+        try {
+          playerResponse = JSON.parse(html.slice(jsonStart, i + 1)) as Record<string, unknown>
+        } catch {
+          throw new Error('parse_failed')
+        }
+        break
+      }
+    }
+  }
+
+  if (!playerResponse) throw new Error('parse_failed')
+
+  type CaptionTrack = { baseUrl: string; languageCode: string }
+  const tracks: CaptionTrack[] | undefined =
+    (playerResponse as { captions?: { playerCaptionsTracklistRenderer?: { captionTracks?: CaptionTrack[] } } })
+      ?.captions?.playerCaptionsTracklistRenderer?.captionTracks
+
+  if (!tracks?.length) throw new Error('no_captions')
+
+  // Prefer English (manual first, then auto-generated), then first available
+  const track =
+    tracks.find(t => t.languageCode === 'en') ??
+    tracks.find(t => t.languageCode.startsWith('en')) ??
+    tracks[0]
+
+  const captionUrl = `${track.baseUrl}&fmt=json3`
+  const captRes = await fetch(captionUrl, { headers })
+  if (!captRes.ok) throw new Error('caption_fetch_failed')
+  const data = await captRes.json() as { events?: { tStartMs?: number; dDurationMs?: number; segs?: { utf8: string }[] }[] }
+
+  return (data.events ?? [])
+    .filter(e => e.segs)
+    .map(e => ({
+      text: (e.segs ?? []).map(s => s.utf8 ?? '').join('').replace(/\n/g, ' ').trim(),
+      offset: e.tStartMs ?? 0,
+      duration: e.dDurationMs ?? 0,
+    }))
+    .filter(s => s.text)
+}
+
 export async function GET(req: NextRequest) {
   // Auth check — only signed-in users can use this endpoint
   const cookieStore = await cookies()
@@ -76,19 +147,23 @@ export async function GET(req: NextRequest) {
     // oEmbed is best-effort — continue without metadata
   }
 
-  // Fetch transcript
-  let segments: { text: string; duration: number; offset: number }[] = []
+  // Fetch transcript — try direct page parsing first, fall back to the library
+  let segments: CaptionSegment[] = []
   try {
-    segments = await YoutubeTranscript.fetchTranscript(videoId, { lang: 'en' })
+    segments = await fetchYouTubeCaptions(videoId)
   } catch {
-    // Try without lang preference (catches auto-generated in other language variants)
+    // Fall back to youtube-transcript library
     try {
-      segments = await YoutubeTranscript.fetchTranscript(videoId)
+      segments = await YoutubeTranscript.fetchTranscript(videoId, { lang: 'en' })
     } catch {
-      return NextResponse.json(
-        { error: 'no_captions', message: 'This video has no captions. Try a video with subtitles enabled.' },
-        { status: 422 }
-      )
+      try {
+        segments = await YoutubeTranscript.fetchTranscript(videoId)
+      } catch {
+        return NextResponse.json(
+          { error: 'no_captions', message: 'This video has no captions. Try a video with subtitles enabled.' },
+          { status: 422 }
+        )
+      }
     }
   }
 

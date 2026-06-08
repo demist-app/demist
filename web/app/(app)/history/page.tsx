@@ -444,9 +444,9 @@ export default function History() {
                           ) : (
                             <div
                               className={`flex items-center gap-1.5 ${selectMode ? 'cursor-pointer' : ''}`}
-                              onClick={() => { if (!selectMode && s.termCount > 0) { setConfirmingId(null); toggleExpand(s.id) } }}
+                              onClick={() => { if (!selectMode) { setConfirmingId(null); toggleExpand(s.id) } }}
                             >
-                              <p className={`text-[14px] font-medium truncate ${!selectMode && s.termCount > 0 ? 'cursor-pointer' : ''} ${s.name ? 'dark:text-white/90 text-gray-900' : 'text-gray-600'}`}>
+                              <p className={`text-[14px] font-medium truncate ${!selectMode ? 'cursor-pointer' : ''} ${s.name ? 'dark:text-white/90 text-gray-900' : 'text-gray-600'}`}>
                                 {s.name || sessionLabel(n, s.started_at)}
                               </p>
                             </div>
@@ -499,11 +499,9 @@ export default function History() {
                                 </div>
                               )}
 
-                              {s.termCount > 0 && (
-                                <button onClick={() => { setConfirmingId(null); toggleExpand(s.id) }}>
-                                  <ChevronIcon expanded={s.expanded} />
-                                </button>
-                              )}
+                              <button onClick={() => { setConfirmingId(null); toggleExpand(s.id) }}>
+                                <ChevronIcon expanded={s.expanded} />
+                              </button>
                             </>
                           )}
                         </div>

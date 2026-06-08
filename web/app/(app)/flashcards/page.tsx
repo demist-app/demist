@@ -1,6 +1,6 @@
-﻿'use client'
+'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import posthog from 'posthog-js'
@@ -14,6 +14,7 @@ interface FlashCard {
   sm2_interval: number
   sm2_ease: number
   sm2_review_count: number
+  sm2_due_at: string | null
   isNew: boolean
 }
 
@@ -39,6 +40,17 @@ const GRADE_LABELS: { grade: 0 | 1 | 2 | 3; label: string; ariaLabel: string; co
   { grade: 3, label: 'Easy',  ariaLabel: 'Easy: remembered without effort',          color: 'border-yellow-500/40 hover:bg-yellow-500/10 dark:text-yellow-400 text-yellow-700' },
 ]
 
+function TrashIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+      <path d="M10 11v6M14 11v6" />
+      <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+    </svg>
+  )
+}
+
 type Phase = 'loading' | 'empty' | 'review' | 'done'
 
 export default function Flashcards() {
@@ -53,6 +65,28 @@ export default function Flashcards() {
   const [stuckOnLast, setStuckOnLast] = useState(false)
   const [reviewedCards, setReviewedCards] = useState<FlashCard[]>([])
 
+  // Browse mode
+  const [browseMode, setBrowseMode] = useState(false)
+  const [allCards, setAllCards] = useState<FlashCard[]>([])
+  const [browseLoading, setBrowseLoading] = useState(false)
+  const [browseSearch, setBrowseSearch] = useState('')
+
+  // Edit state in browse
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editTerm, setEditTerm] = useState('')
+  const [editDef, setEditDef] = useState('')
+  const [savingEditId, setSavingEditId] = useState<string | null>(null)
+
+  // Delete state in browse
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  const termInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (editingId && termInputRef.current) termInputRef.current.focus()
+  }, [editingId])
+
   useEffect(() => {
     const supabase = createClient()
     ;(async () => {
@@ -63,11 +97,10 @@ export default function Flashcards() {
 
       const now = new Date().toISOString()
 
-      // Two parallel queries - due reviews (unlimited) + new cards (daily budget)
       const [{ data: reviews }, { data: newCards }] = await Promise.all([
         supabase
           .from('terms')
-          .select('id, term, definition, sm2_interval, sm2_ease, sm2_review_count')
+          .select('id, term, definition, sm2_interval, sm2_ease, sm2_review_count, sm2_due_at')
           .eq('user_id', user.id)
           .eq('known', false)
           .gt('sm2_review_count', 0)
@@ -75,7 +108,7 @@ export default function Flashcards() {
           .order('sm2_due_at', { ascending: true }),
         supabase
           .from('terms')
-          .select('id, term, definition, sm2_interval, sm2_ease, sm2_review_count')
+          .select('id, term, definition, sm2_interval, sm2_ease, sm2_review_count, sm2_due_at')
           .eq('user_id', user.id)
           .eq('known', false)
           .eq('sm2_review_count', 0)
@@ -96,6 +129,75 @@ export default function Flashcards() {
       setPhase('review')
     })()
   }, [])
+
+  const loadAllCards = async () => {
+    if (allCards.length > 0 || browseLoading) return
+    setBrowseLoading(true)
+    try {
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      const user = session?.user
+      if (!user) return
+      const { data } = await supabase
+        .from('terms')
+        .select('id, term, definition, sm2_interval, sm2_ease, sm2_review_count, sm2_due_at')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+      setAllCards(((data ?? []) as FlashCard[]).map(c => ({ ...c, isNew: false })))
+    } catch (e) {
+      console.error('loadAllCards error:', e)
+    } finally {
+      setBrowseLoading(false)
+    }
+  }
+
+  const openBrowse = () => {
+    setBrowseMode(true)
+    loadAllCards()
+  }
+
+  const startEdit = (c: FlashCard) => {
+    setEditingId(c.id)
+    setEditTerm(c.term)
+    setEditDef(c.definition)
+    setConfirmDeleteId(null)
+  }
+
+  const cancelEdit = () => {
+    setEditingId(null)
+  }
+
+  const saveEdit = async (id: string) => {
+    const term = editTerm.trim()
+    const def = editDef.trim()
+    if (!term || !def) { cancelEdit(); return }
+    setSavingEditId(id)
+    try {
+      const supabase = createClient()
+      await supabase.from('terms').update({ term, definition: def }).eq('id', id)
+      const update = (c: FlashCard) => c.id === id ? { ...c, term, definition: def } : c
+      setAllCards(prev => prev.map(update))
+      setEditingId(null)
+    } catch (e) {
+      console.error('saveEdit error:', e)
+    } finally {
+      setSavingEditId(null)
+    }
+  }
+
+  const deleteCard = async (id: string) => {
+    setDeletingId(id)
+    try {
+      const supabase = createClient()
+      await supabase.from('terms').delete().eq('id', id)
+      setAllCards(prev => prev.filter(c => c.id !== id))
+      setConfirmDeleteId(null)
+    } catch (e) {
+      console.error('deleteCard error:', e)
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   const handleGrade = async (grade: 0 | 1 | 2 | 3) => {
     if (!current || saving) return
@@ -162,6 +264,157 @@ export default function Flashcards() {
     newCount > 0 && `${newCount} new`,
   ].filter(Boolean).join(' · ')
 
+  const filteredCards = browseSearch
+    ? allCards.filter(c =>
+        c.term.toLowerCase().includes(browseSearch.toLowerCase()) ||
+        c.definition.toLowerCase().includes(browseSearch.toLowerCase())
+      )
+    : allCards
+
+  // ── Browse mode ──────────────────────────────────────────────────────────────
+  if (browseMode) {
+    return (
+      <main className="min-h-dvh dark:bg-[#080810] bg-[#EDEAE3] dark:text-white text-gray-900 flex flex-col nav-bottom-pad">
+        <div aria-hidden className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
+          <div className="absolute -top-32 -left-32 w-[500px] h-[500px] rounded-full bg-yellow-700/[0.05] blur-[120px]" />
+        </div>
+
+        <header className="relative z-10 shrink-0 flex items-center justify-between px-4 sm:px-6 h-14 border-b dark:border-white/[0.05] border-black/[0.06]">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setBrowseMode(false)}
+              className="text-gray-600 hover:dark:text-white hover:text-gray-900 transition-colors p-1 -ml-1"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+            </button>
+            <span className="font-semibold tracking-tight text-[15px]">All Cards</span>
+          </div>
+          <span className="text-[13px] text-gray-600 tabular-nums">{allCards.length} total</span>
+        </header>
+
+        <div className="flex-1 overflow-y-auto relative z-10">
+          <div className="w-full max-w-2xl mx-auto">
+            <div className="px-4 sm:px-6 pt-4 pb-2">
+              <div className="relative">
+                <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-600 pointer-events-none" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                <input
+                  type="text"
+                  value={browseSearch}
+                  onChange={e => setBrowseSearch(e.target.value)}
+                  placeholder="Search cards..."
+                  className="w-full pl-10 pr-4 py-3 dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.08] border-black/[0.13] rounded-2xl text-[14px] dark:text-white text-gray-900 placeholder-gray-700 focus:outline-none focus:border-yellow-500/40 transition-all"
+                />
+              </div>
+            </div>
+
+            <div className="px-4 sm:px-6 pb-6">
+              {browseLoading ? (
+                <div className="animate-pulse space-y-2 mt-2">
+                  {[1,2,3,4,5].map(i => (
+                    <div key={i} className="h-20 dark:bg-white/[0.04] bg-[#FAF9F6] rounded-2xl" />
+                  ))}
+                </div>
+              ) : filteredCards.length === 0 ? (
+                <p className="text-center text-gray-600 text-[14px] py-12">
+                  {browseSearch ? `No results for "${browseSearch}"` : 'No cards yet.'}
+                </p>
+              ) : (
+                <div className="mt-2 dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl overflow-hidden">
+                  {filteredCards.map((c, i) => (
+                    <div
+                      key={c.id}
+                      className={`px-4 py-3.5 transition-colors ${i > 0 ? 'border-t dark:border-white/[0.04] border-black/[0.05]' : ''} ${editingId === c.id ? 'dark:bg-white/[0.03] bg-[#F3F1EC]' : 'hover:bg-yellow-500/[0.02]'}`}
+                    >
+                      {editingId === c.id ? (
+                        <div className="space-y-2">
+                          <input
+                            ref={termInputRef}
+                            value={editTerm}
+                            onChange={e => setEditTerm(e.target.value)}
+                            placeholder="Term"
+                            className="w-full text-[14px] font-semibold dark:text-white text-gray-900 dark:bg-white/[0.05] bg-[#EFEDE7] border dark:border-amber-500/30 border-amber-500/40 rounded-xl px-3 py-2 focus:outline-none"
+                          />
+                          <textarea
+                            value={editDef}
+                            onChange={e => setEditDef(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Escape') cancelEdit() }}
+                            placeholder="Definition"
+                            rows={3}
+                            className="w-full text-[13px] dark:text-white/80 text-gray-700 dark:bg-white/[0.05] bg-[#EFEDE7] border dark:border-amber-500/30 border-amber-500/40 rounded-xl px-3 py-2 resize-none focus:outline-none leading-relaxed"
+                          />
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => saveEdit(c.id)}
+                              disabled={savingEditId === c.id}
+                              className="text-[12px] font-semibold text-amber-400 hover:text-amber-300 disabled:opacity-40 transition-colors"
+                            >
+                              {savingEditId === c.id ? 'Saving…' : 'Save'}
+                            </button>
+                            <button onClick={cancelEdit} className="text-[12px] text-gray-600 hover:text-gray-500 transition-colors">Cancel</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-start gap-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[14px] font-semibold dark:text-white/90 text-gray-900 leading-snug">{c.term}</p>
+                            <p className="text-[12px] text-gray-600 mt-0.5 leading-relaxed line-clamp-2">{c.definition}</p>
+                            {(c.sm2_review_count ?? 0) > 0 && (
+                              <p className="text-[11px] text-gray-700 mt-1 tabular-nums">
+                                {c.sm2_review_count} review{c.sm2_review_count !== 1 ? 's' : ''}
+                                {c.sm2_due_at ? ` · next ${new Date(c.sm2_due_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : ''}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-0.5 shrink-0 mt-0.5">
+                            <button
+                              onClick={() => startEdit(c)}
+                              title="Edit card"
+                              className="p-1.5 text-gray-700 hover:dark:text-yellow-400 hover:text-yellow-700 transition-colors rounded-lg hover:dark:bg-white/[0.06] hover:bg-black/[0.05]"
+                            >
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                              </svg>
+                            </button>
+                            {confirmDeleteId === c.id ? (
+                              <div className="flex items-center gap-1 ml-1">
+                                <button onClick={() => setConfirmDeleteId(null)} className="text-[11px] text-gray-600 hover:text-gray-500 px-1.5 py-1 transition-colors">Cancel</button>
+                                <button
+                                  onClick={() => deleteCard(c.id)}
+                                  disabled={deletingId === c.id}
+                                  className="text-[11px] font-semibold text-red-400 hover:text-red-300 px-1.5 py-1 disabled:opacity-40 transition-colors"
+                                >
+                                  {deletingId === c.id ? '…' : 'Delete'}
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => setConfirmDeleteId(c.id)}
+                                title="Delete card"
+                                className="p-1.5 text-gray-700 hover:text-red-400 transition-colors rounded-lg hover:dark:bg-white/[0.06] hover:bg-black/[0.05]"
+                              >
+                                <TrashIcon />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </main>
+    )
+  }
+
+  // ── Review mode ──────────────────────────────────────────────────────────────
   return (
     <main className="min-h-dvh dark:bg-[#080810] bg-[#EDEAE3] dark:text-white text-gray-900 flex flex-col nav-bottom-pad">
       <div aria-hidden className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
@@ -169,9 +422,17 @@ export default function Flashcards() {
       </div>
       <header className="sm:hidden relative z-10 shrink-0 flex items-center justify-between px-6 h-14 border-b dark:border-white/[0.05] border-black/[0.06]">
         <span className="font-semibold tracking-tight text-[15px]">Flashcards</span>
-        {phase === 'review' && (
-          <span className="text-[13px] text-gray-600">{queueLabel}</span>
-        )}
+        <div className="flex items-center gap-3">
+          {phase === 'review' && (
+            <span className="text-[13px] text-gray-600">{queueLabel}</span>
+          )}
+          <button
+            onClick={openBrowse}
+            className="text-[13px] text-gray-600 hover:dark:text-white hover:text-gray-900 transition-colors"
+          >
+            Browse all
+          </button>
+        </div>
       </header>
 
       {phase === 'loading' && (
@@ -199,12 +460,20 @@ export default function Flashcards() {
             <p className="text-gray-700 text-[14px] leading-relaxed max-w-xs">
               No cards due today. Record a lecture to add more words.
             </p>
-            <Link
-              href="/history"
-              className="mt-2 px-5 py-2.5 rounded-2xl dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.09] border-black/[0.14] text-[14px] font-medium text-gray-600 hover:dark:text-white text-gray-900 hover:dark:bg-white/[0.08] bg-[#EFEDE7] transition-all"
-            >
-              Browse past sessions
-            </Link>
+            <div className="flex items-center gap-2 mt-2">
+              <Link
+                href="/history"
+                className="px-5 py-2.5 rounded-2xl dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.09] border-black/[0.14] text-[14px] font-medium text-gray-600 hover:dark:text-white text-gray-900 hover:dark:bg-white/[0.08] bg-[#EFEDE7] transition-all"
+              >
+                Browse sessions
+              </Link>
+              <button
+                onClick={openBrowse}
+                className="px-5 py-2.5 rounded-2xl dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.09] border-black/[0.14] text-[14px] font-medium text-gray-600 hover:dark:text-white text-gray-900 hover:dark:bg-white/[0.08] bg-[#EFEDE7] transition-all"
+              >
+                Browse all cards
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -216,12 +485,20 @@ export default function Flashcards() {
             <p className="text-gray-700 text-[14px]">
               {reviewed} card{reviewed !== 1 ? 's' : ''} reviewed. Come back tomorrow for the next batch.
             </p>
-            <Link
-              href="/history"
-              className="mt-2 px-5 py-2.5 rounded-2xl dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.09] border-black/[0.14] text-[14px] font-medium text-gray-600 hover:dark:text-white text-gray-900 hover:dark:bg-white/[0.08] bg-[#EFEDE7] transition-all"
-            >
-              Browse past sessions
-            </Link>
+            <div className="flex items-center gap-2 mt-2">
+              <Link
+                href="/history"
+                className="px-5 py-2.5 rounded-2xl dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.09] border-black/[0.14] text-[14px] font-medium text-gray-600 hover:dark:text-white text-gray-900 hover:dark:bg-white/[0.08] bg-[#EFEDE7] transition-all"
+              >
+                Browse sessions
+              </Link>
+              <button
+                onClick={openBrowse}
+                className="px-5 py-2.5 rounded-2xl dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.09] border-black/[0.14] text-[14px] font-medium text-gray-600 hover:dark:text-white text-gray-900 hover:dark:bg-white/[0.08] bg-[#EFEDE7] transition-all"
+              >
+                Browse all cards
+              </button>
+            </div>
           </div>
 
           {reviewedCards.length > 0 && (
@@ -250,7 +527,7 @@ export default function Flashcards() {
             />
           </div>
 
-          {/* Queue breakdown - visible on desktop where header is hidden */}
+          {/* Queue breakdown */}
           <div className="shrink-0 flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               {dueCount > 0 && (
@@ -264,7 +541,15 @@ export default function Flashcards() {
                 </span>
               )}
             </div>
-            <span className="text-[12px] text-gray-600">{reviewed}/{total}</span>
+            <div className="flex items-center gap-3">
+              <span className="text-[12px] text-gray-600">{reviewed}/{total}</span>
+              <button
+                onClick={openBrowse}
+                className="hidden sm:block text-[12px] text-gray-600 hover:dark:text-white hover:text-gray-900 transition-colors"
+              >
+                Browse all
+              </button>
+            </div>
           </div>
 
           {/* Flip card */}
