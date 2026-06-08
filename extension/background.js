@@ -11,15 +11,36 @@ const overlayTabs = new Set()
 
 // MV3 service workers are killed after ~30s of inactivity, wiping all state.
 // On every wake-up, ping all open tabs to rediscover which ones have the overlay.
+// For tabs that don't respond (opened before extension install), inject the script now.
 async function rediscoverOverlayTabs() {
   const tabs = await chrome.tabs.query({})
   await Promise.all(tabs.map(async (tab) => {
-    if (!tab.id || !tab.url) return
-    if (tab.url.includes('demist.app') || tab.url.startsWith('chrome')) return
+    if (!tab.id || !tab.url || tab.status !== 'complete') return
+
+    const isDemist = tab.url.includes('demist.app') || tab.url.includes('localhost')
+    const isRestricted = tab.url.startsWith('chrome') || tab.url.startsWith('about') || tab.url.startsWith('edge')
+
+    if (isRestricted) return
+
+    if (isDemist) {
+      // Ensure content-bridge.js is running on the Demist tab
+      demistTabId = tab.id
+      try {
+        await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['content-bridge.js'] })
+      } catch (_) {}
+      return
+    }
+
+    // For all other tabs: ping first, inject if no response
     try {
       const res = await chrome.tabs.sendMessage(tab.id, { type: 'PING' })
       if (res?.ok) overlayTabs.add(tab.id)
-    } catch (_) {}
+    } catch (_) {
+      try {
+        await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['content-overlay.js'] })
+        overlayTabs.add(tab.id)
+      } catch (_2) {} // restricted pages (pdfs, chrome store, etc.) will throw here
+    }
   }))
 }
 rediscoverOverlayTabs()

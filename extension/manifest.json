@@ -3,7 +3,7 @@
   "name": "Demist",
   "version": "2.0.0",
   "description": "Real-time term definitions during any lecture — works like Grammarly, right where you are",
-  "permissions": ["tabs", "storage"],
+  "permissions": ["tabs", "storage", "scripting"],
   "host_permissions": ["<all_urls>"],
   "content_scripts": [
     {

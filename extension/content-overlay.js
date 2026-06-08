@@ -2,6 +2,13 @@
 // Creates an isolated Shadow DOM overlay with floating term cards,
 // a recording badge, and a session panel.
 
+// Guard: if already injected (programmatic re-injection on existing tabs), do nothing
+if (document.getElementById('demist-overlay-host')) {
+  chrome.runtime.sendMessage({ type: 'OVERLAY_READY' }).catch(() => {})
+  // eslint-disable-next-line no-throw-literal
+  throw 'demist-overlay already loaded'
+}
+
 // ── Shadow DOM setup ─────────────────────────────────────────────────────────
 
 const host = document.createElement('div')
