@@ -124,7 +124,7 @@ export default function Glossary() {
           <>
             <p className="text-[44px] font-bold leading-none tracking-tight">{totalCount}</p>
             <p className="text-[13px] text-gray-700 mt-1.5">
-              terms across{' '}
+              words across{' '}
               <span className="text-gray-600">{sessions.length} session{sessions.length !== 1 ? 's' : ''}</span>
             </p>
           </>
@@ -144,7 +144,7 @@ export default function Glossary() {
               type="text"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Search terms..."
+              placeholder="Search words..."
               className="w-full pl-10 pr-4 py-3 dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.08] border-black/[0.13] rounded-2xl text-[14px] dark:text-white text-gray-900 placeholder-gray-700 focus:outline-none focus:border-yellow-500/40 focus:dark:bg-white/[0.07] bg-[#EFEDE7] transition-all"
             />
           </div>
@@ -188,7 +188,7 @@ export default function Glossary() {
                 <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
               </svg>
             </div>
-            <p className="text-[15px] font-medium text-gray-600">No terms yet</p>
+            <p className="text-[15px] font-medium text-gray-600">No words yet</p>
             <p className="text-[13px] text-gray-700">Record a lecture to grow your glossary.</p>
           </div>
         )}
@@ -216,7 +216,7 @@ export default function Glossary() {
                   )}
                   <div className="flex-1 h-px dark:bg-white/[0.05] bg-[#F6F5F2]" />
                   <span className="text-[11px] text-gray-700 shrink-0 tabular-nums">
-                    {s.terms.length} term{s.terms.length !== 1 ? 's' : ''}
+                    {s.terms.length} word{s.terms.length !== 1 ? 's' : ''}
                   </span>
                 </div>
 

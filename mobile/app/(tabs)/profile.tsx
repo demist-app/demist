@@ -71,7 +71,7 @@ export default function ProfileScreen() {
         {/* Stats */}
         <View style={s.statsRow}>
           <View style={s.statCard}>
-            <Text style={s.statLabel}>Total terms</Text>
+            <Text style={s.statLabel}>Total concepts</Text>
             <Text style={s.statValue}>{totalTerms}</Text>
           </View>
           <View style={s.statCard}>

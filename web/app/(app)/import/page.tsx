@@ -599,14 +599,14 @@ export default function ImportPage() {
     transcribing: audioFile && audioFile.size > 20 * 1024 * 1024
       ? 'Transcribing in segments. This may take a few minutes...'
       : 'Transcribing...',
-    processing: 'Detecting terms...',
+    processing: 'Finding concepts...',
     done: 'Done',
     error: 'Try again',
   }
   const textLabel: Record<TextStatus, string> = {
     idle: 'Process File',
     extracting: 'Extracting text...',
-    processing: 'Detecting terms...',
+    processing: 'Finding concepts...',
     done: 'Done',
     error: 'Try again',
   }
@@ -640,7 +640,7 @@ export default function ImportPage() {
                   <span className="text-[10px] font-bold tracking-[0.1em] dark:text-yellow-400 text-yellow-700 bg-yellow-600/15 border border-yellow-500/25 rounded-full px-2 py-0.5 uppercase">New</span>
                 </div>
               </div>
-              <p className="text-xs text-gray-700 mt-1 ml-11">Paste any YouTube lecture URL. Demist reads the captions and pulls out unfamiliar terms, no recording needed.</p>
+              <p className="text-xs text-gray-700 mt-1 ml-11">Paste any YouTube lecture URL. Demist reads the captions and pulls out unfamiliar concepts, no recording needed.</p>
             </div>
 
             <div className="px-5 pb-2">
@@ -684,7 +684,7 @@ export default function ImportPage() {
                   <div className="h-full rounded-full bg-red-500 transition-all duration-500 ease-out" style={{ width: `${ytProgress}%` }} />
                 </div>
                 <p className="text-[11px] text-gray-600 mt-1.5" aria-live="polite">
-                  {ytStatus === 'fetching' ? 'Fetching captions...' : 'Detecting terms...'}
+                  {ytStatus === 'fetching' ? 'Fetching captions...' : 'Finding concepts...'}
                 </p>
               </div>
             )}
@@ -697,7 +697,7 @@ export default function ImportPage() {
                   <span className="text-sm font-medium">Imported successfully</span>
                 </div>
                 <p className="text-xs text-gray-600">
-                  {ytResult.term_count} term{ytResult.term_count !== 1 ? 's' : ''} detected.
+                  {ytResult.term_count} concept{ytResult.term_count !== 1 ? 's' : ''} detected.
                   {ytResult.synopsis ? ' Summary generated.' : ''}
                 </p>
                 <div className="flex items-center justify-between">
@@ -768,7 +768,7 @@ export default function ImportPage() {
                     <span className="text-sm font-medium">Imported successfully</span>
                   </div>
                   <p className="text-xs text-gray-600">
-                    {audioResult.term_count} term{audioResult.term_count !== 1 ? 's' : ''} detected.
+                    {audioResult.term_count} concept{audioResult.term_count !== 1 ? 's' : ''} detected.
                     {audioResult.synopsis ? ' Summary generated.' : ''}
                   </p>
                   <div className="flex items-center justify-between">
@@ -871,7 +871,7 @@ export default function ImportPage() {
                 </span>
                 <h2 className="text-[15px] font-semibold dark:text-white text-gray-900">Slides or Transcript</h2>
               </div>
-              <p className="text-xs text-gray-700 mt-1 ml-11">PPTX, DOCX, or TXT. Text is extracted locally then processed for terms.</p>
+              <p className="text-xs text-gray-700 mt-1 ml-11">PPTX, DOCX, or TXT. Text is extracted locally then processed for concepts.</p>
             </div>
 
             <div
@@ -902,7 +902,7 @@ export default function ImportPage() {
                     <span className="text-sm font-medium">Imported successfully</span>
                   </div>
                   <p className="text-xs text-gray-600">
-                    {textResult.term_count} term{textResult.term_count !== 1 ? 's' : ''} detected.
+                    {textResult.term_count} concept{textResult.term_count !== 1 ? 's' : ''} detected.
                     {textResult.synopsis ? ' Summary generated.' : ''}
                   </p>
                   <div className="flex items-center justify-between">
@@ -1118,7 +1118,7 @@ export default function ImportPage() {
                           <div className="flex items-center justify-between">
                             <span className="text-xs text-emerald-400 flex items-center gap-1.5">
                               <CheckCircleIcon />
-                              {notionPullResult.term_count} terms detected
+                              {notionPullResult.term_count} concepts detected
                             </span>
                             <button
                               onClick={() => router.push('/history')}

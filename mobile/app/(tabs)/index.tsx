@@ -127,7 +127,7 @@ export default function Glossary() {
               {expanded && (
                 <View style={s.termList}>
                   {session.terms.length === 0 && (
-                    <Text style={s.emptySubtext}>No terms detected.</Text>
+                    <Text style={s.emptySubtext}>No words detected.</Text>
                   )}
                   {session.terms.map(term => (
                     <View key={term.id} style={s.termRow}>

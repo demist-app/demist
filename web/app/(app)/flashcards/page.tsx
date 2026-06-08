@@ -197,7 +197,7 @@ export default function Flashcards() {
           <div className="flex flex-col items-center text-center gap-3 mb-8">
             <p className="text-[22px] font-bold">All caught up</p>
             <p className="text-gray-700 text-[14px] leading-relaxed max-w-xs">
-              No cards due today. Record a lecture to add more terms.
+              No cards due today. Record a lecture to add more words.
             </p>
             <Link
               href="/history"

@@ -362,7 +362,7 @@ export default function History() {
                     <div className="flex items-center gap-2 shrink-0">
                       <div className="text-right mr-1">
                         <p className="text-[14px] font-semibold dark:text-yellow-400 text-yellow-700">{s.termCount}</p>
-                        <p className="text-[11px] text-gray-600">terms</p>
+                        <p className="text-[11px] text-gray-600">words</p>
                       </div>
 
                       {confirmingId === s.id ? (
@@ -432,11 +432,11 @@ export default function History() {
                         <p className="text-gray-700 text-[13px] py-3">Loading…</p>
                       )}
                       {s.terms && s.terms.length === 0 && (
-                        <p className="text-gray-700 text-[13px] py-3">No terms detected.</p>
+                        <p className="text-gray-700 text-[13px] py-3">No words detected.</p>
                       )}
                       {s.terms && s.terms.length > 0 && (
                         <div className="pt-3">
-                          <p className="text-[10px] font-bold tracking-[0.15em] text-gray-600 uppercase mb-2">Terms</p>
+                          <p className="text-[10px] font-bold tracking-[0.15em] text-gray-600 uppercase mb-2">Words</p>
                           <div className="space-y-2">
                             {s.terms.map(t => (
                               <div key={t.id} className="flex items-start gap-3">

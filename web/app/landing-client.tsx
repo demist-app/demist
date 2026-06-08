@@ -43,20 +43,20 @@ const EXTENSION_DOWNLOAD_URL = '/demist-extension.zip'
 
 const FEATURES = [
   {
-    title: 'Live term detection',
-    body: 'Demist listens to your microphone and flags unfamiliar terms as your lecturer speaks. Each definition shows on screen, matched to your subject and year.',
+    title: 'Live concept detection',
+    body: 'Demist listens to your microphone and flags unfamiliar concepts as your lecturer speaks. Each definition shows on screen, matched to your subject and year.',
     Icon: MicIcon,
     tag: null as string | null,
   },
   {
     title: 'Automatic glossary',
-    body: 'Demist saves every term with its definition. Your glossary fills itself while you focus on the lecture.',
+    body: 'Demist saves every concept with its definition. Your glossary fills itself while you focus on the lecture.',
     Icon: BookIcon,
     tag: null as string | null,
   },
   {
     title: 'Spaced repetition flashcards',
-    body: <>Demist queues each term as a flashcard and uses <span style={{ color: "var(--accent)", fontWeight: 500 }}>SM-2 spaced repetition</span> to schedule reviews at the right time.</>,
+    body: <>Demist queues each concept as a flashcard and uses <span style={{ color: "var(--accent)", fontWeight: 500 }}>SM-2 spaced repetition</span> to schedule reviews at the right time.</>,
     Icon: CardIcon,
     tag: null as string | null,
   },
@@ -68,7 +68,7 @@ const FEATURES = [
   },
   {
     title: 'YouTube & file import',
-    body: 'Paste a YouTube lecture URL or upload a recording, slide deck, or transcript. Demist pulls every unfamiliar term from captions and builds your glossary in seconds.',
+    body: 'Paste a YouTube lecture URL or upload a recording, slide deck, or transcript. Demist pulls every unfamiliar concept from captions and builds your glossary in seconds.',
     Icon: ImportIcon,
     tag: 'New' as string | null,
   },
@@ -93,7 +93,7 @@ const FAQS = [
   },
   {
     q: 'What subjects does it support?',
-    a: 'Any subject. Term detection picks up on whatever your lecturer is covering, whether that\'s biochemistry, contract law, or computer science.',
+    a: 'Any subject. Concept detection picks up on whatever your lecturer is covering, whether that\'s biochemistry, contract law, or computer science.',
   },
   {
     q: 'Does it work offline?',
@@ -101,11 +101,11 @@ const FAQS = [
   },
   {
     q: 'What file formats can I import?',
-    a: 'You can paste a YouTube URL or upload an audio file (MP3, WAV, M4A), a PDF, or a slide deck. Demist extracts terms from captions or document text automatically.',
+    a: 'You can paste a YouTube URL or upload an audio file (MP3, WAV, M4A), a PDF, or a slide deck. Demist extracts concepts from captions or document text automatically.',
   },
   {
-    q: 'Why isn\'t Demist detecting any terms?',
-    a: 'Check that your browser has microphone access and that the session is recording. If the lecture content is mostly familiar, fewer terms will get flagged. If it still isn\'t working, reload and start a new session.',
+    q: 'Why isn\'t Demist detecting any concepts?',
+    a: 'Check that your browser has microphone access and that the session is recording. If the lecture content is mostly familiar, fewer concepts will get flagged. If it still isn\'t working, reload and start a new session.',
   },
   {
     q: 'The microphone isn\'t working',
@@ -114,6 +114,18 @@ const FAQS = [
   {
     q: 'Why isn\'t the Chrome extension showing anything?',
     a: 'Make sure you\'ve started recording in the Demist app first. The extension only shows terms once a session is active.',
+  },
+  {
+    q: 'Do concept cards follow me when I switch tabs?',
+    a: 'Yes. Cards always appear on whichever tab you\'re currently on. Switch to your lecture slides, your notes, or anywhere else and concepts will keep showing up there.',
+  },
+  {
+    q: 'Concept cards aren\'t appearing on a tab I had open before installing the extension',
+    a: 'The extension only injects into tabs that load after it\'s installed. Refresh any tab that was already open before you installed Demist and concept cards will start showing on it.',
+  },
+  {
+    q: 'Does it work during online lectures on Zoom or Teams?',
+    a: 'Yes, as long as the audio is going through your microphone. Start recording in the Demist web app, join your Zoom or Teams call, and concept cards will appear on top of whatever tab you\'re viewing.',
   },
   {
     q: '"Load unpacked" failed. What went wrong?',
@@ -139,7 +151,7 @@ const STEPS = [
   {
     n: '03',
     title: 'Your glossary and flashcards build themselves',
-    body: <>Every term is saved with its definition and an AI summary of the session. Flashcards queue with <span style={{ color: "var(--accent)", fontWeight: 500 }}>spaced repetition</span> on a schedule built around when you&apos;ll forget.</>,
+    body: <>Every concept is saved with its definition and an AI summary of the session. Flashcards queue with <span style={{ color: "var(--accent)", fontWeight: 500 }}>spaced repetition</span> on a schedule built around when you&apos;ll forget.</>,
   },
 ]
 

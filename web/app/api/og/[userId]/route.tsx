@@ -52,11 +52,11 @@ export async function GET(
           </div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '48px' }}>
-          <span style={{ fontSize: '56px', fontWeight: 800, color: '#fff', lineHeight: 1 }}>{termsWeek} new terms</span>
+          <span style={{ fontSize: '56px', fontWeight: 800, color: '#fff', lineHeight: 1 }}>{termsWeek} new concepts</span>
           <span style={{ fontSize: '28px', color: '#6b7280' }}>learned this week with Demist</span>
         </div>
         <div style={{ display: 'flex', background: 'rgba(251,191,36,0.10)', border: '1px solid rgba(251,191,36,0.22)', borderRadius: '100px', padding: '10px 20px' }}>
-          <span style={{ fontSize: '16px', color: '#FBBF24', fontWeight: 600 }}>{termsTotal} total terms learned</span>
+          <span style={{ fontSize: '16px', color: '#FBBF24', fontWeight: 600 }}>{termsTotal} total concepts learned</span>
         </div>
       </div>
     ),

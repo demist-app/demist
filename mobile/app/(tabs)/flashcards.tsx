@@ -155,7 +155,7 @@ export default function Flashcards() {
     <SafeAreaView style={[s.container, s.center]}>
       <Text style={s.bigEmoji}>🎉</Text>
       <Text style={s.title}>All caught up</Text>
-      <Text style={s.subtitle}>No cards due. Record a lecture to add terms.</Text>
+      <Text style={s.subtitle}>No cards due. Record a lecture to add more words.</Text>
     </SafeAreaView>
   )
 

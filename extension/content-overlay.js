@@ -256,7 +256,7 @@ root.innerHTML = `
   <div id="panel" style="display:none">
     <div class="panel-header">
       <span class="panel-title">This session</span>
-      <span class="panel-count" id="panel-count">0 terms</span>
+      <span class="panel-count" id="panel-count">0 words</span>
       <span class="panel-close" id="panel-close">×</span>
     </div>
     <div class="panel-summary" id="panel-summary" style="display:none">
@@ -264,7 +264,7 @@ root.innerHTML = `
       <div class="panel-summary-text" id="panel-summary-text"></div>
     </div>
     <div class="panel-terms" id="panel-terms">
-      <div class="panel-empty">No terms yet. Start recording to begin.</div>
+      <div class="panel-empty">No words yet. Start recording to begin.</div>
     </div>
     <div class="panel-links">
       <a class="panel-link primary" id="link-app" href="https://demist.app/dashboard" target="_blank">Open Demist ↗</a>
@@ -362,7 +362,7 @@ panelClose.addEventListener('click', closePanel)
 
 function renderPanel() {
   const n = sessionTerms.length
-  panelCount.textContent = `${n} term${n !== 1 ? 's' : ''}`
+  panelCount.textContent = `${n} word${n !== 1 ? 's' : ''}`
 
   if (synopsis) {
     panelSummary.style.display = 'block'
@@ -372,7 +372,7 @@ function renderPanel() {
   }
 
   if (!n) {
-    panelTerms.innerHTML = '<div class="panel-empty">No terms yet.<br>Terms appear here as your lecture progresses.</div>'
+    panelTerms.innerHTML = '<div class="panel-empty">No words yet.<br>Words appear as your lecture progresses.</div>'
     return
   }
 
@@ -398,7 +398,7 @@ function showCard({ term, definition, termId }) {
   progress.style.width = '100%'
 
   card.innerHTML = `
-    <div class="card-tag">Just detected</div>
+    <div class="card-tag">New word</div>
     <div class="card-term">${esc(term)}</div>
     <div class="card-def">${esc(definition)}</div>
     <div class="card-actions">

@@ -942,7 +942,7 @@ export default function Dashboard() {
                   <p className="text-[11px] text-gray-600 uppercase tracking-[0.12em]">This week</p>
                 </div>
                 <p className="text-[28px] font-bold leading-none dark:text-yellow-400 text-yellow-700">
-                  {stats.termsThisWeek}<span className="text-[14px] font-normal text-gray-600 ml-1">terms</span>
+                  {stats.termsThisWeek}<span className="text-[14px] font-normal text-gray-600 ml-1">concepts</span>
                 </p>
               </div>
             </div>
@@ -998,7 +998,7 @@ export default function Dashboard() {
                             )}
                             {s.terms && s.terms.length > 0 && (
                               <div className="pt-3">
-                                <p className="text-[10px] font-bold tracking-[0.15em] text-gray-600 uppercase mb-2">Terms</p>
+                                <p className="text-[10px] font-bold tracking-[0.15em] text-gray-600 uppercase mb-2">Words</p>
                                 <div className="space-y-1.5">
                                   {s.terms.slice(0, 3).map(t => (
                                     <p key={t.id} className="text-[13px] text-gray-700 leading-snug">
@@ -1009,13 +1009,13 @@ export default function Dashboard() {
                                 </div>
                                 {s.terms.length > 3 && (
                                   <Link href={`/history?session=${s.id}`} className="inline-block mt-2 text-[12px] text-yellow-500 hover:dark:text-yellow-400 text-yellow-700 transition-colors">
-                                    +{s.terms.length - 3} more in History
+                                    +{s.terms.length - 3} more words in History
                                   </Link>
                                 )}
                               </div>
                             )}
                             {s.terms && s.terms.length === 0 && (
-                              <p className="text-gray-700 text-[13px] pt-3">No terms detected.</p>
+                              <p className="text-gray-700 text-[13px] pt-3">No words detected.</p>
                             )}
                           </div>
                         )}

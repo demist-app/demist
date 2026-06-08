@@ -2,12 +2,21 @@
 
 let recording = false
 let demistTabId = null      // the hidden demist.app tab
-let targetTabId = null      // the active tab where overlay cards appear
+let activeTabId = null      // the tab the user is currently on (updated as they switch tabs)
 let elapsed = 0
 let timerInterval = null
 
 // Track all tabs running content-overlay.js so we can message them
 const overlayTabs = new Set()
+
+// Keep activeTabId in sync as the user switches tabs
+chrome.tabs.onActivated.addListener(async ({ tabId }) => {
+  try {
+    const tab = await chrome.tabs.get(tabId)
+    if (tab.url?.includes('demist.app')) return  // don't track the demist tab itself
+    activeTabId = tabId
+  } catch (_) {}
+})
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   switch (msg.type) {
@@ -49,23 +58,26 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 chrome.tabs.onRemoved.addListener((tabId) => {
   overlayTabs.delete(tabId)
   if (tabId === demistTabId) demistTabId = null
-  if (tabId === targetTabId) targetTabId = null
+  if (tabId === activeTabId) activeTabId = null
 })
 
 function forwardToOverlay(msg) {
-  // Send to the target tab first, then fall back to all overlay tabs
-  const tabs = targetTabId ? [targetTabId] : [...overlayTabs]
+  // Send to whichever tab the user is on right now, fall back to all overlay tabs
+  const tabs = activeTabId ? [activeTabId] : [...overlayTabs]
   tabs.forEach(tabId => {
-    chrome.tabs.sendMessage(tabId, msg).catch(() => overlayTabs.delete(tabId))
+    chrome.tabs.sendMessage(tabId, msg).catch(() => {
+      overlayTabs.delete(tabId)
+      if (tabId === activeTabId) activeTabId = null
+    })
   })
   // Also broadcast recording state to popup if open
   chrome.runtime.sendMessage({ type: 'STATE_UPDATE', recording, elapsed }).catch(() => {})
 }
 
 async function startRecording() {
-  // Remember which tab the user is on so we can send cards there
-  const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true })
-  if (activeTab?.id) targetTabId = activeTab.id
+  // Capture the tab the user is currently on
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+  if (tab?.id && !tab.url?.includes('demist.app')) activeTabId = tab.id
 
   if (demistTabId) {
     // Already have a demist.app tab — just send the command
