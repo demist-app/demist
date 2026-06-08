@@ -165,20 +165,29 @@ export async function GET(req: NextRequest) {
     // oEmbed is best-effort — continue without metadata
   }
 
-  // Fetch transcript — try direct page parsing first, fall back to the library
+  // Fetch transcript — Android InnerTube primary, library fallbacks
   let segments: CaptionSegment[] = []
+  let lastError = 'unknown'
   try {
     segments = await fetchYouTubeCaptions(videoId)
-  } catch {
-    // Fall back to youtube-transcript library
+    console.log(`[youtube] innertube ok: ${segments.length} segments for ${videoId}`)
+  } catch (e1) {
+    lastError = `innertube: ${e1 instanceof Error ? e1.message : String(e1)}`
+    console.error(`[youtube] ${lastError}`)
     try {
       segments = await YoutubeTranscript.fetchTranscript(videoId, { lang: 'en' })
-    } catch {
+      console.log(`[youtube] library(en) ok: ${segments.length} segments for ${videoId}`)
+    } catch (e2) {
+      lastError = `library_en: ${e2 instanceof Error ? e2.message : String(e2)}`
+      console.error(`[youtube] ${lastError}`)
       try {
         segments = await YoutubeTranscript.fetchTranscript(videoId)
-      } catch {
+        console.log(`[youtube] library(any) ok: ${segments.length} segments for ${videoId}`)
+      } catch (e3) {
+        lastError = `library_any: ${e3 instanceof Error ? e3.message : String(e3)}`
+        console.error(`[youtube] ${lastError}`)
         return NextResponse.json(
-          { error: 'no_captions', message: 'This video has no captions. Try a video with subtitles enabled.' },
+          { error: 'no_captions', message: 'This video has no captions. Try a video with subtitles enabled.', debug: lastError },
           { status: 422 }
         )
       }
