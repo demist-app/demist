@@ -1,11 +1,12 @@
 // Injected into every non-demist.app page.
 // Creates an isolated Shadow DOM overlay with floating term cards,
 // a recording badge, and a session panel.
+;(function () {
 
 // Guard: if already injected (programmatic re-injection on existing tabs), do nothing
 if (document.getElementById('demist-overlay-host')) {
   chrome.runtime.sendMessage({ type: 'OVERLAY_READY' }).catch(() => {})
-  return  // Chrome wraps content scripts in a function — top-level return is valid
+  return
 }
 
 // ── Shadow DOM setup ─────────────────────────────────────────────────────────
@@ -495,3 +496,5 @@ chrome.runtime.sendMessage({ type: 'GET_STATE' }, (res) => {
     updateBadge()
   }
 })
+
+})() // end IIFE
