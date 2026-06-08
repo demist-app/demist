@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase'
@@ -63,6 +63,13 @@ export default function History() {
   const [failedIds, setFailedIds] = useState<Set<string>>(new Set())
   const [editingNameId, setEditingNameId] = useState<string | null>(null)
   const [nameInput, setNameInput] = useState('')
+
+  // Bulk select state
+  const [selectMode, setSelectMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkDeleting, setBulkDeleting] = useState(false)
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false)
+
   const summarizingRef = useRef(new Set<string>())
 
   useEffect(() => {
@@ -108,7 +115,6 @@ export default function History() {
         terms: undefined as SessionTerm[] | undefined,
       }))
 
-      // Auto-expand session linked from dashboard "+N more" click
       const targetId = new URLSearchParams(window.location.search).get('session')
       if (targetId && built.find(s => s.id === targetId)) {
         const { data: termsData } = await supabase
@@ -130,6 +136,50 @@ export default function History() {
     })()
   }, [])
 
+  const exitSelectMode = () => {
+    setSelectMode(false)
+    setSelectedIds(new Set())
+    setConfirmBulkDelete(false)
+  }
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+    setConfirmBulkDelete(false)
+  }
+
+  const selectAll = () => {
+    setSelectedIds(new Set(sessions.map(s => s.id)))
+    setConfirmBulkDelete(false)
+  }
+
+  const deselectAll = () => {
+    setSelectedIds(new Set())
+    setConfirmBulkDelete(false)
+  }
+
+  const bulkDelete = async () => {
+    if (selectedIds.size === 0) return
+    setBulkDeleting(true)
+    try {
+      const supabase = createClient()
+      const ids = [...selectedIds]
+      await supabase.from('terms').delete().in('session_id', ids)
+      await supabase.from('sessions').delete().in('id', ids)
+      setSessions(prev => prev.filter(s => !selectedIds.has(s.id)))
+      setTotalCount(prev => prev - ids.length)
+      exitSelectMode()
+    } catch (e) {
+      console.error('bulkDelete error:', e)
+      alert('Failed to delete sessions. Please try again.')
+    } finally {
+      setBulkDeleting(false)
+    }
+  }
+
   const maybeSummarize = async (s: Session) => {
     if (s.synopsis || s.termCount === 0) return
     if (summarizingRef.current.has(s.id)) return
@@ -145,23 +195,16 @@ export default function History() {
         .select('term, definition')
         .eq('session_id', s.id)
         .limit(60)
-      if (!termRows?.length) {
-        skipFailed = true
-        return
-      }
+      if (!termRows?.length) { skipFailed = true; return }
       const { data, error } = await supabase.functions.invoke('summarize-session', {
         body: { session_id: s.id, subject: s.subject, terms: termRows },
       })
-      if (error) {
-        console.error('summarize-session error:', error)
-      } else if (data?.ok && data?.synopsis) {
+      if (!error && data?.ok && data?.synopsis) {
         setSessions(prev => prev.map(x => x.id === s.id ? { ...x, synopsis: data.synopsis } : x))
         succeeded = true
-      } else {
-        console.error('summarize-session: unexpected response', data)
       }
     } catch (e) {
-      console.error('summarize-session: network error', e)
+      console.error('summarize-session error:', e)
     } finally {
       summarizingRef.current.delete(s.id)
       setGeneratingIds(prev => { const next = new Set(prev); next.delete(s.id); return next })
@@ -176,15 +219,14 @@ export default function History() {
   }
 
   const toggleExpand = async (id: string) => {
+    if (selectMode) { toggleSelect(id); return }
     const target = sessions.find(x => x.id === id)
     if (target && !target.expanded) maybeSummarize(target)
 
     setSessions(prev => {
       const s = prev.find(x => x.id === id)
       if (!s) return prev
-      if (s.terms !== undefined) {
-        return prev.map(x => x.id === id ? { ...x, expanded: !x.expanded } : x)
-      }
+      if (s.terms !== undefined) return prev.map(x => x.id === id ? { ...x, expanded: !x.expanded } : x)
       return prev
     })
 
@@ -206,7 +248,6 @@ export default function History() {
   }
 
   const toggleKnown = async (termId: string, currentlyKnown: boolean) => {
-    // Optimistic update
     setSessions(prev =>
       prev.map(s => ({
         ...s,
@@ -215,7 +256,6 @@ export default function History() {
     )
     const { error } = await createClient().from('terms').update({ known: !currentlyKnown }).eq('id', termId)
     if (error) {
-      // Roll back
       setSessions(prev =>
         prev.map(s => ({
           ...s,
@@ -230,11 +270,10 @@ export default function History() {
     setConfirmingId(null)
     try {
       const supabase = createClient()
-      const { error: termsErr } = await supabase.from('terms').delete().eq('session_id', id)
-      if (termsErr) throw termsErr
-      const { error: sessionErr } = await supabase.from('sessions').delete().eq('id', id)
-      if (sessionErr) throw sessionErr
+      await supabase.from('terms').delete().eq('session_id', id)
+      await supabase.from('sessions').delete().eq('id', id)
       setSessions(prev => prev.filter(s => s.id !== id))
+      setTotalCount(prev => prev - 1)
     } catch (e) {
       console.error('deleteSession error:', e)
       alert('Failed to delete session. Please try again.')
@@ -257,7 +296,6 @@ export default function History() {
     const { error } = await createClient().from('sessions').update({ name }).eq('id', id)
     if (error) {
       setSessions(prev => prev.map(s => s.id === id ? { ...s, name: prev_name } : s))
-      console.error('saveSessionName error:', error)
     }
   }
 
@@ -267,225 +305,313 @@ export default function History() {
   sessions.forEach((s, i) => {
     const label = fmtDate(s.started_at)
     const last = grouped[grouped.length - 1]
-    if (last && last.label === label) {
-      last.sessions.push({ s, n: sessionNumber(i) })
-    } else {
-      grouped.push({ label, sessions: [{ s, n: sessionNumber(i) }] })
-    }
+    if (last && last.label === label) last.sessions.push({ s, n: sessionNumber(i) })
+    else grouped.push({ label, sessions: [{ s, n: sessionNumber(i) }] })
   })
+
+  const allSelected = sessions.length > 0 && selectedIds.size === sessions.length
 
   return (
     <main className="min-h-dvh dark:bg-[#080810] bg-[#EDEAE3] dark:text-white text-gray-900 flex flex-col nav-bottom-pad">
       <div aria-hidden className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
         <div className="absolute -top-32 -left-32 w-[500px] h-[500px] rounded-full bg-yellow-700/[0.05] blur-[120px]" />
       </div>
-      <header className="sm:hidden relative z-10 shrink-0 flex items-center px-6 h-14 border-b dark:border-white/[0.05] border-black/[0.06]">
-        <span className="font-semibold tracking-tight text-[15px]">Session History</span>
+
+      <header className="relative z-10 shrink-0 flex items-center justify-between px-4 sm:px-6 h-14 border-b dark:border-white/[0.05] border-black/[0.06]">
+        <span className="font-semibold tracking-tight text-[15px]">
+          {selectMode
+            ? selectedIds.size > 0
+              ? `${selectedIds.size} selected`
+              : 'Select sessions'
+            : 'Session History'}
+        </span>
+        <div className="flex items-center gap-2">
+          {selectMode ? (
+            <>
+              <button
+                onClick={allSelected ? deselectAll : selectAll}
+                className="text-[13px] text-yellow-600 dark:text-yellow-400 hover:opacity-80 transition-opacity px-2 py-1"
+              >
+                {allSelected ? 'Deselect all' : 'Select all'}
+              </button>
+              <button
+                onClick={exitSelectMode}
+                className="text-[13px] text-gray-600 hover:text-gray-500 transition-colors px-2 py-1"
+              >
+                Cancel
+              </button>
+            </>
+          ) : (
+            !loading && sessions.length > 0 && (
+              <button
+                onClick={() => setSelectMode(true)}
+                className="text-[13px] text-gray-600 hover:dark:text-white/70 hover:text-gray-900 transition-colors px-2 py-1"
+              >
+                Select
+              </button>
+            )
+          )}
+        </div>
       </header>
 
       <div className="flex-1 overflow-y-auto">
-      <div className="w-full max-w-3xl mx-auto px-4 sm:px-6 py-4 animate-step opacity-0" style={{ animationFillMode: 'forwards' }}>
-        {loading && (
-          <div className="animate-pulse space-y-6">
-            {[0,1].map(g => (
-              <div key={g}>
-                <div className="h-2 w-16 dark:bg-white/[0.05] bg-[#F6F5F2] rounded-full mb-3" />
-                <div className="space-y-2">
-                  {[0,1,2].map(i => (
-                    <div key={i} className="flex items-center gap-3 dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl px-4 py-3">
-                      <div className="flex-1 flex flex-col gap-2">
-                        <div className="h-3.5 w-40 dark:bg-white/[0.07] bg-[#EFEDE7] rounded-full" />
-                        <div className="h-3 w-24 dark:bg-white/[0.05] bg-[#F6F5F2] rounded-full" />
-                      </div>
-                      <div className="flex flex-col items-end gap-1.5 mr-8">
-                        <div className="h-4 w-6 dark:bg-white/[0.07] bg-[#EFEDE7] rounded" />
-                        <div className="h-2.5 w-8 dark:bg-white/[0.05] bg-[#F6F5F2] rounded-full" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {!loading && sessions.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
-            <p className="text-gray-600">No sessions yet.</p>
-            <p className="text-gray-700 text-[13px]">Go to Home and record your first lecture.</p>
-          </div>
-        )}
-
-        {grouped.map(group => (
-          <div key={group.label} className="mb-6">
-            <p className="text-[10px] font-bold tracking-[0.18em] text-gray-600 uppercase mb-3">
-              {group.label}
-            </p>
-            <div className="space-y-2">
-              {group.sessions.map(({ s, n }) => (
-                <div
-                  key={s.id}
-                  id={`session-${s.id}`}
-                  className="dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.07] border-black/[0.16] rounded-2xl overflow-hidden hover:bg-yellow-500/[0.04] hover:border-yellow-500/[0.15] transition-colors duration-200"
-                >
-                  <div className="flex items-center px-4 py-3.5 gap-3">
-                    <div className="flex-1 min-w-0">
-                      {editingNameId === s.id ? (
-                        <input
-                          autoFocus
-                          value={nameInput}
-                          onChange={e => setNameInput(e.target.value)}
-                          onBlur={() => saveSessionName(s.id)}
-                          onKeyDown={e => {
-                            if (e.key === 'Enter') saveSessionName(s.id)
-                            if (e.key === 'Escape') setEditingNameId(null)
-                          }}
-                          placeholder={sessionLabel(n, s.started_at)}
-                          maxLength={80}
-                          className="text-[14px] font-medium bg-transparent border-b border-yellow-500/50 focus:outline-none dark:text-white/90 text-gray-900 w-full pb-0.5"
-                        />
-                      ) : (
-                        <div
-                          className="flex items-center gap-1.5 group"
-                          onClick={() => { if (s.termCount === 0) return; setConfirmingId(null); toggleExpand(s.id) }}
-                        >
-                          <p className={`text-[14px] font-medium truncate ${s.termCount > 0 ? 'cursor-pointer' : ''} ${s.name ? 'dark:text-white/90 text-gray-900' : 'text-gray-600'}`}>
-                            {s.name || sessionLabel(n, s.started_at)}
-                          </p>
+        <div className="w-full max-w-3xl mx-auto px-4 sm:px-6 py-4 animate-step opacity-0" style={{ animationFillMode: 'forwards' }}>
+          {loading && (
+            <div className="animate-pulse space-y-6">
+              {[0,1].map(g => (
+                <div key={g}>
+                  <div className="h-2 w-16 dark:bg-white/[0.05] bg-[#F6F5F2] rounded-full mb-3" />
+                  <div className="space-y-2">
+                    {[0,1,2].map(i => (
+                      <div key={i} className="flex items-center gap-3 dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl px-4 py-3">
+                        <div className="flex-1 flex flex-col gap-2">
+                          <div className="h-3.5 w-40 dark:bg-white/[0.07] bg-[#EFEDE7] rounded-full" />
+                          <div className="h-3 w-24 dark:bg-white/[0.05] bg-[#F6F5F2] rounded-full" />
                         </div>
-                      )}
-                      <p className="text-[12px] text-gray-600 mt-0.5">
-                        {fmtTime(s.started_at)} · {fmtDuration(s.started_at, s.ended_at)}
-                      </p>
-                    </div>
-
-                    <div className="flex items-center gap-2 shrink-0">
-                      <div className="text-right mr-1">
-                        <p className="text-[14px] font-semibold dark:text-yellow-400 text-yellow-700">{s.termCount}</p>
-                        <p className="text-[11px] text-gray-600">words</p>
+                        <div className="flex flex-col items-end gap-1.5 mr-8">
+                          <div className="h-4 w-6 dark:bg-white/[0.07] bg-[#EFEDE7] rounded" />
+                          <div className="h-2.5 w-8 dark:bg-white/[0.05] bg-[#F6F5F2] rounded-full" />
+                        </div>
                       </div>
-
-                      {confirmingId === s.id ? (
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={() => setConfirmingId(null)}
-                            className="text-[12px] text-gray-700 hover:text-gray-500 transition-colors px-2 py-1"
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            onClick={() => deleteSession(s.id)}
-                            disabled={deletingId === s.id}
-                            className="text-[12px] font-medium text-red-400 hover:text-red-300 transition-colors px-2 py-1 disabled:opacity-40"
-                          >
-                            {deletingId === s.id ? '…' : 'Delete'}
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-0.5">
-                          <button
-                            onClick={() => startRename(s)}
-                            title="Rename session"
-                            className="text-gray-700 hover:dark:text-yellow-400 text-yellow-700 transition-colors p-1"
-                          >
-                            <PencilIcon />
-                          </button>
-                          <button
-                            onClick={() => setConfirmingId(s.id)}
-                            title="Delete session"
-                            className="text-gray-700 hover:text-red-400 transition-colors p-1"
-                          >
-                            <TrashIcon />
-                          </button>
-                        </div>
-                      )}
-
-                      {s.termCount > 0 && (
-                        <button onClick={() => { setConfirmingId(null); toggleExpand(s.id) }}>
-                          <ChevronIcon expanded={s.expanded} />
-                        </button>
-                      )}
-                    </div>
+                    ))}
                   </div>
-
-                  {s.expanded && (
-                    <div className="px-4 pb-4 border-t dark:border-white/[0.04] border-black/[0.05]">
-                      {s.synopsis ? (
-                        <div className="pt-3 pb-1">
-                          <SummaryViewer synopsis={s.synopsis} sessionId={s.id} subject={s.subject} year={null} />
-                        </div>
-                      ) : generatingIds.has(s.id) ? (
-                        <p className="text-[12px] text-gray-700 pt-3 pb-1">Generating summary…</p>
-                      ) : failedIds.has(s.id) ? (
-                        <div className="flex items-center gap-3 pt-3 pb-1">
-                          <p className="text-[12px] text-gray-700">Couldn't generate summary.</p>
-                          <button
-                            onClick={() => retrySummarize(s)}
-                            className="text-[12px] text-yellow-500 hover:dark:text-yellow-400 text-yellow-700 transition-colors shrink-0"
-                          >
-                            Retry
-                          </button>
-                        </div>
-                      ) : null}
-
-                      {loadingTerms === s.id && (
-                        <p className="text-gray-700 text-[13px] py-3">Loading…</p>
-                      )}
-                      {s.terms && s.terms.length === 0 && (
-                        <p className="text-gray-700 text-[13px] py-3">No words detected.</p>
-                      )}
-                      {s.terms && s.terms.length > 0 && (
-                        <div className="pt-3">
-                          <p className="text-[10px] font-bold tracking-[0.15em] text-gray-600 uppercase mb-2">Words</p>
-                          <div className="space-y-2">
-                            {s.terms.map(t => (
-                              <div key={t.id} className="flex items-start gap-3">
-                                <div className="flex-1 min-w-0">
-                                  <span className={`text-[13px] font-medium ${t.known ? 'text-gray-600 line-through' : 'dark:text-white/80 text-gray-800'}`}>
-                                    {t.term}
-                                  </span>
-                                  <span className="text-gray-600 text-[13px]"> - {t.definition}</span>
-                                </div>
-                                <button
-                                  onClick={() => toggleKnown(t.id, t.known)}
-                                  title={t.known ? 'Mark as not known' : 'Mark as known'}
-                                  className={`shrink-0 mt-0.5 text-[17px] leading-none transition-colors ${
-                                    t.known ? 'text-emerald-500 hover:text-gray-600' : 'text-gray-700 hover:text-emerald-500'
-                                  }`}
-                                >
-                                  ✓
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      {s.transcript && (
-                        <div className="mt-4 pt-3 border-t dark:border-white/[0.04] border-black/[0.05]">
-                          <p className="text-[10px] font-bold tracking-[0.15em] text-gray-600 uppercase mb-2">Transcript</p>
-                          <TranscriptViewer transcript={s.transcript} subject={s.subject} year={null} sessionId={s.id} terms={s.terms?.map(t => ({ term: t.term, definition: t.definition }))} />
-                        </div>
-                      )}
-                    </div>
-                  )}
                 </div>
               ))}
             </div>
+          )}
+
+          {!loading && sessions.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
+              <p className="text-gray-600">No sessions yet.</p>
+              <p className="text-gray-700 text-[13px]">Go to Home and record your first lecture.</p>
+            </div>
+          )}
+
+          {grouped.map(group => (
+            <div key={group.label} className="mb-6">
+              <p className="text-[10px] font-bold tracking-[0.18em] text-gray-600 uppercase mb-3">
+                {group.label}
+              </p>
+              <div className="space-y-2">
+                {group.sessions.map(({ s, n }) => {
+                  const isSelected = selectedIds.has(s.id)
+                  return (
+                    <div
+                      key={s.id}
+                      id={`session-${s.id}`}
+                      className={`dark:bg-white/[0.03] bg-[#FAF9F6] border rounded-2xl overflow-hidden transition-colors duration-150 ${
+                        isSelected
+                          ? 'dark:border-yellow-500/40 border-yellow-500/50 dark:bg-yellow-500/[0.05] bg-yellow-50'
+                          : 'dark:border-white/[0.07] border-black/[0.16] hover:bg-yellow-500/[0.04] hover:border-yellow-500/[0.15]'
+                      }`}
+                    >
+                      <div className="flex items-center px-4 py-3.5 gap-3">
+                        {selectMode && (
+                          <button
+                            onClick={() => toggleSelect(s.id)}
+                            className="shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors"
+                            style={{
+                              borderColor: isSelected ? '#D97706' : 'rgba(107,114,128,0.5)',
+                              background: isSelected ? '#D97706' : 'transparent',
+                            }}
+                          >
+                            {isSelected && (
+                              <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                                <path d="M2 5l2.5 2.5L8 3" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                              </svg>
+                            )}
+                          </button>
+                        )}
+
+                        <div
+                          className="flex-1 min-w-0"
+                          onClick={() => selectMode ? toggleSelect(s.id) : undefined}
+                        >
+                          {editingNameId === s.id ? (
+                            <input
+                              autoFocus
+                              value={nameInput}
+                              onChange={e => setNameInput(e.target.value)}
+                              onBlur={() => saveSessionName(s.id)}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter') saveSessionName(s.id)
+                                if (e.key === 'Escape') setEditingNameId(null)
+                              }}
+                              placeholder={sessionLabel(n, s.started_at)}
+                              maxLength={80}
+                              className="text-[14px] font-medium bg-transparent border-b border-yellow-500/50 focus:outline-none dark:text-white/90 text-gray-900 w-full pb-0.5"
+                            />
+                          ) : (
+                            <div
+                              className={`flex items-center gap-1.5 ${selectMode ? 'cursor-pointer' : ''}`}
+                              onClick={() => { if (!selectMode && s.termCount > 0) { setConfirmingId(null); toggleExpand(s.id) } }}
+                            >
+                              <p className={`text-[14px] font-medium truncate ${!selectMode && s.termCount > 0 ? 'cursor-pointer' : ''} ${s.name ? 'dark:text-white/90 text-gray-900' : 'text-gray-600'}`}>
+                                {s.name || sessionLabel(n, s.started_at)}
+                              </p>
+                            </div>
+                          )}
+                          <p className="text-[12px] text-gray-600 mt-0.5">
+                            {fmtTime(s.started_at)} · {fmtDuration(s.started_at, s.ended_at)}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <div className="text-right mr-1">
+                            <p className="text-[14px] font-semibold dark:text-yellow-400 text-yellow-700">{s.termCount}</p>
+                            <p className="text-[11px] text-gray-600">words</p>
+                          </div>
+
+                          {!selectMode && (
+                            <>
+                              {confirmingId === s.id ? (
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    onClick={() => setConfirmingId(null)}
+                                    className="text-[12px] text-gray-700 hover:text-gray-500 transition-colors px-2 py-1"
+                                  >
+                                    Cancel
+                                  </button>
+                                  <button
+                                    onClick={() => deleteSession(s.id)}
+                                    disabled={deletingId === s.id}
+                                    className="text-[12px] font-medium text-red-400 hover:text-red-300 transition-colors px-2 py-1 disabled:opacity-40"
+                                  >
+                                    {deletingId === s.id ? '…' : 'Delete'}
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-0.5">
+                                  <button
+                                    onClick={() => startRename(s)}
+                                    title="Rename session"
+                                    className="text-gray-700 hover:dark:text-yellow-400 hover:text-yellow-700 transition-colors p-1"
+                                  >
+                                    <PencilIcon />
+                                  </button>
+                                  <button
+                                    onClick={() => setConfirmingId(s.id)}
+                                    title="Delete session"
+                                    className="text-gray-700 hover:text-red-400 transition-colors p-1"
+                                  >
+                                    <TrashIcon />
+                                  </button>
+                                </div>
+                              )}
+
+                              {s.termCount > 0 && (
+                                <button onClick={() => { setConfirmingId(null); toggleExpand(s.id) }}>
+                                  <ChevronIcon expanded={s.expanded} />
+                                </button>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      {s.expanded && !selectMode && (
+                        <div className="px-4 pb-4 border-t dark:border-white/[0.04] border-black/[0.05]">
+                          {s.synopsis ? (
+                            <div className="pt-3 pb-1">
+                              <SummaryViewer synopsis={s.synopsis} sessionId={s.id} subject={s.subject} year={null} />
+                            </div>
+                          ) : generatingIds.has(s.id) ? (
+                            <p className="text-[12px] text-gray-700 pt-3 pb-1">Generating summary…</p>
+                          ) : failedIds.has(s.id) ? (
+                            <div className="flex items-center gap-3 pt-3 pb-1">
+                              <p className="text-[12px] text-gray-700">Couldn't generate summary.</p>
+                              <button onClick={() => retrySummarize(s)} className="text-[12px] text-yellow-500 hover:dark:text-yellow-400 hover:text-yellow-700 transition-colors shrink-0">Retry</button>
+                            </div>
+                          ) : null}
+
+                          {loadingTerms === s.id && <p className="text-gray-700 text-[13px] py-3">Loading…</p>}
+                          {s.terms && s.terms.length === 0 && <p className="text-gray-700 text-[13px] py-3">No words detected.</p>}
+                          {s.terms && s.terms.length > 0 && (
+                            <div className="pt-3">
+                              <p className="text-[10px] font-bold tracking-[0.15em] text-gray-600 uppercase mb-2">Words</p>
+                              <div className="space-y-2">
+                                {s.terms.map(t => (
+                                  <div key={t.id} className="flex items-start gap-3">
+                                    <div className="flex-1 min-w-0">
+                                      <span className={`text-[13px] font-medium ${t.known ? 'text-gray-600 line-through' : 'dark:text-white/80 text-gray-800'}`}>
+                                        {t.term}
+                                      </span>
+                                      <span className="text-gray-600 text-[13px]"> - {t.definition}</span>
+                                    </div>
+                                    <button
+                                      onClick={() => toggleKnown(t.id, t.known)}
+                                      title={t.known ? 'Mark as not known' : 'Mark as known'}
+                                      className={`shrink-0 mt-0.5 text-[17px] leading-none transition-colors ${
+                                        t.known ? 'text-emerald-500 hover:text-gray-600' : 'text-gray-700 hover:text-emerald-500'
+                                      }`}
+                                    >
+                                      ✓
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {s.transcript && (
+                            <div className="mt-4 pt-3 border-t dark:border-white/[0.04] border-black/[0.05]">
+                              <p className="text-[10px] font-bold tracking-[0.15em] text-gray-600 uppercase mb-2">Transcript</p>
+                              <TranscriptViewer transcript={s.transcript} subject={s.subject} year={null} sessionId={s.id} terms={s.terms?.map(t => ({ term: t.term, definition: t.definition }))} />
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Bulk action bar */}
+      {selectMode && selectedIds.size > 0 && (
+        <div className="fixed bottom-0 inset-x-0 z-50 flex items-center justify-between px-4 sm:px-6 py-4 dark:bg-[#0e0e1c]/95 bg-white/95 border-t dark:border-white/[0.07] border-black/[0.10]" style={{ backdropFilter: 'blur(16px)' }}>
+          <p className="text-[14px] font-medium dark:text-white/80 text-gray-700">
+            {selectedIds.size} session{selectedIds.size !== 1 ? 's' : ''} selected
+          </p>
+          <div className="flex items-center gap-2">
+            {confirmBulkDelete ? (
+              <>
+                <button
+                  onClick={() => setConfirmBulkDelete(false)}
+                  className="text-[13px] text-gray-600 hover:text-gray-500 px-3 py-1.5"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={bulkDelete}
+                  disabled={bulkDeleting}
+                  className="text-[13px] font-semibold text-white bg-red-500 hover:bg-red-600 disabled:opacity-50 px-4 py-1.5 rounded-xl transition-colors"
+                >
+                  {bulkDeleting ? 'Deleting…' : `Delete ${selectedIds.size}`}
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => setConfirmBulkDelete(true)}
+                className="text-[13px] font-semibold text-red-400 hover:text-red-300 border border-red-500/30 hover:border-red-500/50 px-4 py-1.5 rounded-xl transition-colors"
+              >
+                Delete selected
+              </button>
+            )}
           </div>
-        ))}
-      </div>
-      </div>
+        </div>
+      )}
     </main>
   )
 }
 
 function ChevronIcon({ expanded }: { expanded: boolean }) {
   return (
-    <svg
-      width="16" height="16" viewBox="0 0 24 24" fill="none"
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
       stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
-      className={`text-gray-600 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}
-    >
+      className={`text-gray-600 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}>
       <polyline points="6 9 12 15 18 9" />
     </svg>
   )

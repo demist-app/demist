@@ -98,18 +98,19 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 })
 
 async function forwardToOverlay(msg) {
-  let targets = activeTabId ? [activeTabId] : [...overlayTabs]
+  // Always refresh activeTabId — SW restarts wipe it on every wake-up
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+    if (tab?.id && tab.url &&
+        !tab.url.includes('demist.app') &&
+        !tab.url.startsWith('chrome') &&
+        !tab.url.startsWith('about') &&
+        !tab.url.startsWith('edge')) {
+      activeTabId = tab.id
+    }
+  } catch (_) {}
 
-  // Last resort: query whichever tab is currently active
-  if (targets.length === 0) {
-    try {
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
-      if (tab?.id && !tab.url?.includes('demist.app') && !tab.url?.startsWith('chrome')) {
-        activeTabId = tab.id
-        targets = [tab.id]
-      }
-    } catch (_) {}
-  }
+  const targets = new Set([...(activeTabId ? [activeTabId] : []), ...overlayTabs])
 
   for (const tabId of targets) {
     try {
