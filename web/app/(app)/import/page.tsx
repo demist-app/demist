@@ -360,7 +360,7 @@ export default function ImportPage() {
           no_captions: data.message ?? 'This video has no captions. Try a video with subtitles enabled.',
           unauthorized: 'Your session expired. Please sign in again.',
         }
-        throw new Error(msgs[data.error] ?? 'Failed to fetch video. Please try again.')
+        throw new Error(msgs[data.error] ?? `Failed to fetch video [${data.debug ?? data.error ?? res.status}].`)
       }
       setYtMeta(data)
       setYtStatus('ready')
