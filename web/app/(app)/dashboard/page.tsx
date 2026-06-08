@@ -148,6 +148,7 @@ export default function Dashboard() {
   const barsRef = useRef<HTMLDivElement | null>(null)
   const btnRef = useRef<HTMLButtonElement | null>(null)
   const webLockReleaseRef = useRef<(() => void) | null>(null)
+  const hasInterimRef = useRef(false)   // true when last item in sentences is still being spoken
   const transcriptContainerRef = useRef<HTMLDivElement | null>(null)
   const autoScrollRef = useRef(true)
 
@@ -421,8 +422,8 @@ export default function Dashboard() {
       const tx = await txRes.json()
       if (!tx?.text?.trim()) return
       transcriptRef.current = transcriptRef.current ? transcriptRef.current + ' ' + tx.text.trim() : tx.text.trim()
-      // Append to live transcript immediately (doesn't require transcript_chunks Realtime)
-      setSentences(prev => [...prev, tx.text.trim()])
+      // Only update display from Whisper when Web Speech isn't providing real-time text
+      if (!speechModeRef.current) setSentences(prev => [...prev, tx.text.trim()])
 
       await runDetection(tx.text, sessionId, token)
     } catch (e) {
@@ -593,9 +594,8 @@ export default function Dashboard() {
       chunkTimerRef.current = setTimeout(() => { if (recorder.state === 'recording') recorder.stop() }, 10_000)
     }
 
-    // ── Web Speech API disabled: unreliable mic access in Chrome; using Whisper only ──
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const SpeechRecognitionAPI = null as any
+    const SpeechRecognitionAPI = typeof window !== 'undefined' ? ((window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition ?? null) : null
     // Flush when we have ~10 words (65 chars) — roughly every 4-5 seconds of normal speech
     const SPEECH_FLUSH_CHARS = 65
     // Min ms between detect-terms calls to avoid hammering the API
@@ -610,27 +610,31 @@ export default function Dashboard() {
     }
 
     const fallbackToWhisper = (reason: string) => {
-      console.warn(`Web Speech API failed (${reason}) — falling back to Whisper`)
+      console.warn(`Web Speech display failed (${reason}) — Whisper continues`)
       try { recognitionRef.current?.stop() } catch { /* ignore */ }
       recognitionRef.current = null
-      // Flush whatever accumulated before the failure
       const remaining = speechBufferRef.current.trim()
       if (remaining && sessionIdRef.current) {
         speechBufferRef.current = ''
         processTranscriptChunk(remaining, sessionIdRef.current)
       }
-      speechModeRef.current = false
-      if (isActiveRef.current) doChunk()
+      speechModeRef.current = false  // Whisper's setSentences will now update display
+      hasInterimRef.current = false
+      // Whisper doChunk() loop is already running — no need to restart
     }
 
+    // Whisper always runs for accurate term detection
+    doChunk()
+
     if (SpeechRecognitionAPI) {
-      speechModeRef.current = true
+      // Web Speech runs concurrently for real-time display only
+      speechModeRef.current = true  // tells processChunk to skip setSentences (Web Speech handles it)
       speechBufferRef.current = ''
       lastDetectTimeRef.current = 0
 
       const recognition = new SpeechRecognitionAPI()
       recognition.continuous = true
-      recognition.interimResults = false
+      recognition.interimResults = true
       recognition.lang = 'en-US'
       recognitionRef.current = recognition
 
@@ -656,17 +660,36 @@ export default function Dashboard() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       recognition.onresult = (event: any) => {
         clearTimeout(noResultWatchdog) // recognition is working — cancel watchdog
-        let newText = ''
+        let interimText = ''
+        let finalText = ''
         for (let i = event.resultIndex; i < event.results.length; i++) {
-          if (event.results[i].isFinal) newText += event.results[i][0].transcript + ' '
+          const t = event.results[i][0].transcript
+          if (event.results[i].isFinal) finalText += t + ' '
+          else interimText += t
         }
-        if (!newText.trim()) return
-        speechBufferRef.current += newText
-        transcriptRef.current += newText
 
-        const timeSinceLast = Date.now() - lastDetectTimeRef.current
-        if (speechBufferRef.current.length >= SPEECH_FLUSH_CHARS && timeSinceLast >= SPEECH_COOLDOWN_MS) {
-          flushSpeechBuffer()
+        // Interim: update last sentence in-place for word-by-word display
+        if (interimText) {
+          setSentences(prev => {
+            if (hasInterimRef.current && prev.length > 0) return [...prev.slice(0, -1), interimText]
+            hasInterimRef.current = true
+            return [...prev, interimText]
+          })
+        }
+
+        // Final: replace interim with confirmed text, then check flush threshold
+        if (finalText.trim()) {
+          setSentences(prev => {
+            const base = hasInterimRef.current && prev.length > 0 ? prev.slice(0, -1) : prev
+            hasInterimRef.current = false
+            return [...base, finalText.trim()]
+          })
+          speechBufferRef.current += finalText
+          transcriptRef.current += finalText
+          const timeSinceLast = Date.now() - lastDetectTimeRef.current
+          if (speechBufferRef.current.length >= SPEECH_FLUSH_CHARS && timeSinceLast >= SPEECH_COOLDOWN_MS) {
+            flushSpeechBuffer()
+          }
         }
       }
 
@@ -686,21 +709,21 @@ export default function Dashboard() {
       }
 
       recognition.start()
-    } else {
-      // ── Whisper path with silence detection ────────────────────────────────
-      speechModeRef.current = false
-      doChunk()
     }
 
-    posthog.capture('recording_started', { subject: profileRef.current?.course, mode: SpeechRecognitionAPI ? 'speech_api' : 'whisper' })
+    posthog.capture('recording_started', { subject: profileRef.current?.course, mode: SpeechRecognitionAPI ? 'whisper+speech_api' : 'whisper' })
   }
 
   const stopRecording = async () => {
     isActiveRef.current = false
 
+    // Always stop the Whisper MediaRecorder loop
+    if (chunkTimerRef.current) clearTimeout(chunkTimerRef.current)
+    if (recorderRef.current?.state === 'recording') recorderRef.current.stop()
+
+    // Also stop Web Speech display if it was running concurrently
     if (speechModeRef.current) {
-      // Web Speech path — flush remaining buffer then stop recognition
-      recognitionRef.current?.stop()
+      try { recognitionRef.current?.stop() } catch { /* ignore */ }
       recognitionRef.current = null
       const remaining = speechBufferRef.current.trim()
       if (remaining && sessionIdRef.current) {
@@ -708,10 +731,7 @@ export default function Dashboard() {
         processTranscriptChunk(remaining, sessionIdRef.current)
       }
       speechModeRef.current = false
-    } else {
-      // Whisper path — stop the MediaRecorder loop
-      if (chunkTimerRef.current) clearTimeout(chunkTimerRef.current)
-      if (recorderRef.current?.state === 'recording') recorderRef.current.stop()
+      hasInterimRef.current = false
     }
 
     // Release the Web Lock so Chrome can resume normal background throttling

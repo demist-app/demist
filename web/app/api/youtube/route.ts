@@ -44,27 +44,54 @@ function parseTimedtextEvents(events: TimedtextEvent[]): CaptionSegment[] {
     .filter(s => s.text)
 }
 
-async function fetchCaptionTrack(track: CaptionTrack): Promise<CaptionSegment[]> {
-  const res = await fetch(`${track.baseUrl}&fmt=json3`)
-  if (!res.ok) throw new Error('caption_track_fetch_failed')
-  const data = await res.json() as { events?: TimedtextEvent[] }
-  return parseTimedtextEvents(data.events ?? [])
+function parseTimedtextXml(xml: string): CaptionSegment[] {
+  const RE = /<p t="(\d+)" d="(\d+)"[^>]*>([\s\S]*?)<\/p>/g
+  const segments: CaptionSegment[] = []
+  let m: RegExpExecArray | null
+  while ((m = RE.exec(xml)) !== null) {
+    const text = m[3]
+      .replace(/<[^>]+>/g, '')               // strip any nested tags
+      .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#39;/g, "'").replace(/&quot;/g, '"')
+      .replace(/\n/g, ' ').trim()
+    if (text) segments.push({ text, offset: Number(m[1]), duration: Number(m[2]) })
+  }
+  return segments
 }
 
-// Uses YouTube's InnerTube API — works server-side without cookies or consent handling.
-// The TVHTML5_SIMPLY_EMBEDDED_PLAYER client is lightweight and doesn't trigger consent gates.
+async function fetchCaptionTrack(track: CaptionTrack): Promise<CaptionSegment[]> {
+  // Try json3 first; fall back to XML (default format for timedtext API)
+  const jsonRes = await fetch(`${track.baseUrl}&fmt=json3`)
+  if (jsonRes.ok) {
+    const ct = jsonRes.headers.get('content-type') ?? ''
+    if (ct.includes('json')) {
+      const data = await jsonRes.json() as { events?: TimedtextEvent[] }
+      const segs = parseTimedtextEvents(data.events ?? [])
+      if (segs.length) return segs
+    }
+  }
+  // XML path (default for most InnerTube caption URLs)
+  const xmlRes = await fetch(track.baseUrl)
+  if (!xmlRes.ok) throw new Error('caption_track_fetch_failed')
+  return parseTimedtextXml(await xmlRes.text())
+}
+
+// Uses YouTube's InnerTube API with the Android client.
+// The Android user-agent bypasses GDPR consent gates and datacenter IP blocks that affect
+// browser-based clients. This is the same approach used by youtube-transcript@1.3.1.
+const INNERTUBE_VERSION = '20.10.38'
 async function fetchYouTubeCaptions(videoId: string): Promise<CaptionSegment[]> {
-  const playerRes = await fetch('https://www.youtube.com/youtubei/v1/player', {
+  const playerRes = await fetch('https://www.youtube.com/youtubei/v1/player?prettyPrint=false', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'User-Agent': `com.google.android.youtube/${INNERTUBE_VERSION} (Linux; U; Android 14)`,
+    },
     body: JSON.stringify({
       videoId,
       context: {
         client: {
-          clientName: 'TVHTML5_SIMPLY_EMBEDDED_PLAYER',
-          clientVersion: '2.0',
-          hl: 'en',
-          gl: 'US',
+          clientName: 'ANDROID',
+          clientVersion: INNERTUBE_VERSION,
         },
       },
     }),
@@ -72,13 +99,16 @@ async function fetchYouTubeCaptions(videoId: string): Promise<CaptionSegment[]> 
 
   if (!playerRes.ok) throw new Error('innertube_failed')
   const playerData = await playerRes.json() as {
+    playabilityStatus?: { status?: string }
     captions?: { playerCaptionsTracklistRenderer?: { captionTracks?: CaptionTrack[] } }
   }
+
+  if (playerData?.playabilityStatus?.status === 'ERROR') throw new Error('video_unavailable')
 
   const tracks = playerData?.captions?.playerCaptionsTracklistRenderer?.captionTracks
   if (!tracks?.length) throw new Error('no_captions')
 
-  // Prefer English (manual first, then auto-generated en-*, then first available)
+  // Prefer English (exact match first, then en-*, then whatever's available)
   const track =
     tracks.find(t => t.languageCode === 'en') ??
     tracks.find(t => t.languageCode.startsWith('en')) ??
