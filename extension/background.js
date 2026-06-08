@@ -97,16 +97,36 @@ chrome.tabs.onRemoved.addListener((tabId) => {
   if (tabId === activeTabId) activeTabId = null
 })
 
-function forwardToOverlay(msg) {
-  // Send to whichever tab the user is on right now, fall back to all overlay tabs
-  const tabs = activeTabId ? [activeTabId] : [...overlayTabs]
-  tabs.forEach(tabId => {
-    chrome.tabs.sendMessage(tabId, msg).catch(() => {
-      overlayTabs.delete(tabId)
-      if (tabId === activeTabId) activeTabId = null
-    })
-  })
-  // Also broadcast recording state to popup if open
+async function forwardToOverlay(msg) {
+  let targets = activeTabId ? [activeTabId] : [...overlayTabs]
+
+  // Last resort: query whichever tab is currently active
+  if (targets.length === 0) {
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+      if (tab?.id && !tab.url?.includes('demist.app') && !tab.url?.startsWith('chrome')) {
+        activeTabId = tab.id
+        targets = [tab.id]
+      }
+    } catch (_) {}
+  }
+
+  for (const tabId of targets) {
+    try {
+      await chrome.tabs.sendMessage(tabId, msg)
+    } catch (_) {
+      // Tab doesn't have content-overlay.js — inject it on the spot and retry
+      try {
+        await chrome.scripting.executeScript({ target: { tabId }, files: ['content-overlay.js'] })
+        overlayTabs.add(tabId)
+        await chrome.tabs.sendMessage(tabId, msg)
+      } catch (_2) {
+        overlayTabs.delete(tabId)
+        if (tabId === activeTabId) activeTabId = null
+      }
+    }
+  }
+
   chrome.runtime.sendMessage({ type: 'STATE_UPDATE', recording, elapsed }).catch(() => {})
 }
 
