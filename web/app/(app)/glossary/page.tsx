@@ -9,6 +9,7 @@ interface Term {
   term: string
   definition: string
   session_id: string | null
+  subject: string | null
 }
 
 interface GlossarySession {
@@ -43,24 +44,42 @@ function PencilIcon() {
   )
 }
 
+function TagIcon() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
+      <line x1="7" y1="7" x2="7.01" y2="7" />
+    </svg>
+  )
+}
+
 export default function Glossary() {
   const [sessions, setSessions] = useState<GlossarySession[]>([])
   const [orphanTerms, setOrphanTerms] = useState<Term[]>([])
   const [totalCount, setTotalCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [groupBy, setGroupBy] = useState<'session' | 'subject'>('session')
+  const [groupBy, setGroupBy] = useState<'session' | 'tag'>('session')
+  const [tagFilter, setTagFilter] = useState<string | null>(null)
 
-  // Edit state
+  // Definition edit state
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState('')
   const [savingId, setSavingId] = useState<string | null>(null)
+  const editRef = useRef<HTMLTextAreaElement>(null)
+
+  // Tag edit state
+  const [tagEditingId, setTagEditingId] = useState<string | null>(null)
+  const [tagEditValue, setTagEditValue] = useState('')
+  const [savingTagId, setSavingTagId] = useState<string | null>(null)
+  const tagInputRef = useRef<HTMLInputElement>(null)
+
+  // Suggestions
+  const [tagSuggestions, setTagSuggestions] = useState<string[]>([])
 
   // Delete state
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
-
-  const editRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
     if (editingId && editRef.current) {
@@ -68,6 +87,10 @@ export default function Glossary() {
       editRef.current.setSelectionRange(editRef.current.value.length, editRef.current.value.length)
     }
   }, [editingId])
+
+  useEffect(() => {
+    if (tagEditingId && tagInputRef.current) tagInputRef.current.focus()
+  }, [tagEditingId])
 
   useEffect(() => {
     const supabase = createClient()
@@ -82,7 +105,7 @@ export default function Glossary() {
           { data: termsData, error: termsErr },
           { data: sessionsData, error: sessionsErr },
         ] = await Promise.all([
-          supabase.from('terms').select('id, term, definition, session_id').eq('user_id', user.id).order('created_at', { ascending: true }),
+          supabase.from('terms').select('id, term, definition, session_id, subject').eq('user_id', user.id).order('created_at', { ascending: true }),
           supabase.from('sessions').select('id, name, started_at, subject').eq('user_id', user.id).order('started_at', { ascending: true }),
         ])
 
@@ -121,6 +144,11 @@ export default function Glossary() {
 
         setSessions(sessionList)
         setOrphanTerms(orphans)
+
+        // Collect unique non-null tags for autocomplete suggestions
+        const tags = new Set<string>()
+        for (const t of allTerms) if (t.subject) tags.add(t.subject)
+        setTagSuggestions([...tags].sort())
       } catch (e) {
         console.error('glossary load error:', e)
       } finally {
@@ -129,32 +157,69 @@ export default function Glossary() {
     })()
   }, [])
 
-  const startEdit = (t: Term) => {
+  // ── All terms flattened (for tag grouping and suggestions) ───────────────────
+  const allTerms: Term[] = [
+    ...sessions.flatMap(s => s.terms),
+    ...orphanTerms,
+  ]
+
+  const allTagsList = [...new Set(allTerms.map(t => t.subject).filter(Boolean) as string[])].sort()
+
+  // ── Mutation helpers ─────────────────────────────────────────────────────────
+
+  const applyTermUpdate = (update: (t: Term) => Term) => {
+    setSessions(prev => prev.map(s => ({ ...s, terms: s.terms.map(update) })))
+    setOrphanTerms(prev => prev.map(update))
+  }
+
+  const startEditDef = (t: Term) => {
     setEditingId(t.id)
     setEditValue(t.definition)
+    setTagEditingId(null)
     setConfirmDeleteId(null)
   }
 
-  const cancelEdit = () => {
-    setEditingId(null)
-    setEditValue('')
-  }
+  const cancelEditDef = () => setEditingId(null)
 
-  const saveEdit = async (termId: string) => {
+  const saveDefinition = async (termId: string) => {
     const trimmed = editValue.trim()
-    if (!trimmed) { cancelEdit(); return }
+    if (!trimmed) { cancelEditDef(); return }
     setSavingId(termId)
     try {
       const supabase = createClient()
       await supabase.from('terms').update({ definition: trimmed }).eq('id', termId)
-      const update = (t: Term) => t.id === termId ? { ...t, definition: trimmed } : t
-      setSessions(prev => prev.map(s => ({ ...s, terms: s.terms.map(update) })))
-      setOrphanTerms(prev => prev.map(update))
+      applyTermUpdate(t => t.id === termId ? { ...t, definition: trimmed } : t)
       setEditingId(null)
     } catch (e) {
-      console.error('save edit error:', e)
+      console.error('save definition error:', e)
     } finally {
       setSavingId(null)
+    }
+  }
+
+  const startEditTag = (t: Term) => {
+    setTagEditingId(t.id)
+    setTagEditValue(t.subject ?? '')
+    setEditingId(null)
+    setConfirmDeleteId(null)
+  }
+
+  const cancelEditTag = () => setTagEditingId(null)
+
+  const saveTag = async (termId: string) => {
+    const trimmed = tagEditValue.trim()
+    const value = trimmed || null
+    setSavingTagId(termId)
+    try {
+      const supabase = createClient()
+      await supabase.from('terms').update({ subject: value }).eq('id', termId)
+      applyTermUpdate(t => t.id === termId ? { ...t, subject: value } : t)
+      if (value) setTagSuggestions(prev => prev.includes(value) ? prev : [...prev, value].sort())
+      setTagEditingId(null)
+    } catch (e) {
+      console.error('save tag error:', e)
+    } finally {
+      setSavingTagId(null)
     }
   }
 
@@ -178,42 +243,56 @@ export default function Glossary() {
     }
   }
 
+  // ── Filtering ────────────────────────────────────────────────────────────────
+
   const q = search.toLowerCase()
+
+  const termMatches = (t: Term) =>
+    !q || t.term.toLowerCase().includes(q) || t.definition.toLowerCase().includes(q) || (t.subject ?? '').toLowerCase().includes(q)
+
   const filteredSessions = sessions
-    .map(s => ({ ...s, terms: q ? s.terms.filter(t => t.term.toLowerCase().includes(q) || t.definition.toLowerCase().includes(q)) : s.terms }))
+    .map(s => ({ ...s, terms: s.terms.filter(termMatches) }))
     .filter(s => s.terms.length > 0)
-  const filteredOrphans = q
-    ? orphanTerms.filter(t => t.term.toLowerCase().includes(q) || t.definition.toLowerCase().includes(q))
-    : orphanTerms
+
+  const filteredOrphans = orphanTerms.filter(termMatches)
 
   const hasResults = filteredSessions.length > 0 || filteredOrphans.length > 0
 
-  // Build subject groups
-  const subjectGroups = (() => {
-    if (groupBy !== 'subject') return null
-    const map = new Map<string, { terms: Term[]; sessions: string[] }>()
-    for (const s of filteredSessions) {
-      const key = s.subject ?? 'Uncategorised'
-      if (!map.has(key)) map.set(key, { terms: [], sessions: [] })
-      map.get(key)!.terms.push(...s.terms)
-      map.get(key)!.sessions.push(s.name ?? fmtDate(s.started_at))
+  // ── Tag grouping ─────────────────────────────────────────────────────────────
+  // Groups terms by their own subject field; untagged terms fall into "Untagged"
+  const tagGroups = (() => {
+    if (groupBy !== 'tag') return null
+    const map = new Map<string, Term[]>()
+    const add = (t: Term) => {
+      const key = t.subject?.trim() || 'Untagged'
+      if (!map.has(key)) map.set(key, [])
+      map.get(key)!.push(t)
     }
-    if (filteredOrphans.length > 0) {
-      const key = 'Uncategorised'
-      if (!map.has(key)) map.set(key, { terms: [], sessions: [] })
-      map.get(key)!.terms.push(...filteredOrphans)
-    }
-    return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+    for (const s of filteredSessions) s.terms.forEach(add)
+    filteredOrphans.forEach(add)
+
+    let entries = [...map.entries()].sort((a, b) => {
+      if (a[0] === 'Untagged') return 1
+      if (b[0] === 'Untagged') return -1
+      return a[0].localeCompare(b[0])
+    })
+
+    if (tagFilter) entries = entries.filter(([key]) => key === tagFilter)
+
+    return entries
   })()
 
+  // ── Term row renderer ────────────────────────────────────────────────────────
   const renderTermRow = (t: Term, i: number) => (
     <div
       key={t.id}
-      className={`px-4 py-3.5 transition-colors duration-150 ${i > 0 ? 'border-t dark:border-white/[0.04] border-black/[0.05]' : ''} ${editingId === t.id ? 'dark:bg-white/[0.03] bg-[#F3F1EC]' : 'hover:bg-yellow-500/[0.03]'}`}
+      className={`px-4 py-3.5 transition-colors duration-150 ${i > 0 ? 'border-t dark:border-white/[0.04] border-black/[0.05]' : ''} ${editingId === t.id || tagEditingId === t.id ? 'dark:bg-white/[0.03] bg-[#F3F1EC]' : 'hover:bg-yellow-500/[0.02]'}`}
     >
       <div className="flex items-start gap-2">
         <div className="flex-1 min-w-0">
           <p className="text-[15px] font-semibold dark:text-white/90 text-gray-900 leading-snug">{t.term}</p>
+
+          {/* Definition */}
           {editingId === t.id ? (
             <div className="mt-2">
               <textarea
@@ -221,64 +300,88 @@ export default function Glossary() {
                 value={editValue}
                 onChange={e => setEditValue(e.target.value)}
                 onKeyDown={e => {
-                  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveEdit(t.id) }
-                  if (e.key === 'Escape') cancelEdit()
+                  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveDefinition(t.id) }
+                  if (e.key === 'Escape') cancelEditDef()
                 }}
                 rows={3}
                 className="w-full text-[13px] dark:text-white/80 text-gray-700 dark:bg-white/[0.05] bg-[#EFEDE7] border dark:border-amber-500/30 border-amber-500/40 rounded-xl px-3 py-2 resize-none focus:outline-none leading-relaxed"
               />
               <div className="flex items-center gap-2 mt-1.5">
-                <button
-                  onClick={() => saveEdit(t.id)}
-                  disabled={savingId === t.id}
-                  className="text-[12px] font-semibold text-amber-400 hover:text-amber-300 disabled:opacity-40 transition-colors"
-                >
+                <button onClick={() => saveDefinition(t.id)} disabled={savingId === t.id} className="text-[12px] font-semibold text-amber-400 hover:text-amber-300 disabled:opacity-40 transition-colors">
                   {savingId === t.id ? 'Saving…' : 'Save'}
                 </button>
-                <button
-                  onClick={cancelEdit}
-                  className="text-[12px] text-gray-600 hover:text-gray-500 transition-colors"
-                >
-                  Cancel
-                </button>
+                <button onClick={cancelEditDef} className="text-[12px] text-gray-600 hover:text-gray-500 transition-colors">Cancel</button>
               </div>
             </div>
           ) : (
             <p className="text-[13px] text-gray-700 mt-1 leading-relaxed">{t.definition}</p>
           )}
+
+          {/* Tag pill / inline tag editor */}
+          {editingId !== t.id && (
+            <div className="mt-2">
+              {tagEditingId === t.id ? (
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1 max-w-[220px]">
+                    <input
+                      ref={tagInputRef}
+                      value={tagEditValue}
+                      onChange={e => setTagEditValue(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') saveTag(t.id)
+                        if (e.key === 'Escape') cancelEditTag()
+                      }}
+                      placeholder="Group name (e.g. Week 3, Exam prep…)"
+                      list={`tag-suggestions-${t.id}`}
+                      className="w-full text-[12px] dark:text-white/80 text-gray-700 dark:bg-white/[0.06] bg-[#EFEDE7] border dark:border-amber-500/30 border-amber-500/40 rounded-lg px-2.5 py-1.5 focus:outline-none"
+                    />
+                    {tagSuggestions.length > 0 && (
+                      <datalist id={`tag-suggestions-${t.id}`}>
+                        {tagSuggestions.map(s => <option key={s} value={s} />)}
+                      </datalist>
+                    )}
+                  </div>
+                  <button onClick={() => saveTag(t.id)} disabled={savingTagId === t.id} className="text-[11px] font-semibold text-amber-400 hover:text-amber-300 disabled:opacity-40 transition-colors shrink-0">
+                    {savingTagId === t.id ? '…' : 'Save'}
+                  </button>
+                  <button onClick={cancelEditTag} className="text-[11px] text-gray-600 hover:text-gray-500 transition-colors shrink-0">Cancel</button>
+                </div>
+              ) : t.subject ? (
+                <button
+                  onClick={() => startEditTag(t)}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium dark:bg-amber-500/10 bg-amber-100 dark:text-amber-400/80 text-amber-700 dark:border-amber-500/20 border-amber-200 border hover:opacity-70 transition-opacity"
+                >
+                  <TagIcon />
+                  {t.subject}
+                </button>
+              ) : (
+                <button
+                  onClick={() => startEditTag(t)}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] text-gray-600 dark:bg-white/[0.04] bg-black/[0.04] border dark:border-white/[0.06] border-black/[0.08] hover:dark:border-amber-500/30 hover:border-amber-300 hover:dark:text-amber-400 hover:text-amber-600 transition-all"
+                >
+                  <TagIcon />
+                  Add group
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
-        {editingId !== t.id && (
+        {/* Action buttons */}
+        {editingId !== t.id && tagEditingId !== t.id && (
           <div className="flex items-center gap-0.5 shrink-0 mt-0.5">
-            <button
-              onClick={() => startEdit(t)}
-              title="Edit definition"
-              className="p-1.5 text-gray-700 hover:dark:text-yellow-400 hover:text-yellow-700 transition-colors rounded-lg hover:dark:bg-white/[0.06] hover:bg-black/[0.05]"
-            >
+            <button onClick={() => startEditDef(t)} title="Edit definition" className="p-1.5 text-gray-700 hover:dark:text-yellow-400 hover:text-yellow-700 transition-colors rounded-lg hover:dark:bg-white/[0.06] hover:bg-black/[0.05]">
               <PencilIcon />
             </button>
             {confirmDeleteId === t.id ? (
               <div className="flex items-center gap-1 ml-1">
-                <button
-                  onClick={() => setConfirmDeleteId(null)}
-                  className="text-[11px] text-gray-600 hover:text-gray-500 transition-colors px-1.5 py-1"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => deleteTerm(t.id)}
-                  disabled={deletingId === t.id}
-                  className="text-[11px] font-semibold text-red-400 hover:text-red-300 transition-colors px-1.5 py-1 disabled:opacity-40"
-                >
+                <button onClick={() => setConfirmDeleteId(null)} className="text-[11px] text-gray-600 hover:text-gray-500 transition-colors px-1.5 py-1">Cancel</button>
+                <button onClick={() => deleteTerm(t.id)} disabled={deletingId === t.id} className="text-[11px] font-semibold text-red-400 hover:text-red-300 transition-colors px-1.5 py-1 disabled:opacity-40">
                   {deletingId === t.id ? '…' : 'Delete'}
                 </button>
               </div>
             ) : (
-              <button
-                onClick={() => setConfirmDeleteId(t.id)}
-                title="Delete term"
-                className="p-1.5 text-gray-700 hover:text-red-400 transition-colors rounded-lg hover:dark:bg-white/[0.06] hover:bg-black/[0.05]"
-              >
+              <button onClick={() => setConfirmDeleteId(t.id)} title="Delete term" className="p-1.5 text-gray-700 hover:text-red-400 transition-colors rounded-lg hover:dark:bg-white/[0.06] hover:bg-black/[0.05]">
                 <TrashIcon />
               </button>
             )}
@@ -288,13 +391,10 @@ export default function Glossary() {
     </div>
   )
 
-  // Whether to show subject toggle (only useful if sessions span >1 subject)
-  const subjects = new Set(sessions.map(s => s.subject ?? 'Uncategorised'))
-  const showGroupToggle = !loading && totalCount > 0 && subjects.size > 1
+  const hasMultipleSessions = sessions.length > 1 || orphanTerms.length > 0
 
   return (
     <main className="min-h-dvh dark:bg-[#080810] bg-[#EDEAE3] dark:text-white text-gray-900 flex flex-col nav-bottom-pad">
-      {/* Ambient glow */}
       <div aria-hidden className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
         <div className="absolute -top-32 -left-32 w-[500px] h-[500px] rounded-full bg-yellow-700/[0.05] blur-[120px]" />
       </div>
@@ -305,6 +405,7 @@ export default function Glossary() {
 
       <div className="flex-1 overflow-y-auto relative z-10">
       <div className="w-full max-w-2xl mx-auto animate-step opacity-0" style={{ animationFillMode: 'forwards' }}>
+
       {/* Hero */}
       <div className="px-4 sm:px-6 pt-6 pb-5">
         {loading ? (
@@ -322,39 +423,61 @@ export default function Glossary() {
           </>
         )}
 
-        {/* Search + group toggle */}
         {!loading && totalCount > 0 && (
-          <div className="flex items-center gap-2 mt-5">
-            <div className="relative flex-1">
-              <svg
-                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-600 pointer-events-none"
-                width="15" height="15" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-              >
-                <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-              </svg>
-              <input
-                type="text"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Search words..."
-                className="w-full pl-10 pr-4 py-3 dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.08] border-black/[0.13] rounded-2xl text-[14px] dark:text-white text-gray-900 placeholder-gray-700 focus:outline-none focus:border-yellow-500/40 focus:dark:bg-white/[0.07] bg-[#EFEDE7] transition-all"
-              />
+          <div className="mt-5 space-y-3">
+            {/* Search */}
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-600 pointer-events-none" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                <input
+                  type="text"
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Search words…"
+                  className="w-full pl-10 pr-4 py-3 dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.08] border-black/[0.13] rounded-2xl text-[14px] dark:text-white text-gray-900 placeholder-gray-700 focus:outline-none focus:border-yellow-500/40 focus:dark:bg-white/[0.07] transition-all"
+                />
+              </div>
+
+              {/* View toggle */}
+              {hasMultipleSessions && (
+                <div className="flex items-center dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.08] border-black/[0.13] rounded-2xl p-1 shrink-0">
+                  <button
+                    onClick={() => { setGroupBy('session'); setTagFilter(null) }}
+                    className={`text-[12px] font-medium px-3 py-1.5 rounded-xl transition-all ${groupBy === 'session' ? 'dark:bg-white/[0.10] bg-white shadow-sm dark:text-white text-gray-900' : 'text-gray-600 hover:text-gray-500'}`}
+                  >
+                    Session
+                  </button>
+                  <button
+                    onClick={() => setGroupBy('tag')}
+                    className={`text-[12px] font-medium px-3 py-1.5 rounded-xl transition-all ${groupBy === 'tag' ? 'dark:bg-white/[0.10] bg-white shadow-sm dark:text-white text-gray-900' : 'text-gray-600 hover:text-gray-500'}`}
+                  >
+                    Group
+                  </button>
+                </div>
+              )}
             </div>
-            {showGroupToggle && (
-              <div className="flex items-center dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.08] border-black/[0.13] rounded-2xl p-1 shrink-0">
+
+            {/* Tag filter chips (shown in Group view) */}
+            {groupBy === 'tag' && allTagsList.length > 0 && (
+              <div className="flex items-center gap-1.5 flex-wrap">
                 <button
-                  onClick={() => setGroupBy('session')}
-                  className={`text-[12px] font-medium px-3 py-1.5 rounded-xl transition-all ${groupBy === 'session' ? 'dark:bg-white/[0.10] bg-white shadow-sm dark:text-white text-gray-900' : 'text-gray-600 hover:text-gray-500'}`}
+                  onClick={() => setTagFilter(null)}
+                  className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-medium transition-all border ${!tagFilter ? 'dark:bg-amber-500/15 bg-amber-100 dark:text-amber-300 text-amber-700 dark:border-amber-500/30 border-amber-300' : 'dark:bg-white/[0.04] bg-[#FAF9F6] text-gray-600 dark:border-white/[0.07] border-black/[0.10] hover:dark:border-white/[0.12] hover:border-black/[0.16]'}`}
                 >
-                  Session
+                  All
                 </button>
-                <button
-                  onClick={() => setGroupBy('subject')}
-                  className={`text-[12px] font-medium px-3 py-1.5 rounded-xl transition-all ${groupBy === 'subject' ? 'dark:bg-white/[0.10] bg-white shadow-sm dark:text-white text-gray-900' : 'text-gray-600 hover:text-gray-500'}`}
-                >
-                  Subject
-                </button>
+                {allTagsList.map(tag => (
+                  <button
+                    key={tag}
+                    onClick={() => setTagFilter(tagFilter === tag ? null : tag)}
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium transition-all border ${tagFilter === tag ? 'dark:bg-amber-500/15 bg-amber-100 dark:text-amber-300 text-amber-700 dark:border-amber-500/30 border-amber-300' : 'dark:bg-white/[0.04] bg-[#FAF9F6] text-gray-600 dark:border-white/[0.07] border-black/[0.10] hover:dark:border-white/[0.12] hover:border-black/[0.16]'}`}
+                  >
+                    <TagIcon />
+                    {tag}
+                  </button>
+                ))}
               </div>
             )}
           </div>
@@ -371,12 +494,10 @@ export default function Glossary() {
                   <div className="h-5 w-8 bg-yellow-500/10 rounded-full" />
                   <div className="h-3 w-28 dark:bg-white/[0.05] bg-[#F6F5F2] rounded-full" />
                   <div className="flex-1 h-px dark:bg-white/[0.04] bg-[#FAF9F6]" />
-                  <div className="h-3 w-12 dark:bg-white/[0.04] bg-[#FAF9F6] rounded-full" />
                 </div>
                 <div className="dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl overflow-hidden">
                   {Array.from({ length: count }).map((_, j) => (
                     <div key={j} className={`px-4 py-4 flex gap-3 ${j > 0 ? 'border-t dark:border-white/[0.04] border-black/[0.05]' : ''}`}>
-                      <div className="w-[3px] shrink-0 rounded-full dark:bg-white/[0.06] bg-[#F3F1EC] self-stretch" />
                       <div className="flex-1">
                         <div className="h-4 w-32 dark:bg-white/[0.08] bg-[#EFEDE7] rounded-full mb-2" />
                         <div className="h-3 w-full dark:bg-white/[0.05] bg-[#F6F5F2] rounded-full" />
@@ -392,8 +513,7 @@ export default function Glossary() {
         {!loading && totalCount === 0 && (
           <div className="flex flex-col items-center justify-center py-20 text-center gap-2">
             <div className="w-12 h-12 rounded-2xl dark:bg-white/[0.04] bg-[#FAF9F6] border dark:border-white/[0.07] border-black/[0.16] flex items-center justify-center mb-2">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="text-gray-600">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="text-gray-600">
                 <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
                 <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
               </svg>
@@ -407,6 +527,7 @@ export default function Glossary() {
           <p className="text-center text-gray-600 text-[14px] py-12">No results for &ldquo;{search}&rdquo;</p>
         )}
 
+        {/* Session view */}
         {!loading && hasResults && groupBy === 'session' && (
           <div className="space-y-7">
             {filteredSessions.map(s => (
@@ -415,9 +536,7 @@ export default function Glossary() {
                   <span className={`text-[13px] font-semibold shrink-0 truncate max-w-[180px] ${s.name ? 'dark:text-white/80 text-gray-800' : 'text-gray-700'}`}>
                     {s.name || fmtDate(s.started_at)}
                   </span>
-                  {s.name && (
-                    <span className="text-[12px] text-gray-600 shrink-0">{fmtDate(s.started_at)}</span>
-                  )}
+                  {s.name && <span className="text-[12px] text-gray-600 shrink-0">{fmtDate(s.started_at)}</span>}
                   {s.subject && (
                     <span className="text-[11px] text-gray-700 dark:bg-white/[0.04] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-full px-2 py-[2px] truncate max-w-[100px]">
                       {s.subject}
@@ -448,12 +567,22 @@ export default function Glossary() {
           </div>
         )}
 
-        {!loading && hasResults && groupBy === 'subject' && subjectGroups && (
+        {/* Tag / Group view */}
+        {!loading && hasResults && groupBy === 'tag' && tagGroups && (
           <div className="space-y-7">
-            {subjectGroups.map(([subject, { terms }]) => (
-              <div key={subject}>
+            {tagGroups.length === 0 ? (
+              <p className="text-center text-gray-600 text-[14px] py-12">No terms in this group.</p>
+            ) : tagGroups.map(([tag, terms]) => (
+              <div key={tag}>
                 <div className="flex items-center gap-2.5 mb-3">
-                  <span className="text-[13px] font-semibold dark:text-white/80 text-gray-800 shrink-0 truncate max-w-[200px]">{subject}</span>
+                  {tag !== 'Untagged' ? (
+                    <div className="inline-flex items-center gap-1.5 shrink-0">
+                      <TagIcon />
+                      <span className="text-[13px] font-semibold dark:text-white/80 text-gray-800 truncate max-w-[200px]">{tag}</span>
+                    </div>
+                  ) : (
+                    <span className="text-[11px] font-bold text-gray-600 uppercase tracking-[0.14em] shrink-0">Untagged</span>
+                  )}
                   <div className="flex-1 h-px dark:bg-white/[0.05] bg-[#F6F5F2]" />
                   <span className="text-[11px] text-gray-700 shrink-0 tabular-nums">{terms.length} word{terms.length !== 1 ? 's' : ''}</span>
                 </div>
