@@ -217,7 +217,8 @@ export default function Dashboard() {
         filter: `session_id=eq.${liveSessionId}`,
       }, (payload) => {
         const text = (payload.new as { text?: string }).text
-        if (text) setSentences(prev => [...prev, text])
+        // Skip if processChunk already added this sentence locally
+        if (text) setSentences(prev => prev[prev.length - 1] === text ? prev : [...prev, text])
       })
       .subscribe()
     return () => {
@@ -420,6 +421,8 @@ export default function Dashboard() {
       const tx = await txRes.json()
       if (!tx?.text?.trim()) return
       transcriptRef.current = transcriptRef.current ? transcriptRef.current + ' ' + tx.text.trim() : tx.text.trim()
+      // Append to live transcript immediately (doesn't require transcript_chunks Realtime)
+      setSentences(prev => [...prev, tx.text.trim()])
 
       await runDetection(tx.text, sessionId, token)
     } catch (e) {
@@ -1032,7 +1035,7 @@ export default function Dashboard() {
             </div>
 
             {/* Live transcript — fills the space between the recording button and term cards */}
-            <div className="flex-1 min-h-0 px-4 sm:px-6 py-3 relative z-10">
+            <div className="flex-1 min-h-[80px] px-4 sm:px-6 py-3 relative z-10">
               <div className="relative h-full">
                 <div
                   ref={transcriptContainerRef}
@@ -1040,6 +1043,9 @@ export default function Dashboard() {
                   onClick={handleTranscriptClick}
                   className={`transcript-container h-full overflow-y-auto ${isScrolledUp ? 'scrolled-up' : ''}`}
                 >
+                  {sentences.length === 0 && (
+                    <p className="text-[13px] text-gray-700 italic">Transcription will appear here as you speak…</p>
+                  )}
                   {sentences.map((sentence, index) => {
                     const age = Math.min(sentences.length - 1 - index, 5)
                     return (

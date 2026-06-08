@@ -176,8 +176,11 @@ export default function ImportPage() {
     if (connected === '1') {
       setNotionConnectMsg('Notion connected successfully.')
       const supabase = createClient()
-      supabase.from('integrations').select('workspace_name').eq('provider', 'notion').maybeSingle()
-        .then(({ data }) => setNotionIntegration(data))
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (!session?.user) return
+        supabase.from('integrations').select('workspace_name').eq('user_id', session.user.id).eq('provider', 'notion').maybeSingle()
+          .then(({ data }) => setNotionIntegration(data))
+      })
     } else if (error) {
       const NOTION_ERRORS: Record<string, string> = {
         no_code: 'No authorisation code received from Notion.',
