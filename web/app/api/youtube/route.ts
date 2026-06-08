@@ -90,13 +90,9 @@ async function fetchYouTubeCaptions(videoId: string): Promise<CaptionSegment[]> 
     body: JSON.stringify({ videoId }),
   })
 
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({})) as { error?: string }
-    throw new Error(data.error ?? `edge_fn_${res.status}`)
-  }
-
-  const data = await res.json() as { ok?: boolean; segments?: CaptionSegment[] }
-  if (!data.segments?.length) throw new Error('no_captions')
+  const data = await res.json().catch(() => ({})) as { ok?: boolean; segments?: CaptionSegment[]; error?: string; diag?: string }
+  if (!res.ok) throw new Error(`${data.error ?? `edge_fn_${res.status}`}${data.diag ? ` diag(${data.diag})` : ''}`)
+  if (!data.segments?.length) throw new Error('no_segments')
   return data.segments
 }
 
