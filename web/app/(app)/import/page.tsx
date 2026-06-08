@@ -28,19 +28,8 @@ function friendlyAudioError(code: string): string {
 
 type AudioStatus = 'idle' | 'uploading' | 'transcribing' | 'processing' | 'done' | 'error'
 type TextStatus = 'idle' | 'extracting' | 'processing' | 'done' | 'error'
-type YTStatus = 'idle' | 'fetching' | 'ready' | 'importing' | 'done' | 'error'
 type NotionPushStatus = 'idle' | 'pushing' | 'done' | 'error'
 type NotionPullStatus = 'idle' | 'loading_pages' | 'importing' | 'done' | 'error'
-
-interface YTMeta {
-  video_id: string
-  title: string
-  channel: string
-  thumbnail: string
-  duration_formatted: string
-  transcript: string
-  word_count: number
-}
 
 interface UploadResult {
   session_id: string
@@ -111,15 +100,6 @@ export default function ImportPage() {
   const [profile, setProfile] = useState<{ course: string | null; year_of_study: number | null } | null>(null)
   const [notionIntegration, setNotionIntegration] = useState<NotionIntegration | null>(null)
   const [notionConnectMsg, setNotionConnectMsg] = useState<string | null>(null)
-
-  // YouTube import state
-  const [ytUrl, setYtUrl] = useState('')
-  const [ytStatus, setYtStatus] = useState<YTStatus>('idle')
-  const [ytMeta, setYtMeta] = useState<YTMeta | null>(null)
-  const [ytResult, setYtResult] = useState<UploadResult | null>(null)
-  const [ytError, setYtError] = useState<string | null>(null)
-  const [ytProgress, setYtProgress] = useState(0)
-  const [ytRedirect, setYtRedirect] = useState<number | null>(null)
 
   // Audio upload state
   const [audioFile, setAudioFile] = useState<File | null>(null)
@@ -253,33 +233,6 @@ export default function ImportPage() {
     return () => clearInterval(interval)
   }, [textStatus])
 
-  useEffect(() => {
-    let interval: ReturnType<typeof setInterval> | null = null
-    if (ytStatus === 'fetching') {
-      setYtProgress(0)
-      interval = setInterval(() => setYtProgress(p => Math.min(p + 12, 85)), 150)
-    } else if (ytStatus === 'importing') {
-      interval = setInterval(() => setYtProgress(p => Math.min(p + 0.4, 93)), 400)
-    } else if (ytStatus === 'done') {
-      setYtProgress(100)
-    } else if (ytStatus === 'idle' || ytStatus === 'error' || ytStatus === 'ready') {
-      setYtProgress(0)
-    }
-    return () => { if (interval) clearInterval(interval) }
-  }, [ytStatus])
-
-  useEffect(() => {
-    if (ytStatus !== 'done') return
-    setYtRedirect(3)
-    const interval = setInterval(() => {
-      setYtRedirect(c => {
-        if (c === null || c <= 1) { clearInterval(interval); router.push('/history'); return null }
-        return c - 1
-      })
-    }, 1000)
-    return () => clearInterval(interval)
-  }, [ytStatus])
-
   // ---- Audio upload ----
 
   const handleAudioUpload = async () => {
@@ -341,65 +294,6 @@ export default function ImportPage() {
     } catch (err) {
       setAudioError(err instanceof Error ? err.message : 'Something went wrong')
       setAudioStatus('error')
-    }
-  }
-
-  // ---- YouTube import ----
-
-  const handleYouTubeFetch = async () => {
-    if (!ytUrl.trim()) return
-    setYtStatus('fetching')
-    setYtError(null)
-    setYtMeta(null)
-    try {
-      const res = await fetchWithTimeout(`/api/youtube?url=${encodeURIComponent(ytUrl)}`, {}, 30_000)
-      const data = await res.json()
-      if (!res.ok) {
-        const msgs: Record<string, string> = {
-          invalid_youtube_url: 'That doesn\'t look like a valid YouTube URL.',
-          no_captions: data.message ?? 'This video has no captions. Try a video with subtitles enabled.',
-          unauthorized: 'Your session expired. Please sign in again.',
-        }
-        const debugSuffix = data.debug ? ` [${data.debug}]` : ''
-        throw new Error((msgs[data.error] ?? 'Failed to fetch video.') + debugSuffix)
-      }
-      setYtMeta(data)
-      setYtStatus('ready')
-    } catch (err) {
-      setYtError(err instanceof Error ? err.message : 'Something went wrong.')
-      setYtStatus('error')
-    }
-  }
-
-  const handleYouTubeImport = async () => {
-    if (!ytMeta) return
-    setYtStatus('importing')
-    setYtError(null)
-    try {
-      const supabase = createClient()
-      const { data: { session } } = await supabase.auth.getSession()
-      const token = session?.access_token
-      const base = process.env.NEXT_PUBLIC_SUPABASE_URL!
-      if (!token) throw new Error('Not authenticated')
-
-      const res = await fetchWithTimeout(`${base}/functions/v1/process-text-upload`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text: ytMeta.transcript,
-          session_name: ytMeta.title.slice(0, 100),
-          subject: profile?.course ?? null,
-          year_of_study: profile?.year_of_study ?? null,
-          source: 'youtube_import',
-        }),
-      })
-      const data = await res.json()
-      if (!res.ok || !data.ok) throw new Error(data.error ?? 'Processing failed')
-      setYtResult(data)
-      setYtStatus('done')
-    } catch (err) {
-      setYtError(err instanceof Error ? err.message : 'Something went wrong.')
-      setYtStatus('error')
     }
   }
 
@@ -630,106 +524,6 @@ export default function ImportPage() {
           <h1 className="text-2xl font-bold tracking-tight dark:text-white text-gray-900">Import</h1>
           <p className="mt-1 text-sm text-gray-700">Upload recordings, slides, or sync with Notion to build your glossary.</p>
         </div>
-
-        {/* Section 0: YouTube */}
-        <section className="mb-5 animate-step opacity-0" style={{ animationDelay: '60ms', animationFillMode: 'forwards' }}>
-          <div className="rounded-2xl dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.07] border-black/[0.16] overflow-hidden">
-            <div className="px-5 pt-5 pb-4">
-              <div className="flex items-center gap-3 mb-1">
-                <span className="flex items-center justify-center w-8 h-8 rounded-xl bg-red-500/[0.12] text-red-400">
-                  <YouTubeIcon />
-                </span>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-[15px] font-semibold dark:text-white text-gray-900">YouTube Lecture</h2>
-                  <span className="text-[10px] font-bold tracking-[0.1em] dark:text-yellow-400 text-yellow-700 bg-yellow-600/15 border border-yellow-500/25 rounded-full px-2 py-0.5 uppercase">New</span>
-                </div>
-              </div>
-              <p className="text-xs text-gray-700 mt-1 ml-11">Paste any YouTube lecture URL. Demist reads the captions and pulls out unfamiliar concepts, no recording needed.</p>
-            </div>
-
-            <div className="px-5 pb-2">
-              <div className="flex gap-2">
-                <input
-                  type="url"
-                  value={ytUrl}
-                  onChange={e => { setYtUrl(e.target.value); if (ytStatus === 'error' || ytStatus === 'ready') { setYtStatus('idle'); setYtMeta(null); setYtError(null) } }}
-                  onKeyDown={e => e.key === 'Enter' && ytUrl.trim() && ytStatus === 'idle' && handleYouTubeFetch()}
-                  placeholder="https://youtube.com/watch?v=..."
-                  className="flex-1 dark:bg-white/[0.04] bg-[#FAF9F6] border dark:border-white/[0.08] border-black/[0.13] rounded-xl px-3 py-2.5 text-[13px] dark:text-white text-gray-900 placeholder-gray-600 focus:outline-none focus:border-yellow-500/40 transition-colors"
-                />
-                <button
-                  onClick={handleYouTubeFetch}
-                  disabled={!ytUrl.trim() || ytStatus === 'fetching' || ytStatus === 'importing'}
-                  className="px-4 py-2.5 rounded-xl dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.08] border-black/[0.13] text-[13px] font-medium text-gray-300 hover:dark:bg-white/[0.08] bg-[#EFEDE7] disabled:opacity-40 transition-colors shrink-0"
-                >
-                  {ytStatus === 'fetching' ? <span className="flex items-center gap-1.5"><SpinnerIcon />Fetching...</span> : 'Fetch'}
-                </button>
-              </div>
-            </div>
-
-            {/* Video preview once fetched */}
-            {ytMeta && ytStatus !== 'idle' && ytStatus !== 'fetching' && (
-              <div className="mx-5 mb-3 dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-xl p-3 flex items-start gap-3">
-                {ytMeta.thumbnail && (
-                  <img src={ytMeta.thumbnail} alt="" className="w-20 h-14 object-cover rounded-lg shrink-0 dark:bg-white/[0.05] bg-[#F6F5F2]" />
-                )}
-                <div className="min-w-0">
-                  <p className="text-[13px] font-medium dark:text-white text-gray-900 truncate">{ytMeta.title}</p>
-                  <p className="text-[11px] text-gray-700 mt-0.5">{ytMeta.channel} · {ytMeta.duration_formatted}</p>
-                  <p className="text-[11px] text-gray-600 mt-0.5">~{ytMeta.word_count.toLocaleString()} words</p>
-                </div>
-              </div>
-            )}
-
-            {/* Progress bar during import */}
-            {(ytStatus === 'fetching' || ytStatus === 'importing') && (
-              <div className="mx-5 mb-3">
-                <div className="h-1 rounded-full dark:bg-white/[0.06] bg-[#F3F1EC] overflow-hidden">
-                  <div className="h-full rounded-full bg-red-500 transition-all duration-500 ease-out" style={{ width: `${ytProgress}%` }} />
-                </div>
-                <p className="text-[11px] text-gray-600 mt-1.5" aria-live="polite">
-                  {ytStatus === 'fetching' ? 'Fetching captions...' : 'Finding concepts...'}
-                </p>
-              </div>
-            )}
-
-            {/* Success state */}
-            {ytStatus === 'done' && ytResult && (
-              <div className="mx-5 mb-5 flex flex-col gap-2">
-                <div className="flex items-center gap-2 text-emerald-400">
-                  <CheckCircleIcon />
-                  <span className="text-sm font-medium">Imported successfully</span>
-                </div>
-                <p className="text-xs text-gray-600">
-                  {ytResult.term_count} concept{ytResult.term_count !== 1 ? 's' : ''} detected.
-                  {ytResult.synopsis ? ' Summary generated.' : ''}
-                </p>
-                <div className="flex items-center justify-between">
-                  <div className="flex gap-2">
-                    <button onClick={() => router.push('/history')} className="text-xs font-medium dark:text-yellow-400 text-yellow-700 hover:dark:text-yellow-300 text-yellow-700 transition-colors active:scale-[0.97]">View in History</button>
-                    <span className="text-gray-700">·</span>
-                    <button onClick={() => { setYtRedirect(null); setYtUrl(''); setYtStatus('idle'); setYtMeta(null); setYtResult(null) }} className="text-xs text-gray-700 hover:text-gray-600 transition-colors active:scale-[0.97]">Import another</button>
-                  </div>
-                  {ytRedirect !== null && <span className="text-xs text-gray-600">Redirecting in {ytRedirect}s</span>}
-                </div>
-              </div>
-            )}
-
-            {ytError && <p className="mx-5 mb-4 text-xs text-red-400" role="alert">{ytError}</p>}
-
-            {/* Import button — shown once video is fetched */}
-            {ytMeta && (ytStatus === 'ready' || ytStatus === 'error') && (
-              <div className="px-5 pb-5">
-                <button
-                  onClick={handleYouTubeImport}
-                  className="w-full h-10 rounded-xl text-sm font-semibold bg-red-600 hover:bg-red-500 dark:text-white text-gray-900 transition-colors active:scale-[0.97]"
-                >
-                  Import this lecture
-                </button>
-              </div>
-            )}
-          </div>
-        </section>
 
         {/* Section 1: Audio */}
         <section className="mb-5 animate-step opacity-0" style={{ animationDelay: '90ms', animationFillMode: 'forwards' }}>
@@ -1172,14 +966,6 @@ export default function ImportPage() {
 }
 
 // ---- Icons ----
-
-function YouTubeIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z" />
-    </svg>
-  )
-}
 
 function MicIcon() {
   return (

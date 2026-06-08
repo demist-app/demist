@@ -67,8 +67,8 @@ const FEATURES = [
     tag: null as string | null,
   },
   {
-    title: 'YouTube & file import',
-    body: 'Paste a YouTube lecture URL or upload a recording, slide deck, or transcript. Demist pulls every unfamiliar concept from captions and builds your glossary in seconds.',
+    title: 'File import',
+    body: 'Upload a recording, slide deck, or transcript. Demist pulls every unfamiliar concept and builds your glossary in seconds.',
     Icon: ImportIcon,
     tag: 'New' as string | null,
   },
@@ -101,7 +101,7 @@ const FAQS = [
   },
   {
     q: 'What file formats can I import?',
-    a: 'You can paste a YouTube URL or upload an audio file (MP3, WAV, M4A), a PDF, or a slide deck. Demist extracts concepts from captions or document text automatically.',
+    a: 'You can upload an audio file (MP3, WAV, M4A), a slide deck (PPTX, DOCX), or a plain text transcript. Demist extracts concepts from your content automatically.',
   },
   {
     q: 'Why isn\'t Demist detecting any concepts?',
@@ -141,7 +141,7 @@ const STEPS = [
   {
     n: '01',
     title: 'Record live or import from anywhere',
-    body: 'Tap record before a lecture, paste a YouTube URL, or upload a recording or slide deck. No setup, no download. Just open the app.',
+    body: 'Tap record before a lecture, or upload a recording or slide deck. No setup, no download. Just open the app.',
   },
   {
     n: '02',
@@ -268,7 +268,7 @@ export default function LandingClient() {
           className="text-[16px] sm:text-[18px] leading-relaxed mb-10 max-w-[480px]"
           style={{ color: 'var(--fg-muted)', ...anim(240).style }}
         >
-          Record a live lecture or import from YouTube, a slide deck, or an audio file. Demist catches every unfamiliar term, explains it on screen, and builds your glossary, summaries, and flashcards automatically.
+          Record a live lecture or import a slide deck or audio file. Demist catches every unfamiliar term, explains it on screen, and builds your glossary, summaries, and flashcards automatically.
         </p>
 
         <div className="flex flex-col sm:flex-row items-center gap-3 mb-16" {...anim(320)}>
