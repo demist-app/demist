@@ -5,6 +5,10 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import posthog from 'posthog-js'
 import { SummaryViewer } from '../summary-viewer'
+import { requestWakeLock, releaseWakeLock, reacquireWakeLockOnVisibility, wakeLockSupported } from '@/lib/wakeLock'
+import { startTabCapture, tabCaptureSupported } from '@/lib/tabCapture'
+
+type CaptureMode = 'microphone' | 'tab'
 
 interface LiveTerm {
   id: string
@@ -80,6 +84,14 @@ function isLatinTerm(term: string): boolean {
   return /^[\x20-\x7EÀ-ɏͰ-Ͽ\s'-]+$/.test(term)
 }
 
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [isRecording, setIsRecording] = useState(false)
@@ -94,6 +106,14 @@ export default function Dashboard() {
   const [sessionFailIds, setSessionFailIds] = useState<Set<string>>(new Set())
   const [sessionTermLoading, setSessionTermLoading] = useState<string | null>(null)
   const [recordingError, setRecordingError] = useState<string | null>(null)
+  const [wakeLockUnsupported, setWakeLockUnsupported] = useState(false)
+  const [showAddToHomeScreen, setShowAddToHomeScreen] = useState(false)
+  const [captureMode, setCaptureMode] = useState<CaptureMode>('microphone')
+  const [capturedTabTitle, setCapturedTabTitle] = useState<string | null>(null)
+  const [tabCaptureSupportedState, setTabCaptureSupportedState] = useState(false)
+  const [sentences, setSentences] = useState<string[]>([])
+  const [isScrolledUp, setIsScrolledUp] = useState(false)
+  const [liveSessionId, setLiveSessionId] = useState<string | null>(null)
 
   const profileRef = useRef<Profile | null>(null)
   const userIdRef = useRef<string | null>(null)
@@ -108,6 +128,7 @@ export default function Dashboard() {
   const termFrequencyRef = useRef<Map<string, number>>(new Map())
   const sessionSummarizingRef = useRef(new Set<string>())
   const transcriptRef = useRef<string>('')
+  const chunkIndexRef = useRef(0)
   const startRecordingRef = useRef<() => Promise<void>>(() => Promise.resolve())
   const stopRecordingRef = useRef<() => Promise<void>>(() => Promise.resolve())
   const startingRef = useRef(false)
@@ -127,6 +148,8 @@ export default function Dashboard() {
   const barsRef = useRef<HTMLDivElement | null>(null)
   const btnRef = useRef<HTMLButtonElement | null>(null)
   const webLockReleaseRef = useRef<(() => void) | null>(null)
+  const transcriptContainerRef = useRef<HTMLDivElement | null>(null)
+  const autoScrollRef = useRef(true)
 
   useEffect(() => {
     if (!isRecording) return
@@ -179,6 +202,45 @@ export default function Dashboard() {
     }
     window.addEventListener('message', handler)
     return () => window.removeEventListener('message', handler)
+  }, [])
+
+  // Live transcript — subscribe to new chunks for the active session via Supabase Realtime
+  useEffect(() => {
+    if (!liveSessionId) return
+    const supabase = createClient()
+    const channel = supabase
+      .channel(`transcript-${liveSessionId}`)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'transcript_chunks',
+        filter: `session_id=eq.${liveSessionId}`,
+      }, (payload) => {
+        const text = (payload.new as { text?: string }).text
+        if (text) setSentences(prev => [...prev, text])
+      })
+      .subscribe()
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [liveSessionId])
+
+  // Auto-scroll the live transcript to the bottom as new sentences arrive
+  useEffect(() => {
+    if (!autoScrollRef.current) return
+    const el = transcriptContainerRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [sentences])
+
+  // iOS "Add to Home Screen" prompt — once per session, for users not already standalone
+  useEffect(() => {
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+    if (isIOS && !isStandalone && !sessionStorage.getItem('demist-a2hs-shown')) {
+      sessionStorage.setItem('demist-a2hs-shown', '1')
+      setShowAddToHomeScreen(true)
+    }
+    setTabCaptureSupportedState(tabCaptureSupported())
   }, [])
 
   useEffect(() => {
@@ -341,8 +403,9 @@ export default function Dashboard() {
       const token = session?.access_token
       if (!token) { console.error('processChunk: no auth token'); return }
       const base = process.env.NEXT_PUBLIC_SUPABASE_URL!
+      const chunkIndex = chunkIndexRef.current++
 
-      const txRes = await fetch(`${base}/functions/v1/transcribe`, {
+      const txRes = await fetch(`${base}/functions/v1/transcribe?session_id=${encodeURIComponent(sessionId)}&chunk_index=${chunkIndex}`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': blob.type || 'audio/webm' },
         body: blob,
@@ -384,9 +447,10 @@ export default function Dashboard() {
     }
   }
 
-  const startRecording = async () => {
+  const startRecording = async (mode: CaptureMode = 'microphone') => {
     if (isActiveRef.current || startingRef.current) return
     startingRef.current = true
+    setCapturedTabTitle(null)
 
     // Create and resume AudioContext synchronously within the user gesture — if deferred past
     // any await, iOS Safari considers the gesture consumed and keeps the context suspended.
@@ -395,21 +459,49 @@ export default function Dashboard() {
     audioProcessingCtxRef.current = audioCtx
 
     let stream: MediaStream
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: false,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
-        video: false,
+    if (mode === 'tab') {
+      let tabStream: MediaStream | null
+      try {
+        tabStream = await startTabCapture()
+      } catch (err) {
+        audioCtx.close()
+        audioProcessingCtxRef.current = null
+        startingRef.current = false
+        setRecordingError((err as Error)?.message || 'No audio detected. Make sure to select a browser tab, not a window or screen. Also check the "Share tab audio" checkbox in the sharing dialog.')
+        return
+      }
+      if (!tabStream) {
+        // User cancelled the tab picker
+        audioCtx.close()
+        audioProcessingCtxRef.current = null
+        startingRef.current = false
+        return
+      }
+      stream = tabStream
+      const audioTrack = stream.getAudioTracks()[0]
+      setCapturedTabTitle(audioTrack?.label || 'Browser tab')
+      audioTrack?.addEventListener('ended', () => {
+        if (!isActiveRef.current) return
+        setRecordingError('The shared tab was closed or sharing was stopped.')
+        stopRecordingRef.current()
       })
-    } catch {
-      audioCtx.close()
-      audioProcessingCtxRef.current = null
-      startingRef.current = false
-      alert('Microphone access is needed to use Demist.')
-      return
+    } else {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: false,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+          video: false,
+        })
+      } catch {
+        audioCtx.close()
+        audioProcessingCtxRef.current = null
+        startingRef.current = false
+        alert('Microphone access is needed to use Demist.')
+        return
+      }
     }
     streamRef.current = stream
 
@@ -456,10 +548,19 @@ export default function Dashboard() {
     isActiveRef.current = true
     termFrequencyRef.current = new Map()
     transcriptRef.current = ''
+    chunkIndexRef.current = 0
     startingRef.current = false
     setIsRecording(true); setElapsed(0); setLiveTerms([]); setSessionGlossary([]); setRecordingError(null)
+    setSentences([]); setIsScrolledUp(false); autoScrollRef.current = true
+    setLiveSessionId(sessionId)
+    setWakeLockUnsupported(!wakeLockSupported())
     window.postMessage({ source: 'demist', type: 'recording-started' }, window.location.origin)
     timerRef.current = setInterval(() => setElapsed(t => t + 1), 1000)
+
+    // Keep the screen on for the duration of the recording so audio capture
+    // isn't interrupted when the device locks.
+    await requestWakeLock()
+    reacquireWakeLockOnVisibility()
 
     // Hold a Web Lock for the duration of recording so Chrome doesn't throttle
     // background-tab timers (which would delay the 10-second Whisper chunk loop).
@@ -614,6 +715,9 @@ export default function Dashboard() {
     webLockReleaseRef.current?.()
     webLockReleaseRef.current = null
 
+    // Let the screen lock again now that recording has stopped
+    await releaseWakeLock()
+
     if (timerRef.current) clearInterval(timerRef.current)
     audioProcessingCtxRef.current?.close()
     audioProcessingCtxRef.current = null
@@ -626,6 +730,8 @@ export default function Dashboard() {
       await supabase.from('sessions').update({ ended_at: new Date().toISOString() }).eq('id', sid)
     }
     setIsRecording(false)
+    setCapturedTabTitle(null)
+    setLiveSessionId(null)
     window.postMessage({ source: 'demist', type: 'recording-stopped' }, window.location.origin)
     posthog.capture('recording_stopped', { duration_seconds: elapsed })
 
@@ -686,6 +792,51 @@ export default function Dashboard() {
         }
       }, 6000)
     }
+  }
+
+  // ── Live transcript: scroll handling, term highlighting, term-card re-open ──
+
+  const handleTranscriptScroll = () => {
+    const el = transcriptContainerRef.current
+    if (!el) return
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+    const atBottom = distanceFromBottom < 32
+    autoScrollRef.current = atBottom
+    setIsScrolledUp(prev => (prev === !atBottom ? prev : !atBottom))
+  }
+
+  const scrollToLive = () => {
+    const el = transcriptContainerRef.current
+    if (el) el.scrollTop = el.scrollHeight
+    autoScrollRef.current = true
+    setIsScrolledUp(false)
+  }
+
+  const openTermCard = (term: string) => {
+    const entry = sessionGlossary.find(g => g.term.toLowerCase() === term.toLowerCase())
+    if (!entry) return
+    const id = `${Date.now()}-${Math.random()}`
+    setLiveTerms(prev => [...prev, { id, term: entry.term, definition: entry.definition, dismissing: false }].slice(-3))
+    setTimeout(() => {
+      setLiveTerms(prev => prev.map(t => t.id === id ? { ...t, dismissing: true } : t))
+      setTimeout(() => setLiveTerms(prev => prev.filter(t => t.id !== id)), 380)
+    }, 8000)
+  }
+
+  const handleTranscriptClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement
+    if (!target.classList.contains('transcript-term')) return
+    const term = target.getAttribute('data-term')
+    if (term) openTermCard(term)
+  }
+
+  const highlightTerms = (text: string): string => {
+    const escaped = escapeHtml(text)
+    const terms = sessionGlossary.map(g => g.term).filter(Boolean)
+    if (!terms.length) return escaped
+    const pattern = terms.map(escapeRegExp).sort((a, b) => b.length - a.length).join('|')
+    const re = new RegExp(`\\b(${pattern})\\b`, 'gi')
+    return escaped.replace(re, m => `<span class="transcript-term" data-term="${escapeHtml(m)}">${m}</span>`)
   }
 
   const dismissTerm = (id: string) => {
@@ -835,13 +986,25 @@ export default function Dashboard() {
               <div className="w-[600px] h-[600px] rounded-full bg-red-600/[0.06] blur-[120px]" />
             </div>
 
+            {wakeLockUnsupported && (
+              <div className="relative z-10 mx-4 sm:mx-6 mt-4 bg-amber-50 border border-amber-200 rounded-lg px-4 py-2 text-sm text-amber-800">
+                Keep your screen on to avoid interrupting the recording.
+              </div>
+            )}
+
             {/* Visualizer */}
-            <div className="flex-1 flex flex-col items-center justify-center relative z-10">
+            <div className="shrink-0 flex flex-col items-center justify-center pt-8 pb-2 relative z-10">
               <div className="hidden sm:flex items-center gap-2 mb-6">
                 <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
                 <span className="font-mono text-[20px] tabular-nums">{fmtTime(elapsed)}</span>
                 {isProcessing && <span className="text-gray-600 text-[13px] ml-1">processing</span>}
               </div>
+
+              {capturedTabTitle && (
+                <p className="text-xs text-amber-600 mb-4 text-center max-w-xs truncate px-4">
+                  Capturing from: {capturedTabTitle}
+                </p>
+              )}
 
               <div className="relative flex items-center justify-center mb-6">
                 <span ref={ring1Ref} className="absolute w-[88px] h-[88px] rounded-full bg-red-500/[0.18]" style={{ willChange: 'transform' }} />
@@ -865,6 +1028,38 @@ export default function Dashboard() {
                     style={{ height: '4px', background: `rgba(239, 68, 68, ${0.4 + (i / 28) * 0.4})`, willChange: 'height' }}
                   />
                 ))}
+              </div>
+            </div>
+
+            {/* Live transcript — fills the space between the recording button and term cards */}
+            <div className="flex-1 min-h-0 px-4 sm:px-6 py-3 relative z-10">
+              <div className="relative h-full">
+                <div
+                  ref={transcriptContainerRef}
+                  onScroll={handleTranscriptScroll}
+                  onClick={handleTranscriptClick}
+                  className={`transcript-container h-full overflow-y-auto ${isScrolledUp ? 'scrolled-up' : ''}`}
+                >
+                  {sentences.map((sentence, index) => {
+                    const age = Math.min(sentences.length - 1 - index, 5)
+                    return (
+                      <p
+                        key={index}
+                        data-age={age}
+                        className="text-sm leading-relaxed mb-1 transition-opacity duration-500"
+                        dangerouslySetInnerHTML={{ __html: highlightTerms(sentence) }}
+                      />
+                    )
+                  })}
+                </div>
+                {isScrolledUp && (
+                  <button
+                    onClick={scrollToLive}
+                    className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-amber-500 text-white text-xs px-3 py-1.5 rounded-full"
+                  >
+                    back to live ↓
+                  </button>
+                )}
               </div>
             </div>
 
@@ -899,7 +1094,7 @@ export default function Dashboard() {
                 <span className="absolute w-[194px] h-[194px] rounded-full bg-yellow-600/[0.025]" style={{ animation: 'glow-float 4s ease-in-out -2.7s infinite' }} />
                 <button
                   ref={btnRef}
-                  onClick={startRecording}
+                  onClick={() => startRecording(captureMode)}
                   aria-label="Start recording"
                   className="relative z-10 w-[96px] h-[96px] rounded-full dark:bg-white/[0.08] bg-[#FAF9F6] border border-yellow-500/40 hover:bg-yellow-500/10 hover:border-yellow-500/60 hover:shadow-[0_0_48px_rgba(161,98,7,0.30)] dark:hover:shadow-[0_0_48px_rgba(251,191,36,0.30)] active:scale-[0.97] flex items-center justify-center transition-all duration-200 select-none shadow-sm"
                 >
@@ -910,6 +1105,31 @@ export default function Dashboard() {
                 {profile?.course ? `Ready for ${profile.course}` : 'Start recording'}
               </p>
               <p className="text-gray-600 text-[13px] mt-1.5">Tap the mic before your next lecture</p>
+
+              {/* Capture mode toggle */}
+              <div className="flex items-center gap-2 mt-4">
+                <button
+                  onClick={() => setCaptureMode('microphone')}
+                  className={`text-[12px] font-medium px-3.5 py-1.5 rounded-full border transition-colors ${captureMode === 'microphone' ? 'bg-amber-500 text-white border-amber-500' : 'dark:border-white/10 border-black/10 text-gray-600 dark:hover:border-white/20 hover:border-black/20'}`}
+                >
+                  Microphone
+                </button>
+                {tabCaptureSupportedState && (
+                  <Tooltip content="When the sharing dialog opens, make sure to tick 'Share tab audio'">
+                    <button
+                      onClick={() => setCaptureMode('tab')}
+                      className={`text-[12px] font-medium px-3.5 py-1.5 rounded-full border transition-colors ${captureMode === 'tab' ? 'bg-amber-500 text-white border-amber-500' : 'dark:border-white/10 border-black/10 text-gray-600 dark:hover:border-white/20 hover:border-black/20'}`}
+                    >
+                      From tab
+                    </button>
+                  </Tooltip>
+                )}
+              </div>
+              {captureMode === 'tab' && (
+                <p className="text-gray-600 text-[12px] mt-2 text-center max-w-xs">
+                  You&rsquo;ll be asked to pick a browser tab — tick &ldquo;Share tab audio&rdquo; so Demist can hear it.
+                </p>
+              )}
               {recordingError && (
                 <p className="mt-4 text-red-400 text-[13px] text-center max-w-xs" role="alert">{recordingError}</p>
               )}
@@ -1055,6 +1275,22 @@ export default function Dashboard() {
           />
         ))}
       </div>
+
+      {/* iOS "Add to Home Screen" prompt */}
+      {showAddToHomeScreen && (
+        <div className="fixed inset-x-4 bottom-20 sm:bottom-6 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:max-w-sm z-50 dark:bg-[#13120e] bg-[#FDFCF9] border dark:border-amber-500/20 border-amber-300/70 rounded-2xl px-4 py-3.5 shadow-lg flex items-start gap-3">
+          <div className="flex-1 text-[13px] dark:text-white/80 text-gray-800 leading-relaxed">
+            For the best experience, add Demist to your home screen. Tap <span className="font-semibold">Share</span> → <span className="font-semibold">Add to Home Screen</span>.
+          </div>
+          <button
+            onClick={() => setShowAddToHomeScreen(false)}
+            aria-label="Dismiss"
+            className="dark:text-white/30 text-gray-400 dark:hover:text-white/60 hover:text-gray-600 transition-colors text-[18px] leading-none shrink-0"
+          >
+            ×
+          </button>
+        </div>
+      )}
     </main>
   )
 }
@@ -1108,6 +1344,20 @@ function TermCard({
         </div>
       </div>
     </div>
+  )
+}
+
+function Tooltip({ content, children }: { content: string; children: React.ReactNode }) {
+  return (
+    <span className="relative inline-flex group">
+      {children}
+      <span
+        role="tooltip"
+        className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-[220px] text-center text-[11px] leading-snug px-2.5 py-1.5 rounded-lg dark:bg-white/10 bg-gray-900 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-150 z-20"
+      >
+        {content}
+      </span>
+    </span>
   )
 }
 

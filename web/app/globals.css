@@ -158,3 +158,33 @@ button, a {
     transform: none !important;
   }
 }
+
+/* ── Live transcript ── */
+.transcript-container {
+  position: relative;
+  padding-left: 16px;
+}
+.transcript-container::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: rgba(245, 166, 35, 0.2);
+}
+.transcript-container [data-age="0"] { opacity: 1;    font-weight: 500; }
+.transcript-container [data-age="1"] { opacity: 0.75; }
+.transcript-container [data-age="2"] { opacity: 0.55; }
+.transcript-container [data-age="3"] { opacity: 0.30; }
+.transcript-container [data-age="4"] { opacity: 0.15; }
+.transcript-container [data-age="5"] { opacity: 0.10; }
+.transcript-container.scrolled-up [data-age] {
+  opacity: 1;
+}
+.transcript-term {
+  color: #f5a623;
+  opacity: 1 !important;
+  font-weight: 600;
+  cursor: pointer;
+}

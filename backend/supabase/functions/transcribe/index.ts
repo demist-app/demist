@@ -63,6 +63,11 @@ serve(async (req) => {
   }
 
   try {
+    const url = new URL(req.url)
+    const sessionId = url.searchParams.get('session_id')
+    const chunkIndexParam = url.searchParams.get('chunk_index')
+    const chunkIndex = chunkIndexParam !== null ? Number(chunkIndexParam) : null
+
     const contentType = req.headers.get('content-type') ?? 'audio/webm'
     const audioBytes = await req.arrayBuffer()
 
@@ -106,7 +111,20 @@ serve(async (req) => {
     }
 
     const data = await response.json()
-    return new Response(JSON.stringify({ text: data.text ?? '' }), {
+    const text: string = data.text ?? ''
+
+    // Persist the chunk so the dashboard can stream it live via Supabase Realtime
+    if (text.trim() && sessionId && chunkIndex !== null && Number.isFinite(chunkIndex)) {
+      const { error: insertErr } = await supabase.from('transcript_chunks').insert({
+        session_id: sessionId,
+        user_id: user.id,
+        text: text.trim(),
+        chunk_index: chunkIndex,
+      })
+      if (insertErr) console.error('transcript_chunks insert error:', insertErr.message)
+    }
+
+    return new Response(JSON.stringify({ text }), {
       headers: { ...CORS, 'Content-Type': 'application/json' },
     })
   } catch (e) {

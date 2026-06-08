@@ -70,6 +70,13 @@ export default function RootLayout({
         <link rel="dns-prefetch" href={`https://${process.env.NEXT_PUBLIC_SUPABASE_URL?.split('//')[1]}`} />
         <link rel="preconnect" href="https://eu.i.posthog.com" />
         <link rel="dns-prefetch" href="https://eu.i.posthog.com" />
+
+        {/* iOS PWA — improves the home-screen experience for iPhone users */}
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="Demist" />
+        <link rel="apple-touch-icon" href="/icon.svg" />
+        <meta name="theme-color" content="#e8e4dc" />
       </head>
       <body className="min-h-full flex flex-col">
         <PHProvider>{children}</PHProvider>
