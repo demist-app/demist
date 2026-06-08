@@ -128,6 +128,7 @@ export default function Dashboard() {
   const ring3Ref = useRef<HTMLSpanElement | null>(null)
   const barsRef = useRef<HTMLDivElement | null>(null)
   const btnRef = useRef<HTMLButtonElement | null>(null)
+  const webLockReleaseRef = useRef<(() => void) | null>(null)
 
   useEffect(() => {
     if (!isRecording) return
@@ -471,6 +472,14 @@ export default function Dashboard() {
     window.postMessage({ source: 'demist', type: 'recording-started' }, window.location.origin)
     timerRef.current = setInterval(() => setElapsed(t => t + 1), 1000)
 
+    // Hold a Web Lock for the duration of recording so Chrome doesn't throttle
+    // background-tab timers (which would delay the 10-second Whisper chunk loop).
+    if ('locks' in navigator) {
+      navigator.locks.request('demist-recording', () => new Promise<void>(resolve => {
+        webLockReleaseRef.current = resolve
+      })).catch(() => {})
+    }
+
     // ── Whisper path: 10-second chunk loop ──────────────────────────────────────
     const doChunk = () => {
       peakLevelRef.current = 0
@@ -611,6 +620,10 @@ export default function Dashboard() {
       if (chunkTimerRef.current) clearTimeout(chunkTimerRef.current)
       if (recorderRef.current?.state === 'recording') recorderRef.current.stop()
     }
+
+    // Release the Web Lock so Chrome can resume normal background throttling
+    webLockReleaseRef.current?.()
+    webLockReleaseRef.current = null
 
     if (timerRef.current) clearInterval(timerRef.current)
     audioProcessingCtxRef.current?.close()
