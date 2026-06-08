@@ -106,7 +106,6 @@ export default function Dashboard() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const knownTermsRef = useRef<Set<string>>(new Set())
   const termFrequencyRef = useRef<Map<string, number>>(new Map())
-  const lastPopupAtRef = useRef<number>(0)
   const sessionSummarizingRef = useRef(new Set<string>())
   const transcriptRef = useRef<string>('')
   const startRecordingRef = useRef<() => Promise<void>>(() => Promise.resolve())
@@ -316,12 +315,8 @@ export default function Dashboard() {
       }, window.location.origin)
     }
 
-    const popupNow = Date.now()
-    const toShow = filtered.slice(0, popupNow - lastPopupAtRef.current >= 30_000 ? 1 : 0)
-    if (!toShow.length) return
-    lastPopupAtRef.current = popupNow
-
-    const incoming: LiveTerm[] = toShow.map(t => ({
+    // Show 1 card per chunk — natural rate is already ~10s between chunks
+    const incoming: LiveTerm[] = filtered.slice(0, 1).map(t => ({
       id: `${Date.now()}-${Math.random()}`,
       term: t.term,
       definition: t.definition,
@@ -464,7 +459,6 @@ export default function Dashboard() {
     const sessionId = session.id
     sessionIdRef.current = sessionId
     isActiveRef.current = true
-    lastPopupAtRef.current = 0
     termFrequencyRef.current = new Map()
     transcriptRef.current = ''
     startingRef.current = false
