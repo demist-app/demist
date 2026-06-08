@@ -101,7 +101,7 @@
       "PowerShell(Remove-Item -Force \"c:\\\\Users\\\\shivb\\\\Desktop\\\\coding bits\\\\demist\\\\web\\\\lib\\\\utils.ts\" -Confirm:$false)",
       "Bash(powershell -Command \"Compress-Archive -Path manifest.json,content-bridge.js,popup.js,popup.html,content-overlay.js,background.js -DestinationPath '..\\\\web\\\\public\\\\demist-extension.zip' -Force\")",
       "Bash(powershell -Command \"\\(Get-Item 'c:\\\\Users\\\\shivb\\\\Desktop\\\\coding bits\\\\demist\\\\web\\\\public\\\\demist-extension.zip'\\).LastWriteTime\")",
-"Bash(NEXT_PUBLIC_SUPABASE_URL=\"https://example.supabase.co\" NEXT_PUBLIC_SUPABASE_ANON_KEY=\"dummy\" timeout 280 npx next build)",
+      "Bash(NEXT_PUBLIC_SUPABASE_URL=\"https://example.supabase.co\" NEXT_PUBLIC_SUPABASE_ANON_KEY=\"dummy\" timeout 280 npx next build)",
       "Bash(NEXT_PUBLIC_SUPABASE_URL=\"https://example.supabase.co\" NEXT_PUBLIC_SUPABASE_ANON_KEY=\"dummy\" timeout 50 npx next dev -p 3411)",
       "Bash(curl -s http://localhost:3411/dashboard -o /tmp/dash.html -w \"%{http_code}\\\\n\")",
       "Read(//tmp/**)",
@@ -109,7 +109,9 @@
       "Bash(pkill -f \"next dev\")",
       "Bash(powershell -Command \"Compress-Archive -Force -Path 'extension\\\\*' -DestinationPath 'web\\\\public\\\\demist-extension.zip'\")",
       "Bash(git fetch *)",
-      "Bash(node -e \"const p = require\\('./node_modules/youtube-transcript/package.json'\\); console.log\\(p.version\\)\")"
+      "Bash(node -e \"const p = require\\('./node_modules/youtube-transcript/package.json'\\); console.log\\(p.version\\)\")",
+      "Bash(node -e ' *)",
+      "Bash(node -e \"const pkg = require\\('./node_modules/youtube-transcript/package.json'\\); console.log\\(pkg.version, pkg.main\\)\")"
     ],
     "additionalDirectories": [
       "c:\\Users\\shivb\\Desktop\\coding bits\\demist\\web\\app\\u"
