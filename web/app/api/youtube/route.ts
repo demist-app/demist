@@ -75,46 +75,29 @@ async function fetchCaptionTrack(track: CaptionTrack): Promise<CaptionSegment[]>
   return parseTimedtextXml(await xmlRes.text())
 }
 
-// Uses YouTube's InnerTube API with the Android client.
-// The Android user-agent bypasses GDPR consent gates and datacenter IP blocks that affect
-// browser-based clients. This is the same approach used by youtube-transcript@1.3.1.
-const INNERTUBE_VERSION = '20.10.38'
+// Calls the Supabase Edge Function which runs on Cloudflare infrastructure.
+// Cloudflare IPs are not blocked by YouTube, unlike Vercel's AWS datacenter IPs.
 async function fetchYouTubeCaptions(videoId: string): Promise<CaptionSegment[]> {
-  const playerRes = await fetch('https://www.youtube.com/youtubei/v1/player?prettyPrint=false', {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+
+  const res = await fetch(`${supabaseUrl}/functions/v1/youtube-captions`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'User-Agent': `com.google.android.youtube/${INNERTUBE_VERSION} (Linux; U; Android 14)`,
+      'Authorization': `Bearer ${supabaseKey}`,
     },
-    body: JSON.stringify({
-      videoId,
-      context: {
-        client: {
-          clientName: 'ANDROID',
-          clientVersion: INNERTUBE_VERSION,
-        },
-      },
-    }),
+    body: JSON.stringify({ videoId }),
   })
 
-  if (!playerRes.ok) throw new Error('innertube_failed')
-  const playerData = await playerRes.json() as {
-    playabilityStatus?: { status?: string }
-    captions?: { playerCaptionsTracklistRenderer?: { captionTracks?: CaptionTrack[] } }
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({})) as { error?: string }
+    throw new Error(data.error ?? `edge_fn_${res.status}`)
   }
 
-  if (playerData?.playabilityStatus?.status === 'ERROR') throw new Error('video_unavailable')
-
-  const tracks = playerData?.captions?.playerCaptionsTracklistRenderer?.captionTracks
-  if (!tracks?.length) throw new Error('no_captions')
-
-  // Prefer English (exact match first, then en-*, then whatever's available)
-  const track =
-    tracks.find(t => t.languageCode === 'en') ??
-    tracks.find(t => t.languageCode.startsWith('en')) ??
-    tracks[0]
-
-  return fetchCaptionTrack(track)
+  const data = await res.json() as { ok?: boolean; segments?: CaptionSegment[] }
+  if (!data.segments?.length) throw new Error('no_captions')
+  return data.segments
 }
 
 export async function GET(req: NextRequest) {
