@@ -464,7 +464,8 @@ function onTerm({ term, definition, termId }) {
 
 // ── Message listener ──────────────────────────────────────────────────────────
 
-chrome.runtime.onMessage.addListener((msg) => {
+chrome.runtime.onMessage.addListener((msg, _, sendResponse) => {
+  if (msg.type === 'PING') { sendResponse({ ok: true }); return true }
   if (msg.type === 'DEMIST_TERM')              onTerm(msg)
   if (msg.type === 'DEMIST_RECORDING_STARTED') onRecordingStarted()
   if (msg.type === 'DEMIST_RECORDING_STOPPED') onRecordingStopped(msg)

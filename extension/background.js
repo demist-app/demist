@@ -9,6 +9,21 @@ let timerInterval = null
 // Track all tabs running content-overlay.js so we can message them
 const overlayTabs = new Set()
 
+// MV3 service workers are killed after ~30s of inactivity, wiping all state.
+// On every wake-up, ping all open tabs to rediscover which ones have the overlay.
+async function rediscoverOverlayTabs() {
+  const tabs = await chrome.tabs.query({})
+  await Promise.all(tabs.map(async (tab) => {
+    if (!tab.id || !tab.url) return
+    if (tab.url.includes('demist.app') || tab.url.startsWith('chrome')) return
+    try {
+      const res = await chrome.tabs.sendMessage(tab.id, { type: 'PING' })
+      if (res?.ok) overlayTabs.add(tab.id)
+    } catch (_) {}
+  }))
+}
+rediscoverOverlayTabs()
+
 // Keep activeTabId in sync as the user switches tabs
 chrome.tabs.onActivated.addListener(async ({ tabId }) => {
   try {
