@@ -541,8 +541,12 @@ export default function ImportPage() {
             <div
               {...audioDropHandlers}
               className={`mx-5 mb-5 rounded-xl border-2 border-dashed transition-colors duration-150 ${
-                audioDragOver ? 'border-yellow-500/50 bg-yellow-500/[0.05]' : 'dark:border-white/[0.08] border-black/[0.13] bg-white/[0.02]'
-              } ${audioFile ? '' : 'cursor-pointer'}`}
+                audioDragOver
+                  ? 'border-yellow-500/60 bg-yellow-500/[0.07]'
+                  : audioFile
+                  ? 'dark:border-white/[0.08] border-black/[0.13]'
+                  : 'dark:border-white/[0.08] border-black/[0.13] hover:border-yellow-500/40 hover:bg-yellow-500/[0.03] cursor-pointer'
+              }`}
               onClick={() => { if (!audioFile) document.getElementById('audio-input')?.click() }}
             >
               <input
@@ -606,16 +610,16 @@ export default function ImportPage() {
                   </div>
                   <button
                     onClick={(e) => { e.stopPropagation(); setAudioFile(null); setAudioStatus('idle'); setAudioError(null) }}
-                    className="flex-shrink-0 text-gray-600 hover:text-gray-600 transition-colors duration-150 active:scale-[0.97]"
+                    className="flex-shrink-0 text-gray-600 hover:text-red-400 transition-colors duration-150 active:scale-[0.97]"
                   >
                     <CloseIcon />
                   </button>
                 </div>
               ) : (
-                <div className="p-8 flex flex-col items-center gap-2 text-center">
-                  <span className="text-gray-600"><UploadIcon /></span>
-                  <p className="text-sm text-gray-700">Drag a recording here or <span className="dark:text-yellow-400 text-yellow-700">browse</span></p>
-                  <p className="text-xs text-gray-600">MP3, WAV, MP4, M4A, WebM, OGG · up to 50 MB</p>
+                <div className="p-8 flex flex-col items-center gap-2 text-center pointer-events-none">
+                  <span className="text-gray-500 mb-0.5"><UploadIcon /></span>
+                  <p className="text-sm dark:text-white/70 text-gray-700">Drag a file here, or <span className="dark:text-yellow-400 text-yellow-700 font-medium">browse</span></p>
+                  <p className="text-xs text-gray-600">MP3 · WAV · MP4 · M4A · WebM · OGG · up to 50 MB</p>
                 </div>
               )}
             </div>
@@ -675,8 +679,12 @@ export default function ImportPage() {
             <div
               {...textDropHandlers}
               className={`mx-5 mb-5 rounded-xl border-2 border-dashed transition-colors duration-150 ${
-                textDragOver ? 'border-yellow-500/50 bg-yellow-500/[0.05]' : 'dark:border-white/[0.08] border-black/[0.13] bg-white/[0.02]'
-              } ${textFile ? '' : 'cursor-pointer'}`}
+                textDragOver
+                  ? 'border-yellow-500/60 bg-yellow-500/[0.07]'
+                  : textFile
+                  ? 'dark:border-white/[0.08] border-black/[0.13]'
+                  : 'dark:border-white/[0.08] border-black/[0.13] hover:border-yellow-500/40 hover:bg-yellow-500/[0.03] cursor-pointer'
+              }`}
               onClick={() => { if (!textFile) document.getElementById('text-input')?.click() }}
             >
               <input
@@ -735,16 +743,16 @@ export default function ImportPage() {
                   </div>
                   <button
                     onClick={(e) => { e.stopPropagation(); setTextFile(null); setTextStatus('idle'); setTextError(null) }}
-                    className="flex-shrink-0 text-gray-600 hover:text-gray-600 transition-colors duration-150 active:scale-[0.97]"
+                    className="flex-shrink-0 text-gray-600 hover:text-red-400 transition-colors duration-150 active:scale-[0.97]"
                   >
                     <CloseIcon />
                   </button>
                 </div>
               ) : (
-                <div className="p-8 flex flex-col items-center gap-2 text-center">
-                  <span className="text-gray-600"><UploadIcon /></span>
-                  <p className="text-sm text-gray-700">Drag a file here or <span className="dark:text-yellow-400 text-yellow-700">browse</span></p>
-                  <p className="text-xs text-gray-600">PPTX, DOCX, TXT</p>
+                <div className="p-8 flex flex-col items-center gap-2 text-center pointer-events-none">
+                  <span className="text-gray-500 mb-0.5"><UploadIcon /></span>
+                  <p className="text-sm dark:text-white/70 text-gray-700">Drag a file here, or <span className="dark:text-yellow-400 text-yellow-700 font-medium">browse</span></p>
+                  <p className="text-xs text-gray-600">PPTX · DOCX · TXT</p>
                 </div>
               )}
             </div>
@@ -807,20 +815,14 @@ export default function ImportPage() {
                 )}
               </div>
 
-              {notionIntegration && (
-                <p className="text-xs text-gray-700 ml-11 mb-5">
-                  {notionIntegration.workspace_name ? `Workspace: ${notionIntegration.workspace_name}` : 'Connected'}
-                </p>
-              )}
-
               {!notionIntegration && (
                 <p className="text-xs text-gray-700 mt-1 ml-11 mb-5">
-                  Connect to export your glossary and summaries, or import notes from a Notion page.
+                  Connect your Notion workspace to export your term glossary and session summaries, or scan a Notion page for unfamiliar concepts.
                 </p>
               )}
 
               {notionConnectMsg && (
-                <p className={`text-xs mb-4 ${notionConnectMsg.includes('failed') ? 'text-red-400' : 'text-emerald-400'}`}>
+                <p className={`text-xs mt-1 ml-11 mb-4 ${notionConnectMsg.includes('failed') ? 'text-red-400' : 'text-emerald-400'}`}>
                   {notionConnectMsg}
                 </p>
               )}
@@ -834,68 +836,84 @@ export default function ImportPage() {
                   Connect Notion
                 </a>
               ) : (
-                <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-4 mt-1">
+
+                  {/* Workspace badge */}
+                  {notionIntegration.workspace_name && (
+                    <p className="text-xs text-gray-600 ml-11 -mt-2">
+                      {notionIntegration.workspace_name}
+                    </p>
+                  )}
+
                   {/* Push section */}
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-600">Export to Notion</p>
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <button
-                      onClick={() => handleNotionPush('glossary')}
-                      disabled={glossaryPushStatus === 'pushing'}
-                      className={`flex-1 h-9 rounded-xl text-xs font-semibold border transition-colors duration-150 active:scale-[0.97] ${
-                        glossaryPushStatus === 'done'
-                          ? 'bg-emerald-500/[0.1] border-emerald-500/20 text-emerald-400'
-                          : glossaryPushStatus === 'error'
-                          ? 'bg-red-500/[0.08] border-red-500/20 text-red-400'
-                          : 'dark:bg-white/[0.03] bg-[#FAF9F6] dark:border-white/[0.08] border-black/[0.13] text-gray-300 hover:dark:bg-white/[0.05] bg-[#F6F5F2]'
-                      }`}
-                    >
-                      {glossaryPushStatus === 'pushing' ? (
-                        <span className="flex items-center justify-center gap-1.5"><SpinnerIcon />Exporting...</span>
-                      ) : glossaryPushStatus === 'done' ? (
-                        <span className="flex items-center justify-center gap-1.5">
-                          <CheckCircleIcon />
-                          {glossaryPageUrl ? (
-                            <a href={glossaryPageUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>
-                              Glossary exported
-                            </a>
-                          ) : 'Glossary exported'}
-                        </span>
-                      ) : glossaryPushStatus === 'error' ? 'Export failed, retry' : 'Export Glossary'}
-                    </button>
-                    <button
-                      onClick={() => handleNotionPush('summaries')}
-                      disabled={summaryPushStatus === 'pushing'}
-                      className={`flex-1 h-9 rounded-xl text-xs font-semibold border transition-colors duration-150 active:scale-[0.97] ${
-                        summaryPushStatus === 'done'
-                          ? 'bg-emerald-500/[0.1] border-emerald-500/20 text-emerald-400'
-                          : summaryPushStatus === 'error'
-                          ? 'bg-red-500/[0.08] border-red-500/20 text-red-400'
-                          : 'dark:bg-white/[0.03] bg-[#FAF9F6] dark:border-white/[0.08] border-black/[0.13] text-gray-300 hover:dark:bg-white/[0.05] bg-[#F6F5F2]'
-                      }`}
-                    >
-                      {summaryPushStatus === 'pushing' ? (
-                        <span className="flex items-center justify-center gap-1.5"><SpinnerIcon />Exporting...</span>
-                      ) : summaryPushStatus === 'done' ? (
-                        <span className="flex items-center justify-center gap-1.5">
-                          <CheckCircleIcon />
-                          {summaryPageUrl ? (
-                            <a href={summaryPageUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>
-                              Summaries exported
-                            </a>
-                          ) : 'Summaries exported'}
-                        </span>
-                      ) : summaryPushStatus === 'error' ? 'Export failed, retry' : 'Export Summaries'}
-                    </button>
+                  <div className="rounded-xl dark:bg-white/[0.03] bg-[#F3F1EC] border dark:border-white/[0.06] border-black/[0.08] p-4 flex flex-col gap-2.5">
+                    <div>
+                      <p className="text-[13px] font-semibold dark:text-white text-gray-900">Export to Notion</p>
+                      <p className="text-xs text-gray-600 mt-0.5">Save your term glossary or session summaries as new pages in your workspace.</p>
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <button
+                        onClick={() => handleNotionPush('glossary')}
+                        disabled={glossaryPushStatus === 'pushing'}
+                        className={`flex-1 h-9 rounded-xl text-xs font-semibold border transition-colors duration-150 active:scale-[0.97] ${
+                          glossaryPushStatus === 'done'
+                            ? 'bg-emerald-500/[0.1] border-emerald-500/20 text-emerald-400'
+                            : glossaryPushStatus === 'error'
+                            ? 'bg-red-500/[0.08] border-red-500/20 text-red-400'
+                            : 'dark:bg-white/[0.04] bg-white dark:border-white/[0.08] border-black/[0.13] dark:text-gray-300 text-gray-700 hover:dark:bg-white/[0.07] hover:bg-gray-50'
+                        }`}
+                      >
+                        {glossaryPushStatus === 'pushing' ? (
+                          <span className="flex items-center justify-center gap-1.5"><SpinnerIcon />Exporting...</span>
+                        ) : glossaryPushStatus === 'done' ? (
+                          <span className="flex items-center justify-center gap-1.5">
+                            <CheckCircleIcon />
+                            {glossaryPageUrl ? (
+                              <a href={glossaryPageUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>
+                                Glossary exported ↗
+                              </a>
+                            ) : 'Glossary exported'}
+                          </span>
+                        ) : glossaryPushStatus === 'error' ? 'Export failed — retry' : 'Export Term Glossary'}
+                      </button>
+                      <button
+                        onClick={() => handleNotionPush('summaries')}
+                        disabled={summaryPushStatus === 'pushing'}
+                        className={`flex-1 h-9 rounded-xl text-xs font-semibold border transition-colors duration-150 active:scale-[0.97] ${
+                          summaryPushStatus === 'done'
+                            ? 'bg-emerald-500/[0.1] border-emerald-500/20 text-emerald-400'
+                            : summaryPushStatus === 'error'
+                            ? 'bg-red-500/[0.08] border-red-500/20 text-red-400'
+                            : 'dark:bg-white/[0.04] bg-white dark:border-white/[0.08] border-black/[0.13] dark:text-gray-300 text-gray-700 hover:dark:bg-white/[0.07] hover:bg-gray-50'
+                        }`}
+                      >
+                        {summaryPushStatus === 'pushing' ? (
+                          <span className="flex items-center justify-center gap-1.5"><SpinnerIcon />Exporting...</span>
+                        ) : summaryPushStatus === 'done' ? (
+                          <span className="flex items-center justify-center gap-1.5">
+                            <CheckCircleIcon />
+                            {summaryPageUrl ? (
+                              <a href={summaryPageUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>
+                                Summaries exported ↗
+                              </a>
+                            ) : 'Summaries exported'}
+                          </span>
+                        ) : summaryPushStatus === 'error' ? 'Export failed — retry' : 'Export Session Summaries'}
+                      </button>
+                    </div>
                   </div>
 
                   {/* Pull section */}
-                  <div className="mt-1">
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-600 mb-2">Import from Notion</p>
+                  <div className="rounded-xl dark:bg-white/[0.03] bg-[#F3F1EC] border dark:border-white/[0.06] border-black/[0.08] p-4 flex flex-col gap-2.5">
+                    <div>
+                      <p className="text-[13px] font-semibold dark:text-white text-gray-900">Import from Notion</p>
+                      <p className="text-xs text-gray-600 mt-0.5">Pick one of your Notion pages and Demist will scan it for unfamiliar concepts, just like a live session.</p>
+                    </div>
                     {notionPages.length === 0 ? (
                       <button
                         onClick={loadNotionPages}
                         disabled={notionPullStatus === 'loading_pages'}
-                        className="w-full h-9 rounded-xl dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.08] border-black/[0.13] text-xs font-medium text-gray-300 hover:dark:bg-white/[0.05] bg-[#F6F5F2] transition-colors duration-150 active:scale-[0.97]"
+                        className="w-full h-9 rounded-xl dark:bg-white/[0.04] bg-white border dark:border-white/[0.08] border-black/[0.13] text-xs font-medium dark:text-gray-300 text-gray-700 hover:dark:bg-white/[0.07] hover:bg-gray-50 transition-colors duration-150 active:scale-[0.97]"
                       >
                         {notionPullStatus === 'loading_pages' ? (
                           <span className="flex items-center justify-center gap-1.5"><SpinnerIcon />Loading pages...</span>
@@ -906,7 +924,7 @@ export default function ImportPage() {
                         <select
                           value={selectedPageId}
                           onChange={e => setSelectedPageId(e.target.value)}
-                          className="w-full h-9 rounded-xl dark:bg-white/[0.04] bg-[#FAF9F6] border dark:border-white/[0.08] border-black/[0.13] text-sm text-gray-200 px-3 focus:outline-none focus:border-yellow-500/40 transition-colors duration-150 appearance-none"
+                          className="w-full h-9 rounded-xl dark:bg-white/[0.04] bg-white border dark:border-white/[0.08] border-black/[0.13] text-sm dark:text-gray-200 text-gray-800 px-3 focus:outline-none focus:border-yellow-500/40 transition-colors duration-150 appearance-none"
                         >
                           {notionPages.map(p => (
                             <option key={p.id} value={p.id} className="dark:bg-[#0d0d1c] bg-gray-50">{p.title}</option>
@@ -920,7 +938,7 @@ export default function ImportPage() {
                             </span>
                             <button
                               onClick={() => router.push('/history')}
-                              className="text-xs font-medium dark:text-yellow-400 text-yellow-700 hover:dark:text-yellow-300 text-yellow-700 transition-colors duration-150 active:scale-[0.97]"
+                              className="text-xs font-medium dark:text-yellow-400 text-yellow-700 hover:dark:text-yellow-300 transition-colors duration-150 active:scale-[0.97]"
                             >
                               View in History
                             </button>
@@ -932,12 +950,12 @@ export default function ImportPage() {
                             className={`w-full h-9 rounded-xl text-xs font-semibold transition-colors duration-150 active:scale-[0.97] ${
                               notionPullStatus === 'importing'
                                 ? 'bg-yellow-500/30 dark:text-yellow-300 text-yellow-700 cursor-not-allowed'
-                                : 'bg-yellow-600 hover:brightness-[1.1] dark:text-white text-gray-900'
+                                : 'bg-yellow-600 hover:brightness-[1.1] dark:text-white text-white'
                             }`}
                           >
                             {notionPullStatus === 'importing' ? (
-                              <span className="flex items-center justify-center gap-1.5"><SpinnerIcon />Importing...</span>
-                            ) : 'Import Selected Page'}
+                              <span className="flex items-center justify-center gap-1.5"><SpinnerIcon />Scanning page...</span>
+                            ) : 'Scan for Concepts'}
                           </button>
                         )}
                         {notionPullError && <p className="text-xs text-red-400">{notionPullError}</p>}
@@ -946,10 +964,10 @@ export default function ImportPage() {
                   </div>
 
                   {/* Disconnect */}
-                  <div className="pt-2 border-t dark:border-white/[0.05] border-black/[0.06]">
+                  <div className="-mt-1">
                     <button
                       onClick={handleDisconnectNotion}
-                      className="text-xs text-gray-600 hover:text-gray-600 transition-colors duration-150 active:scale-[0.97]"
+                      className="text-xs text-gray-600 hover:dark:text-gray-400 hover:text-gray-500 transition-colors duration-150 active:scale-[0.97]"
                     >
                       Disconnect Notion
                     </button>

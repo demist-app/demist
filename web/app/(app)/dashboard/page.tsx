@@ -1152,8 +1152,8 @@ export default function Dashboard() {
                 )}
               </div>
               {captureMode === 'tab' && (
-                <p className="text-gray-600 text-[12px] mt-2 text-center max-w-xs">
-                  You&rsquo;ll be asked to pick a browser tab — tick &ldquo;Share tab audio&rdquo; so Demist can hear it.
+                <p className="text-gray-600 text-[12px] mt-2 text-center max-w-xs leading-relaxed">
+                  Good for Zoom, Teams, Google Meet, or any online lecture. Pick the tab playing audio, tick <span className="dark:text-white/60 text-gray-800 font-medium">Share tab audio</span>, and Demist listens in.
                 </p>
               )}
               {recordingError && (
@@ -1272,16 +1272,28 @@ export default function Dashboard() {
                   </div>
                 </>
               ) : (
-                <div className="flex flex-col items-center justify-center py-10 text-center gap-2">
-                  <div className="w-12 h-12 rounded-2xl dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] flex items-center justify-center mb-1">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="text-gray-700">
-                      <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" />
-                      <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                      <line x1="12" y1="19" x2="12" y2="22" />
-                    </svg>
+                <div className="flex flex-col items-center py-8 text-center gap-5">
+                  <div>
+                    <p className="text-gray-600 text-[14px] font-medium mb-1">No sessions yet</p>
+                    <p className="text-gray-700 text-[13px]">Hit record before your next lecture and Demist handles the rest.</p>
                   </div>
-                  <p className="text-gray-600 text-[14px] font-medium">No sessions yet</p>
-                  <p className="text-gray-700 text-[13px]">Tap the mic above before your next lecture.</p>
+                  <div className="w-full max-w-xs flex flex-col gap-2 text-left">
+                    {[
+                      { n: '1', text: 'Tap the mic at the top of this page' },
+                      { n: '2', text: 'Unfamiliar terms appear on screen as you listen' },
+                      { n: '3', text: 'Your glossary and flashcards build automatically' },
+                    ].map(({ n, text }) => (
+                      <div key={n} className="flex items-start gap-3 px-4 py-3 rounded-xl dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.10]">
+                        <span className="w-5 h-5 rounded-full bg-yellow-500/20 dark:text-yellow-400 text-yellow-700 text-[11px] font-bold flex items-center justify-center shrink-0 mt-[1px]">{n}</span>
+                        <p className="text-[13px] text-gray-600 leading-snug">{text}</p>
+                      </div>
+                    ))}
+                  </div>
+                  {tabCaptureSupportedState && (
+                    <p className="text-[12px] text-gray-700 max-w-xs leading-relaxed">
+                      On Zoom or in an online lecture? Switch to <span className="dark:text-white/60 text-gray-800 font-medium">From tab</span> above to capture the audio directly from your browser.
+                    </p>
+                  )}
                 </div>
               )}
             </div>

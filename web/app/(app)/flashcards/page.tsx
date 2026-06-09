@@ -66,6 +66,9 @@ export default function Flashcards() {
   const [reviewedCards, setReviewedCards] = useState<FlashCard[]>([])
 
   // Browse mode
+  const [hasAnyTerms, setHasAnyTerms] = useState(true)
+
+  // Browse mode
   const [browseMode, setBrowseMode] = useState(false)
   const [allCards, setAllCards] = useState<FlashCard[]>([])
   const [browseLoading, setBrowseLoading] = useState(false)
@@ -97,7 +100,7 @@ export default function Flashcards() {
 
       const now = new Date().toISOString()
 
-      const [{ data: reviews }, { data: newCards }] = await Promise.all([
+      const [{ data: reviews }, { data: newCards }, { count: totalTerms }] = await Promise.all([
         supabase
           .from('terms')
           .select('id, term, definition, sm2_interval, sm2_ease, sm2_review_count, sm2_due_at')
@@ -114,7 +117,12 @@ export default function Flashcards() {
           .eq('sm2_review_count', 0)
           .order('created_at', { ascending: true })
           .limit(NEW_CARDS_PER_DAY),
+        supabase
+          .from('terms')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id),
       ])
+      setHasAnyTerms((totalTerms ?? 0) > 0)
 
       const due = (reviews ?? []).map(c => ({ ...c, isNew: false })) as FlashCard[]
       const fresh = (newCards ?? []).map(c => ({ ...c, isNew: true })) as FlashCard[]
@@ -456,24 +464,54 @@ export default function Flashcards() {
       {phase === 'empty' && (
         <div className="flex-1 flex flex-col px-4 sm:px-6 py-8">
           <div className="flex flex-col items-center text-center gap-3 mb-8">
-            <p className="text-[22px] font-bold">All caught up</p>
-            <p className="text-gray-700 text-[14px] leading-relaxed max-w-xs">
-              No cards due today. Record a lecture to add more words.
-            </p>
-            <div className="flex items-center gap-2 mt-2">
-              <Link
-                href="/history"
-                className="px-5 py-2.5 rounded-2xl dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.09] border-black/[0.14] text-[14px] font-medium text-gray-600 hover:dark:text-white text-gray-900 hover:dark:bg-white/[0.08] bg-[#EFEDE7] transition-all"
-              >
-                Browse sessions
-              </Link>
-              <button
-                onClick={openBrowse}
-                className="px-5 py-2.5 rounded-2xl dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.09] border-black/[0.14] text-[14px] font-medium text-gray-600 hover:dark:text-white text-gray-900 hover:dark:bg-white/[0.08] bg-[#EFEDE7] transition-all"
-              >
-                Browse all cards
-              </button>
-            </div>
+            {hasAnyTerms ? (
+              <>
+                <p className="text-[22px] font-bold">All caught up</p>
+                <p className="text-gray-700 text-[14px] leading-relaxed max-w-xs">
+                  Nothing due today. Check back after your next lecture.
+                </p>
+                <div className="flex items-center gap-2 mt-2">
+                  <Link
+                    href="/history"
+                    className="px-5 py-2.5 rounded-2xl dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.09] border-black/[0.14] text-[14px] font-medium text-gray-600 hover:dark:text-white text-gray-900 hover:dark:bg-white/[0.08] bg-[#EFEDE7] transition-all"
+                  >
+                    Browse sessions
+                  </Link>
+                  <button
+                    onClick={openBrowse}
+                    className="px-5 py-2.5 rounded-2xl dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.09] border-black/[0.14] text-[14px] font-medium text-gray-600 hover:dark:text-white text-gray-900 hover:dark:bg-white/[0.08] bg-[#EFEDE7] transition-all"
+                  >
+                    Browse all cards
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="w-14 h-14 rounded-2xl dark:bg-white/[0.04] bg-[#FAF9F6] border dark:border-white/[0.07] border-black/[0.16] flex items-center justify-center mb-1">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="text-gray-600">
+                    <rect x="2" y="3" width="20" height="14" rx="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" />
+                  </svg>
+                </div>
+                <p className="text-[22px] font-bold">No flashcards yet</p>
+                <p className="text-gray-700 text-[14px] leading-relaxed max-w-xs">
+                  Record or import a lecture — every term Demist detects becomes a flashcard automatically.
+                </p>
+                <div className="flex items-center gap-2 mt-2">
+                  <Link
+                    href="/dashboard"
+                    className="px-5 py-2.5 rounded-2xl bg-yellow-600 hover:brightness-110 text-white text-[14px] font-semibold transition-all active:scale-[0.97]"
+                  >
+                    Start recording
+                  </Link>
+                  <Link
+                    href="/import"
+                    className="px-5 py-2.5 rounded-2xl dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.09] border-black/[0.14] text-[14px] font-medium dark:text-gray-300 text-gray-700 hover:dark:bg-white/[0.08] bg-[#EFEDE7] transition-all"
+                  >
+                    Import a file
+                  </Link>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

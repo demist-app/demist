@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import posthog from 'posthog-js'
 
@@ -519,7 +520,21 @@ export default function Glossary() {
               </svg>
             </div>
             <p className="text-[15px] font-medium text-gray-600">No words yet</p>
-            <p className="text-[13px] text-gray-700">Record a lecture to grow your glossary.</p>
+            <p className="text-[13px] text-gray-700">Record or import a lecture and Demist will fill this in automatically.</p>
+            <div className="flex items-center gap-2 mt-3">
+              <Link
+                href="/dashboard"
+                className="px-4 py-2 rounded-xl bg-yellow-600 hover:brightness-110 text-white text-[13px] font-semibold transition-all active:scale-[0.97]"
+              >
+                Start recording
+              </Link>
+              <Link
+                href="/import"
+                className="px-4 py-2 rounded-xl dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.08] border-black/[0.13] text-[13px] font-medium dark:text-gray-300 text-gray-700 hover:dark:bg-white/[0.08] transition-all active:scale-[0.97]"
+              >
+                Import a file
+              </Link>
+            </div>
           </div>
         )}
 

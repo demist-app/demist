@@ -381,9 +381,13 @@ export default function History() {
           )}
 
           {!loading && sessions.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
-              <p className="text-gray-600">No sessions yet.</p>
-              <p className="text-gray-700 text-[13px]">Go to Home and record your first lecture.</p>
+            <div className="flex flex-col items-center justify-center py-16 text-center gap-2">
+              <p className="text-gray-600 text-[14px] font-medium">No sessions yet</p>
+              <p className="text-gray-700 text-[13px]">Record or import a lecture to get started.</p>
+              <div className="flex items-center gap-2 mt-2">
+                <a href="/dashboard" className="px-4 py-2 rounded-xl bg-yellow-600 hover:brightness-110 text-white text-[13px] font-semibold transition-all active:scale-[0.97]">Start recording</a>
+                <a href="/import" className="px-4 py-2 rounded-xl dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.08] border-black/[0.13] text-[13px] font-medium dark:text-gray-300 text-gray-700 hover:dark:bg-white/[0.08] transition-all active:scale-[0.97]">Import a file</a>
+              </div>
             </div>
           )}
 
@@ -446,9 +450,20 @@ export default function History() {
                               className={`flex items-center gap-1.5 ${selectMode ? 'cursor-pointer' : ''}`}
                               onClick={() => { if (!selectMode) { setConfirmingId(null); toggleExpand(s.id) } }}
                             >
-                              <p className={`text-[14px] font-medium truncate ${!selectMode ? 'cursor-pointer' : ''} ${s.name ? 'dark:text-white/90 text-gray-900' : 'text-gray-600'}`}>
-                                {s.name || sessionLabel(n, s.started_at)}
-                              </p>
+                              {s.name ? (
+                                <p className="text-[14px] font-medium truncate cursor-pointer dark:text-white/90 text-gray-900">
+                                  {s.name}
+                                </p>
+                              ) : (
+                                <button
+                                  onClick={e => { e.stopPropagation(); startRename(s) }}
+                                  className="text-[14px] font-medium text-gray-500 hover:dark:text-white/70 hover:text-gray-700 transition-colors truncate text-left"
+                                  title="Click to name this session"
+                                >
+                                  {sessionLabel(n, s.started_at)}
+                                  <span className="ml-1.5 text-[11px] text-gray-700 font-normal">+ name</span>
+                                </button>
+                              )}
                             </div>
                           )}
                           <p className="text-[12px] text-gray-600 mt-0.5">

@@ -3,7 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const ALLOWED_ORIGINS = ['https://demist.app', 'https://www.demist.app']
 const CHUNK_SIZE = 3500      // chars per GPT detection pass
-const VALID_SOURCES = new Set(['audio_import', 'text_upload', 'youtube', 'notion', 'pptx', 'docx'])
+const VALID_SOURCES = new Set(['audio_import', 'text_upload', 'notion', 'pptx', 'docx', 'transcript_upload'])
 
 const _rl = new Map<string, number[]>()
 function rateLimit(key: string, max: number, windowMs = 3_600_000): boolean {

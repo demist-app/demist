@@ -78,7 +78,6 @@ Added in `startRecording()`:
 ### Next.js API routes (auto-deployed via Vercel — already live):
 | Route | Rate limit | Notes |
 |---|---|---|
-| `/api/youtube` | 20/hr | URL capped at 200 chars |
 | `/api/notion/sync` | 20/hr | Action validated against allowlist |
 
 ### ⚠️ Edge function deployment — still required
@@ -118,7 +117,6 @@ This is Next.js 16. Middleware is called **`proxy.ts`** with `export function pr
 |---|---|
 | 1hr live recording (Whisper) | ~$0.12 |
 | 2hr audio import (Groq) | ~$0.09 |
-| YouTube video import | ~$0.004 |
 | Text/PPTX import | ~$0.005 |
 
 Monthly fixed: ~$45 (Supabase Pro + Vercel Pro)
@@ -132,7 +130,7 @@ web/
   app/
     (app)/
       dashboard/page.tsx      ← recording logic, audio pipeline, term detection, live cards
-      import/page.tsx         ← YouTube, audio, text, Notion import UI
+      import/page.tsx         ← audio, text, Notion import UI
       history/page.tsx        ← session history, summarize
       flashcards/page.tsx     ← SM-2 spaced repetition
       glossary/page.tsx       ← term glossary
@@ -141,7 +139,6 @@ web/
       summary-viewer.tsx      ← select text → explain → save flashcard
       layout.tsx              ← auth guard + bottom nav
     api/
-      youtube/route.ts        ← YouTube caption fetching (rate limited)
       notion/route.ts         ← Notion OAuth start (with CSRF state)
       notion/callback/route.ts← Notion OAuth callback
       notion/sync/route.ts    ← Notion push/pull operations (rate limited)
@@ -191,7 +188,7 @@ extension/
 - UUID validation added to summarize-session
 - File extension whitelist added to transcribe-audio
 - `source` field allowlist added to process-text-upload
-- YouTube URL length cap; Notion action allowlist
+- Notion action allowlist
 
 ---
 
