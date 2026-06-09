@@ -639,6 +639,7 @@ export default function Dashboard() {
       recognition.interimResults = true
       recognition.lang = 'en-US'
       recognitionRef.current = recognition
+      let consecutiveNoSpeech = 0
 
       // Safety timer: flush every 20 seconds regardless of buffer size
       // so terms are never missed even if the speaker talks slowly
@@ -650,19 +651,21 @@ export default function Dashboard() {
         }
       }, 20_000)
 
-      // No-result watchdog: if recognition never fires in 12s, it's broken — fall back
+      // No-result watchdog: if recognition never fires in 5s, fall back to Whisper-only display.
+      // 5s is before the first 10s Whisper chunk so the Whisper batch is never silently dropped.
       const noResultWatchdog = setTimeout(() => {
         if (!isActiveRef.current || !speechModeRef.current) return
-        if (lastDetectTimeRef.current === 0 && speechBufferRef.current.length === 0) {
+        if (!webSpeechHasFiredRef.current) {
           clearInterval(safetyFlush)
           fallbackToWhisper('no-result-timeout')
         }
-      }, 12_000)
+      }, 5_000)
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       recognition.onresult = (event: any) => {
         clearTimeout(noResultWatchdog) // recognition is working — cancel watchdog
         webSpeechHasFiredRef.current = true // Whisper display suppression now active
+        consecutiveNoSpeech = 0
         let interimText = ''
         let finalText = ''
         for (let i = event.resultIndex; i < event.results.length; i++) {
@@ -705,7 +708,17 @@ export default function Dashboard() {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       recognition.onerror = (event: any) => {
-        if (event.error === 'no-speech') return // normal — just silence, not an error
+        if (event.error === 'no-speech') {
+          consecutiveNoSpeech++
+          // After 3 consecutive no-speech errors without any result, Web Speech is
+          // stuck in a restart loop (Google's servers unreachable). Fall back permanently.
+          if (consecutiveNoSpeech >= 3 && !webSpeechHasFiredRef.current) {
+            clearInterval(safetyFlush)
+            clearTimeout(noResultWatchdog)
+            fallbackToWhisper('no-speech-repeated')
+          }
+          return
+        }
         clearInterval(safetyFlush)
         clearTimeout(noResultWatchdog)
         fallbackToWhisper(event.error)
