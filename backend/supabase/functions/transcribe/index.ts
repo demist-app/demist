@@ -54,8 +54,8 @@ serve(async (req) => {
     })
   }
 
-  // Rate limit: 1500 requests/hour (covers ~75-min recording at 3s chunks)
-  if (!rateLimit(user.id, 1500)) {
+  // Rate limit: 900 requests/hour (covers ~75-min recording at 5s chunks)
+  if (!rateLimit(user.id, 900)) {
     return new Response(JSON.stringify({ error: 'rate_limited' }), {
       status: 429,
       headers: { ...CORS, 'Content-Type': 'application/json', 'Retry-After': '3600' },

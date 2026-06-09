@@ -95,7 +95,7 @@ function escapeRegExp(s: string): string {
 export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [isRecording, setIsRecording] = useState(false)
-  const [isProcessing, setIsProcessing] = useState(false)
+
   const [elapsed, setElapsed] = useState(0)
   const [liveTerms, setLiveTerms] = useState<LiveTerm[]>([])
   const [sessionGlossary, setSessionGlossary] = useState<{ term: string; definition: string }[]>([])
@@ -106,6 +106,7 @@ export default function Dashboard() {
   const [sessionFailIds, setSessionFailIds] = useState<Set<string>>(new Set())
   const [sessionTermLoading, setSessionTermLoading] = useState<string | null>(null)
   const [recordingError, setRecordingError] = useState<string | null>(null)
+  const [recordingWarning, setRecordingWarning] = useState<string | null>(null)
   const [wakeLockUnsupported, setWakeLockUnsupported] = useState(false)
   const [showAddToHomeScreen, setShowAddToHomeScreen] = useState(false)
   const [captureMode, setCaptureMode] = useState<CaptureMode>('microphone')
@@ -133,17 +134,17 @@ export default function Dashboard() {
   const stopRecordingRef = useRef<() => Promise<void>>(() => Promise.resolve())
   const startingRef = useRef(false)
 
-  const speechModeRef = useRef(false)       // true = Web Speech API active, false = Whisper
-  const webSpeechHasFiredRef = useRef(false) // true once Web Speech onresult fires at least once
-  const detectionBufferRef = useRef('')      // accumulated Whisper text waiting for detect-terms
-  const lastDetectionTimeRef = useRef(0)     // ms timestamp of last detect-terms call from Whisper
+  const detectionBufferRef = useRef('')   // accumulated Whisper text waiting for detect-terms
+  const lastDetectionTimeRef = useRef(0)  // ms timestamp of last detect-terms call
+  const recentContextRef = useRef('')     // last ~60s of transcript, passed as context to detect-terms
+  const speechModeRef = useRef(false)     // true = Web Speech is active display source
+  const webSpeechHasFiredRef = useRef(false) // true once Web Speech onresult fires
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const recognitionRef = useRef<any>(null)
+  const hasInterimRef = useRef(false)     // true when last sentence item is still interim
   const audioProcessingCtxRef = useRef<AudioContext | null>(null)
   const vizAnalyserRef = useRef<AnalyserNode | null>(null)
   const processedStreamRef = useRef<MediaStream | null>(null)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const recognitionRef = useRef<any>(null)
-  const speechBufferRef = useRef('')        // accumulated Web Speech transcript waiting for detect-terms
-  const lastDetectTimeRef = useRef(0)       // timestamp of last detect-terms call
 
   const ring1Ref = useRef<HTMLSpanElement | null>(null)
   const ring2Ref = useRef<HTMLSpanElement | null>(null)
@@ -151,7 +152,6 @@ export default function Dashboard() {
   const barsRef = useRef<HTMLDivElement | null>(null)
   const btnRef = useRef<HTMLButtonElement | null>(null)
   const webLockReleaseRef = useRef<(() => void) | null>(null)
-  const hasInterimRef = useRef(false)   // true when last item in sentences is still being spoken
   const transcriptContainerRef = useRef<HTMLDivElement | null>(null)
   const autoScrollRef = useRef(true)
 
@@ -312,7 +312,7 @@ export default function Dashboard() {
 
   // ── Shared: detect terms, save to DB, update UI ──────────────────────────────
 
-  const runDetection = async (transcript: string, sessionId: string, token: string) => {
+  const runDetection = async (transcript: string, sessionId: string, token: string, context = '') => {
     const supabase = createClient()
     const base = process.env.NEXT_PUBLIC_SUPABASE_URL!
 
@@ -321,13 +321,16 @@ export default function Dashboard() {
       headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         transcript,
+        context,
         subject: profileRef.current?.course ?? 'general',
         year: profileRef.current?.year_of_study ?? 1,
         known_terms: Array.from(knownTermsRef.current),
       }),
     })
     if (!dtRes.ok) {
-      if (dtRes.status === 401) {
+      if (dtRes.status === 429) {
+        setRecordingWarning('Term detection rate limit reached for this hour — recording and transcription continue normally.')
+      } else if (dtRes.status === 401) {
         setRecordingError('Session expired. Sign in again to continue recording.')
         stopRecordingRef.current()
       }
@@ -402,7 +405,6 @@ export default function Dashboard() {
   const processChunk = async (blob: Blob, sessionId: string) => {
     if (blob.size < 500) return
     const supabase = createClient()
-    setIsProcessing(true)
     try {
       const { data: { session } } = await supabase.auth.getSession()
       const token = session?.access_token
@@ -416,7 +418,9 @@ export default function Dashboard() {
         body: blob,
       })
       if (!txRes.ok) {
-        if (txRes.status === 401) {
+        if (txRes.status === 429) {
+          setRecordingWarning('Transcription rate limit reached — recording continues but text won\'t display until the next hour.')
+        } else if (txRes.status === 401) {
           setRecordingError('Session expired. Sign in again to continue recording.')
           stopRecordingRef.current()
         }
@@ -426,7 +430,6 @@ export default function Dashboard() {
       if (!tx?.text?.trim()) return
       const chunkText = tx.text.trim()
       transcriptRef.current = transcriptRef.current ? transcriptRef.current + ' ' + chunkText : chunkText
-      // Only update display from Whisper when Web Speech is not active OR hasn't fired yet
       if (!speechModeRef.current || !webSpeechHasFiredRef.current) setSentences(prev => [...prev, chunkText])
 
       // Accumulate text; only call detect-terms every ~15s to keep GPT cost constant
@@ -434,32 +437,15 @@ export default function Dashboard() {
       const msSinceDetection = Date.now() - lastDetectionTimeRef.current
       if (msSinceDetection >= 15_000 && detectionBufferRef.current.trim()) {
         const toDetect = detectionBufferRef.current
+        const context = recentContextRef.current
+        // Roll context forward: keep last ~60s worth (~300 chars) as future context
+        recentContextRef.current = (context + ' ' + toDetect).trim().slice(-300)
         detectionBufferRef.current = ''
         lastDetectionTimeRef.current = Date.now()
-        await runDetection(toDetect, sessionId, token)
+        await runDetection(toDetect, sessionId, token, context)
       }
     } catch (e) {
       console.error('processChunk error:', e)
-    } finally {
-      setIsProcessing(false)
-    }
-  }
-
-  // ── Web Speech path: transcript already available, skip Whisper entirely ──────
-
-  const processTranscriptChunk = async (transcript: string, sessionId: string) => {
-    if (!transcript.trim()) return
-    setIsProcessing(true)
-    try {
-      const supabase = createClient()
-      const { data: { session } } = await supabase.auth.getSession()
-      const token = session?.access_token
-      if (!token) return
-      await runDetection(transcript, sessionId, token)
-    } catch (e) {
-      console.error('processTranscriptChunk error:', e)
-    } finally {
-      setIsProcessing(false)
     }
   }
 
@@ -603,47 +589,17 @@ export default function Dashboard() {
         if (isActiveRef.current) doChunk()
       }
       recorder.start()
-      chunkTimerRef.current = setTimeout(() => { if (recorder.state === 'recording') recorder.stop() }, 3_000)
+      chunkTimerRef.current = setTimeout(() => { if (recorder.state === 'recording') recorder.stop() }, 5_000)
     }
+
+    doChunk()
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const SpeechRecognitionAPI = typeof window !== 'undefined' ? ((window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition ?? null) : null
-    // Flush when we have ~10 words (65 chars) — roughly every 4-5 seconds of normal speech
-    const SPEECH_FLUSH_CHARS = 65
-    // Min ms between detect-terms calls to avoid hammering the API
-    const SPEECH_COOLDOWN_MS = 8_000
-
-    const flushSpeechBuffer = () => {
-      const text = speechBufferRef.current.trim()
-      if (!text || !sessionIdRef.current) return
-      speechBufferRef.current = ''
-      lastDetectTimeRef.current = Date.now()
-      processTranscriptChunk(text, sessionIdRef.current)
-    }
-
-    const fallbackToWhisper = (reason: string) => {
-      console.warn(`Web Speech display failed (${reason}) — Whisper continues`)
-      try { recognitionRef.current?.stop() } catch { /* ignore */ }
-      recognitionRef.current = null
-      const remaining = speechBufferRef.current.trim()
-      if (remaining && sessionIdRef.current) {
-        speechBufferRef.current = ''
-        processTranscriptChunk(remaining, sessionIdRef.current)
-      }
-      speechModeRef.current = false  // Whisper's setSentences will now update display
-      hasInterimRef.current = false
-      // Whisper doChunk() loop is already running — no need to restart
-    }
-
-    // Whisper always runs for accurate term detection
-    doChunk()
-
     if (SpeechRecognitionAPI) {
-      // Web Speech runs concurrently for real-time display only
-      speechModeRef.current = true  // tells processChunk to skip setSentences once Web Speech fires
+      speechModeRef.current = true
       webSpeechHasFiredRef.current = false
-      speechBufferRef.current = ''
-      lastDetectTimeRef.current = 0
+      hasInterimRef.current = false
 
       const recognition = new SpeechRecognitionAPI()
       recognition.continuous = true
@@ -652,30 +608,16 @@ export default function Dashboard() {
       recognitionRef.current = recognition
       let consecutiveNoSpeech = 0
 
-      // Safety timer: flush every 20 seconds regardless of buffer size
-      // so terms are never missed even if the speaker talks slowly
-      const safetyFlush = setInterval(() => {
-        if (!isActiveRef.current) { clearInterval(safetyFlush); return }
-        const timeSinceLast = Date.now() - lastDetectTimeRef.current
-        if (speechBufferRef.current.trim() && timeSinceLast >= SPEECH_COOLDOWN_MS) {
-          flushSpeechBuffer()
-        }
-      }, 20_000)
-
-      // No-result watchdog: if recognition never fires in 5s, fall back to Whisper-only display.
-      // 5s is before the first 10s Whisper chunk so the Whisper batch is never silently dropped.
       const noResultWatchdog = setTimeout(() => {
-        if (!isActiveRef.current || !speechModeRef.current) return
-        if (!webSpeechHasFiredRef.current) {
-          clearInterval(safetyFlush)
-          fallbackToWhisper('no-result-timeout')
-        }
+        if (!isActiveRef.current || webSpeechHasFiredRef.current) return
+        speechModeRef.current = false
+        try { recognition.stop() } catch { /* ignore */ }
       }, 5_000)
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       recognition.onresult = (event: any) => {
-        clearTimeout(noResultWatchdog) // recognition is working — cancel watchdog
-        webSpeechHasFiredRef.current = true // Whisper display suppression now active
+        clearTimeout(noResultWatchdog)
+        webSpeechHasFiredRef.current = true
         consecutiveNoSpeech = 0
         let interimText = ''
         let finalText = ''
@@ -684,8 +626,6 @@ export default function Dashboard() {
           if (event.results[i].isFinal) finalText += t + ' '
           else interimText += t
         }
-
-        // Interim: update last sentence in-place for word-by-word display
         if (interimText) {
           setSentences(prev => {
             if (hasInterimRef.current && prev.length > 0) return [...prev.slice(0, -1), interimText]
@@ -693,27 +633,18 @@ export default function Dashboard() {
             return [...prev, interimText]
           })
         }
-
-        // Final: replace interim with confirmed text, then check flush threshold
         if (finalText.trim()) {
           setSentences(prev => {
             const base = hasInterimRef.current && prev.length > 0 ? prev.slice(0, -1) : prev
             hasInterimRef.current = false
             return [...base, finalText.trim()]
           })
-          speechBufferRef.current += finalText
-          transcriptRef.current += finalText
-          const timeSinceLast = Date.now() - lastDetectTimeRef.current
-          if (speechBufferRef.current.length >= SPEECH_FLUSH_CHARS && timeSinceLast >= SPEECH_COOLDOWN_MS) {
-            flushSpeechBuffer()
-          }
         }
       }
 
-      // Browser stops recognition after silence or ~60s — restart if still recording
       recognition.onend = () => {
         if (isActiveRef.current && speechModeRef.current) {
-          try { recognition.start() } catch { /* already started */ }
+          try { recognition.start() } catch { /* already starting */ }
         }
       }
 
@@ -721,18 +652,14 @@ export default function Dashboard() {
       recognition.onerror = (event: any) => {
         if (event.error === 'no-speech') {
           consecutiveNoSpeech++
-          // After 3 consecutive no-speech errors without any result, Web Speech is
-          // stuck in a restart loop (Google's servers unreachable). Fall back permanently.
           if (consecutiveNoSpeech >= 3 && !webSpeechHasFiredRef.current) {
-            clearInterval(safetyFlush)
+            speechModeRef.current = false
             clearTimeout(noResultWatchdog)
-            fallbackToWhisper('no-speech-repeated')
           }
           return
         }
-        clearInterval(safetyFlush)
+        speechModeRef.current = false
         clearTimeout(noResultWatchdog)
-        fallbackToWhisper(event.error)
       }
 
       recognition.start()
@@ -748,18 +675,10 @@ export default function Dashboard() {
     if (chunkTimerRef.current) clearTimeout(chunkTimerRef.current)
     if (recorderRef.current?.state === 'recording') recorderRef.current.stop()
 
-    // Also stop Web Speech display if it was running concurrently
-    if (speechModeRef.current) {
-      try { recognitionRef.current?.stop() } catch { /* ignore */ }
-      recognitionRef.current = null
-      const remaining = speechBufferRef.current.trim()
-      if (remaining && sessionIdRef.current) {
-        speechBufferRef.current = ''
-        processTranscriptChunk(remaining, sessionIdRef.current)
-      }
-      speechModeRef.current = false
-      hasInterimRef.current = false
-    }
+    speechModeRef.current = false
+    hasInterimRef.current = false
+    try { recognitionRef.current?.stop() } catch { /* ignore */ }
+    recognitionRef.current = null
 
     // Release the Web Lock so Chrome can resume normal background throttling
     webLockReleaseRef.current?.()
@@ -780,6 +699,7 @@ export default function Dashboard() {
       await supabase.from('sessions').update({ ended_at: new Date().toISOString() }).eq('id', sid)
     }
     setIsRecording(false)
+    setRecordingWarning(null)
     setCapturedTabTitle(null)
     setLiveSessionId(null)
     window.postMessage({ source: 'demist', type: 'recording-stopped' }, window.location.origin)
@@ -1020,7 +940,6 @@ export default function Dashboard() {
           <div className="flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
             <span className="font-mono text-[17px] tabular-nums">{fmtTime(elapsed)}</span>
-            {isProcessing && <span className="text-gray-600 text-[12px] ml-1">processing</span>}
           </div>
         ) : (
           <Link href="/dashboard" className="font-bold tracking-tight text-[15px] hover:dark:text-yellow-300 text-yellow-700 active:scale-[0.97] transition-all duration-150 select-none">Demist</Link>
@@ -1047,7 +966,6 @@ export default function Dashboard() {
               <div className="hidden sm:flex items-center gap-2 mb-6">
                 <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
                 <span className="font-mono text-[20px] tabular-nums">{fmtTime(elapsed)}</span>
-                {isProcessing && <span className="text-gray-600 text-[13px] ml-1">processing</span>}
               </div>
 
               {capturedTabTitle && (
@@ -1183,8 +1101,11 @@ export default function Dashboard() {
                   Good for Zoom, Teams, Google Meet, or any online lecture. Pick the tab playing audio, tick <span className="dark:text-white/60 text-gray-800 font-medium">Share tab audio</span>, and Demist listens in.
                 </p>
               )}
+              {recordingWarning && (
+                <p className="mt-3 text-amber-500 text-[12px] text-center max-w-xs leading-relaxed" role="status">{recordingWarning}</p>
+              )}
               {recordingError && (
-                <p className="mt-4 text-red-400 text-[13px] text-center max-w-xs" role="alert">{recordingError}</p>
+                <p className="mt-2 text-red-400 text-[13px] text-center max-w-xs" role="alert">{recordingError}</p>
               )}
             </div>
 
@@ -1196,8 +1117,10 @@ export default function Dashboard() {
                   className="col-span-2 flex items-center justify-between dark:bg-amber-500/[0.07] bg-amber-50 dark:border-amber-500/20 border-amber-300/70 border rounded-2xl px-4 py-3.5 dark:hover:bg-amber-500/[0.11] hover:bg-amber-100 transition-all group"
                 >
                   <div>
-                    <p className="text-[14px] font-semibold dark:text-amber-300 text-amber-800">{stats.dueFlashcards} flashcards due</p>
-                    <p className="text-[12px] dark:text-amber-400/50 text-amber-700/80 mt-0.5">Review now to stay on track</p>
+                    <p className="text-[14px] font-semibold dark:text-amber-300 text-amber-800">{stats.dueFlashcards} flashcard{stats.dueFlashcards !== 1 ? 's' : ''} due</p>
+                    <p className="text-[12px] dark:text-amber-400/50 text-amber-700/80 mt-0.5">
+                      {stats.streak > 1 ? `Don't break your ${stats.streak}-day streak` : 'Review now — spaced repetition only works if you show up'}
+                    </p>
                   </div>
                   <span className="dark:text-amber-400/60 text-amber-700/50 dark:group-hover:text-amber-300 group-hover:text-amber-900 transition-colors text-[20px] leading-none">›</span>
                 </Link>
