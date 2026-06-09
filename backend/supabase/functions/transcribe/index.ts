@@ -54,8 +54,8 @@ serve(async (req) => {
     })
   }
 
-  // Rate limit: 400 requests/hour (covers ~66-min recording at 10s chunks)
-  if (!rateLimit(user.id, 400)) {
+  // Rate limit: 1500 requests/hour (covers ~75-min recording at 3s chunks)
+  if (!rateLimit(user.id, 1500)) {
     return new Response(JSON.stringify({ error: 'rate_limited' }), {
       status: 429,
       headers: { ...CORS, 'Content-Type': 'application/json', 'Retry-After': '3600' },
@@ -91,14 +91,21 @@ serve(async (req) => {
       : 'webm'
     const file = new File([audioBytes], `audio.${ext}`, { type: contentType })
 
+    const GROQ_KEY = Deno.env.get('GROQ_API_KEY')
+    const WHISPER_URL = GROQ_KEY
+      ? 'https://api.groq.com/openai/v1/audio/transcriptions'
+      : 'https://api.openai.com/v1/audio/transcriptions'
+    const WHISPER_MODEL = GROQ_KEY ? 'whisper-large-v3-turbo' : 'whisper-1'
+    const WHISPER_AUTH = GROQ_KEY ?? Deno.env.get('OPENAI_API_KEY') ?? ''
+
     const form = new FormData()
     form.append('file', file)
-    form.append('model', 'whisper-1')
+    form.append('model', WHISPER_MODEL)
     form.append('response_format', 'json')
 
-    const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+    const response = await fetch(WHISPER_URL, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${Deno.env.get('OPENAI_API_KEY')}` },
+      headers: { Authorization: `Bearer ${WHISPER_AUTH}` },
       body: form,
     })
 

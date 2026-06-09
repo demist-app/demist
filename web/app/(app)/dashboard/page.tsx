@@ -135,6 +135,8 @@ export default function Dashboard() {
 
   const speechModeRef = useRef(false)       // true = Web Speech API active, false = Whisper
   const webSpeechHasFiredRef = useRef(false) // true once Web Speech onresult fires at least once
+  const detectionBufferRef = useRef('')      // accumulated Whisper text waiting for detect-terms
+  const lastDetectionTimeRef = useRef(0)     // ms timestamp of last detect-terms call from Whisper
   const audioProcessingCtxRef = useRef<AudioContext | null>(null)
   const vizAnalyserRef = useRef<AnalyserNode | null>(null)
   const processedStreamRef = useRef<MediaStream | null>(null)
@@ -422,11 +424,20 @@ export default function Dashboard() {
       }
       const tx = await txRes.json()
       if (!tx?.text?.trim()) return
-      transcriptRef.current = transcriptRef.current ? transcriptRef.current + ' ' + tx.text.trim() : tx.text.trim()
+      const chunkText = tx.text.trim()
+      transcriptRef.current = transcriptRef.current ? transcriptRef.current + ' ' + chunkText : chunkText
       // Only update display from Whisper when Web Speech is not active OR hasn't fired yet
-      if (!speechModeRef.current || !webSpeechHasFiredRef.current) setSentences(prev => [...prev, tx.text.trim()])
+      if (!speechModeRef.current || !webSpeechHasFiredRef.current) setSentences(prev => [...prev, chunkText])
 
-      await runDetection(tx.text, sessionId, token)
+      // Accumulate text; only call detect-terms every ~15s to keep GPT cost constant
+      detectionBufferRef.current += (detectionBufferRef.current ? ' ' : '') + chunkText
+      const msSinceDetection = Date.now() - lastDetectionTimeRef.current
+      if (msSinceDetection >= 15_000 && detectionBufferRef.current.trim()) {
+        const toDetect = detectionBufferRef.current
+        detectionBufferRef.current = ''
+        lastDetectionTimeRef.current = Date.now()
+        await runDetection(toDetect, sessionId, token)
+      }
     } catch (e) {
       console.error('processChunk error:', e)
     } finally {
@@ -592,7 +603,7 @@ export default function Dashboard() {
         if (isActiveRef.current) doChunk()
       }
       recorder.start()
-      chunkTimerRef.current = setTimeout(() => { if (recorder.state === 'recording') recorder.stop() }, 10_000)
+      chunkTimerRef.current = setTimeout(() => { if (recorder.state === 'recording') recorder.stop() }, 3_000)
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
