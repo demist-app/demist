@@ -15,6 +15,7 @@ interface Popup {
   saved: boolean
   x: number
   y: number
+  below: boolean
 }
 
 export function SummaryViewer({
@@ -46,8 +47,13 @@ export function SummaryViewer({
     // Clamp x so the 280px popup never clips off either edge (8px screen margin)
     const rawX = rect.left + rect.width / 2
     const x = Math.min(Math.max(rawX, POPUP_HALF + 8), window.innerWidth - POPUP_HALF - 8)
+    // Show below the selection unless within 180px of the bottom of the viewport
+    const below = rect.bottom + 180 < window.innerHeight
+    const y = below
+      ? Math.min(rect.bottom + 8, window.innerHeight - 180)
+      : Math.max(rect.top - 8, 8)
 
-    setPopup({ text, explanation: null, loading: true, saving: false, saved: false, x, y: rect.top })
+    setPopup({ text, explanation: null, loading: true, saving: false, saved: false, x, y, below })
 
     // Cancel any in-flight timeout from a previous selection
     if (abortRef.current) clearTimeout(abortRef.current)
@@ -131,8 +137,8 @@ export function SummaryViewer({
           style={{
             width: POPUP_WIDTH,
             left: popup.x,
-            top: popup.y - 10,
-            transform: 'translate(-50%, -100%)',
+            top: popup.y,
+            transform: popup.below ? 'translateX(-50%)' : 'translate(-50%, -100%)',
           }}
           onMouseDown={e => e.stopPropagation()}
           onPointerUp={e => e.stopPropagation()}
