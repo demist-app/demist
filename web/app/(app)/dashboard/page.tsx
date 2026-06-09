@@ -134,6 +134,7 @@ export default function Dashboard() {
   const startingRef = useRef(false)
 
   const speechModeRef = useRef(false)       // true = Web Speech API active, false = Whisper
+  const webSpeechHasFiredRef = useRef(false) // true once Web Speech onresult fires at least once
   const audioProcessingCtxRef = useRef<AudioContext | null>(null)
   const vizAnalyserRef = useRef<AnalyserNode | null>(null)
   const processedStreamRef = useRef<MediaStream | null>(null)
@@ -422,8 +423,8 @@ export default function Dashboard() {
       const tx = await txRes.json()
       if (!tx?.text?.trim()) return
       transcriptRef.current = transcriptRef.current ? transcriptRef.current + ' ' + tx.text.trim() : tx.text.trim()
-      // Only update display from Whisper when Web Speech isn't providing real-time text
-      if (!speechModeRef.current) setSentences(prev => [...prev, tx.text.trim()])
+      // Only update display from Whisper when Web Speech is not active OR hasn't fired yet
+      if (!speechModeRef.current || !webSpeechHasFiredRef.current) setSentences(prev => [...prev, tx.text.trim()])
 
       await runDetection(tx.text, sessionId, token)
     } catch (e) {
@@ -628,7 +629,8 @@ export default function Dashboard() {
 
     if (SpeechRecognitionAPI) {
       // Web Speech runs concurrently for real-time display only
-      speechModeRef.current = true  // tells processChunk to skip setSentences (Web Speech handles it)
+      speechModeRef.current = true  // tells processChunk to skip setSentences once Web Speech fires
+      webSpeechHasFiredRef.current = false
       speechBufferRef.current = ''
       lastDetectTimeRef.current = 0
 
@@ -660,6 +662,7 @@ export default function Dashboard() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       recognition.onresult = (event: any) => {
         clearTimeout(noResultWatchdog) // recognition is working — cancel watchdog
+        webSpeechHasFiredRef.current = true // Whisper display suppression now active
         let interimText = ''
         let finalText = ''
         for (let i = event.resultIndex; i < event.results.length; i++) {
