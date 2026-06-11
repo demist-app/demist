@@ -11,10 +11,11 @@ const NAV = [
   { href: '/flashcards', label: 'Flashcards',  icon: CardsIcon },
   { href: '/glossary',   label: 'Glossary',    icon: GlossaryIcon },
   { href: '/history',    label: 'History',     icon: HistoryIcon },
-  { href: '/import',     label: 'Import',      icon: ImportIcon },
+  { href: '/quiz',       label: 'Quiz',        icon: QuizIcon },
 ]
 
 const DESKTOP_EXTRA = [
+  { href: '/import',  label: 'Import' },
   { href: '/profile', label: 'Profile' },
   { href: '/stats',   label: 'Stats' },
 ]
@@ -203,6 +204,16 @@ function ImportIcon({ active }: { active: boolean }) {
       <polyline points="8 17 12 21 16 17" />
       <line x1="12" y1="12" x2="12" y2="21" />
       <path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29" />
+    </svg>
+  )
+}
+function QuizIcon({ active }: { active: boolean }) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth={active ? 2 : 1.6} strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+      <line x1="12" y1="17" x2="12.01" y2="17" />
     </svg>
   )
 }

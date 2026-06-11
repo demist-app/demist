@@ -11,6 +11,7 @@ import { checkRecordingLimit } from '@/lib/subscription'
 
 const SummaryViewer = dynamic(() => import('../summary-viewer').then(m => ({ default: m.SummaryViewer })), { ssr: false })
 const OnboardingOverlay = dynamic(() => import('@/components/OnboardingOverlay').then(m => ({ default: m.OnboardingOverlay })), { ssr: false })
+const MicCheck = dynamic(() => import('@/components/MicCheck').then(m => ({ default: m.MicCheck })), { ssr: false })
 
 type CaptureMode = 'microphone' | 'tab'
 
@@ -121,6 +122,7 @@ export default function Dashboard() {
   const [sentences, setSentences] = useState<string[]>([])
   const [isScrolledUp, setIsScrolledUp] = useState(false)
   const [liveSessionId, setLiveSessionId] = useState<string | null>(null)
+  const [showMicCheck, setShowMicCheck] = useState(false)
 
   const profileRef = useRef<Profile | null>(null)
   const userIdRef = useRef<string | null>(null)
@@ -1183,7 +1185,7 @@ export default function Dashboard() {
                 <span className="absolute w-[194px] h-[194px] rounded-full bg-yellow-600/[0.025]" style={{ animation: 'glow-float 4s ease-in-out -2.7s infinite' }} />
                 <button
                   ref={btnRef}
-                  onClick={() => startRecording(captureMode)}
+                  onClick={() => captureMode === 'microphone' ? setShowMicCheck(true) : startRecording(captureMode)}
                   aria-label="Start recording"
                   className="relative z-10 w-[96px] h-[96px] rounded-full dark:bg-white/[0.08] bg-[#FAF9F6] border border-yellow-500/40 hover:bg-yellow-500/10 hover:border-yellow-500/60 hover:shadow-[0_0_48px_rgba(161,98,7,0.30)] dark:hover:shadow-[0_0_48px_rgba(251,191,36,0.30)] active:scale-[0.97] flex items-center justify-center transition-all duration-200 select-none shadow-sm"
                 >
@@ -1369,6 +1371,14 @@ export default function Dashboard() {
           </div>
         )}
       </div>
+
+      {/* Mic check overlay */}
+      {showMicCheck && (
+        <MicCheck
+          onStart={() => { setShowMicCheck(false); startRecording('microphone') }}
+          onCancel={() => setShowMicCheck(false)}
+        />
+      )}
 
       {/* First-time onboarding */}
       <OnboardingOverlay />

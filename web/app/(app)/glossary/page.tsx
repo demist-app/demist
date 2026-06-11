@@ -1,9 +1,12 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { capture } from '@/lib/analytics'
+
+const ShareCard = dynamic(() => import('@/components/ShareCard').then(m => ({ default: m.ShareCard })), { ssr: false })
 
 interface Term {
   id: string
@@ -68,6 +71,7 @@ export default function Glossary() {
   const [sortMode, setSortMode] = useState<'recent' | 'alpha' | 'most_reviewed' | 'least_reviewed'>('recent')
 
   // Bulk select state
+  const [showShareCard, setShowShareCard] = useState(false)
   const [selectMode, setSelectMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [bulkWorking, setBulkWorking] = useState(false)
@@ -518,11 +522,27 @@ export default function Glossary() {
           </div>
         ) : (
           <>
-            <p className="text-[44px] font-bold leading-none tracking-tight">{totalCount}</p>
-            <p className="text-[13px] text-gray-700 mt-1.5">
-              words across{' '}
-              <span className="text-gray-600">{sessions.length} session{sessions.length !== 1 ? 's' : ''}</span>
-            </p>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[44px] font-bold leading-none tracking-tight">{totalCount}</p>
+                <p className="text-[13px] text-gray-700 mt-1.5">
+                  words across{' '}
+                  <span className="text-gray-600">{sessions.length} session{sessions.length !== 1 ? 's' : ''}</span>
+                </p>
+              </div>
+              {totalCount > 0 && (
+                <button
+                  onClick={() => { capture('share_card_opened', { termCount: totalCount }); setShowShareCard(true) }}
+                  className="shrink-0 mt-1 flex items-center gap-1.5 px-3.5 py-2 rounded-2xl dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.09] border-black/[0.14] text-[13px] font-medium dark:text-gray-300 text-gray-700 hover:border-yellow-500/30 active:scale-[0.97] transition-all"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" />
+                    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" /><line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+                  </svg>
+                  Share
+                </button>
+              )}
+            </div>
           </>
         )}
 
@@ -765,6 +785,10 @@ export default function Glossary() {
             </button>
           </div>
         </div>
+      )}
+
+      {showShareCard && (
+        <ShareCard termCount={totalCount} onClose={() => setShowShareCard(false)} />
       )}
     </main>
   )

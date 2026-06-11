@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTheme } from 'next-themes'
 import { createClient } from '@/lib/supabase'
-import posthog from 'posthog-js'
+import { capture } from '@/lib/analytics'
 
 const SPRING = 'cubic-bezier(0.16, 1, 0.3, 1)'
 
@@ -82,6 +82,12 @@ const FEATURES = [
     title: 'Notion sync',
     body: 'Export your glossary or summaries to Notion in one tap, or import your own lecture notes to extract terms automatically.',
     Icon: NotionIconFeat,
+    tag: 'New' as string | null,
+  },
+  {
+    title: 'Quiz mode',
+    body: 'Test yourself on your glossary with multiple-choice or recall questions. A results screen shows what you got wrong so you can retry just those terms.',
+    Icon: QuizIconFeat,
     tag: 'New' as string | null,
   },
 ]
@@ -211,7 +217,7 @@ export default function LandingClient() {
     `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
 
   const cta = () => {
-    posthog.capture('get_started_clicked')
+    capture('get_started_clicked')
     router.push(authed ? '/dashboard' : '/login')
   }
 
@@ -255,13 +261,35 @@ export default function LandingClient() {
       {/* ── Hero ── */}
       <section className="relative z-10 min-h-[calc(100dvh-4rem)] flex flex-col items-center justify-center text-center px-6 pb-12">
 
-        <h1
-          className="text-[44px] sm:text-[66px] lg:text-[76px] font-bold tracking-tight leading-[1.04] mb-6 max-w-3xl"
-          style={{ color: 'var(--fg)', ...anim(150).style }}
-        >
-          <span style={{ color: 'var(--accent)' }}>Never</span>
-          {' '}feel lost
-          <br />in a lecture again.
+        <h1 className="text-[44px] sm:text-[66px] lg:text-[76px] font-bold tracking-tight leading-[1.04] mb-6 max-w-3xl" style={{ color: 'var(--fg)' }}>
+          {[
+            { word: 'Never', accent: true, delay: 140 },
+            { word: 'feel', accent: false, delay: 195 },
+            { word: 'lost', accent: false, delay: 250 },
+          ].map(({ word, accent, delay }) => (
+            <span
+              key={word}
+              className="inline-block mr-[0.22em]"
+              style={{ animation: `step-fade-up 560ms ${SPRING} ${delay}ms both`, color: accent ? 'var(--accent)' : undefined }}
+            >
+              {word}
+            </span>
+          ))}
+          <br />
+          {[
+            { word: 'in', delay: 310 },
+            { word: 'a', delay: 355 },
+            { word: 'lecture', delay: 400 },
+            { word: 'again.', delay: 445 },
+          ].map(({ word, delay }) => (
+            <span
+              key={word}
+              className="inline-block mr-[0.22em]"
+              style={{ animation: `step-fade-up 560ms ${SPRING} ${delay}ms both` }}
+            >
+              {word}
+            </span>
+          ))}
         </h1>
 
         <p
@@ -425,6 +453,20 @@ export default function LandingClient() {
             </div>
             <p className="text-[15px] font-semibold mb-2" style={{ color: 'var(--fg)' }}>{FEATURES[6].title}</p>
             <p className="text-[13px] leading-relaxed" style={{ color: 'var(--fg-muted)' }}>{FEATURES[6].body}</p>
+          </div>
+
+          <div
+            className="sm:col-span-2 rounded-2xl p-7 transition-colors duration-200"
+            style={{ background: 'var(--accent-soft)', border: '1px solid var(--accent-border)', ...scrollAnim(featuresRef.visible, 380).style }}
+          >
+            <div className="flex items-center justify-between mb-6">
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'var(--accent-icon-bg)', color: 'var(--accent)', border: '1px solid var(--accent-border)' }}>
+                <QuizIconFeat />
+              </div>
+              <NewTag />
+            </div>
+            <p className="text-[18px] font-bold mb-2.5" style={{ color: 'var(--fg)' }}>{FEATURES[7].title}</p>
+            <p className="text-[14px] leading-relaxed max-w-md" style={{ color: 'var(--fg-muted)' }}>{FEATURES[7].body}</p>
           </div>
 
         </div>
@@ -679,6 +721,15 @@ function NotionIconFeat() {
   )
 }
 
+function QuizIconFeat() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+      <line x1="12" y1="17" x2="12.01" y2="17" />
+    </svg>
+  )
+}
 function HistoryIconFeat() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
