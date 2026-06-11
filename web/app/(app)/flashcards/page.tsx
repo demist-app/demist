@@ -492,7 +492,7 @@ export default function Flashcards() {
 
   // ── Review mode ──────────────────────────────────────────────────────────────
   return (
-    <main className="min-h-dvh dark:bg-[#080810] bg-[#EDEAE3] dark:text-white text-gray-900 flex flex-col nav-bottom-pad">
+    <main className="h-dvh dark:bg-[#080810] bg-[#EDEAE3] dark:text-white text-gray-900 flex flex-col overflow-hidden nav-bottom-pad">
       <div aria-hidden className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
         <div className="absolute -top-32 -left-32 w-[500px] h-[500px] rounded-full bg-yellow-700/[0.05] blur-[120px]" />
       </div>
@@ -585,7 +585,7 @@ export default function Flashcards() {
       )}
 
       {phase === 'done' && (
-        <div className="flex-1 flex flex-col px-4 sm:px-6 py-6 overflow-y-auto">
+        <div className="flex-1 min-h-0 flex flex-col px-4 sm:px-6 py-6 overflow-y-auto">
           <div className="w-full max-w-md mx-auto flex flex-col gap-5">
 
             <div className="flex flex-col items-center text-center gap-1 animate-step opacity-0" style={{ animationFillMode: 'forwards', animationDelay: '0ms' }}>
@@ -667,7 +667,7 @@ export default function Flashcards() {
       )}
 
       {phase === 'review' && current && (
-        <div className="flex-1 flex flex-col px-4 sm:px-6 pt-4 pb-4">
+        <div className="flex-1 min-h-0 flex flex-col px-4 sm:px-6 pt-4 pb-4">
           {/* Progress bar */}
           <div className="shrink-0 h-1 dark:bg-white/[0.06] bg-[#F3F1EC] rounded-full mb-2 overflow-hidden">
             <div
@@ -702,19 +702,19 @@ export default function Flashcards() {
           </div>
 
           {/* Flip card */}
-          <div className="flex-1 flex items-center justify-center">
+          <div className="flex-1 min-h-0 flex items-center justify-center">
             <div
               className="flashcard-flip w-full max-w-[380px] cursor-pointer select-none"
               onClick={() => !flipped && setFlipped(true)}
               style={{ perspective: '1000px' }}
             >
               <div
-                className="flashcard-inner relative"
+                className="flashcard-inner relative w-full"
                 style={{
                   transformStyle: 'preserve-3d',
                   transition: 'transform 0.45s cubic-bezier(0.4, 0, 0.2, 1)',
                   transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
-                  minHeight: '220px',
+                  height: 'clamp(180px, 35dvh, 340px)',
                 }}
               >
                 {/* Front */}
@@ -735,7 +735,7 @@ export default function Flashcards() {
 
                 {/* Back */}
                 <div
-                  className="absolute inset-0 rounded-[24px] flex flex-col items-center justify-center p-8"
+                  className="absolute inset-0 rounded-[24px] flex flex-col items-center justify-center p-8 overflow-y-auto"
                   style={{
                     backfaceVisibility: 'hidden',
                     WebkitBackfaceVisibility: 'hidden',
@@ -744,7 +744,7 @@ export default function Flashcards() {
                     border: '1px solid var(--accent-border)',
                   }}
                 >
-                  <p className="text-[11px] font-bold tracking-[0.18em] dark:text-yellow-400 text-yellow-700/60 uppercase mb-4">Definition</p>
+                  <p className="text-[11px] font-bold tracking-[0.18em] dark:text-yellow-400 text-yellow-700/60 uppercase mb-4 shrink-0">Definition</p>
                   <p className="text-[16px] text-center leading-relaxed" style={{ color: 'var(--fg)' }}>{current.definition}</p>
                 </div>
               </div>
