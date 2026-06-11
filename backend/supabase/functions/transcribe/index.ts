@@ -120,6 +120,17 @@ serve(async (req) => {
     const data = await response.json()
     const text: string = data.text ?? ''
 
+    // Fire-and-forget usage logging — never block the response on this
+    const estMinutes = 5 / 60 // chunks are ~5s
+    supabase.from('usage_events').insert({
+      user_id: user.id,
+      event_type: 'transcribe',
+      provider: GROQ_KEY ? 'groq' : 'openai',
+      tokens_used: null,
+      cost_usd: (GROQ_KEY ? 0.0002 : 0.006) * estMinutes,
+      session_id: sessionId,
+    }).then(({ error }) => { if (error) console.error('usage_events insert error:', error.message) })
+
     // Persist the chunk so the dashboard can stream it live via Supabase Realtime
     if (text.trim() && sessionId && chunkIndex !== null && Number.isFinite(chunkIndex)) {
       const { error: insertErr } = await supabase.from('transcript_chunks').insert({

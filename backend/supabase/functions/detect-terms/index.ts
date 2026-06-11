@@ -141,6 +141,18 @@ Return JSON: {"terms": [{"term": "...", "definition": "..."}]}`
     const data = await response.json()
     const parsed = JSON.parse(data.choices[0].message.content)
 
+    // Fire-and-forget usage logging — never block the response on this
+    const inTok = data.usage?.prompt_tokens ?? 0
+    const outTok = data.usage?.completion_tokens ?? 0
+    supabase.from('usage_events').insert({
+      user_id: user.id,
+      event_type: 'detect_terms',
+      provider: 'openai',
+      tokens_used: data.usage?.total_tokens ?? null,
+      cost_usd: (inTok / 1000) * 0.00015 + (outTok / 1000) * 0.0006,
+      session_id: null,
+    }).then(({ error }: { error: { message: string } | null }) => { if (error) console.error('usage_events insert error:', error.message) })
+
     return new Response(
       JSON.stringify({ terms: Array.isArray(parsed.terms) ? parsed.terms : [] }),
       { headers: { ...CORS, 'Content-Type': 'application/json' } }

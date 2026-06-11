@@ -134,6 +134,18 @@ Write a 1–2 sentence summary of what this lecture covered, based only on the t
     const parsed = JSON.parse(aiData.choices[0].message.content) as { synopsis?: string }
     const synopsis = parsed.synopsis?.trim() || null
 
+    // Fire-and-forget usage logging — never block the response on this
+    const inTok = aiData.usage?.prompt_tokens ?? 0
+    const outTok = aiData.usage?.completion_tokens ?? 0
+    userClient.from('usage_events').insert({
+      user_id: user.id,
+      event_type: 'summarize',
+      provider: 'openai',
+      tokens_used: aiData.usage?.total_tokens ?? null,
+      cost_usd: (inTok / 1000) * 0.00015 + (outTok / 1000) * 0.0006,
+      session_id,
+    }).then(({ error }: { error: { message: string } | null }) => { if (error) console.error('usage_events insert error:', error.message) })
+
     // RLS allows the user to update their own session
     await userClient.from('sessions').update({ synopsis }).eq('id', session_id)
 
