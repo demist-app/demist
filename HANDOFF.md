@@ -1,87 +1,78 @@
-# Demist — Claude Handoff Document
-_Generated 2026-06-05. Paste this entire file into a new Claude chat._
+# Demist — Engineering Handoff
 
----
+Last updated: June 2026. This file reflects the current production state. If you change the recording pipeline, edge functions, or design tokens, update this file in the same PR.
 
-## Project overview
+## What Demist is
 
-**Demist** is a web app that listens to university lectures in real time, detects unfamiliar terms as the lecturer speaks, shows definitions on screen, and builds a personal glossary + spaced-repetition flashcard deck automatically.
+A web app + Chrome extension for university students. It listens to lectures in real time, detects unfamiliar technical terms as the lecturer speaks, shows definitions on screen instantly, and builds a personal glossary + SM-2 spaced-repetition flashcard deck automatically.
 
-- **Live URL**: https://demist.app (redirects to www.demist.app)
-- **Stack**: Next.js 16 App Router + Tailwind v4 + TypeScript (in `/web`)
-- **Backend**: Supabase (Postgres + Auth + Edge Functions) + OpenAI Whisper + GPT-4o-mini
-- **Supabase project ref**: `bsjcdvhiuxtyvbnrcbwg`
-- **Vercel**: auto-deploys from `main` branch
-- **Analytics**: PostHog EU region
+- Live: https://demist.app
+- Supabase project ref: `bsjcdvhiuxtyvbnrcbwg`
+- Deploys: Vercel auto-deploys `/web` from main. Edge functions deploy manually (see below).
 
----
+## Tech stack
 
-## Recording architecture (current — production)
+- **Frontend**: Next.js 16 App Router + TypeScript + Tailwind v4 in `/web`
+  - Tailwind v4 uses `@theme inline` in `globals.css` — there is NO `tailwind.config.ts`
+  - Next.js 16 middleware is `proxy.ts` with `export function proxy()`. Never import `@supabase/ssr` there
+- **Backend**: Supabase (Postgres + Auth + Deno edge functions)
+- **AI**: Groq Whisper `whisper-large-v3-turbo` for transcription (OpenAI Whisper fallback), GPT-4o-mini for term detection and summaries
+- **Analytics**: PostHog (EU region)
 
-The dashboard `startRecording()` function (in `web/app/(app)/dashboard/page.tsx`) uses **Whisper-only** (Web Speech API was disabled — see below):
+## Recording architecture (current)
 
 ```
-All browsers:
-  getUserMedia({ echoCancellation:false, noiseSuppression:true, autoGainControl:true })
-  → raw stream (for waveform visualiser)
-  → Web Audio pipeline: GainNode(2.5×) → DynamicsCompressor → processedStream
-  → MediaRecorder records processedStream in 10-second chunks
-  → Each chunk → processChunk(blob, sessionId, peak)
-  → If peak > 0.003 (silence gate) → POST /functions/v1/transcribe
-  → If transcribe returns text → POST /functions/v1/detect-terms
-  → Cards shown on screen, terms saved to DB
+getUserMedia({ echoCancellation:false, noiseSuppression:true, autoGainControl:true })
+→ raw stream (waveform visualiser reads this)
+→ GainNode(2.5×) → DynamicsCompressor(threshold:-30, knee:20, ratio:4) → processedStream
+→ MediaRecorder records in 5-SECOND chunks (raw getUserMedia stream — Chrome suspends
+  AudioContext in background tabs but always delivers getUserMedia audio)
+→ each chunk → processChunk(blob, sessionId)
+→ blob > 500 bytes → POST /functions/v1/transcribe (Groq Whisper, OpenAI fallback)
+→ text accumulated in detectionBufferRef
+→ every 15s (or immediately on stop) → POST /functions/v1/detect-terms (GPT-4o-mini)
+  with rolling ~60s context from recentContextRef
 ```
 
-### Why Web Speech API was disabled
+**CONCURRENT: Web Speech API is ENABLED** and runs alongside Whisper as the instant word-by-word display layer:
 
-Chrome's `webkitSpeechRecognition` accepts `.start()` without error but silently never fires `onresult`. A 12-second watchdog fallback was added and confirmed working in production (user saw the fallback log). Web Speech API was then disabled entirely (`const SpeechRecognitionAPI = null as any`) to eliminate the startup delay. Whisper path is reliable.
+- Web Speech `onresult` → drives `setSentences` (primary display source)
+- If Web Speech fails (5s watchdog or 3 consecutive no-speech errors) → Whisper 5s chunks drive display instead
+- `speechModeRef` = true means Web Speech is the active display source
+- `webSpeechHasFiredRef` = true once Web Speech has fired at least once
 
-### Key functions in `web/app/(app)/dashboard/page.tsx`
+**Supabase Realtime on `transcript_chunks` is a recovery layer only** — it re-populates `sentences` after a mid-session page reload. It is never the primary display path.
 
-| Function | What it does |
+Key refs in `web/app/(app)/dashboard/page.tsx`:
+
+| Ref | Purpose |
 |---|---|
-| `startRecording()` | ~line 398 — gets mic, builds audio processing pipeline, creates session, starts Whisper chunk loop |
-| `doChunk()` | defined inside startRecording — 10-second MediaRecorder loop using processedStream |
-| `runDetection()` | ~line 250 — shared: calls detect-terms, saves terms, shows cards |
-| `processChunk()` | ~line 343 — silence gate (peak < 0.003 skipped), then transcribe → runDetection |
-| `stopRecording()` | ~line 554 — stops recorder, closes AudioContext, flushes, updates session, triggers summarize |
+| `detectionBufferRef` | accumulated Whisper text waiting for detect-terms |
+| `lastDetectionTimeRef` | ms timestamp of last detect-terms call |
+| `recentContextRef` | last ~60s (~300 chars) of transcript, rolling context for detect-terms |
+| `speechModeRef` | true = Web Speech is active display source |
+| `webSpeechHasFiredRef` | true once Web Speech onresult has fired |
 
----
+All three detection refs are reset in `startRecording()`. `stopRecording()` flushes any remaining `detectionBufferRef` content through `runDetection` so terms from the final seconds are never lost, and `processChunk` triggers an immediate detection for the final chunk after stop.
 
-## Audio quality for distant/quiet lecturers
+Other recording behaviours: screen Wake Lock held during recording (with iOS Safari fallback banner), Web Lock held so Chrome doesn't throttle the chunk timer, `beforeunload` handler stops Web Speech and the session cleanly, tab audio capture available via `getDisplayMedia` as an alternative to the microphone.
 
-Added in `startRecording()`:
+## Edge functions
 
-1. **`getUserMedia` constraints**: `echoCancellation: false` (prevents suppressing lecturer's voice as "echo"), `noiseSuppression: true` (filters HVAC/ambient hum), `autoGainControl: true` (hardware-level boost for quiet sources)
+Located in `backend/supabase/functions/`. **IMPORTANT: there are two function directories.** `supabase/functions/` at the repo root is legacy and ignored. Only `backend/supabase/functions/` is deployed.
 
-2. **Web Audio processing pipeline**: raw mic stream → `GainNode(2.5×)` → `DynamicsCompressor(threshold:-30, knee:20, ratio:4, attack:3ms, release:150ms)` → `MediaStreamDestination`. MediaRecorder records the processed stream; waveform visualiser still reads the raw stream.
-
-3. **Silence threshold lowered**: `SILENCE_THRESHOLD = 0.003` (was 0.015) — only skips true dead air, not quiet-but-real audio.
-
----
-
-## Security hardening (code complete — edge functions need deploying)
-
-### Edge functions — all have:
-- Per-user **in-memory sliding-window rate limiting** (resets on cold start; effective against burst abuse)
-- JWT auth on every request
-- Input sanitisation and length caps
-
-| Function | Rate limit | Notes |
+| Function | Rate limit | Purpose |
 |---|---|---|
-| `transcribe` | 400/hr | Covers ~66-min recording at 10s chunks |
-| `detect-terms` | 300/hr | Fixed regex bug in `sanitizeText` (was `[ -]` ASCII range, stripped all punctuation) |
-| `summarize-session` | 30/hr | Added UUID validation on `session_id` |
-| `transcribe-audio` | 5/hr | Added file extension whitelist (webm/mp4/mp3/ogg/m4a/wav/flac) |
-| `process-text-upload` | 10/hr | `source` field validated against allowlist before DB insert |
+| `transcribe` | 900/hr | 5s audio chunks → Groq Whisper (OpenAI fallback). Saves to `transcript_chunks` |
+| `detect-terms` | 500/hr | transcript + rolling context + known_terms → GPT-4o-mini → 1-2 load-bearing terms |
+| `summarize-session` | 30/hr | session terms → GPT-4o-mini → synopsis paragraph |
+| `transcribe-audio` | 5/hr | audio file import → Groq Whisper (chunked for large files) |
+| `process-text-upload` | 10/hr | text/PPTX/DOCX → GPT-4o-mini → terms |
 
-### Next.js API routes (auto-deployed via Vercel — already live):
-| Route | Rate limit | Notes |
-|---|---|---|
-| `/api/notion/sync` | 20/hr | Action validated against allowlist |
+All functions have: JWT auth, per-user sliding-window rate limiting, input sanitisation, prompt-injection hardening (user content wrapped in XML data blocks).
 
-### ⚠️ Edge function deployment — still required
-Edge functions are not auto-deployed via Vercel. Must be deployed manually:
+**Edge functions are NOT auto-deployed.** After changing any:
+
 ```bash
 cd backend
 supabase functions deploy transcribe --project-ref bsjcdvhiuxtyvbnrcbwg
@@ -90,111 +81,77 @@ supabase functions deploy summarize-session --project-ref bsjcdvhiuxtyvbnrcbwg
 supabase functions deploy transcribe-audio --project-ref bsjcdvhiuxtyvbnrcbwg
 supabase functions deploy process-text-upload --project-ref bsjcdvhiuxtyvbnrcbwg
 ```
-No `config.toml` exists in the project — the `--project-ref` flag is required. Run from the `backend/` directory so the CLI finds `supabase/functions/<name>/index.ts`.
 
----
+If `GROQ_API_KEY` is set in Supabase env, transcription is ~9× cheaper than OpenAI. It is configured for both live recording and audio imports.
+
+## Frontend pages
+
+```
+web/app/(app)/
+  dashboard/page.tsx      recording, live term cards, real-time transcript display
+  import/page.tsx         audio file, text/PPTX/DOCX, Notion import (YouTube REMOVED — never re-add)
+  history/page.tsx        session list, rename, summarize, expand, term preview chips
+  flashcards/page.tsx     SM-2 spaced repetition (Again/Hard/Good/Easy), browse mode,
+                          completion screen with streak + rating distribution
+  glossary/page.tsx       full term glossary with search
+  profile/page.tsx        Anki export, course/year settings
+  stats/page.tsx          usage charts (streak, terms this week, etc.)
+  leaderboard/page.tsx    leaderboard
+  summary-viewer.tsx      highlight text in summary → definition → save as flashcard
+  transcript-viewer.tsx   same for transcripts
+  layout.tsx              auth guard + bottom navigation
+
+web/app/
+  landing-client.tsx      marketing landing page
+  api/notion/*            Notion OAuth start/callback/sync (rate limited, action allowlist)
+
+extension/                Chrome extension (overlay on all pages)
+mobile/                   Expo scaffold (not built out)
+```
 
 ## Design system
 
-- **Background**: `#080810`
-- **Accent**: violet-600 / violet-400
-- **Entrance animation**: `animate-step opacity-0` with `animationFillMode: 'forwards'`, staggered delays
-- **Max-widths**: Dashboard `4xl`, History `3xl`, Glossary/Import `2xl`, Profile `xl`
-- **Buttons**: `active:scale-[0.97]`, no `transition-all`
-- **Cards** (standard): `bg-white/[0.03] border border-white/[0.07] rounded-xl` — used everywhere including session glossary during recording
+| Token | Value |
+|---|---|
+| Dark background | `#080810` |
+| Light background | `#EDEAE3` |
+| Primary accent | yellow/amber (`yellow-500`, `amber-500`, `amber-600`) |
+| Cards | `bg-white/[0.03] border border-white/[0.07] rounded-xl` (light-mode variants throughout) |
+| Entrance animation | `animate-step opacity-0` + `animationFillMode: 'forwards'`, staggered `animationDelay` |
+| Buttons | `active:scale-[0.97]` — never `transition-all`, animate specific properties |
 
-## Tailwind note
-Uses `@theme inline` in `globals.css` — NOT a `tailwind.config.ts`. This is Tailwind v4.
-
-## Next.js note
-This is Next.js 16. Middleware is called **`proxy.ts`** with `export function proxy()`. `@supabase/ssr` cannot be imported in `proxy.ts`.
-
----
+All pages support light + dark mode.
 
 ## Cost structure
 
-| User action | Cost |
+| Action | Cost |
 |---|---|
-| 1hr live recording (Whisper) | ~$0.12 |
-| 2hr audio import (Groq) | ~$0.09 |
+| 1hr live recording (Groq Whisper) | ~$0.013 |
+| 1hr live recording (OpenAI fallback) | ~$0.12 |
+| detect-terms per hour (GPT-4o-mini) | ~$0.02 |
+| 2hr audio file import | ~$0.09 |
 | Text/PPTX import | ~$0.005 |
+| Monthly fixed (Supabase Pro + Vercel Pro) | ~$45 |
 
-Monthly fixed: ~$45 (Supabase Pro + Vercel Pro)
+## Known issues / technical debt
 
----
+1. **Opera GX**: its ad blocker blocks `speech.googleapis.com`, so Web Speech word-by-word display fails there. The 5s watchdog falls back to Whisper display gracefully. Users can disable the ad blocker on demist.app.
+2. **Pending manual SQL** (Notion 403 fix — run in Supabase SQL editor):
+   ```sql
+   GRANT SELECT, INSERT, UPDATE, DELETE ON public.integrations TO authenticated;
+   GRANT SELECT ON public.integrations TO anon;
+   ```
+3. Rate limit warnings exist in UI (amber, non-blocking) but are untested under real production load.
+4. **No per-user cost caps** — a single user could drain API credits. Fine at current scale, must address before growth (usage_events table is the groundwork).
 
-## Key file locations
+## Hard constraints — read before coding
 
-```
-web/
-  app/
-    (app)/
-      dashboard/page.tsx      ← recording logic, audio pipeline, term detection, live cards
-      import/page.tsx         ← audio, text, Notion import UI
-      history/page.tsx        ← session history, summarize
-      flashcards/page.tsx     ← SM-2 spaced repetition
-      glossary/page.tsx       ← term glossary
-      profile/page.tsx        ← Anki export, settings
-      stats/page.tsx          ← usage charts
-      summary-viewer.tsx      ← select text → explain → save flashcard
-      layout.tsx              ← auth guard + bottom nav
-    api/
-      notion/route.ts         ← Notion OAuth start (with CSRF state)
-      notion/callback/route.ts← Notion OAuth callback
-      notion/sync/route.ts    ← Notion push/pull operations (rate limited)
-    error.tsx                 ← global error boundary
-    landing-client.tsx        ← landing page
-    globals.css               ← animate-step keyframe, nav-bottom-pad
-  proxy.ts                    ← Next.js 16 middleware (server-side auth guard)
-  next.config.ts              ← security headers, PostHog rewrites
-
-backend/
-  supabase/
-    functions/
-      transcribe/             ← live recording audio → Whisper (rate limited, needs deploy)
-      detect-terms/           ← transcript → GPT-4o-mini → terms (sanitize fix, needs deploy)
-      summarize-session/      ← terms → GPT-4o-mini → synopsis (UUID validated, needs deploy)
-      transcribe-audio/       ← audio file import pipeline (ext whitelist, needs deploy)
-      process-text-upload/    ← text file import pipeline (source validated, needs deploy)
-
-extension/
-  manifest.json
-  content-bridge.js           ← demist.app bridge
-  content-overlay.js          ← Grammarly-style overlay (all pages)
-  background.js               ← relay hub
-  popup.html / popup.js       ← toolbar popup
-```
-
----
-
-## What was built/changed this session
-
-### Recording bug fix
-- Root cause: Chrome's Web Speech API accepted `recognition.start()` but never fired `onresult` or `onerror` — silently doing nothing
-- Fix 1: Added 12-second no-result watchdog that fell back to Whisper MediaRecorder path
-- Fix 2: Disabled Web Speech API entirely to skip the 12-second wait; all users now go straight to Whisper
-
-### Audio quality for distant lecturers
-- Better `getUserMedia` constraints (autoGainControl, noiseSuppression, no echoCancellation)
-- Web Audio gain + compression pipeline before MediaRecorder
-- Silence threshold lowered 5× so quiet audio isn't discarded
-
-### UI fix
-- Session glossary cards during recording were red-tinted (`bg-red-500/[0.04]`); restored to standard dark style
-
-### Security hardening
-- Rate limiting added to all 5 edge functions and 2 Next.js API routes
-- `sanitizeText` regex bug fixed in detect-terms (was silently stripping all punctuation)
-- UUID validation added to summarize-session
-- File extension whitelist added to transcribe-audio
-- `source` field allowlist added to process-text-upload
-- Notion action allowlist
-
----
-
-## Immediate next steps
-
-1. **Deploy edge functions** (command above) — security fixes are in git but not live on Supabase yet
-2. **Practice questions** — after a session, GPT generates 3-5 exam questions from the session terms. One GPT call, no new infrastructure needed.
-3. **Per-user cost caps** — prevent a single user draining OpenAI credits before monetisation launches
-4. **Mobile app** — Expo scaffold already exists in `/mobile`
+- Next.js 16, not 14/15. Check `node_modules/next/dist/docs/` before using Next APIs
+- Tailwind v4 — `@theme inline` in `globals.css`, NOT `tailwind.config.ts`
+- No `transition-all` on buttons
+- No YouTube import — completely removed, do not re-add
+- No `@supabase/ssr` in `proxy.ts`
+- Default to no code comments — only when the WHY is non-obvious
+- Never mock databases in tests — use real Supabase connections
+- PostHog: add `posthog.capture()` for any new user-facing interaction
+- All user input sanitised before DB/prompt; JWT on all edge function calls; rate limits on all endpoints

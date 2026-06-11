@@ -1,12 +1,16 @@
 ﻿'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
-import posthog from 'posthog-js'
-import { SummaryViewer } from '../summary-viewer'
+import { capture, identify } from '@/lib/analytics'
 import { requestWakeLock, releaseWakeLock, reacquireWakeLockOnVisibility, wakeLockSupported } from '@/lib/wakeLock'
 import { startTabCapture, tabCaptureSupported } from '@/lib/tabCapture'
+import { checkRecordingLimit } from '@/lib/subscription'
+
+const SummaryViewer = dynamic(() => import('../summary-viewer').then(m => ({ default: m.SummaryViewer })), { ssr: false })
+const OnboardingOverlay = dynamic(() => import('@/components/OnboardingOverlay').then(m => ({ default: m.OnboardingOverlay })), { ssr: false })
 
 type CaptureMode = 'microphone' | 'tab'
 
@@ -16,6 +20,8 @@ interface LiveTerm {
   definition: string
   dismissing: boolean
   dbId?: string
+  pinned?: boolean
+  saved?: boolean
 }
 
 interface SessionTerm {
@@ -137,6 +143,9 @@ export default function Dashboard() {
   const detectionBufferRef = useRef('')   // accumulated Whisper text waiting for detect-terms
   const lastDetectionTimeRef = useRef(0)  // ms timestamp of last detect-terms call
   const recentContextRef = useRef('')     // last ~60s of transcript, passed as context to detect-terms
+  const cardTimersRef = useRef(new Map<string, ReturnType<typeof setTimeout>>())  // live term card auto-dismiss timers, cancellable by pin
+  const chunkIntervalRef = useRef(5_000)  // adaptive: 5s default, 10s during silence
+  const zeroTermChunksRef = useRef(0)     // consecutive detect-terms calls with 0 terms
   const speechModeRef = useRef(false)     // true = Web Speech is active display source
   const webSpeechHasFiredRef = useRef(false) // true once Web Speech onresult fires
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -248,6 +257,21 @@ export default function Dashboard() {
     setTabCaptureSupportedState(tabCaptureSupported())
   }, [])
 
+  // Stop Web Speech and the recording session cleanly if the user closes the
+  // tab or navigates away mid-recording.
+  useEffect(() => {
+    const handleUnload = () => {
+      if (!isActiveRef.current) return
+      try { recognitionRef.current?.stop() } catch { /* ignore */ }
+      stopRecordingRef.current()
+    }
+    window.addEventListener('beforeunload', handleUnload)
+    return () => {
+      window.removeEventListener('beforeunload', handleUnload)
+      handleUnload()
+    }
+  }, [])
+
   useEffect(() => {
     const supabase = createClient()
     ;(async () => {
@@ -255,7 +279,7 @@ export default function Dashboard() {
       const user = session?.user
       if (!user) return
       userIdRef.current = user.id
-      posthog.identify(user.id); posthog.capture('dashboard_viewed')
+      identify(user.id); capture('dashboard_viewed')
 
       const now = new Date()
       const weekAgo = new Date(now.getTime() - 7 * 86400000).toISOString()
@@ -337,7 +361,22 @@ export default function Dashboard() {
       return
     }
     const detected = await dtRes.json()
-    if (!detected?.terms?.length) return
+
+    // Adaptive chunking: after 3 consecutive empty detections, slow the chunk
+    // loop to 10s to halve API calls during silence. Reset to 5s on any hit.
+    if (!detected?.terms?.length) {
+      zeroTermChunksRef.current++
+      if (zeroTermChunksRef.current >= 3 && chunkIntervalRef.current !== 10_000) {
+        chunkIntervalRef.current = 10_000
+        console.log('[demist] 3 empty detections — chunk interval expanded to 10s')
+      }
+      return
+    }
+    if (chunkIntervalRef.current !== 5_000) {
+      console.log('[demist] terms detected — chunk interval reset to 5s')
+    }
+    zeroTermChunksRef.current = 0
+    chunkIntervalRef.current = 5_000
 
     const filtered = (detected.terms as { term: string; definition: string }[]).filter(t => {
       const key = t.term.toLowerCase()
@@ -347,7 +386,26 @@ export default function Dashboard() {
     })
     if (!filtered.length) return
 
-    const { data: saved } = await supabase
+    for (const t of filtered) {
+      termFrequencyRef.current.set(t.term.toLowerCase(), (termFrequencyRef.current.get(t.term.toLowerCase()) ?? 0) + 1)
+    }
+
+    // Optimistic UI: show the card and glossary entry immediately, before the
+    // DB insert round-trip. dbId arriving later confirms the save.
+    setSessionGlossary(prev => [...filtered.map(t => ({ term: t.term, definition: t.definition })), ...prev])
+    const incoming: LiveTerm[] = filtered.slice(0, 1).map(t => ({
+      id: `${Date.now()}-${Math.random()}`,
+      term: t.term,
+      definition: t.definition,
+      dismissing: false,
+    }))
+    setLiveTerms(prev => [...prev, ...incoming].slice(-3))
+    incoming.forEach(({ id, term }) => {
+      capture('term_card_shown', { term })
+      scheduleCardDismiss(id, term)
+    })
+
+    const { data: saved, error: saveErr } = await supabase
       .from('terms')
       .insert(filtered.map(t => ({
         user_id: userIdRef.current,
@@ -358,45 +416,74 @@ export default function Dashboard() {
       })))
       .select('id, term, definition')
 
-    for (const t of filtered) {
-      termFrequencyRef.current.set(t.term.toLowerCase(), (termFrequencyRef.current.get(t.term.toLowerCase()) ?? 0) + 1)
+    if (saveErr || !saved?.length) {
+      // Roll back the optimistic glossary entries and dismiss the card quietly
+      console.error('term save failed:', saveErr)
+      const failedKeys = new Set(filtered.map(t => t.term.toLowerCase()))
+      setSessionGlossary(prev => {
+        const next = [...prev]
+        for (const key of failedKeys) {
+          const i = next.findIndex(g => g.term.toLowerCase() === key)
+          if (i !== -1) next.splice(i, 1)
+        }
+        return next
+      })
+      incoming.forEach(({ id }) => dismissTerm(id))
+      return
     }
 
-    if (saved?.length) {
-      setSessionGlossary(prev => [...saved.map((s: { term: string; definition: string }) => ({ term: s.term, definition: s.definition })), ...prev])
-      const dbMap = Object.fromEntries(saved.map((s: { id: string; term: string }) => [s.term.toLowerCase(), s.id]))
-      setLiveTerms(prev => prev.map(t => {
-        const dbId = dbMap[t.term.toLowerCase()]
-        return dbId ? { ...t, dbId } : t
-      }))
-    }
+    const dbMap = Object.fromEntries(saved.map((s: { id: string; term: string }) => [s.term.toLowerCase(), s.id]))
+    setLiveTerms(prev => prev.map(t => {
+      const dbId = dbMap[t.term.toLowerCase()]
+      return dbId ? { ...t, dbId } : t
+    }))
 
     // Include DB id so the extension can offer "mark as known" on the overlay card
-    const savedMap = Object.fromEntries((saved ?? []).map((s: { id: string; term: string }) => [s.term.toLowerCase(), s.id]))
     for (const t of filtered) {
       window.postMessage({
         source: 'demist',
         type: 'term',
         term: t.term,
         definition: t.definition,
-        termId: savedMap[t.term.toLowerCase()] ?? null,
+        termId: dbMap[t.term.toLowerCase()] ?? null,
       }, window.location.origin)
     }
+  }
 
-    // Show 1 card per chunk — natural rate is already ~10s between chunks
-    const incoming: LiveTerm[] = filtered.slice(0, 1).map(t => ({
-      id: `${Date.now()}-${Math.random()}`,
-      term: t.term,
-      definition: t.definition,
-      dismissing: false,
+  const scheduleCardDismiss = (id: string, term: string) => {
+    const timer = setTimeout(() => {
+      cardTimersRef.current.delete(id)
+      capture('term_card_auto_dismissed', { term })
+      setLiveTerms(prev => prev.map(t => t.id === id ? { ...t, dismissing: true } : t))
+      setTimeout(() => setLiveTerms(prev => prev.filter(t => t.id !== id)), 380)
+    }, 10_000)
+    cardTimersRef.current.set(id, timer)
+  }
+
+  // Tapping a card pins it open so the user can finish reading
+  const pinTerm = (id: string) => {
+    const timer = cardTimersRef.current.get(id)
+    if (!timer) return
+    clearTimeout(timer)
+    cardTimersRef.current.delete(id)
+    setLiveTerms(prev => prev.map(t => {
+      if (t.id === id && !t.pinned) capture('term_card_expanded', { term: t.term })
+      return t.id === id ? { ...t, pinned: true } : t
     }))
-    setLiveTerms(prev => [...prev, ...incoming].slice(-3))
-    incoming.forEach(({ id }) => {
-      setTimeout(() => {
-        setLiveTerms(prev => prev.map(t => t.id === id ? { ...t, dismissing: true } : t))
-        setTimeout(() => setLiveTerms(prev => prev.filter(t => t.id !== id)), 380)
-      }, 8000)
-    })
+  }
+
+  // Explicit save confirmation — terms are auto-saved, this confirms and dismisses
+  const confirmSave = (id: string) => {
+    const timer = cardTimersRef.current.get(id)
+    if (timer) { clearTimeout(timer); cardTimersRef.current.delete(id) }
+    setLiveTerms(prev => prev.map(t => {
+      if (t.id === id) capture('term_card_save_clicked', { term: t.term })
+      return t.id === id ? { ...t, saved: true } : t
+    }))
+    setTimeout(() => {
+      setLiveTerms(prev => prev.map(t => t.id === id ? { ...t, dismissing: true } : t))
+      setTimeout(() => setLiveTerms(prev => prev.filter(t => t.id !== id)), 380)
+    }, 900)
   }
 
   // ── Whisper path: transcribe audio blob then detect terms ─────────────────────
@@ -435,7 +522,7 @@ export default function Dashboard() {
       // Accumulate text; only call detect-terms every ~15s to keep GPT cost constant
       detectionBufferRef.current += (detectionBufferRef.current ? ' ' : '') + chunkText
       const msSinceDetection = Date.now() - lastDetectionTimeRef.current
-      if (msSinceDetection >= 15_000 && detectionBufferRef.current.trim()) {
+      if ((msSinceDetection >= 15_000 || !isActiveRef.current) && detectionBufferRef.current.trim()) {
         const toDetect = detectionBufferRef.current
         const context = recentContextRef.current
         // Roll context forward: keep last ~60s worth (~300 chars) as future context
@@ -453,6 +540,16 @@ export default function Dashboard() {
     if (isActiveRef.current || startingRef.current) return
     startingRef.current = true
     setCapturedTabTitle(null)
+
+    // Paywall gate — no-op while PAYWALL_ENABLED is false
+    if (userIdRef.current) {
+      const gate = await checkRecordingLimit(createClient(), userIdRef.current)
+      if (!gate.allowed) {
+        startingRef.current = false
+        setRecordingError(gate.reason ?? 'Recording limit reached.')
+        return
+      }
+    }
 
     // Create and resume AudioContext synchronously within the user gesture — if deferred past
     // any await, iOS Safari considers the gesture consumed and keeps the context suspended.
@@ -551,6 +648,11 @@ export default function Dashboard() {
     termFrequencyRef.current = new Map()
     transcriptRef.current = ''
     chunkIndexRef.current = 0
+    detectionBufferRef.current = ''
+    recentContextRef.current = ''
+    lastDetectionTimeRef.current = Date.now()
+    chunkIntervalRef.current = 5_000
+    zeroTermChunksRef.current = 0
     startingRef.current = false
     setIsRecording(true); setElapsed(0); setLiveTerms([]); setSessionGlossary([]); setRecordingError(null)
     setSentences([]); setIsScrolledUp(false); autoScrollRef.current = true
@@ -589,7 +691,7 @@ export default function Dashboard() {
         if (isActiveRef.current) doChunk()
       }
       recorder.start()
-      chunkTimerRef.current = setTimeout(() => { if (recorder.state === 'recording') recorder.stop() }, 5_000)
+      chunkTimerRef.current = setTimeout(() => { if (recorder.state === 'recording') recorder.stop() }, chunkIntervalRef.current)
     }
 
     doChunk()
@@ -665,7 +767,7 @@ export default function Dashboard() {
       recognition.start()
     }
 
-    posthog.capture('recording_started', { subject: profileRef.current?.course, mode: SpeechRecognitionAPI ? 'whisper+speech_api' : 'whisper' })
+    capture('recording_started', { subject: profileRef.current?.course, mode: SpeechRecognitionAPI ? 'whisper+speech_api' : 'whisper' })
   }
 
   const stopRecording = async () => {
@@ -679,6 +781,20 @@ export default function Dashboard() {
     hasInterimRef.current = false
     try { recognitionRef.current?.stop() } catch { /* ignore */ }
     recognitionRef.current = null
+
+    // Flush any text waiting for the 15s detect-terms window so terms from the
+    // final seconds of the lecture aren't lost.
+    if (detectionBufferRef.current.trim() && sessionIdRef.current) {
+      const toDetect = detectionBufferRef.current
+      const context = recentContextRef.current
+      detectionBufferRef.current = ''
+      lastDetectionTimeRef.current = Date.now()
+      const flushSid = sessionIdRef.current
+      createClient().auth.getSession().then(({ data: { session } }) => {
+        const token = session?.access_token
+        if (token) runDetection(toDetect, flushSid, token, context)
+      }).catch(() => {})
+    }
 
     // Release the Web Lock so Chrome can resume normal background throttling
     webLockReleaseRef.current?.()
@@ -703,7 +819,7 @@ export default function Dashboard() {
     setCapturedTabTitle(null)
     setLiveSessionId(null)
     window.postMessage({ source: 'demist', type: 'recording-stopped' }, window.location.origin)
-    posthog.capture('recording_stopped', { duration_seconds: elapsed })
+    capture('recording_stopped', { duration_seconds: elapsed })
 
     const supabase = createClient()
     const now = new Date()
@@ -810,6 +926,8 @@ export default function Dashboard() {
   }
 
   const dismissTerm = (id: string) => {
+    const timer = cardTimersRef.current.get(id)
+    if (timer) { clearTimeout(timer); cardTimersRef.current.delete(id) }
     setLiveTerms(prev => prev.map(t => t.id === id ? { ...t, dismissing: true } : t))
     setTimeout(() => setLiveTerms(prev => prev.filter(t => t.id !== id)), 380)
   }
@@ -1252,6 +1370,9 @@ export default function Dashboard() {
         )}
       </div>
 
+      {/* First-time onboarding */}
+      <OnboardingOverlay />
+
       {/* Term overlay */}
       <div className="term-overlay-bottom fixed inset-x-0 flex flex-col gap-3 items-center px-4 sm:px-5 z-50 pointer-events-none">
         {liveTerms.map(t => (
@@ -1260,6 +1381,8 @@ export default function Dashboard() {
             {...t}
             onDismiss={() => dismissTerm(t.id)}
             onKnown={() => markKnown(t)}
+            onPin={() => pinTerm(t.id)}
+            onSave={() => confirmSave(t.id)}
           />
         ))}
       </div>
@@ -1287,13 +1410,18 @@ function TermCard({
   term,
   definition,
   dismissing,
+  pinned,
+  saved,
   onDismiss,
   onKnown,
-}: Omit<LiveTerm, 'id'> & { onDismiss: () => void; onKnown: () => void }) {
+  onPin,
+  onSave,
+}: Omit<LiveTerm, 'id'> & { onDismiss: () => void; onKnown: () => void; onPin: () => void; onSave: () => void }) {
   return (
     <div className={`pointer-events-auto w-full max-w-[420px] ${dismissing ? 'animate-slide-down' : 'animate-slide-up'}`}>
       <div
-        className="rounded-2xl px-5 py-4 dark:bg-[#13120e]/96 bg-[#FDFCF9]/96 border dark:border-amber-500/[0.18] border-amber-400/40"
+        onClick={onPin}
+        className={`rounded-2xl px-5 py-4 dark:bg-[#13120e]/96 bg-[#FDFCF9]/96 border cursor-pointer ${pinned ? 'dark:border-amber-500/40 border-amber-500/60' : 'dark:border-amber-500/[0.18] border-amber-400/40'}`}
         style={{
           backdropFilter: 'blur(28px)',
           WebkitBackdropFilter: 'blur(28px)',
@@ -1307,10 +1435,10 @@ function TermCard({
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-3 mb-1.5">
               <p className="text-[10px] font-bold tracking-[0.18em] uppercase dark:text-amber-400/70 text-amber-700/80">
-                Just detected
+                {pinned ? 'Pinned' : 'Just detected'}
               </p>
               <button
-                onClick={onDismiss}
+                onClick={e => { e.stopPropagation(); onDismiss() }}
                 aria-label="Dismiss"
                 className="dark:text-white/25 text-gray-400 dark:hover:text-white/60 hover:text-gray-600 transition-colors shrink-0 text-[18px] leading-none mt-[-1px]"
               >
@@ -1322,12 +1450,19 @@ function TermCard({
           </div>
         </div>
 
-        <div className="mt-3 pt-2.5 border-t dark:border-white/[0.06] border-black/[0.07] ml-[15px]">
+        <div className="mt-3 pt-2.5 border-t dark:border-white/[0.06] border-black/[0.07] ml-[15px] flex items-center justify-between gap-3">
           <button
-            onClick={onKnown}
+            onClick={e => { e.stopPropagation(); onKnown() }}
             className="text-[12px] dark:text-white/30 text-gray-400 dark:hover:text-amber-400 hover:text-amber-700 transition-colors"
           >
             I already know this
+          </button>
+          <button
+            onClick={e => { e.stopPropagation(); if (!saved) onSave() }}
+            disabled={saved}
+            className={`text-[12px] font-medium transition-colors ${saved ? 'dark:text-emerald-400 text-emerald-600' : 'dark:text-amber-400/80 text-amber-700 dark:hover:text-amber-300 hover:text-amber-800'}`}
+          >
+            {saved ? 'Saved ✓' : 'Save to flashcards'}
           </button>
         </div>
       </div>

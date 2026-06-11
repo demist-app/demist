@@ -2,8 +2,11 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase'
-import { TranscriptViewer } from '../transcript-viewer'
-import { SummaryViewer } from '../summary-viewer'
+import dynamic from 'next/dynamic'
+import { capture } from '@/lib/analytics'
+
+const SummaryViewer = dynamic(() => import('../summary-viewer').then(m => ({ default: m.SummaryViewer })), { ssr: false })
+const TranscriptViewer = dynamic(() => import('../transcript-viewer').then(m => ({ default: m.TranscriptViewer })), { ssr: false })
 
 interface SessionTerm {
   id: string
@@ -21,13 +24,15 @@ interface Session {
   started_at: string
   ended_at: string | null
   termCount: number
+  preview: string[]
   terms?: SessionTerm[]
   expanded: boolean
 }
 
 function fmtDuration(start: string, end: string | null): string {
-  if (!end) return '--'
+  if (!end) return ''
   const mins = Math.floor((new Date(end).getTime() - new Date(start).getTime()) / 60000)
+  if (mins < 1) return '<1m'
   if (mins < 60) return `${mins}m`
   return `${Math.floor(mins / 60)}h ${mins % 60}m`
 }
@@ -99,11 +104,16 @@ export default function History() {
       const ids = sessionsRaw.map(s => s.id)
       const { data: termRows } = await supabase
         .from('terms')
-        .select('session_id, id')
+        .select('session_id, term')
         .in('session_id', ids)
+        .order('created_at', { ascending: true })
 
       const countMap: Record<string, number> = {}
-      for (const r of termRows ?? []) countMap[r.session_id] = (countMap[r.session_id] ?? 0) + 1
+      const previewMap: Record<string, string[]> = {}
+      for (const r of termRows ?? []) {
+        countMap[r.session_id] = (countMap[r.session_id] ?? 0) + 1
+        if ((previewMap[r.session_id] ??= []).length < 3) previewMap[r.session_id].push(r.term)
+      }
 
       const built = sessionsRaw.map(s => ({
         ...s,
@@ -111,6 +121,7 @@ export default function History() {
         synopsis: s.synopsis ?? null,
         transcript: (s as { transcript?: string | null }).transcript ?? null,
         termCount: countMap[s.id] ?? 0,
+        preview: previewMap[s.id] ?? [],
         expanded: false,
         terms: undefined as SessionTerm[] | undefined,
       }))
@@ -221,7 +232,10 @@ export default function History() {
   const toggleExpand = async (id: string) => {
     if (selectMode) { toggleSelect(id); return }
     const target = sessions.find(x => x.id === id)
-    if (target && !target.expanded) maybeSummarize(target)
+    if (target && !target.expanded) {
+      maybeSummarize(target)
+      capture('history_session_expanded', { term_count: target.termCount })
+    }
 
     setSessions(prev => {
       const s = prev.find(x => x.id === id)
@@ -466,9 +480,29 @@ export default function History() {
                               )}
                             </div>
                           )}
-                          <p className="text-[12px] text-gray-600 mt-0.5">
-                            {fmtTime(s.started_at)} · {fmtDuration(s.started_at, s.ended_at)}
-                          </p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <p className="text-[12px] text-gray-600">
+                              {fmtTime(s.started_at)}
+                              {fmtDuration(s.started_at, s.ended_at) && ` · ${fmtDuration(s.started_at, s.ended_at)}`}
+                            </p>
+                            {s.subject && (
+                              <span className="text-[10px] font-medium dark:text-yellow-400/80 text-yellow-700 dark:bg-yellow-500/10 bg-yellow-500/[0.08] border dark:border-yellow-500/20 border-yellow-600/20 rounded-full px-2 py-px truncate max-w-[120px]">
+                                {s.subject}
+                              </span>
+                            )}
+                          </div>
+                          {!s.expanded && s.preview.length > 0 && (
+                            <div className="flex items-center gap-1.5 mt-2 overflow-hidden">
+                              {s.preview.map((t, ti) => (
+                                <span key={ti} className="text-[11px] dark:text-white/60 text-gray-600 dark:bg-white/[0.04] bg-[#F3F1EC] border dark:border-white/[0.06] border-black/[0.08] rounded-full px-2 py-0.5 truncate shrink-0 max-w-[140px]">
+                                  {t.length > 20 ? `${t.slice(0, 20)}…` : t}
+                                </span>
+                              ))}
+                              {s.termCount > 3 && (
+                                <span className="text-[11px] text-gray-600 shrink-0">+{s.termCount - 3}</span>
+                              )}
+                            </div>
+                          )}
                         </div>
 
                         <div className="flex items-center gap-2 shrink-0">
@@ -538,7 +572,14 @@ export default function History() {
                           ) : null}
 
                           {loadingTerms === s.id && <p className="text-gray-700 text-[13px] py-3">Loading…</p>}
-                          {s.terms && s.terms.length === 0 && <p className="text-gray-700 text-[13px] py-3">No words detected.</p>}
+                          {s.terms && s.terms.length === 0 && (
+                            <div className="py-3">
+                              <p className="text-gray-700 text-[13px]">No terms were detected. Check your microphone is picking up audio clearly.</p>
+                              <a href="/dashboard" className="inline-block mt-1.5 text-[13px] dark:text-yellow-400 text-yellow-700 hover:opacity-80 transition-opacity">
+                                Try another recording →
+                              </a>
+                            </div>
+                          )}
                           {s.terms && s.terms.length > 0 && (
                             <div className="pt-3">
                               <p className="text-[10px] font-bold tracking-[0.15em] text-gray-600 uppercase mb-2">Words</p>

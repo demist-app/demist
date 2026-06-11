@@ -120,7 +120,12 @@
       "Bash(git -C \"c:\\\\Users\\\\shivb\\\\Desktop\\\\coding bits\\\\demist\" log --oneline --all -20)",
       "Bash(git -C \"c:\\\\Users\\\\shivb\\\\Desktop\\\\coding bits\\\\demist\" status)",
       "Bash(git -C \"c:\\\\Users\\\\shivb\\\\Desktop\\\\coding bits\\\\demist\" diff web/app/\\\\\\(app\\\\\\)/import/page.tsx)",
-      "Bash(xargs wc -l)"
+      "Bash(xargs wc -l)",
+      "Read(//c/Users/shivb/Downloads/**)",
+      "Bash(powershell -Command \"Expand-Archive -Path 'demist-changes.zip' -DestinationPath 'demist-changes-extracted' -Force\")",
+      "Bash(Get-ChildItem -Recurse \"C:\\\\Users\\\\shivb\\\\Downloads\\\\demist-changes-extracted\")",
+      "Bash(grep 'from '\\\\''@/lib/analytics'\\\\''' '__TRACKED_VAR__/web/app/\\(app\\)/flashcards/page.tsx')",
+      "Bash(grep dynamic *)"
     ],
     "additionalDirectories": [
       "c:\\Users\\shivb\\Desktop\\coding bits\\demist\\web\\app\\u"

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
-import posthog from 'posthog-js'
+import { capture, reset } from '@/lib/analytics'
 
 interface ProfileData {
   display_name: string | null
@@ -36,9 +36,17 @@ export default function Profile() {
   const [isPublic, setIsPublic] = useState(false)
   const [copied, setCopied] = useState(false)
   const [totalTerms, setTotalTerms] = useState(0)
+  const [recordingMins, setRecordingMins] = useState(0)
+  const [longestStreak, setLongestStreak] = useState(0)
   const [userId, setUserId] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
   const [exported, setExported] = useState(false)
+
+  // Account deletion state
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   useEffect(() => {
     const supabase = createClient()
@@ -51,9 +59,11 @@ export default function Profile() {
       const [
         { data: prof },
         { count: termCount },
+        { data: sessionRows },
       ] = await Promise.all([
         supabase.from('profiles').select('display_name, course, year_of_study, is_public').eq('id', user.id).maybeSingle(),
         supabase.from('terms').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
+        supabase.from('sessions').select('started_at, ended_at').eq('user_id', user.id),
       ])
 
       const p = prof as { display_name: string | null; course: string | null; year_of_study: number | null; is_public: boolean }
@@ -63,8 +73,45 @@ export default function Profile() {
       setYear(p?.year_of_study ?? null)
       setIsPublic(p?.is_public ?? false)
       setTotalTerms(termCount ?? 0)
+
+      const rows = (sessionRows ?? []) as { started_at: string; ended_at: string | null }[]
+      const mins = rows.reduce((sum, s) => {
+        if (!s.ended_at) return sum
+        const m = (new Date(s.ended_at).getTime() - new Date(s.started_at).getTime()) / 60000
+        return m > 0 && m < 600 ? sum + m : sum
+      }, 0)
+      setRecordingMins(Math.round(mins))
+
+      // Longest streak ever, computed from session day history
+      const days = [...new Set(rows.map(s => { const d = new Date(s.started_at); d.setHours(0, 0, 0, 0); return d.getTime() }))].sort((a, b) => a - b)
+      let longest = 0; let run = 0; let prevDay = 0
+      for (const day of days) {
+        run = day - prevDay === 86400000 ? run + 1 : 1
+        if (run > longest) longest = run
+        prevDay = day
+      }
+      setLongestStreak(longest)
     })()
   }, [])
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmText !== 'DELETE' || deleting) return
+    setDeleting(true)
+    setDeleteError(null)
+    capture('account_deletion_initiated')
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.rpc('delete_user_data')
+      if (error) throw error
+      await supabase.auth.signOut()
+      reset()
+      window.location.replace('/')
+    } catch (e) {
+      console.error('handleDeleteAccount error:', e)
+      setDeleteError('Could not delete your account. Please try again or email hello@demist.app.')
+      setDeleting(false)
+    }
+  }
 
   const handleSave = async () => {
     if (!userId) return
@@ -80,7 +127,7 @@ export default function Profile() {
         })
         .eq('id', userId)
       if (error) throw error
-      posthog.capture('profile_updated')
+      capture('profile_updated')
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
     } catch (e) {
@@ -93,7 +140,7 @@ export default function Profile() {
 
   const handleSignOut = async () => {
     await createClient().auth.signOut()
-    posthog.reset()
+    reset()
     window.location.replace('/')
   }
 
@@ -212,6 +259,20 @@ export default function Profile() {
             <p className="text-[17px] font-bold truncate">{displayName || 'No name set'}</p>
             <p className="text-[13px] text-gray-700 truncate">{profile.email}</p>
           </div>
+        </div>
+
+        {/* All-time stats */}
+        <div className="grid grid-cols-3 gap-2 animate-step opacity-0" style={{ animationDelay: '20ms', animationFillMode: 'forwards' }}>
+          {[
+            { value: totalTerms.toLocaleString(), label: totalTerms === 1 ? 'term learned' : 'terms learned' },
+            { value: recordingMins >= 60 ? `${Math.floor(recordingMins / 60)}h ${recordingMins % 60}m` : `${recordingMins}m`, label: 'recorded' },
+            { value: longestStreak.toLocaleString(), label: 'longest streak' },
+          ].map(({ value, label }) => (
+            <div key={label} className="dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl px-3 py-4 text-center">
+              <p className="text-[20px] font-bold leading-none dark:text-amber-400 text-amber-700 tabular-nums">{value}</p>
+              <p className="text-[11px] text-gray-600 mt-1.5">{label}</p>
+            </div>
+          ))}
         </div>
 
         {/* Anki export */}
@@ -396,8 +457,60 @@ export default function Profile() {
         >
           Sign out
         </button>
+
+        {/* Danger zone */}
+        <div className="pt-8 mt-2 border-t dark:border-white/[0.05] border-black/[0.07] animate-step opacity-0" style={{ animationDelay: '220ms', animationFillMode: 'forwards' }}>
+          <button
+            onClick={() => { setShowDeleteModal(true); setDeleteConfirmText(''); setDeleteError(null) }}
+            className="text-[13px] text-red-400/70 hover:text-red-400 transition-colors"
+          >
+            Delete account
+          </button>
+        </div>
       </div>
       </div>
+
+      {/* Delete confirmation modal */}
+      {showDeleteModal && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center px-4 dark:bg-black/60 bg-black/30"
+          style={{ backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="w-full max-w-sm dark:bg-[#0d0d1c] bg-[#FDFCF9] border dark:border-red-500/20 border-red-300/60 rounded-[24px] p-6">
+            <p className="text-[17px] font-bold dark:text-white text-gray-900 mb-2">Delete your account?</p>
+            <p className="text-[13px] dark:text-white/60 text-gray-600 leading-relaxed mb-4">
+              This will permanently delete your account, all recordings, terms, and flashcards. This cannot be undone.
+            </p>
+            <label className="text-[12px] text-gray-600 mb-1.5 block">Type DELETE to confirm</label>
+            <input
+              type="text"
+              value={deleteConfirmText}
+              onChange={e => setDeleteConfirmText(e.target.value)}
+              placeholder="DELETE"
+              autoComplete="off"
+              className="w-full dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.10] border-black/[0.13] rounded-2xl px-4 py-3 dark:text-white text-gray-900 text-[14px] placeholder-gray-700 focus:outline-none focus:border-red-500/50 transition-colors mb-3"
+            />
+            {deleteError && <p className="text-[12px] text-red-400 mb-3">{deleteError}</p>}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                className="flex-1 py-3 rounded-2xl text-[14px] font-medium dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.08] border-black/[0.13] dark:text-gray-300 text-gray-700 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteAccount}
+                disabled={deleteConfirmText !== 'DELETE' || deleting}
+                className="flex-1 py-3 rounded-2xl text-[14px] font-semibold text-white bg-red-500 hover:bg-red-600 disabled:opacity-40 transition-colors"
+              >
+                {deleting ? 'Deleting…' : 'Delete forever'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   )
 }

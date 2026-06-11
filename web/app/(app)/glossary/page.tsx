@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
-import posthog from 'posthog-js'
+import { capture } from '@/lib/analytics'
 
 interface Term {
   id: string
@@ -11,6 +11,9 @@ interface Term {
   definition: string
   session_id: string | null
   subject: string | null
+  created_at: string
+  sm2_review_count: number
+  known: boolean
 }
 
 interface GlossarySession {
@@ -62,6 +65,89 @@ export default function Glossary() {
   const [search, setSearch] = useState('')
   const [groupBy, setGroupBy] = useState<'session' | 'tag'>('session')
   const [tagFilter, setTagFilter] = useState<string | null>(null)
+  const [sortMode, setSortMode] = useState<'recent' | 'alpha' | 'most_reviewed' | 'least_reviewed'>('recent')
+
+  // Bulk select state
+  const [selectMode, setSelectMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkWorking, setBulkWorking] = useState(false)
+
+  useEffect(() => {
+    const savedGroup = localStorage.getItem('demist_glossary_group_by_session')
+    if (savedGroup === 'tag' || savedGroup === 'session') setGroupBy(savedGroup)
+    const savedSort = localStorage.getItem('demist_glossary_sort')
+    if (savedSort === 'recent' || savedSort === 'alpha' || savedSort === 'most_reviewed' || savedSort === 'least_reviewed') setSortMode(savedSort)
+  }, [])
+
+  const changeGroupBy = (mode: 'session' | 'tag') => {
+    setGroupBy(mode)
+    localStorage.setItem('demist_glossary_group_by_session', mode)
+    capture('glossary_group_toggled', { grouped: mode === 'session' })
+  }
+
+  const changeSortMode = (mode: typeof sortMode) => {
+    setSortMode(mode)
+    localStorage.setItem('demist_glossary_sort', mode)
+    capture('glossary_sort_changed', { sort: mode })
+  }
+
+  const sortTerms = (terms: Term[]): Term[] => {
+    const arr = [...terms]
+    switch (sortMode) {
+      case 'alpha': return arr.sort((a, b) => a.term.localeCompare(b.term))
+      case 'most_reviewed': return arr.sort((a, b) => (b.sm2_review_count ?? 0) - (a.sm2_review_count ?? 0))
+      case 'least_reviewed': return arr.sort((a, b) => (a.sm2_review_count ?? 0) - (b.sm2_review_count ?? 0))
+      default: return arr.sort((a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? ''))
+    }
+  }
+
+  const toggleTermSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
+
+  const exitSelectMode = () => {
+    setSelectMode(false)
+    setSelectedIds(new Set())
+  }
+
+  const bulkMarkKnown = async () => {
+    if (selectedIds.size === 0 || bulkWorking) return
+    setBulkWorking(true)
+    try {
+      const ids = [...selectedIds]
+      const supabase = createClient()
+      const { error } = await supabase.from('terms').update({ known: true }).in('id', ids)
+      if (error) throw error
+      setSessions(prev => prev.map(s => ({ ...s, terms: s.terms.filter(t => !selectedIds.has(t.id)) })).filter(s => s.terms.length > 0))
+      setOrphanTerms(prev => prev.filter(t => !selectedIds.has(t.id)))
+      setTotalCount(prev => prev - ids.length)
+      capture('glossary_bulk_mark_known', { count: ids.length })
+      exitSelectMode()
+    } catch (e) {
+      console.error('bulkMarkKnown error:', e)
+    } finally {
+      setBulkWorking(false)
+    }
+  }
+
+  const bulkExportCsv = () => {
+    if (selectedIds.size === 0) return
+    const selected = [...sessions.flatMap(s => s.terms), ...orphanTerms].filter(t => selectedIds.has(t.id))
+    const esc = (v: string) => `"${(v ?? '').replace(/"/g, '""')}"`
+    const csv = ['Term,Definition,Group', ...selected.map(t => `${esc(t.term)},${esc(t.definition)},${esc(t.subject ?? '')}`)].join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'demist-glossary.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+    capture('glossary_bulk_export', { count: selected.length })
+  }
 
   // Definition edit state
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -100,13 +186,13 @@ export default function Glossary() {
         const { data: { session } } = await supabase.auth.getSession()
         const user = session?.user
         if (!user) return
-        posthog.capture('glossary_viewed')
+        capture('glossary_viewed')
 
         const [
           { data: termsData, error: termsErr },
           { data: sessionsData, error: sessionsErr },
         ] = await Promise.all([
-          supabase.from('terms').select('id, term, definition, session_id, subject').eq('user_id', user.id).order('created_at', { ascending: true }),
+          supabase.from('terms').select('id, term, definition, session_id, subject, created_at, sm2_review_count, known').eq('user_id', user.id).order('created_at', { ascending: true }),
           supabase.from('sessions').select('id, name, started_at, subject').eq('user_id', user.id).order('started_at', { ascending: true }),
         ])
 
@@ -287,9 +373,25 @@ export default function Glossary() {
   const renderTermRow = (t: Term, i: number) => (
     <div
       key={t.id}
-      className={`px-4 py-3.5 transition-colors duration-150 ${i > 0 ? 'border-t dark:border-white/[0.04] border-black/[0.05]' : ''} ${editingId === t.id || tagEditingId === t.id ? 'dark:bg-white/[0.03] bg-[#F3F1EC]' : 'hover:bg-yellow-500/[0.02]'}`}
+      onClick={selectMode ? () => toggleTermSelect(t.id) : undefined}
+      className={`px-4 py-3.5 transition-colors duration-150 ${i > 0 ? 'border-t dark:border-white/[0.04] border-black/[0.05]' : ''} ${selectMode ? 'cursor-pointer' : ''} ${selectedIds.has(t.id) ? 'dark:bg-yellow-500/[0.06] bg-yellow-50' : editingId === t.id || tagEditingId === t.id ? 'dark:bg-white/[0.03] bg-[#F3F1EC]' : 'hover:bg-yellow-500/[0.02]'}`}
     >
       <div className="flex items-start gap-2">
+        {selectMode && (
+          <span
+            className="shrink-0 w-5 h-5 mt-0.5 rounded-full border-2 flex items-center justify-center transition-colors"
+            style={{
+              borderColor: selectedIds.has(t.id) ? '#D97706' : 'rgba(107,114,128,0.5)',
+              background: selectedIds.has(t.id) ? '#D97706' : 'transparent',
+            }}
+          >
+            {selectedIds.has(t.id) && (
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                <path d="M2 5l2.5 2.5L8 3" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
+          </span>
+        )}
         <div className="flex-1 min-w-0">
           <p className="text-[15px] font-semibold dark:text-white/90 text-gray-900 leading-snug">{t.term}</p>
 
@@ -445,18 +547,47 @@ export default function Glossary() {
               {hasMultipleSessions && (
                 <div className="flex items-center dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.08] border-black/[0.13] rounded-2xl p-1 shrink-0">
                   <button
-                    onClick={() => { setGroupBy('session'); setTagFilter(null) }}
+                    onClick={() => { changeGroupBy('session'); setTagFilter(null) }}
                     className={`text-[12px] font-medium px-3 py-1.5 rounded-xl transition-all ${groupBy === 'session' ? 'dark:bg-white/[0.10] bg-white shadow-sm dark:text-white text-gray-900' : 'text-gray-600 hover:text-gray-500'}`}
                   >
                     Session
                   </button>
                   <button
-                    onClick={() => setGroupBy('tag')}
+                    onClick={() => changeGroupBy('tag')}
                     className={`text-[12px] font-medium px-3 py-1.5 rounded-xl transition-all ${groupBy === 'tag' ? 'dark:bg-white/[0.10] bg-white shadow-sm dark:text-white text-gray-900' : 'text-gray-600 hover:text-gray-500'}`}
                   >
                     Group
                   </button>
                 </div>
+              )}
+            </div>
+
+            {/* Sort + select controls */}
+            <div className="flex items-center justify-between gap-2">
+              <select
+                value={sortMode}
+                onChange={e => changeSortMode(e.target.value as typeof sortMode)}
+                className="text-[12px] font-medium dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.08] border-black/[0.13] rounded-xl px-3 py-2 dark:text-gray-300 text-gray-700 focus:outline-none focus:border-yellow-500/40 appearance-none cursor-pointer"
+              >
+                <option value="recent">Recently added</option>
+                <option value="alpha">Alphabetical</option>
+                <option value="most_reviewed">Most reviewed</option>
+                <option value="least_reviewed">Least reviewed</option>
+              </select>
+              {selectMode ? (
+                <button
+                  onClick={exitSelectMode}
+                  className="text-[12px] font-medium text-gray-600 hover:text-gray-500 transition-colors px-3 py-2"
+                >
+                  Cancel
+                </button>
+              ) : (
+                <button
+                  onClick={() => setSelectMode(true)}
+                  className="text-[12px] font-medium text-gray-600 hover:dark:text-white/70 hover:text-gray-900 transition-colors px-3 py-2"
+                >
+                  Select
+                </button>
               )}
             </div>
 
@@ -563,7 +694,7 @@ export default function Glossary() {
                   </span>
                 </div>
                 <div className="dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl overflow-hidden">
-                  {s.terms.map((t, i) => renderTermRow(t, i))}
+                  {sortTerms(s.terms).map((t, i) => renderTermRow(t, i))}
                 </div>
               </div>
             ))}
@@ -575,7 +706,7 @@ export default function Glossary() {
                   <div className="flex-1 h-px dark:bg-white/[0.05] bg-[#F6F5F2]" />
                 </div>
                 <div className="dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl overflow-hidden">
-                  {filteredOrphans.map((t, i) => renderTermRow(t, i))}
+                  {sortTerms(filteredOrphans).map((t, i) => renderTermRow(t, i))}
                 </div>
               </div>
             )}
@@ -602,7 +733,7 @@ export default function Glossary() {
                   <span className="text-[11px] text-gray-700 shrink-0 tabular-nums">{terms.length} word{terms.length !== 1 ? 's' : ''}</span>
                 </div>
                 <div className="dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl overflow-hidden">
-                  {terms.map((t, i) => renderTermRow(t, i))}
+                  {sortTerms(terms).map((t, i) => renderTermRow(t, i))}
                 </div>
               </div>
             ))}
@@ -611,6 +742,30 @@ export default function Glossary() {
       </div>
       </div>
       </div>
+
+      {/* Bulk action bar */}
+      {selectMode && selectedIds.size > 0 && (
+        <div className="fixed bottom-0 inset-x-0 z-50 flex items-center justify-between px-4 sm:px-6 py-4 dark:bg-[#0e0e1c]/95 bg-white/95 border-t dark:border-white/[0.07] border-black/[0.10]" style={{ backdropFilter: 'blur(16px)' }}>
+          <p className="text-[14px] font-medium dark:text-white/80 text-gray-700">
+            {selectedIds.size} term{selectedIds.size !== 1 ? 's' : ''} selected
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={bulkExportCsv}
+              className="text-[13px] font-medium dark:text-gray-300 text-gray-700 border dark:border-white/[0.12] border-black/[0.15] hover:dark:bg-white/[0.06] hover:bg-black/[0.04] px-4 py-1.5 rounded-xl transition-colors"
+            >
+              Export CSV
+            </button>
+            <button
+              onClick={bulkMarkKnown}
+              disabled={bulkWorking}
+              className="text-[13px] font-semibold text-white bg-yellow-600 hover:brightness-110 disabled:opacity-50 px-4 py-1.5 rounded-xl transition-[filter]"
+            >
+              {bulkWorking ? 'Working…' : 'Mark as known'}
+            </button>
+          </div>
+        </div>
+      )}
     </main>
   )
 }

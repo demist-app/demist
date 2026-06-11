@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
+import { capture } from '@/lib/analytics'
 
 const FETCH_TIMEOUT_MS = 300_000 // 5 min — long audio files take time
 
@@ -108,6 +109,9 @@ export default function ImportPage() {
   const [audioError, setAudioError] = useState<string | null>(null)
   const [audioProgress, setAudioProgress] = useState(0)
   const [audioRedirect, setAudioRedirect] = useState<number | null>(null)
+  const [uploadEta, setUploadEta] = useState<number | null>(null)
+  const [liveImportTerms, setLiveImportTerms] = useState<{ term: string; definition: string }[]>([])
+  const importPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const audioDragRef = useRef(false)
   const [audioDragOver, setAudioDragOver] = useState(false)
 
@@ -178,9 +182,9 @@ export default function ImportPage() {
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | null = null
     if (audioStatus === 'uploading') {
-      setAudioProgress(0)
-      interval = setInterval(() => setAudioProgress(p => Math.min(p + 8, 18)), 150)
+      // Real progress comes from XHR upload events (0–40%)
     } else if (audioStatus === 'transcribing') {
+      setAudioProgress(p => Math.max(p, 40))
       interval = setInterval(() => setAudioProgress(p => Math.min(p + 0.4, 75)), 400)
     } else if (audioStatus === 'processing') {
       interval = setInterval(() => setAudioProgress(p => Math.min(p + 0.25, 93)), 400)
@@ -251,25 +255,59 @@ export default function ImportPage() {
     setAudioStatus('uploading')
     setAudioError(null)
     setAudioResult(null)
+    setLiveImportTerms([])
+    capture('import_audio_started', { file_size_mb: Math.round(audioFile.size / 1048576 * 10) / 10 })
+    const importStartedAt = new Date().toISOString()
+    const importT0 = Date.now()
 
     try {
       const supabase = createClient()
       const ext = audioFile.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') ?? 'mp3'
       const storagePath = `${userId}/${Date.now()}.${ext}`
 
-      const { error: uploadErr } = await supabase.storage
-        .from('recordings')
-        .upload(storagePath, audioFile, { contentType: audioFile.type })
-
-      if (uploadErr) throw new Error(`Upload failed: ${uploadErr.message}`)
-
-      setAudioStatus('transcribing')
-
       const { data: { session } } = await supabase.auth.getSession()
       const token = session?.access_token
       const base = process.env.NEXT_PUBLIC_SUPABASE_URL!
-
       if (!token) throw new Error('Not authenticated')
+
+      // Upload via XHR so we get real progress events (fetch can't report upload progress)
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest()
+        xhr.open('POST', `${base}/storage/v1/object/recordings/${storagePath}`)
+        xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+        xhr.setRequestHeader('Content-Type', audioFile.type || 'application/octet-stream')
+        xhr.upload.onprogress = e => {
+          if (e.lengthComputable) {
+            // Upload spans the first 40% of the bar; transcription fills the rest
+            setAudioProgress(Math.round((e.loaded / e.total) * 40))
+            const elapsed = (Date.now() - importT0) / 1000
+            const rate = e.loaded / Math.max(elapsed, 0.5)
+            const remaining = Math.ceil((e.total - e.loaded) / Math.max(rate, 1))
+            setUploadEta(e.loaded < e.total && remaining > 1 ? remaining : null)
+          }
+        }
+        xhr.onload = () => {
+          setUploadEta(null)
+          if (xhr.status >= 200 && xhr.status < 300) resolve()
+          else reject(new Error(`Upload failed (${xhr.status})`))
+        }
+        xhr.onerror = () => { setUploadEta(null); reject(new Error('Upload failed. Check your connection.')) }
+        xhr.send(audioFile)
+      })
+
+      setAudioStatus('transcribing')
+
+      // Poll for terms as the edge function detects them, so they stream in live
+      importPollRef.current = setInterval(async () => {
+        const { data } = await supabase
+          .from('terms')
+          .select('term, definition')
+          .eq('user_id', userId)
+          .gte('created_at', importStartedAt)
+          .order('created_at', { ascending: true })
+          .limit(100)
+        if (data?.length) setLiveImportTerms(data as { term: string; definition: string }[])
+      }, 3000)
 
       const res = await fetchWithTimeout(`${base}/functions/v1/transcribe-audio`, {
         method: 'POST',
@@ -291,9 +329,16 @@ export default function ImportPage() {
 
       setAudioResult(data)
       setAudioStatus('done')
+      capture('import_audio_completed', {
+        terms_detected: data.terms_detected ?? data.term_count ?? liveImportTerms.length,
+        duration_seconds: Math.round((Date.now() - importT0) / 1000),
+      })
     } catch (err) {
       setAudioError(err instanceof Error ? err.message : 'Something went wrong')
       setAudioStatus('error')
+    } finally {
+      if (importPollRef.current) { clearInterval(importPollRef.current); importPollRef.current = null }
+      setUploadEta(null)
     }
   }
 
@@ -632,7 +677,28 @@ export default function ImportPage() {
                     style={{ width: `${audioProgress}%` }}
                   />
                 </div>
-                <p className="text-[11px] text-gray-600 mt-1.5" aria-live="polite">{audioLabel[audioStatus]}</p>
+                <div className="flex items-center justify-between mt-1.5">
+                  <p className="text-[11px] text-gray-600" aria-live="polite">{audioLabel[audioStatus]}</p>
+                  <p className="text-[11px] text-gray-600 tabular-nums">
+                    {audioStatus === 'uploading' && uploadEta !== null
+                      ? `~${uploadEta >= 60 ? `${Math.ceil(uploadEta / 60)}m` : `${uploadEta}s`} left`
+                      : `${Math.round(audioProgress)}%`}
+                  </p>
+                </div>
+                {liveImportTerms.length > 0 && (
+                  <div className="mt-3">
+                    <p className="text-[10px] font-bold tracking-[0.15em] text-gray-600 uppercase mb-1.5">
+                      {liveImportTerms.length} term{liveImportTerms.length !== 1 ? 's' : ''} found so far
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {liveImportTerms.slice(-12).map((t, i) => (
+                        <span key={`${t.term}-${i}`} className="text-[11px] dark:text-yellow-400/90 text-yellow-700 dark:bg-yellow-500/10 bg-yellow-500/[0.08] border dark:border-yellow-500/20 border-yellow-600/20 rounded-full px-2 py-0.5 animate-step opacity-0" style={{ animationFillMode: 'forwards' }}>
+                          {t.term.length > 28 ? `${t.term.slice(0, 28)}…` : t.term}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

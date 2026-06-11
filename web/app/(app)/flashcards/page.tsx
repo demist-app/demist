@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
-import posthog from 'posthog-js'
+import { capture } from '@/lib/analytics'
 
 const NEW_CARDS_PER_DAY = 15
 
@@ -51,6 +51,16 @@ function TrashIcon() {
   )
 }
 
+function calculateStreak(timestamps: string[]): number {
+  if (!timestamps.length) return 0
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const days = new Set(timestamps.map(t => { const d = new Date(t); d.setHours(0, 0, 0, 0); return d.getTime() }))
+  let streak = 0; let cur = today.getTime()
+  if (!days.has(cur)) cur -= 86400000
+  while (days.has(cur)) { streak++; cur -= 86400000 }
+  return streak
+}
+
 type Phase = 'loading' | 'empty' | 'review' | 'done'
 
 export default function Flashcards() {
@@ -64,6 +74,10 @@ export default function Flashcards() {
   const [saving, setSaving] = useState(false)
   const [stuckOnLast, setStuckOnLast] = useState(false)
   const [reviewedCards, setReviewedCards] = useState<FlashCard[]>([])
+  const [gradeCounts, setGradeCounts] = useState<[number, number, number, number]>([0, 0, 0, 0])
+  const [streak, setStreak] = useState(0)
+  const [displayStreak, setDisplayStreak] = useState(0)
+  const doneTrackedRef = useRef(false)
 
   // Browse mode
   const [hasAnyTerms, setHasAnyTerms] = useState(true)
@@ -96,11 +110,11 @@ export default function Flashcards() {
       const { data: { session } } = await supabase.auth.getSession()
       const user = session?.user
       if (!user) return
-      posthog.capture('flashcards_viewed')
+      capture('flashcards_viewed')
 
       const now = new Date().toISOString()
 
-      const [{ data: reviews }, { data: newCards }, { count: totalTerms }] = await Promise.all([
+      const [{ data: reviews }, { data: newCards }, { count: totalTerms }, { data: sessionDates }] = await Promise.all([
         supabase
           .from('terms')
           .select('id, term, definition, sm2_interval, sm2_ease, sm2_review_count, sm2_due_at')
@@ -121,8 +135,15 @@ export default function Flashcards() {
           .from('terms')
           .select('id', { count: 'exact', head: true })
           .eq('user_id', user.id),
+        supabase
+          .from('sessions')
+          .select('started_at')
+          .eq('user_id', user.id)
+          .order('started_at', { ascending: false })
+          .limit(365),
       ])
       setHasAnyTerms((totalTerms ?? 0) > 0)
+      setStreak(calculateStreak((sessionDates ?? []).map(s => s.started_at)))
 
       const due = (reviews ?? []).map(c => ({ ...c, isNew: false })) as FlashCard[]
       const fresh = (newCards ?? []).map(c => ({ ...c, isNew: true })) as FlashCard[]
@@ -235,7 +256,12 @@ export default function Flashcards() {
       return
     }
 
-    posthog.capture('flashcard_graded', { grade, interval, isNew: current.isNew })
+    capture('flashcard_graded', { grade, interval, isNew: current.isNew })
+    setGradeCounts(prev => {
+      const next = [...prev] as [number, number, number, number]
+      next[grade]++
+      return next
+    })
 
     setFlipped(false)
     setSaving(false)
@@ -266,6 +292,48 @@ export default function Flashcards() {
 
   const total = dueCount + newCount
   const progressPct = total > 0 ? Math.round((reviewed / total) * 100) : 0
+
+  // Keyboard shortcuts: space/enter flips, 1-4 grades
+  useEffect(() => {
+    if (phase !== 'review' || browseMode) return
+    const onKey = (e: KeyboardEvent) => {
+      if (editingId || (e.target as HTMLElement)?.tagName === 'INPUT' || (e.target as HTMLElement)?.tagName === 'TEXTAREA') return
+      if (e.key === ' ' || e.key === 'Enter') {
+        e.preventDefault()
+        setFlipped(f => f || true)
+      } else if (flipped && ['1', '2', '3', '4'].includes(e.key)) {
+        e.preventDefault()
+        handleGrade((Number(e.key) - 1) as 0 | 1 | 2 | 3)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }) // intentionally re-bound each render so handleGrade sees fresh state
+
+  const totalGrades = gradeCounts[0] + gradeCounts[1] + gradeCounts[2] + gradeCounts[3]
+  const goodEasyPct = totalGrades > 0 ? Math.round(((gradeCounts[2] + gradeCounts[3]) / totalGrades) * 100) : 0
+
+  useEffect(() => {
+    if (phase !== 'done') return
+    if (!doneTrackedRef.current) {
+      doneTrackedRef.current = true
+      capture('flashcard_session_completed', {
+        cards_reviewed: reviewed,
+        streak,
+        good_easy_pct: goodEasyPct,
+      })
+    }
+    if (streak === 0) { setDisplayStreak(0); return }
+    setDisplayStreak(0)
+    const stepMs = Math.max(40, Math.min(120, 600 / streak))
+    let n = 0
+    const id = setInterval(() => {
+      n++
+      setDisplayStreak(n)
+      if (n >= streak) clearInterval(id)
+    }, stepMs)
+    return () => clearInterval(id)
+  }, [phase]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const queueLabel = [
     dueCount > 0 && `${dueCount} due`,
@@ -518,40 +586,83 @@ export default function Flashcards() {
 
       {phase === 'done' && (
         <div className="flex-1 flex flex-col px-4 sm:px-6 py-6 overflow-y-auto">
-          <div className="flex flex-col items-center text-center gap-2 mb-6">
-            <p className="text-[22px] font-bold">Session done</p>
-            <p className="text-gray-700 text-[14px]">
-              {reviewed} card{reviewed !== 1 ? 's' : ''} reviewed. Come back tomorrow for the next batch.
-            </p>
-            <div className="flex items-center gap-2 mt-2">
+          <div className="w-full max-w-md mx-auto flex flex-col gap-5">
+
+            <div className="flex flex-col items-center text-center gap-1 animate-step opacity-0" style={{ animationFillMode: 'forwards', animationDelay: '0ms' }}>
+              <p className="text-[22px] font-bold">Session done</p>
+              <p className="text-gray-700 text-[14px]">
+                {reviewed} card{reviewed !== 1 ? 's' : ''} reviewed
+              </p>
+            </div>
+
+            {streak > 0 && (
+              <div className="flex flex-col items-center gap-1 dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl py-5 animate-step opacity-0" style={{ animationFillMode: 'forwards', animationDelay: '80ms' }}>
+                <p className="text-[40px] font-bold leading-none dark:text-amber-400 text-amber-600 tabular-nums">{displayStreak}</p>
+                <p className="text-[12px] text-gray-600 mt-1">day streak{streak > 1 ? ' going strong' : ''}</p>
+              </div>
+            )}
+
+            {totalGrades > 0 && (
+              <div className="dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl px-5 py-4 animate-step opacity-0" style={{ animationFillMode: 'forwards', animationDelay: '160ms' }}>
+                <p className="text-[10px] font-bold tracking-[0.18em] text-gray-600 uppercase mb-3">This session</p>
+                <div className="space-y-2.5">
+                  {([
+                    { label: 'Again', count: gradeCounts[0], cls: 'bg-red-500/50' },
+                    { label: 'Hard',  count: gradeCounts[1], cls: 'bg-orange-500/50' },
+                    { label: 'Good',  count: gradeCounts[2], cls: 'bg-yellow-500' },
+                    { label: 'Easy',  count: gradeCounts[3], cls: 'bg-amber-400' },
+                  ]).map(({ label, count, cls }) => (
+                    <div key={label} className="flex items-center gap-3">
+                      <span className="text-[11px] text-gray-600 w-10 shrink-0">{label}</span>
+                      <div className="flex-1 h-2 dark:bg-white/[0.05] bg-black/[0.06] rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full ${cls}`}
+                          style={{ width: `${totalGrades > 0 ? Math.round((count / totalGrades) * 100) : 0}%`, transition: 'width 0.6s cubic-bezier(0.16, 1, 0.3, 1)' }}
+                        />
+                      </div>
+                      <span className="text-[11px] text-gray-600 w-5 text-right tabular-nums shrink-0">{count}</span>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-[13px] mt-4 dark:text-white/80 text-gray-700">
+                  {goodEasyPct >= 80
+                    ? "Strong session. You're retaining this well."
+                    : goodEasyPct >= 50
+                      ? 'Good progress. A few terms need more practice.'
+                      : 'Keep at it. These will click soon.'}
+                </p>
+              </div>
+            )}
+
+            <div className="flex flex-col items-center gap-2 animate-step opacity-0" style={{ animationFillMode: 'forwards', animationDelay: '240ms' }}>
               <Link
-                href="/history"
-                className="px-5 py-2.5 rounded-2xl dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.09] border-black/[0.14] text-[14px] font-medium text-gray-600 hover:dark:text-white text-gray-900 hover:dark:bg-white/[0.08] bg-[#EFEDE7] transition-all"
+                href="/dashboard"
+                className="w-full text-center px-5 py-3 rounded-2xl bg-yellow-600 hover:brightness-110 text-white text-[14px] font-semibold active:scale-[0.97] transition-[filter,transform] duration-150"
               >
-                Browse sessions
+                Start a new recording
               </Link>
               <button
                 onClick={openBrowse}
-                className="px-5 py-2.5 rounded-2xl dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.09] border-black/[0.14] text-[14px] font-medium text-gray-600 hover:dark:text-white text-gray-900 hover:dark:bg-white/[0.08] bg-[#EFEDE7] transition-all"
+                className="w-full px-5 py-3 rounded-2xl dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.09] border-black/[0.14] text-[14px] font-medium dark:text-gray-300 text-gray-700 hover:dark:bg-white/[0.08] active:scale-[0.97] transition-[background-color,transform] duration-150"
               >
-                Browse all cards
+                Browse all flashcards
               </button>
             </div>
-          </div>
 
-          {reviewedCards.length > 0 && (
-            <>
-              <p className="text-[10px] font-bold tracking-[0.18em] text-gray-600 uppercase mb-3">Cards you just reviewed</p>
-              <div className="space-y-2">
-                {reviewedCards.map(c => (
-                  <div key={c.id} className="dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl px-4 py-3">
-                    <p className="text-[14px] font-medium dark:text-white/90 text-gray-900">{c.term}</p>
-                    <p className="text-[12px] text-gray-700 mt-1 leading-relaxed">{c.definition}</p>
-                  </div>
-                ))}
+            {reviewedCards.length > 0 && (
+              <div className="animate-step opacity-0" style={{ animationFillMode: 'forwards', animationDelay: '320ms' }}>
+                <p className="text-[10px] font-bold tracking-[0.18em] text-gray-600 uppercase mb-3">Cards you just reviewed</p>
+                <div className="space-y-2">
+                  {reviewedCards.map(c => (
+                    <div key={c.id} className="dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl px-4 py-3">
+                      <p className="text-[14px] font-medium dark:text-white/90 text-gray-900">{c.term}</p>
+                      <p className="text-[12px] text-gray-700 mt-1 leading-relaxed">{c.definition}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </>
-          )}
+            )}
+          </div>
         </div>
       )}
 
@@ -656,6 +767,9 @@ export default function Flashcards() {
                   </button>
                 ))}
               </div>
+              <p className="hidden sm:block shrink-0 text-center text-[11px] text-gray-600 mt-2">
+                Press 1–4 to rate · Space to flip
+              </p>
               {stuckOnLast && (
                 <button
                   onClick={() => setPhase('done')}
