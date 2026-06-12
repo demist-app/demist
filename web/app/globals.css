@@ -127,6 +127,25 @@ button, a {
   from { transform: translateY(100%); }
   to   { transform: translateY(0); }
 }
+@keyframes spin-cw  { to { transform: rotate(360deg);  } }
+@keyframes spin-ccw { to { transform: rotate(-360deg); } }
+@keyframes load-pulse {
+  0%, 100% { opacity: 0.45; transform: scale(0.97); }
+  50%       { opacity: 1;    transform: scale(1.03); }
+}
+@keyframes mist-rise {
+  0%   { opacity: 0;    transform: translateY(0px)   scale(0.6); }
+  25%  { opacity: 0.65; }
+  100% { opacity: 0;    transform: translateY(-40px) scale(1.4); }
+}
+@keyframes load-fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes load-glow-pulse {
+  0%, 100% { opacity: 0.35; transform: scale(1); }
+  50%       { opacity: 0.65; transform: scale(1.08); }
+}
 
 /* ── Layout utilities ── */
 .nav-bottom-pad {
