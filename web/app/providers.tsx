@@ -8,7 +8,9 @@ export function PHProvider({ children }: { children: React.ReactNode }) {
     const el = document.getElementById('init-loader')
     if (!el) return
     el.style.opacity = '0'
-    el.addEventListener('transitionend', () => el.remove(), { once: true })
+    const remove = () => el.remove()
+    el.addEventListener('transitionend', remove, { once: true })
+    setTimeout(remove, 300)
   }, [])
 
   return (

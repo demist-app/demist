@@ -79,29 +79,6 @@ export default function RootLayout({
         <meta name="theme-color" content="#e8e4dc" />
       </head>
       <body className="min-h-full flex flex-col">
-        {/* Pure HTML+CSS spinner — visible before JS loads, removed on hydration */}
-        <style>{`
-          #init-loader {
-            position: fixed; inset: 0; z-index: 9999;
-            display: flex; align-items: center; justify-content: center;
-            background: #EDEAE3;
-            transition: opacity 0.15s ease;
-          }
-          .dark #init-loader { background: #080810; }
-          #init-loader::after {
-            content: '';
-            width: 32px; height: 32px;
-            border-radius: 50%;
-            border: 2px solid rgba(0,0,0,0.08);
-            border-top-color: #A16207;
-            animation: init-spin 0.7s linear infinite;
-          }
-          .dark #init-loader::after {
-            border-color: rgba(255,255,255,0.08);
-            border-top-color: #FBBF24;
-          }
-          @keyframes init-spin { to { transform: rotate(360deg); } }
-        `}</style>
         <div id="init-loader" aria-hidden="true" />
         <PHProvider>{children}</PHProvider>
       </body>

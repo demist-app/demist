@@ -70,6 +70,29 @@
 html {
   color-scheme: light;
 }
+
+/* ── Pre-hydration loader ── */
+#init-loader {
+  position: fixed; inset: 0; z-index: 9999;
+  display: flex; align-items: center; justify-content: center;
+  background: #EDEAE3;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+.dark #init-loader { background: #080810; }
+#init-loader::after {
+  content: '';
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  border: 2px solid rgba(0,0,0,0.08);
+  border-top-color: #A16207;
+  animation: init-spin 0.7s linear infinite;
+}
+.dark #init-loader::after {
+  border-color: rgba(255,255,255,0.08);
+  border-top-color: #FBBF24;
+}
+@keyframes init-spin { to { transform: rotate(360deg); } }
 html.dark {
   color-scheme: dark;
 }
