@@ -37,10 +37,26 @@ interface SelfQuestion {
   correctDefinition: string
 }
 
-type QuizQuestion = MCQuestion | ReverseQuestion | SelfQuestion
+type QuizQuestion = MCQuestion | ReverseQuestion | SelfQuestion | BlitzQuestion
+
+function buildBlitzQuestions(terms: Term[]): BlitzQuestion[] {
+  return [...terms].sort(() => Math.random() - 0.5).slice(0, 10).map(t => ({
+    type: 'blitz' as const,
+    termId: t.id,
+    term: t.term,
+    definition: t.definition,
+  }))
+}
+
+interface BlitzQuestion {
+  type: 'blitz'
+  termId: string
+  term: string
+  definition: string
+}
 
 type Mode = 'mc' | 'mixed'
-type Scope = 'all' | 'week'
+type Scope = 'all' | 'week' | 'blitz'
 type Phase = 'loading' | 'empty' | 'setup' | 'quiz' | 'done'
 
 // Prefer distractors from the same lecture window (close created_at = same recording session)
@@ -114,6 +130,7 @@ export default function QuizPage() {
   const [correctCount, setCorrectCount] = useState(0)
   const [wrongTerms, setWrongTerms] = useState<Term[]>([])
   const [answered, setAnswered] = useState(false)
+  const [inputAnswer, setInputAnswer] = useState('')
 
   useEffect(() => {
     ;(async () => {
@@ -139,11 +156,12 @@ export default function QuizPage() {
     ? allTerms.filter(t => t.created_at >= new Date(Date.now() - 7 * 86400000).toISOString())
     : allTerms
 
-  const canStart = filtered.length >= 4
+  const canStart = scope === 'blitz' ? allTerms.length >= 8 : filtered.length >= 4
 
   function startQuiz(termList?: Term[]) {
-    const source = termList ?? filtered
-    const qs = buildQuestions(source, Math.min(count, source.length), mode)
+    const qs = scope === 'blitz'
+      ? buildBlitzQuestions(allTerms)
+      : buildQuestions(termList ?? filtered, Math.min(count, (termList ?? filtered).length), mode)
     setQuestions(qs)
     setIdx(0)
     setSelected(null)
@@ -151,8 +169,9 @@ export default function QuizPage() {
     setCorrectCount(0)
     setWrongTerms([])
     setAnswered(false)
+    setInputAnswer('')
     setPhase('quiz')
-    capture('quiz_started', { scope, mode, count: qs.length })
+    capture('quiz_started', { scope, mode: scope === 'blitz' ? 'blitz' : mode, count: qs.length })
   }
 
   function pickAnswer(text: string) {
@@ -170,7 +189,7 @@ export default function QuizPage() {
 
   function selfGrade(isCorrect: boolean) {
     if (answered) return
-    const q = questions[idx]
+    const q = questions[idx] as SelfQuestion
     setAnswered(true)
     if (isCorrect) {
       setCorrectCount(c => c + 1)
@@ -179,11 +198,19 @@ export default function QuizPage() {
     }
   }
 
+  function submitBlitz() {
+    const q = questions[idx] as BlitzQuestion
+    const isCorrect = inputAnswer.trim().toLowerCase() === q.term.toLowerCase()
+    setAnswered(true)
+    if (isCorrect) setCorrectCount(c => c + 1)
+    else setWrongTerms(prev => [...prev, { id: q.termId, term: q.term, definition: q.definition, created_at: '' }])
+  }
+
   function next() {
     if (idx + 1 >= questions.length) {
       setPhase('done')
       capture('quiz_completed', {
-        correct: correctCount + (answered && !wrongTerms.find(w => w.term === questions[idx].term) ? 0 : 0),
+        correct: correctCount,
         total: questions.length,
         pct: Math.round((correctCount / questions.length) * 100),
       })
@@ -192,6 +219,7 @@ export default function QuizPage() {
       setSelected(null)
       setRevealed(false)
       setAnswered(false)
+      setInputAnswer('')
     }
   }
 
@@ -267,72 +295,83 @@ export default function QuizPage() {
             {/* Scope */}
             <div className="animate-step opacity-0" style={{ animationFillMode: 'forwards', animationDelay: '60ms' }}>
               <p className="text-[10px] font-bold tracking-[0.18em] uppercase text-gray-600 mb-2">Which terms</p>
-              <div className="grid grid-cols-2 gap-2">
-                {([['all', 'All terms', `${allTerms.length}`], ['week', 'This week', `${allTerms.filter(t => t.created_at >= new Date(Date.now() - 7 * 86400000).toISOString()).length}`]] as const).map(([val, label, cnt]) => (
+              <div className="grid grid-cols-3 gap-2">
+                {([
+                  ['all', 'All terms', `${allTerms.length} terms`],
+                  ['week', 'This week', `${allTerms.filter(t => t.created_at >= new Date(Date.now() - 7 * 86400000).toISOString()).length} terms`],
+                  ['blitz', 'Blitz', '10 fill-in-the-blank'],
+                ] as const).map(([val, label, desc]) => (
                   <button
                     key={val}
                     onClick={() => setScope(val)}
-                    className={`flex flex-col items-start px-4 py-3.5 rounded-2xl border text-left transition-colors active:scale-[0.97] ${
+                    className={`flex flex-col items-start px-3 py-3 rounded-2xl border text-left transition-colors active:scale-[0.97] ${
                       scope === val
                         ? 'dark:bg-yellow-500/10 bg-yellow-50 border-yellow-500/40 dark:text-yellow-300 text-yellow-800'
                         : 'dark:bg-white/[0.03] bg-[#FAF9F6] dark:border-white/[0.07] border-black/[0.14] dark:text-white text-gray-900'
                     }`}
                   >
                     <span className="text-[13px] font-semibold">{label}</span>
-                    <span className={`text-[11px] mt-0.5 ${scope === val ? 'dark:text-yellow-400/70 text-yellow-700/70' : 'text-gray-600'}`}>{cnt} terms</span>
+                    <span className={`text-[11px] mt-0.5 leading-snug ${scope === val ? 'dark:text-yellow-400/70 text-yellow-700/70' : 'text-gray-600'}`}>{desc}</span>
                   </button>
                 ))}
               </div>
               {!canStart && scope === 'week' && (
                 <p className="text-[12px] text-orange-500 mt-2">Not enough terms from this week. Switch to All terms.</p>
               )}
+              {!canStart && scope === 'blitz' && (
+                <p className="text-[12px] text-orange-500 mt-2">Blitz needs at least 8 terms. Record more lectures to unlock it.</p>
+              )}
             </div>
 
-            {/* Mode */}
-            <div className="animate-step opacity-0" style={{ animationFillMode: 'forwards', animationDelay: '120ms' }}>
-              <p className="text-[10px] font-bold tracking-[0.18em] uppercase text-gray-600 mb-2">Question style</p>
-              <div className="grid grid-cols-2 gap-2">
-                {([['mc', 'Term & Definition', 'Forward + reverse MC'], ['mixed', 'Mixed', 'MC + self-recall']] as const).map(([val, label, desc]) => (
-                  <button
-                    key={val}
-                    onClick={() => setMode(val)}
-                    className={`flex flex-col items-start px-4 py-3.5 rounded-2xl border text-left transition-colors active:scale-[0.97] ${
-                      mode === val
-                        ? 'dark:bg-yellow-500/10 bg-yellow-50 border-yellow-500/40 dark:text-yellow-300 text-yellow-800'
-                        : 'dark:bg-white/[0.03] bg-[#FAF9F6] dark:border-white/[0.07] border-black/[0.14] dark:text-white text-gray-900'
-                    }`}
-                  >
-                    <span className="text-[13px] font-semibold">{label}</span>
-                    <span className={`text-[11px] mt-0.5 ${mode === val ? 'dark:text-yellow-400/70 text-yellow-700/70' : 'text-gray-600'}`}>{desc}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Count */}
-            <div className="animate-step opacity-0" style={{ animationFillMode: 'forwards', animationDelay: '180ms' }}>
-              <p className="text-[10px] font-bold tracking-[0.18em] uppercase text-gray-600 mb-2">Number of questions</p>
-              <div className="flex gap-2">
-                {COUNT_OPTIONS.map(n => {
-                  const available = Math.min(n, filtered.length)
-                  const disabled = filtered.length < 4 || n > filtered.length + 3
-                  return (
+            {/* Mode — hidden for Blitz */}
+            {scope !== 'blitz' && (
+              <div className="animate-step opacity-0" style={{ animationFillMode: 'forwards', animationDelay: '120ms' }}>
+                <p className="text-[10px] font-bold tracking-[0.18em] uppercase text-gray-600 mb-2">Question style</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {([['mc', 'Term & Definition', 'Forward + reverse MC'], ['mixed', 'Mixed', 'MC + self-recall']] as const).map(([val, label, desc]) => (
                     <button
-                      key={n}
-                      onClick={() => !disabled && setCount(n)}
-                      disabled={disabled}
-                      className={`flex-1 py-3 rounded-2xl border text-[13px] font-semibold transition-colors active:scale-[0.97] disabled:opacity-30 ${
-                        count === n
+                      key={val}
+                      onClick={() => setMode(val)}
+                      className={`flex flex-col items-start px-4 py-3.5 rounded-2xl border text-left transition-colors active:scale-[0.97] ${
+                        mode === val
                           ? 'dark:bg-yellow-500/10 bg-yellow-50 border-yellow-500/40 dark:text-yellow-300 text-yellow-800'
                           : 'dark:bg-white/[0.03] bg-[#FAF9F6] dark:border-white/[0.07] border-black/[0.14] dark:text-white text-gray-900'
                       }`}
                     >
-                      {available < n ? available : n}
+                      <span className="text-[13px] font-semibold">{label}</span>
+                      <span className={`text-[11px] mt-0.5 ${mode === val ? 'dark:text-yellow-400/70 text-yellow-700/70' : 'text-gray-600'}`}>{desc}</span>
                     </button>
-                  )
-                })}
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
+
+            {/* Count — hidden for Blitz */}
+            {scope !== 'blitz' && (
+              <div className="animate-step opacity-0" style={{ animationFillMode: 'forwards', animationDelay: '180ms' }}>
+                <p className="text-[10px] font-bold tracking-[0.18em] uppercase text-gray-600 mb-2">Number of questions</p>
+                <div className="flex gap-2">
+                  {COUNT_OPTIONS.map(n => {
+                    const available = Math.min(n, filtered.length)
+                    const disabled = filtered.length < 4 || n > filtered.length + 3
+                    return (
+                      <button
+                        key={n}
+                        onClick={() => !disabled && setCount(n)}
+                        disabled={disabled}
+                        className={`flex-1 py-3 rounded-2xl border text-[13px] font-semibold transition-colors active:scale-[0.97] disabled:opacity-30 ${
+                          count === n
+                            ? 'dark:bg-yellow-500/10 bg-yellow-50 border-yellow-500/40 dark:text-yellow-300 text-yellow-800'
+                            : 'dark:bg-white/[0.03] bg-[#FAF9F6] dark:border-white/[0.07] border-black/[0.14] dark:text-white text-gray-900'
+                        }`}
+                      >
+                        {available < n ? available : n}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
 
             <div className="animate-step opacity-0" style={{ animationFillMode: 'forwards', animationDelay: '240ms' }}>
               <button
@@ -340,7 +379,7 @@ export default function QuizPage() {
                 disabled={!canStart}
                 className="w-full py-3.5 rounded-2xl bg-yellow-600 hover:brightness-110 text-white text-[15px] font-semibold active:scale-[0.97] transition-[filter,transform] duration-150 disabled:opacity-40"
               >
-                Start quiz
+                {scope === 'blitz' ? 'Start Blitz' : 'Start quiz'}
               </button>
             </div>
           </div>
@@ -354,14 +393,16 @@ export default function QuizPage() {
     const q = questions[idx]
     const isOptionQ = q.type === 'mc' || q.type === 'reverse'
     const isSelf = q.type === 'self'
+    const isBlitz = q.type === 'blitz'
 
     // What to show in the big card and how to label the question
     const questionLabel =
       q.type === 'mc'      ? 'What does this mean?' :
       q.type === 'reverse' ? 'Which term matches this definition?' :
+      q.type === 'blitz'   ? 'Type the term that matches this definition' :
                              'What is the definition of this term?'
 
-    const cardContent  = q.type === 'reverse' ? q.correctDefinition : q.term
+    const cardContent  = q.type === 'reverse' ? q.correctDefinition : q.type === 'blitz' ? q.definition : q.term
     const cardIsLong   = cardContent.length > 60
 
     return (
@@ -382,7 +423,7 @@ export default function QuizPage() {
           )}
           <div className="flex items-center gap-2">
             <span className="text-[10px] font-bold tracking-[0.14em] uppercase px-2 py-0.5 rounded-full dark:bg-white/[0.06] bg-black/[0.06]" style={{ color: 'var(--fg-muted)' }}>
-              {q.type === 'mc' ? 'Term → Def' : q.type === 'reverse' ? 'Def → Term' : 'Recall'}
+              {q.type === 'mc' ? 'Term → Def' : q.type === 'reverse' ? 'Def → Term' : q.type === 'blitz' ? 'Blitz' : 'Recall'}
             </span>
             <span className="text-[13px] text-gray-600 tabular-nums">{idx + 1}/{questions.length}</span>
           </div>
@@ -435,6 +476,52 @@ export default function QuizPage() {
                 >
                   {idx + 1 >= questions.length ? 'See results' : 'Next →'}
                 </button>
+              )}
+            </div>
+          )}
+
+          {/* Blitz fill-in-the-blank */}
+          {isBlitz && (
+            <div className="flex-1 min-h-0 flex flex-col gap-3">
+              {!answered ? (
+                <>
+                  <input
+                    autoFocus
+                    type="text"
+                    value={inputAnswer}
+                    onChange={e => setInputAnswer(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter' && inputAnswer.trim()) submitBlitz() }}
+                    placeholder="Type the term…"
+                    className="w-full px-4 py-3.5 rounded-2xl text-[15px] dark:bg-white/[0.05] bg-[#FAF9F6] border dark:border-white/[0.09] border-black/[0.14] dark:text-white text-gray-900 focus:outline-none focus:border-yellow-500/50 transition-colors"
+                  />
+                  <button
+                    onClick={submitBlitz}
+                    disabled={!inputAnswer.trim()}
+                    className="w-full py-3.5 rounded-2xl bg-yellow-600 hover:brightness-110 text-white text-[15px] font-semibold active:scale-[0.97] transition-[filter,transform] disabled:opacity-40 duration-150"
+                  >
+                    Check →
+                  </button>
+                </>
+              ) : (
+                <div className="flex flex-col gap-3 animate-step opacity-0" style={{ animationFillMode: 'forwards' }}>
+                  {inputAnswer.trim().toLowerCase() === (q as BlitzQuestion).term.toLowerCase() ? (
+                    <div className="px-5 py-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30">
+                      <p className="text-[14px] font-semibold text-emerald-400 mb-0.5">Correct!</p>
+                      <p className="text-[13px] dark:text-white/70 text-gray-700">{(q as BlitzQuestion).term}</p>
+                    </div>
+                  ) : (
+                    <div className="px-5 py-4 rounded-2xl bg-red-500/10 border border-red-500/30">
+                      <p className="text-[13px] text-red-400 mb-1">You wrote: <span className="font-semibold">{inputAnswer}</span></p>
+                      <p className="text-[13px] dark:text-white/70 text-gray-700">Answer: <span className="font-semibold dark:text-white text-gray-900">{(q as BlitzQuestion).term}</span></p>
+                    </div>
+                  )}
+                  <button
+                    onClick={next}
+                    className="w-full py-3.5 rounded-2xl bg-yellow-600 hover:brightness-110 text-white text-[15px] font-semibold active:scale-[0.97] transition-[filter,transform] duration-150"
+                  >
+                    {idx + 1 >= questions.length ? 'See results' : 'Next →'}
+                  </button>
+                </div>
               )}
             </div>
           )}

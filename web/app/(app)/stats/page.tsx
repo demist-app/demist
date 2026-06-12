@@ -54,6 +54,7 @@ export default function Stats() {
   const [streak, setStreak] = useState(0)
   const [dueFlashcards, setDueFlashcards] = useState(0)
   const [masteredTerms, setMasteredTerms] = useState(0)
+  const [memoryScore, setMemoryScore] = useState(0)
   const [dailySessions, setDailySessions] = useState<DayBar[]>([])
   const [weeklyTerms, setWeeklyTerms] = useState<WeekBar[]>([])
   const [subjects, setSubjects] = useState<SubjectBar[]>([])
@@ -75,7 +76,7 @@ export default function Stats() {
         { count: masteredCount },
       ] = await Promise.all([
         supabase.from('sessions').select('started_at').eq('user_id', user.id).order('started_at', { ascending: false }),
-        supabase.from('terms').select('created_at, subject, known').eq('user_id', user.id),
+        supabase.from('terms').select('created_at, subject, known, sm2_interval, sm2_review_count').eq('user_id', user.id),
         supabase.from('terms').select('id', { count: 'exact', head: true })
           .eq('user_id', user.id).eq('known', false).gt('sm2_review_count', 0).lte('sm2_due_at', now),
         supabase.from('terms').select('id', { count: 'exact', head: true })
@@ -92,6 +93,13 @@ export default function Stats() {
       setStreak(calculateStreak(sessions.map(s => s.started_at)))
       setDueFlashcards((dueCount ?? 0) + Math.min(15, newCount ?? 0))
       setMasteredTerms(masteredCount ?? 0)
+
+      const reviewedTerms = terms.filter(t => (t.sm2_review_count ?? 0) > 0 && !t.known)
+      const score = reviewedTerms.length === 0 ? 0 : Math.min(100, Math.round(
+        reviewedTerms.reduce((sum, t) => sum + (t.sm2_interval ?? 1), 0) / reviewedTerms.length / 21 * 100
+      ))
+      setMemoryScore(score)
+
       setDailySessions(get7DayBars(sessions.map(s => s.started_at)))
       setWeeklyTerms(get8WeekBars(terms.map(t => t.created_at)))
 
@@ -211,6 +219,25 @@ export default function Stats() {
               <p className="text-[11px] text-gray-600 mt-1.5">flashcards</p>
             </div>
           </div>
+
+          {/* Memory score */}
+          {memoryScore > 0 && (
+            <div className="dark:bg-amber-500/[0.06] bg-amber-50 border dark:border-amber-500/20 border-amber-200 rounded-2xl px-4 py-4 animate-step opacity-0" style={{ animationDelay: '75ms', animationFillMode: 'forwards' }}>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                    <p className="text-[11px] dark:text-amber-400/60 text-amber-700/70 uppercase tracking-[0.12em]">Memory score</p>
+                  </div>
+                  <div className="flex items-end gap-1.5">
+                    <p className="text-[28px] font-bold leading-none dark:text-amber-400 text-amber-600">{memoryScore}</p>
+                    <p className="text-[14px] dark:text-amber-400/40 text-amber-600/40 mb-0.5">/ 100</p>
+                  </div>
+                </div>
+                <p className="text-[11px] dark:text-amber-400/40 text-amber-700/50 leading-relaxed text-right max-w-[140px]">Based on avg flashcard review interval</p>
+              </div>
+            </div>
+          )}
 
           {/* Charts row — side by side on desktop */}
           {(dailySessions.some(d => d.count > 0) || weeklyTerms.some(w => w.count > 0)) && (

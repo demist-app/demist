@@ -71,6 +71,7 @@ export function SummaryViewer({
           subject: subject ?? 'general',
           year: year ?? 1,
           known_terms: [],
+          explain_mode: true,
         },
       })
       const explanation: string | null = data?.terms?.[0]?.definition ?? null
@@ -170,7 +171,7 @@ export function SummaryViewer({
               </button>
             </>
           ) : (
-            <p className="text-[12px] text-gray-300">Nothing to explain here.</p>
+            <p className="text-[12px] text-gray-300">Couldn't fetch an explanation. Try again.</p>
           )}
         </div>
       )}

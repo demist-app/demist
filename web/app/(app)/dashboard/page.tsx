@@ -12,6 +12,7 @@ import { checkRecordingLimit } from '@/lib/subscription'
 const SummaryViewer = dynamic(() => import('../summary-viewer').then(m => ({ default: m.SummaryViewer })), { ssr: false })
 const OnboardingOverlay = dynamic(() => import('@/components/OnboardingOverlay').then(m => ({ default: m.OnboardingOverlay })), { ssr: false })
 const MicCheck = dynamic(() => import('@/components/MicCheck').then(m => ({ default: m.MicCheck })), { ssr: false })
+const SessionReview = dynamic(() => import('@/components/SessionReview').then(m => ({ default: m.SessionReview })), { ssr: false })
 
 type CaptureMode = 'microphone' | 'tab'
 
@@ -22,7 +23,6 @@ interface LiveTerm {
   dismissing: boolean
   dbId?: string
   pinned?: boolean
-  saved?: boolean
 }
 
 interface SessionTerm {
@@ -123,6 +123,7 @@ export default function Dashboard() {
   const [isScrolledUp, setIsScrolledUp] = useState(false)
   const [liveSessionId, setLiveSessionId] = useState<string | null>(null)
   const [showMicCheck, setShowMicCheck] = useState(false)
+  const [reviewTerms, setReviewTerms] = useState<{ term: string; definition: string; dbId?: string }[] | null>(null)
 
   const profileRef = useRef<Profile | null>(null)
   const userIdRef = useRef<string | null>(null)
@@ -148,6 +149,9 @@ export default function Dashboard() {
   const cardTimersRef = useRef(new Map<string, ReturnType<typeof setTimeout>>())  // live term card auto-dismiss timers, cancellable by pin
   const chunkIntervalRef = useRef(5_000)  // adaptive: 5s default, 10s during silence
   const zeroTermChunksRef = useRef(0)     // consecutive detect-terms calls with 0 terms
+  const chunkPeakRef = useRef(0)           // max audio level seen during current chunk
+  const webSpeechFinalRef = useRef('')     // accumulated final Web Speech results (fallback transcript)
+  const allSessionTermsRef = useRef<{ term: string; definition: string; dbId?: string }[]>([])
   const speechModeRef = useRef(false)     // true = Web Speech is active display source
   const webSpeechHasFiredRef = useRef(false) // true once Web Speech onresult fires
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -179,6 +183,7 @@ export default function Dashboard() {
       analyser.getByteFrequencyData(data)
       let sum = 0; for (let i = 0; i < usable; i++) sum += data[i]
       const level = (sum / usable) / 255
+      if (level > chunkPeakRef.current) chunkPeakRef.current = level
       if (ring1Ref.current) ring1Ref.current.style.transform = `scale(${1 + level * 2.8})`
       if (ring2Ref.current) ring2Ref.current.style.transform = `scale(${1 + level * 2.0})`
       if (ring3Ref.current) ring3Ref.current.style.transform = `scale(${1 + level * 1.3})`
@@ -440,6 +445,10 @@ export default function Dashboard() {
       return dbId ? { ...t, dbId } : t
     }))
 
+    for (const t of filtered) {
+      allSessionTermsRef.current.push({ term: t.term, definition: t.definition, dbId: dbMap[t.term.toLowerCase()] })
+    }
+
     // Include DB id so the extension can offer "mark as known" on the overlay card
     for (const t of filtered) {
       window.postMessage({
@@ -474,24 +483,16 @@ export default function Dashboard() {
     }))
   }
 
-  // Explicit save confirmation — terms are auto-saved, this confirms and dismisses
-  const confirmSave = (id: string) => {
-    const timer = cardTimersRef.current.get(id)
-    if (timer) { clearTimeout(timer); cardTimersRef.current.delete(id) }
-    setLiveTerms(prev => prev.map(t => {
-      if (t.id === id) capture('term_card_save_clicked', { term: t.term })
-      return t.id === id ? { ...t, saved: true } : t
-    }))
-    setTimeout(() => {
-      setLiveTerms(prev => prev.map(t => t.id === id ? { ...t, dismissing: true } : t))
-      setTimeout(() => setLiveTerms(prev => prev.filter(t => t.id !== id)), 380)
-    }, 900)
-  }
-
   // ── Whisper path: transcribe audio blob then detect terms ─────────────────────
   // Skips Whisper entirely if audio level was below silence threshold.
 
   const processChunk = async (blob: Blob, sessionId: string) => {
+    const peak = chunkPeakRef.current
+    chunkPeakRef.current = 0
+    if (peak < 0.015) {
+      console.log('[demist] silent chunk skipped (peak', peak.toFixed(3) + ')')
+      return
+    }
     if (blob.size < 500) return
     const supabase = createClient()
     try {
@@ -655,6 +656,9 @@ export default function Dashboard() {
     lastDetectionTimeRef.current = Date.now()
     chunkIntervalRef.current = 5_000
     zeroTermChunksRef.current = 0
+    chunkPeakRef.current = 0
+    webSpeechFinalRef.current = ''
+    allSessionTermsRef.current = []
     startingRef.current = false
     setIsRecording(true); setElapsed(0); setLiveTerms([]); setSessionGlossary([]); setRecordingError(null)
     setSentences([]); setIsScrolledUp(false); autoScrollRef.current = true
@@ -738,6 +742,7 @@ export default function Dashboard() {
           })
         }
         if (finalText.trim()) {
+          webSpeechFinalRef.current += finalText.trim() + ' '
           setSentences(prev => {
             const base = hasInterimRef.current && prev.length > 0 ? prev.slice(0, -1) : prev
             hasInterimRef.current = false
@@ -822,6 +827,7 @@ export default function Dashboard() {
     setLiveSessionId(null)
     window.postMessage({ source: 'demist', type: 'recording-stopped' }, window.location.origin)
     capture('recording_stopped', { duration_seconds: elapsed })
+    if (allSessionTermsRef.current.length > 0) setReviewTerms([...allSessionTermsRef.current])
 
     const supabase = createClient()
     const now = new Date()
@@ -864,7 +870,9 @@ export default function Dashboard() {
       setTimeout(async () => {
         try {
           const sb = createClient()
-          const tx = transcriptRef.current
+          const whisperTx = transcriptRef.current.trim()
+          const speechTx = webSpeechFinalRef.current.trim()
+          const tx = speechTx.length > whisperTx.length ? speechTx : whisperTx
           if (tx) {
             await sb.from('sessions').update({ transcript: tx }).eq('id', capturedSid)
             setRecentSessions(prev => prev.map(s => s.id === capturedSid ? { ...s, transcript: tx } : s))
@@ -1118,6 +1126,12 @@ export default function Dashboard() {
                 ))}
               </div>
             </div>
+
+            {!wakeLockUnsupported && (
+              <p className="relative z-10 text-[11px] text-gray-600 text-center -mt-1 mb-1 px-4">
+                Switching tabs is fine. Your screen stays awake while recording; locking your phone stops the mic.
+              </p>
+            )}
 
             {/* Live transcript — fills the space between the recording button and term cards */}
             <div className="flex-1 min-h-[80px] px-4 sm:px-6 py-3 relative z-10">
@@ -1380,6 +1394,9 @@ export default function Dashboard() {
         />
       )}
 
+      {/* End-of-session flashcard review */}
+      {reviewTerms && <SessionReview terms={reviewTerms} onClose={() => setReviewTerms(null)} />}
+
       {/* First-time onboarding */}
       <OnboardingOverlay />
 
@@ -1392,7 +1409,6 @@ export default function Dashboard() {
             onDismiss={() => dismissTerm(t.id)}
             onKnown={() => markKnown(t)}
             onPin={() => pinTerm(t.id)}
-            onSave={() => confirmSave(t.id)}
           />
         ))}
       </div>
@@ -1421,12 +1437,10 @@ function TermCard({
   definition,
   dismissing,
   pinned,
-  saved,
   onDismiss,
   onKnown,
   onPin,
-  onSave,
-}: Omit<LiveTerm, 'id'> & { onDismiss: () => void; onKnown: () => void; onPin: () => void; onSave: () => void }) {
+}: Omit<LiveTerm, 'id'> & { onDismiss: () => void; onKnown: () => void; onPin: () => void }) {
   return (
     <div className={`pointer-events-auto w-full max-w-[420px] ${dismissing ? 'animate-slide-down' : 'animate-slide-up'}`}>
       <div
@@ -1460,19 +1474,12 @@ function TermCard({
           </div>
         </div>
 
-        <div className="mt-3 pt-2.5 border-t dark:border-white/[0.06] border-black/[0.07] ml-[15px] flex items-center justify-between gap-3">
+        <div className="mt-3 pt-2.5 border-t dark:border-white/[0.06] border-black/[0.07] ml-[15px]">
           <button
             onClick={e => { e.stopPropagation(); onKnown() }}
             className="text-[12px] dark:text-white/30 text-gray-400 dark:hover:text-amber-400 hover:text-amber-700 transition-colors"
           >
             I already know this
-          </button>
-          <button
-            onClick={e => { e.stopPropagation(); if (!saved) onSave() }}
-            disabled={saved}
-            className={`text-[12px] font-medium transition-colors ${saved ? 'dark:text-emerald-400 text-emerald-600' : 'dark:text-amber-400/80 text-amber-700 dark:hover:text-amber-300 hover:text-amber-800'}`}
-          >
-            {saved ? 'Saved ✓' : 'Save to flashcards'}
           </button>
         </div>
       </div>

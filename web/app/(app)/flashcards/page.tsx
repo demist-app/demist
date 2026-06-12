@@ -103,6 +103,18 @@ export default function Flashcards() {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
+  // Highlight-to-define on card back
+  interface DefPopup { text: string; explanation: string | null; loading: boolean; x: number; y: number; flipDown: boolean }
+  const [defPopup, setDefPopup] = useState<DefPopup | null>(null)
+
+  // Deck filter
+  type DeckFilter = null | { kind: 'subject'; value: string } | { kind: 'session'; value: string; label: string }
+  const [deckFilter, setDeckFilter] = useState<DeckFilter>(null)
+  const [filterSubjects, setFilterSubjects] = useState<string[]>([])
+  const [filterSessions, setFilterSessions] = useState<{ id: string; label: string }[]>([])
+  const userIdRef = useRef<string | null>(null)
+  const initializedRef = useRef(false)
+
   const termInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -119,11 +131,12 @@ export default function Flashcards() {
       const { data: { session } } = await supabase.auth.getSession()
       const user = session?.user
       if (!user) return
+      userIdRef.current = user.id
       capture('flashcards_viewed')
 
       const now = new Date().toISOString()
 
-      const [{ data: reviews }, { data: newCards }, { count: totalTerms }, { data: sessionDates }] = await Promise.all([
+      const [{ data: reviews }, { data: newCards }, { count: totalTerms }, { data: sessionDates }, { data: subjectRows }, { data: recentSessions }] = await Promise.all([
         supabase
           .from('terms')
           .select('id, term, definition, sm2_interval, sm2_ease, sm2_review_count, sm2_due_at')
@@ -150,9 +163,27 @@ export default function Flashcards() {
           .eq('user_id', user.id)
           .order('started_at', { ascending: false })
           .limit(365),
+        supabase
+          .from('terms')
+          .select('subject')
+          .eq('user_id', user.id)
+          .not('subject', 'is', null),
+        supabase
+          .from('sessions')
+          .select('id, name, started_at')
+          .eq('user_id', user.id)
+          .order('started_at', { ascending: false })
+          .limit(5),
       ])
       setHasAnyTerms((totalTerms ?? 0) > 0)
       setStreak(calculateStreak((sessionDates ?? []).map(s => s.started_at)))
+
+      const subjects = [...new Set((subjectRows ?? []).map(r => (r as { subject: string }).subject).filter(Boolean))]
+      setFilterSubjects(subjects)
+      setFilterSessions((recentSessions ?? []).map(s => ({
+        id: s.id,
+        label: (s as { name?: string | null }).name ?? new Date(s.started_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
+      })))
 
       const due = (reviews ?? []).map(c => ({ ...c, isNew: false })) as FlashCard[]
       const fresh = (newCards ?? []).map(c => ({ ...c, isNew: true })) as FlashCard[]
@@ -165,6 +196,7 @@ export default function Flashcards() {
       setQueue(cards.slice(1))
       setCurrent(cards[0])
       setPhase('review')
+      initializedRef.current = true
     })()
   }, [])
 
@@ -193,6 +225,46 @@ export default function Flashcards() {
     setBrowseMode(true)
     loadAllCards()
   }
+
+  useEffect(() => {
+    if (!initializedRef.current || !userIdRef.current) return
+    setPhase('loading')
+    setReviewed(0)
+    setReviewedCards([])
+    setGradeCounts([0, 0, 0, 0])
+    setFlipped(false)
+    doneTrackedRef.current = false
+    ;(async () => {
+      const supabase = createClient()
+      const userId = userIdRef.current!
+      const now = new Date().toISOString()
+      let dueQ = supabase.from('terms')
+        .select('id, term, definition, sm2_interval, sm2_ease, sm2_review_count, sm2_due_at')
+        .eq('user_id', userId).eq('known', false).gt('sm2_review_count', 0).lte('sm2_due_at', now)
+        .order('sm2_due_at', { ascending: true })
+      let newQ = supabase.from('terms')
+        .select('id, term, definition, sm2_interval, sm2_ease, sm2_review_count, sm2_due_at')
+        .eq('user_id', userId).eq('known', false).eq('sm2_review_count', 0)
+        .order('created_at', { ascending: true }).limit(NEW_CARDS_PER_DAY)
+      if (deckFilter?.kind === 'subject') {
+        dueQ = dueQ.eq('subject', deckFilter.value)
+        newQ = newQ.eq('subject', deckFilter.value)
+      } else if (deckFilter?.kind === 'session') {
+        dueQ = dueQ.eq('session_id', deckFilter.value)
+        newQ = newQ.eq('session_id', deckFilter.value)
+      }
+      const [{ data: reviews }, { data: newCards }] = await Promise.all([dueQ, newQ])
+      const due = (reviews ?? []).map(c => ({ ...c, isNew: false })) as FlashCard[]
+      const fresh = (newCards ?? []).map(c => ({ ...c, isNew: true })) as FlashCard[]
+      const cards = [...due, ...fresh]
+      if (!cards.length) { setPhase('empty'); return }
+      setDueCount(due.length)
+      setNewCount(fresh.length)
+      setQueue(cards.slice(1))
+      setCurrent(cards[0])
+      setPhase('review')
+    })()
+  }, [deckFilter])
 
   const startEdit = (c: FlashCard) => {
     setEditingId(c.id)
@@ -237,6 +309,30 @@ export default function Flashcards() {
     }
   }
 
+  const handleDefinitionPointerUp = async (e: React.PointerEvent) => {
+    e.stopPropagation()
+    const sel = window.getSelection()
+    const text = sel?.toString().trim()
+    if (!text || text.length < 2 || text.length > 200) return
+    const range = sel!.getRangeAt(0)
+    const rect = range.getBoundingClientRect()
+    const x = Math.min(Math.max(rect.left + rect.width / 2, 140), window.innerWidth - 140)
+    const flipDown = rect.top < 140
+    const y = flipDown ? rect.bottom : rect.top
+    setDefPopup({ text, explanation: null, loading: true, x, y, flipDown })
+    try {
+      const supabase = createClient()
+      const { data } = await supabase.functions.invoke('detect-terms', {
+        body: { transcript: text, subject: null, year: 1, known_terms: [], explain_mode: true },
+      })
+      const def: string | null = data?.terms?.[0]?.definition ?? null
+      setDefPopup(prev => prev ? { ...prev, explanation: def, loading: false } : null)
+      if (def) capture('flashcard_word_defined', { term: text })
+    } catch {
+      setDefPopup(null)
+    }
+  }
+
   const handleGrade = async (grade: 0 | 1 | 2 | 3) => {
     if (!current || saving) return
     setSaving(true)
@@ -266,6 +362,13 @@ export default function Flashcards() {
     }
 
     capture('flashcard_graded', { grade, interval, isNew: current.isNew })
+
+    // fire-and-forget review_log — ignore errors if migration hasn't run yet
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session?.user) return
+      supabase.from('review_log').insert({ user_id: session.user.id, term_id: current.id, grade, interval_before: current.sm2_interval, ease_before: current.sm2_ease })
+        .then(({ error }) => { if (error) console.error('review_log insert:', error.message) })
+    })
     setGradeCounts(prev => {
       const next = [...prev] as [number, number, number, number]
       next[grade]++
@@ -307,6 +410,7 @@ export default function Flashcards() {
     if (phase !== 'review' || browseMode) return
     const onKey = (e: KeyboardEvent) => {
       if (editingId || (e.target as HTMLElement)?.tagName === 'INPUT' || (e.target as HTMLElement)?.tagName === 'TEXTAREA') return
+      if (window.getSelection()?.toString().trim()) return
       if (e.key === ' ' || e.key === 'Enter') {
         e.preventDefault()
         setFlipped(f => f || true)
@@ -699,6 +803,32 @@ export default function Flashcards() {
             />
           </div>
 
+          {/* Deck filter chips */}
+          {(filterSubjects.length > 0 || filterSessions.length > 0) && (() => {
+            type Chip = { label: string; f: DeckFilter }
+            const chips: Chip[] = [
+              { label: 'All', f: null },
+              ...filterSubjects.map(s => ({ label: s, f: { kind: 'subject' as const, value: s } })),
+              ...filterSessions.map(s => ({ label: s.label, f: { kind: 'session' as const, value: s.id, label: s.label } })),
+            ]
+            return (
+              <div className="shrink-0 flex gap-1.5 overflow-x-auto pb-1.5 mb-1 -mx-4 sm:-mx-6 px-4 sm:px-6" style={{ scrollbarWidth: 'none' }}>
+                {chips.map(({ label, f }) => {
+                  const active = f === null ? deckFilter === null : deckFilter !== null && deckFilter.kind === f.kind && deckFilter.value === f.value
+                  return (
+                    <button
+                      key={label}
+                      onClick={() => { setDeckFilter(f); if (f !== null) capture('flashcard_deck_filtered', { kind: f.kind }) }}
+                      className={`shrink-0 text-[12px] font-medium px-3 py-1.5 rounded-full border transition-colors ${active ? 'bg-yellow-600 border-yellow-600 text-white' : 'dark:bg-white/[0.04] bg-[#F3F1EC] dark:border-white/[0.08] border-black/[0.12] dark:text-gray-400 text-gray-600 hover:border-yellow-500/40'}`}
+                    >
+                      {label}
+                    </button>
+                  )
+                })}
+              </div>
+            )
+          })()}
+
           {/* Queue breakdown */}
           <div className="shrink-0 flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
@@ -768,7 +898,11 @@ export default function Flashcards() {
                   }}
                 >
                   <p className="text-[11px] font-bold tracking-[0.18em] dark:text-yellow-400 text-yellow-700/60 uppercase mb-4 shrink-0">Definition</p>
-                  <p className="text-[16px] text-center leading-relaxed" style={{ color: 'var(--fg)' }}>{current.definition}</p>
+                  <p
+                    className="text-[16px] text-center leading-relaxed select-text cursor-text"
+                    style={{ color: 'var(--fg)' }}
+                    onPointerUp={handleDefinitionPointerUp}
+                  >{current.definition}</p>
                 </div>
               </div>
             </div>
@@ -814,6 +948,30 @@ export default function Flashcards() {
               </button>
             </div>
           )}
+        </div>
+      )}
+
+      {defPopup && (
+        <div
+          className="fixed z-[200] w-[260px] bg-[#0e0e1c] border border-amber-500/25 rounded-xl px-4 py-3 shadow-[0_8px_32px_rgba(0,0,0,0.7)]"
+          style={{
+            left: defPopup.x,
+            top: defPopup.flipDown ? defPopup.y + 8 : defPopup.y - 8,
+            transform: defPopup.flipDown ? 'translate(-50%, 0)' : 'translate(-50%, -100%)',
+          }}
+          onMouseDown={e => e.stopPropagation()}
+          onPointerUp={e => e.stopPropagation()}
+        >
+          <div className="flex items-start justify-between gap-2 mb-1.5">
+            <p className="text-[10px] font-bold tracking-[0.15em] text-amber-400/60 uppercase line-clamp-1 flex-1">{defPopup.text}</p>
+            <button onClick={() => setDefPopup(null)} aria-label="Close" className="text-gray-400 hover:text-white transition-colors shrink-0 leading-none text-[18px] -mt-0.5">×</button>
+          </div>
+          {defPopup.loading
+            ? <p className="text-[12px] text-gray-300">Explaining…</p>
+            : defPopup.explanation
+              ? <p className="text-[12px] text-gray-300 leading-relaxed">{defPopup.explanation}</p>
+              : <p className="text-[12px] text-gray-600">Couldn't fetch an explanation. Try again.</p>
+          }
         </div>
       )}
     </main>

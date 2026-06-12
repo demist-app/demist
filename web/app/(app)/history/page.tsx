@@ -606,6 +606,18 @@ export default function History() {
                             </div>
                           ) : null}
 
+                          {s.transcript && (
+                            <details className="mt-3 group">
+                              <summary className="cursor-pointer list-none flex items-center gap-1.5 text-[12px] font-medium dark:text-white/50 text-gray-600 hover:dark:text-white/80 hover:text-gray-900 transition-colors">
+                                <svg className="transition-transform group-open:rotate-90" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
+                                Transcript
+                              </summary>
+                              <div className="mt-2">
+                                <TranscriptViewer transcript={s.transcript} subject={s.subject} year={null} sessionId={s.id} terms={s.terms?.map(t => ({ term: t.term, definition: t.definition }))} />
+                              </div>
+                            </details>
+                          )}
+
                           {loadingTerms === s.id && <p className="text-gray-700 text-[13px] py-3">Loading…</p>}
                           {s.terms && s.terms.length === 0 && (
                             <div className="py-3">
@@ -685,12 +697,6 @@ export default function History() {
                                   </div>
                                 ))}
                               </div>
-                            </div>
-                          )}
-                          {s.transcript && (
-                            <div className="mt-4 pt-3 border-t dark:border-white/[0.04] border-black/[0.05]">
-                              <p className="text-[10px] font-bold tracking-[0.15em] text-gray-600 uppercase mb-2">Transcript</p>
-                              <TranscriptViewer transcript={s.transcript} subject={s.subject} year={null} sessionId={s.id} terms={s.terms?.map(t => ({ term: t.term, definition: t.definition }))} />
                             </div>
                           )}
                         </div>
