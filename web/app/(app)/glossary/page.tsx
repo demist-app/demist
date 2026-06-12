@@ -153,10 +153,12 @@ export default function Glossary() {
     capture('glossary_bulk_export', { count: selected.length })
   }
 
-  // Definition edit state
+  // Term + definition edit state
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [editTermValue, setEditTermValue] = useState('')
   const [editValue, setEditValue] = useState('')
   const [savingId, setSavingId] = useState<string | null>(null)
+  const editTermRef = useRef<HTMLInputElement>(null)
   const editRef = useRef<HTMLTextAreaElement>(null)
 
   // Tag edit state
@@ -173,9 +175,9 @@ export default function Glossary() {
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
   useEffect(() => {
-    if (editingId && editRef.current) {
-      editRef.current.focus()
-      editRef.current.setSelectionRange(editRef.current.value.length, editRef.current.value.length)
+    if (editingId && editTermRef.current) {
+      editTermRef.current.focus()
+      editTermRef.current.select()
     }
   }, [editingId])
 
@@ -265,6 +267,7 @@ export default function Glossary() {
 
   const startEditDef = (t: Term) => {
     setEditingId(t.id)
+    setEditTermValue(t.term)
     setEditValue(t.definition)
     setTagEditingId(null)
     setConfirmDeleteId(null)
@@ -273,16 +276,17 @@ export default function Glossary() {
   const cancelEditDef = () => setEditingId(null)
 
   const saveDefinition = async (termId: string) => {
-    const trimmed = editValue.trim()
-    if (!trimmed) { cancelEditDef(); return }
+    const newTerm = editTermValue.trim()
+    const newDef = editValue.trim()
+    if (!newTerm || !newDef) { cancelEditDef(); return }
     setSavingId(termId)
     try {
       const supabase = createClient()
-      await supabase.from('terms').update({ definition: trimmed }).eq('id', termId)
-      applyTermUpdate(t => t.id === termId ? { ...t, definition: trimmed } : t)
+      await supabase.from('terms').update({ term: newTerm, definition: newDef }).eq('id', termId)
+      applyTermUpdate(t => t.id === termId ? { ...t, term: newTerm, definition: newDef } : t)
       setEditingId(null)
     } catch (e) {
-      console.error('save definition error:', e)
+      console.error('save term error:', e)
     } finally {
       setSavingId(null)
     }
@@ -397,11 +401,19 @@ export default function Glossary() {
           </span>
         )}
         <div className="flex-1 min-w-0">
-          <p className="text-[15px] font-semibold dark:text-white/90 text-gray-900 leading-snug">{t.term}</p>
-
-          {/* Definition */}
           {editingId === t.id ? (
-            <div className="mt-2">
+            <div className="space-y-1.5">
+              <input
+                ref={editTermRef}
+                value={editTermValue}
+                onChange={e => setEditTermValue(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') { e.preventDefault(); editRef.current?.focus() }
+                  if (e.key === 'Escape') cancelEditDef()
+                }}
+                placeholder="Term name"
+                className="w-full text-[14px] font-semibold dark:text-white text-gray-900 dark:bg-white/[0.05] bg-[#EFEDE7] border dark:border-amber-500/30 border-amber-500/40 rounded-xl px-3 py-2 focus:outline-none"
+              />
               <textarea
                 ref={editRef}
                 value={editValue}
@@ -411,9 +423,10 @@ export default function Glossary() {
                   if (e.key === 'Escape') cancelEditDef()
                 }}
                 rows={3}
+                placeholder="Definition"
                 className="w-full text-[13px] dark:text-white/80 text-gray-700 dark:bg-white/[0.05] bg-[#EFEDE7] border dark:border-amber-500/30 border-amber-500/40 rounded-xl px-3 py-2 resize-none focus:outline-none leading-relaxed"
               />
-              <div className="flex items-center gap-2 mt-1.5">
+              <div className="flex items-center gap-2">
                 <button onClick={() => saveDefinition(t.id)} disabled={savingId === t.id} className="text-[12px] font-semibold text-amber-400 hover:text-amber-300 disabled:opacity-40 transition-colors">
                   {savingId === t.id ? 'Saving…' : 'Save'}
                 </button>
@@ -421,7 +434,10 @@ export default function Glossary() {
               </div>
             </div>
           ) : (
-            <p className="text-[13px] text-gray-700 mt-1 leading-relaxed">{t.definition}</p>
+            <>
+              <p className="text-[15px] font-semibold dark:text-white/90 text-gray-900 leading-snug">{t.term}</p>
+              <p className="text-[13px] text-gray-700 mt-1 leading-relaxed">{t.definition}</p>
+            </>
           )}
 
           {/* Tag pill / inline tag editor */}

@@ -131,7 +131,8 @@
       "Bash(cp \"C:\\\\Users\\\\shivb\\\\Downloads\\\\demist-security-audit\\\\demist-security-audit\\\\009_security_hardening.sql\" \"c:\\\\Users\\\\shivb\\\\Desktop\\\\coding bits\\\\demist\\\\backend\\\\supabase\\\\migrations\\\\009_security_hardening.sql\")",
       "Bash(node -e \"console.log\\(require\\('./package.json'\\).dependencies.next\\)\")",
       "Bash(npm view *)",
-      "Bash(npm audit *)"
+      "Bash(npm audit *)",
+      "Bash(grep -v \"//\\\\|import\\\\|interface\\\\|type \")"
     ],
     "additionalDirectories": [
       "c:\\Users\\shivb\\Desktop\\coding bits\\demist\\web\\app\\u"

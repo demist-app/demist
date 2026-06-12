@@ -69,6 +69,12 @@ export default function History() {
   const [editingNameId, setEditingNameId] = useState<string | null>(null)
   const [nameInput, setNameInput] = useState('')
 
+  // Term inline edit state
+  const [editingTermId, setEditingTermId] = useState<string | null>(null)
+  const [editTermName, setEditTermName] = useState('')
+  const [editTermDef, setEditTermDef] = useState('')
+  const [savingTermId, setSavingTermId] = useState<string | null>(null)
+
   // Bulk select state
   const [selectMode, setSelectMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -276,6 +282,35 @@ export default function History() {
           terms: s.terms?.map(t => t.id === termId ? { ...t, known: currentlyKnown } : t),
         }))
       )
+    }
+  }
+
+  const startEditTerm = (t: SessionTerm) => {
+    setEditingTermId(t.id)
+    setEditTermName(t.term)
+    setEditTermDef(t.definition)
+  }
+
+  const cancelEditTerm = () => setEditingTermId(null)
+
+  const saveEditTerm = async (termId: string) => {
+    const newTerm = editTermName.trim()
+    const newDef = editTermDef.trim()
+    if (!newTerm || !newDef) { cancelEditTerm(); return }
+    setSavingTermId(termId)
+    try {
+      await createClient().from('terms').update({ term: newTerm, definition: newDef }).eq('id', termId)
+      setSessions(prev =>
+        prev.map(s => ({
+          ...s,
+          terms: s.terms?.map(t => t.id === termId ? { ...t, term: newTerm, definition: newDef } : t),
+        }))
+      )
+      setEditingTermId(null)
+    } catch (e) {
+      console.error('saveEditTerm error:', e)
+    } finally {
+      setSavingTermId(null)
     }
   }
 
@@ -585,22 +620,68 @@ export default function History() {
                               <p className="text-[10px] font-bold tracking-[0.15em] text-gray-600 uppercase mb-2">Words</p>
                               <div className="space-y-2">
                                 {s.terms.map(t => (
-                                  <div key={t.id} className="flex items-start gap-3">
-                                    <div className="flex-1 min-w-0">
-                                      <span className={`text-[13px] font-medium ${t.known ? 'text-gray-600 line-through' : 'dark:text-white/80 text-gray-800'}`}>
-                                        {t.term}
-                                      </span>
-                                      <span className="text-gray-600 text-[13px]"> - {t.definition}</span>
-                                    </div>
-                                    <button
-                                      onClick={() => toggleKnown(t.id, t.known)}
-                                      title={t.known ? 'Mark as not known' : 'Mark as known'}
-                                      className={`shrink-0 mt-0.5 text-[17px] leading-none transition-colors ${
-                                        t.known ? 'text-emerald-500 hover:text-gray-600' : 'text-gray-700 hover:text-emerald-500'
-                                      }`}
-                                    >
-                                      ✓
-                                    </button>
+                                  <div key={t.id} className="group flex items-start gap-2">
+                                    {editingTermId === t.id ? (
+                                      <div className="flex-1 min-w-0 space-y-1.5">
+                                        <input
+                                          autoFocus
+                                          value={editTermName}
+                                          onChange={e => setEditTermName(e.target.value)}
+                                          onKeyDown={e => { if (e.key === 'Escape') cancelEditTerm() }}
+                                          placeholder="Term name"
+                                          className="w-full text-[13px] font-semibold dark:text-white text-gray-900 dark:bg-white/[0.05] bg-[#EFEDE7] border dark:border-amber-500/30 border-amber-500/40 rounded-lg px-2.5 py-1.5 focus:outline-none"
+                                        />
+                                        <textarea
+                                          value={editTermDef}
+                                          onChange={e => setEditTermDef(e.target.value)}
+                                          onKeyDown={e => {
+                                            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveEditTerm(t.id) }
+                                            if (e.key === 'Escape') cancelEditTerm()
+                                          }}
+                                          rows={2}
+                                          placeholder="Definition"
+                                          className="w-full text-[12px] dark:text-white/80 text-gray-700 dark:bg-white/[0.05] bg-[#EFEDE7] border dark:border-amber-500/30 border-amber-500/40 rounded-lg px-2.5 py-1.5 resize-none focus:outline-none leading-relaxed"
+                                        />
+                                        <div className="flex items-center gap-2">
+                                          <button
+                                            onClick={() => saveEditTerm(t.id)}
+                                            disabled={savingTermId === t.id}
+                                            className="text-[11px] font-semibold text-amber-400 hover:text-amber-300 disabled:opacity-40 transition-colors"
+                                          >
+                                            {savingTermId === t.id ? 'Saving…' : 'Save'}
+                                          </button>
+                                          <button onClick={cancelEditTerm} className="text-[11px] text-gray-600 hover:text-gray-500 transition-colors">Cancel</button>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <>
+                                        <div className="flex-1 min-w-0">
+                                          <span className={`text-[13px] font-medium ${t.known ? 'text-gray-600 line-through' : 'dark:text-white/80 text-gray-800'}`}>
+                                            {t.term}
+                                          </span>
+                                          <span className="text-gray-600 text-[13px]"> — {t.definition}</span>
+                                        </div>
+                                        <button
+                                          onClick={() => startEditTerm(t)}
+                                          title="Edit term"
+                                          className="shrink-0 mt-0.5 p-0.5 text-gray-700 hover:dark:text-yellow-400 hover:text-yellow-700 transition-colors opacity-0 group-hover:opacity-100"
+                                        >
+                                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                                          </svg>
+                                        </button>
+                                        <button
+                                          onClick={() => toggleKnown(t.id, t.known)}
+                                          title={t.known ? 'Mark as not known' : 'Mark as known'}
+                                          className={`shrink-0 mt-0.5 text-[17px] leading-none transition-colors ${
+                                            t.known ? 'text-emerald-500 hover:text-gray-600' : 'text-gray-700 hover:text-emerald-500'
+                                          }`}
+                                        >
+                                          ✓
+                                        </button>
+                                      </>
+                                    )}
                                   </div>
                                 ))}
                               </div>
