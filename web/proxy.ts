@@ -16,7 +16,10 @@ export function proxy(request: NextRequest) {
     pathname.startsWith('/import') ||
     pathname.startsWith('/profile') ||
     pathname.startsWith('/stats') ||
-    pathname.startsWith('/onboarding')
+    pathname.startsWith('/onboarding') ||
+    pathname.startsWith('/study') ||
+    pathname.startsWith('/quiz') ||
+    pathname.startsWith('/leaderboard')
 
   if (!isAppRoute) return NextResponse.next()
 
@@ -44,5 +47,8 @@ export const config = {
     '/profile/:path*',
     '/stats/:path*',
     '/onboarding/:path*',
+    '/study/:path*',
+    '/quiz/:path*',
+    '/leaderboard/:path*',
   ],
 }

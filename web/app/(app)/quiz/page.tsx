@@ -22,6 +22,14 @@ interface MCQuestion {
   options: { text: string; correct: boolean }[]
 }
 
+interface ReverseQuestion {
+  type: 'reverse'
+  termId: string
+  term: string
+  correctDefinition: string
+  options: { text: string; correct: boolean }[]  // options are terms
+}
+
 interface SelfQuestion {
   type: 'self'
   termId: string
@@ -29,29 +37,60 @@ interface SelfQuestion {
   correctDefinition: string
 }
 
-type QuizQuestion = MCQuestion | SelfQuestion
+type QuizQuestion = MCQuestion | ReverseQuestion | SelfQuestion
 
 type Mode = 'mc' | 'mixed'
 type Scope = 'all' | 'week'
 type Phase = 'loading' | 'empty' | 'setup' | 'quiz' | 'done'
 
+// Prefer distractors from the same lecture window (close created_at = same recording session)
+function getSameSessionDistractors(term: Term, sortedByDate: Term[], want: number): Term[] {
+  const pos = sortedByDate.findIndex(t => t.id === term.id)
+  const radius = 8
+  const nearby = sortedByDate
+    .slice(Math.max(0, pos - radius), Math.min(sortedByDate.length, pos + radius + 1))
+    .filter(t => t.id !== term.id)
+
+  if (nearby.length >= want) {
+    return [...nearby].sort(() => Math.random() - 0.5).slice(0, want)
+  }
+
+  const usedIds = new Set(nearby.map(t => t.id))
+  usedIds.add(term.id)
+  const rest = sortedByDate.filter(t => !usedIds.has(t.id))
+  const extras = [...rest].sort(() => Math.random() - 0.5).slice(0, want - nearby.length)
+  return [...nearby, ...extras].sort(() => Math.random() - 0.5)
+}
+
 function buildQuestions(terms: Term[], count: number, mode: Mode): QuizQuestion[] {
+  const sortedByDate = [...terms].sort((a, b) => a.created_at.localeCompare(b.created_at))
   const shuffled = [...terms].sort(() => Math.random() - 0.5).slice(0, count)
 
   return shuffled.map((term, i) => {
-    const useSelf = mode === 'mixed' && i % 3 === 2
+    // mc mode: alternate forward and reverse. mixed: cycle mc → reverse → self
+    const qtype: 'mc' | 'reverse' | 'self' =
+      mode === 'mixed'
+        ? (['mc', 'reverse', 'self'] as const)[i % 3]
+        : i % 2 === 0 ? 'mc' : 'reverse'
 
-    if (useSelf) {
+    if (qtype === 'self') {
       return { type: 'self', termId: term.id, term: term.term, correctDefinition: term.definition }
     }
 
-    const others = terms.filter(t => t.id !== term.id)
-    const distractors = [...others].sort(() => Math.random() - 0.5).slice(0, 3)
+    const distractors = getSameSessionDistractors(term, sortedByDate, 3)
+
+    if (qtype === 'reverse') {
+      const options = [
+        { text: term.term, correct: true },
+        ...distractors.map(d => ({ text: d.term, correct: false })),
+      ].sort(() => Math.random() - 0.5)
+      return { type: 'reverse', termId: term.id, term: term.term, correctDefinition: term.definition, options }
+    }
+
     const options = [
       { text: term.definition, correct: true },
       ...distractors.map(d => ({ text: d.definition, correct: false })),
     ].sort(() => Math.random() - 0.5)
-
     return { type: 'mc', termId: term.id, term: term.term, correctDefinition: term.definition, options }
   })
 }
@@ -253,7 +292,7 @@ export default function QuizPage() {
             <div className="animate-step opacity-0" style={{ animationFillMode: 'forwards', animationDelay: '120ms' }}>
               <p className="text-[10px] font-bold tracking-[0.18em] uppercase text-gray-600 mb-2">Question style</p>
               <div className="grid grid-cols-2 gap-2">
-                {([['mc', 'Multiple choice', 'Pick the right definition'], ['mixed', 'Mixed', 'MC + recall questions']] as const).map(([val, label, desc]) => (
+                {([['mc', 'Term & Definition', 'Forward + reverse MC'], ['mixed', 'Mixed', 'MC + self-recall']] as const).map(([val, label, desc]) => (
                   <button
                     key={val}
                     onClick={() => setMode(val)}
@@ -313,7 +352,17 @@ export default function QuizPage() {
   // ── Quiz ──
   if (phase === 'quiz') {
     const q = questions[idx]
-    const isMC = q.type === 'mc'
+    const isOptionQ = q.type === 'mc' || q.type === 'reverse'
+    const isSelf = q.type === 'self'
+
+    // What to show in the big card and how to label the question
+    const questionLabel =
+      q.type === 'mc'      ? 'What does this mean?' :
+      q.type === 'reverse' ? 'Which term matches this definition?' :
+                             'What is the definition of this term?'
+
+    const cardContent  = q.type === 'reverse' ? q.correctDefinition : q.term
+    const cardIsLong   = cardContent.length > 60
 
     return (
       <main className="h-dvh dark:bg-[#080810] bg-[#EDEAE3] dark:text-white text-gray-900 flex flex-col overflow-hidden nav-bottom-pad">
@@ -331,7 +380,12 @@ export default function QuizPage() {
           ) : (
             <span className="font-semibold tracking-tight text-[15px]">Quiz</span>
           )}
-          <span className="text-[13px] text-gray-600 tabular-nums">{idx + 1} / {questions.length}</span>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-bold tracking-[0.14em] uppercase px-2 py-0.5 rounded-full dark:bg-white/[0.06] bg-black/[0.06]" style={{ color: 'var(--fg-muted)' }}>
+              {q.type === 'mc' ? 'Term → Def' : q.type === 'reverse' ? 'Def → Term' : 'Recall'}
+            </span>
+            <span className="text-[13px] text-gray-600 tabular-nums">{idx + 1}/{questions.length}</span>
+          </div>
         </header>
 
         <div className="flex-1 min-h-0 flex flex-col px-4 sm:px-6 pt-4 pb-4">
@@ -340,28 +394,25 @@ export default function QuizPage() {
             <div className="h-full bg-yellow-500 rounded-full transition-all duration-500" style={{ width: `${progress}%` }} />
           </div>
 
-          {/* Term */}
+          {/* Question card */}
           <div className="shrink-0 mb-4">
-            <p className="text-[11px] font-bold tracking-[0.18em] uppercase text-gray-600 mb-1.5">
-              {isMC ? 'What does this mean?' : 'What is the definition?'}
-            </p>
+            <p className="text-[11px] font-bold tracking-[0.18em] uppercase text-gray-600 mb-1.5">{questionLabel}</p>
             <div className="dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.07] border-black/[0.14] rounded-2xl px-5 py-4">
-              <p className="text-[22px] font-bold leading-snug">{q.term}</p>
+              <p className={`font-bold leading-snug ${cardIsLong ? 'text-[16px]' : 'text-[22px]'}`}>{cardContent}</p>
             </div>
           </div>
 
-          {/* MC options */}
-          {isMC && (
+          {/* MC / Reverse options */}
+          {isOptionQ && (
             <div className="flex-1 min-h-0 overflow-y-auto">
               <div className="space-y-2.5">
-                {(q as MCQuestion).options.map((opt, i) => {
+                {(q as MCQuestion | ReverseQuestion).options.map((opt, i) => {
                   const isSelected = selected === opt.text
                   const showResult = answered
                   const correct = opt.correct
                   let cls = 'dark:bg-white/[0.03] bg-[#FAF9F6] dark:border-white/[0.07] border-black/[0.14] dark:text-white text-gray-900'
                   if (showResult && correct) cls = 'bg-emerald-500/10 border-emerald-500/40 dark:text-emerald-300 text-emerald-800'
                   else if (showResult && isSelected && !correct) cls = 'bg-red-500/10 border-red-500/40 dark:text-red-300 text-red-700'
-
                   return (
                     <button
                       key={i}
@@ -382,17 +433,18 @@ export default function QuizPage() {
                   className="w-full mt-4 py-3.5 rounded-2xl bg-yellow-600 hover:brightness-110 text-white text-[15px] font-semibold active:scale-[0.97] transition-[filter,transform] duration-150 animate-step opacity-0"
                   style={{ animationFillMode: 'forwards' }}
                 >
-                  {idx + 1 >= questions.length ? 'See results' : 'Next question →'}
+                  {idx + 1 >= questions.length ? 'See results' : 'Next →'}
                 </button>
               )}
             </div>
           )}
 
-          {/* Self-assess */}
-          {!isMC && (
+          {/* Self-recall */}
+          {isSelf && (
             <div className="flex-1 min-h-0 flex flex-col">
               {!revealed ? (
-                <div className="flex-1 flex items-center justify-center">
+                <div className="flex-1 flex flex-col items-center justify-center gap-3">
+                  <p className="text-[13px] text-gray-600 text-center">Think about it, then reveal</p>
                   <button
                     onClick={() => setRevealed(true)}
                     className="w-full max-w-sm py-4 rounded-2xl text-[15px] font-semibold dark:bg-white/[0.06] bg-[#F3F1EC] border dark:border-white/[0.08] border-black/[0.13] dark:text-white text-gray-900 active:scale-[0.97] transition-colors duration-150"
@@ -408,18 +460,24 @@ export default function QuizPage() {
                   </div>
 
                   {!answered ? (
-                    <div className="grid grid-cols-2 gap-2 animate-step opacity-0" style={{ animationFillMode: 'forwards' }}>
+                    <div className="grid grid-cols-3 gap-2 animate-step opacity-0" style={{ animationFillMode: 'forwards' }}>
                       <button
                         onClick={() => selfGrade(false)}
-                        className="py-3.5 rounded-2xl border border-red-500/40 dark:text-red-400 text-red-600 text-[14px] font-semibold bg-red-500/5 hover:bg-red-500/10 active:scale-[0.97] transition-colors duration-150"
+                        className="py-3 rounded-2xl border border-red-500/40 dark:text-red-400 text-red-600 text-[13px] font-semibold bg-red-500/5 hover:bg-red-500/10 active:scale-[0.97] transition-colors duration-150 flex flex-col items-center gap-0.5"
                       >
-                        Got it wrong
+                        <span>Didn't know</span>
+                      </button>
+                      <button
+                        onClick={() => selfGrade(false)}
+                        className="py-3 rounded-2xl border dark:border-orange-500/40 border-orange-400/50 dark:text-orange-400 text-orange-600 text-[13px] font-semibold dark:bg-orange-500/5 bg-orange-50 hover:bg-orange-500/10 active:scale-[0.97] transition-colors duration-150 flex flex-col items-center gap-0.5"
+                      >
+                        <span>Almost</span>
                       </button>
                       <button
                         onClick={() => selfGrade(true)}
-                        className="py-3.5 rounded-2xl border border-emerald-500/40 dark:text-emerald-400 text-emerald-700 text-[14px] font-semibold bg-emerald-500/5 hover:bg-emerald-500/10 active:scale-[0.97] transition-colors duration-150"
+                        className="py-3 rounded-2xl border border-emerald-500/40 dark:text-emerald-400 text-emerald-700 text-[13px] font-semibold bg-emerald-500/5 hover:bg-emerald-500/10 active:scale-[0.97] transition-colors duration-150 flex flex-col items-center gap-0.5"
                       >
-                        Got it right
+                        <span>Knew it</span>
                       </button>
                     </div>
                   ) : (
@@ -428,7 +486,7 @@ export default function QuizPage() {
                       className="py-3.5 rounded-2xl bg-yellow-600 hover:brightness-110 text-white text-[15px] font-semibold active:scale-[0.97] transition-[filter,transform] duration-150 animate-step opacity-0"
                       style={{ animationFillMode: 'forwards' }}
                     >
-                      {idx + 1 >= questions.length ? 'See results' : 'Next question →'}
+                      {idx + 1 >= questions.length ? 'See results' : 'Next →'}
                     </button>
                   )}
                 </div>

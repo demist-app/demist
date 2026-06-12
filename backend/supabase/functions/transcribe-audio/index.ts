@@ -234,8 +234,9 @@ serve(async (req) => {
       year_of_study?: number | null
     }
 
-    // Ownership check: path must be scoped to the requesting user
-    if (!storage_path || !storage_path.startsWith(`${user.id}/`)) {
+    // Ownership check: strict regex — no traversal, only known audio extensions
+    const SAFE_PATH = new RegExp(`^${user.id}/[A-Za-z0-9_-]+\\.(mp3|wav|mp4|m4a|webm|ogg|flac)$`)
+    if (!storage_path || storage_path.includes('..') || !SAFE_PATH.test(storage_path)) {
       return new Response(JSON.stringify({ error: 'forbidden' }), {
         status: 403, headers: { ...CORS, 'Content-Type': 'application/json' },
       })

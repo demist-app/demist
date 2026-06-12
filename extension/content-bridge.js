@@ -7,7 +7,7 @@
 
   // Page → Extension: relay term events and recording status
   window.addEventListener('message', (e) => {
-    if (e.source !== window || e.data?.source !== 'demist') return
+    if (e.source !== window || e.origin !== window.location.origin || e.data?.source !== 'demist') return
     const { type, term, definition, termId } = e.data
     if (type === 'term') {
       chrome.runtime.sendMessage({ type: 'DEMIST_TERM', term, definition, termId }).catch(() => {})

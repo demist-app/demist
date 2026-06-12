@@ -125,7 +125,13 @@
       "Bash(powershell -Command \"Expand-Archive -Path 'demist-changes.zip' -DestinationPath 'demist-changes-extracted' -Force\")",
       "Bash(Get-ChildItem -Recurse \"C:\\\\Users\\\\shivb\\\\Downloads\\\\demist-changes-extracted\")",
       "Bash(grep 'from '\\\\''@/lib/analytics'\\\\''' '__TRACKED_VAR__/web/app/\\(app\\)/flashcards/page.tsx')",
-      "Bash(grep dynamic *)"
+      "Bash(grep dynamic *)",
+      "Bash(powershell -Command \"Expand-Archive -Path 'demist-security-audit.zip' -DestinationPath 'demist-security-audit' -Force\")",
+      "Bash(cp \"C:\\\\Users\\\\shivb\\\\Downloads\\\\demist-security-audit\\\\demist-security-audit\\\\006_course_packs_SECURE.sql\" \"c:\\\\Users\\\\shivb\\\\Desktop\\\\coding bits\\\\demist\\\\backend\\\\supabase\\\\migrations\\\\006_course_packs_SECURE.sql\")",
+      "Bash(cp \"C:\\\\Users\\\\shivb\\\\Downloads\\\\demist-security-audit\\\\demist-security-audit\\\\009_security_hardening.sql\" \"c:\\\\Users\\\\shivb\\\\Desktop\\\\coding bits\\\\demist\\\\backend\\\\supabase\\\\migrations\\\\009_security_hardening.sql\")",
+      "Bash(node -e \"console.log\\(require\\('./package.json'\\).dependencies.next\\)\")",
+      "Bash(npm view *)",
+      "Bash(npm audit *)"
     ],
     "additionalDirectories": [
       "c:\\Users\\shivb\\Desktop\\coding bits\\demist\\web\\app\\u"
