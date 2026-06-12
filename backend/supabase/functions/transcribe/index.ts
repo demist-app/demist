@@ -120,6 +120,29 @@ serve(async (req) => {
     const data = await response.json()
     const text: string = data.text ?? ''
 
+    // Server-side hallucination filter: Whisper invents filler phrases on silence
+    const HALLUCINATION_PATTERNS = [
+      /^(\s*thank you[.!]?\s*)+$/i,
+      /^(\s*thanks for watching[.!]?\s*)+$/i,
+      /^(\s*you[.!]?\s*)+$/i,
+      /^(\s*bye[.!]?\s*)+$/i,
+      /subtitles by|subscribe to|amara\.org/i,
+      /^[\s.!?]*$/,
+    ]
+    const collapseRepeats = (s: string): string => {
+      const parts = s.split(/(?<=[.!?])\s+/)
+      const out: string[] = []
+      let last = ''; let run = 0
+      for (const p of parts) {
+        const key = p.trim().toLowerCase()
+        if (key === last) { run++; if (run >= 2) continue } else { run = 0; last = key }
+        out.push(p)
+      }
+      return out.join(' ')
+    }
+    let cleanText = collapseRepeats(text.trim())
+    if (HALLUCINATION_PATTERNS.some(re => re.test(cleanText))) cleanText = ''
+
     // Fire-and-forget usage logging — never block the response on this
     const estMinutes = 5 / 60 // chunks are ~5s
     supabase.from('usage_events').insert({
@@ -132,17 +155,17 @@ serve(async (req) => {
     }).then(({ error }) => { if (error) console.error('usage_events insert error:', error.message) })
 
     // Persist the chunk so the dashboard can stream it live via Supabase Realtime
-    if (text.trim() && sessionId && chunkIndex !== null && Number.isFinite(chunkIndex)) {
+    if (cleanText && sessionId && chunkIndex !== null && Number.isFinite(chunkIndex)) {
       const { error: insertErr } = await supabase.from('transcript_chunks').insert({
         session_id: sessionId,
         user_id: user.id,
-        text: text.trim(),
+        text: cleanText,
         chunk_index: chunkIndex,
       })
       if (insertErr) console.error('transcript_chunks insert error:', insertErr.message)
     }
 
-    return new Response(JSON.stringify({ text }), {
+    return new Response(JSON.stringify({ text: cleanText }), {
       headers: { ...CORS, 'Content-Type': 'application/json' },
     })
   } catch (e) {
