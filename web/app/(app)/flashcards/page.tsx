@@ -9,6 +9,10 @@ import { capture } from '@/lib/analytics'
 
 const NEW_CARDS_PER_DAY = 15
 
+type DeckFilter = null | { kind: 'subject'; value: string } | { kind: 'session'; value: string; label: string }
+interface DefPopup { text: string; explanation: string | null; loading: boolean; x: number; y: number; flipDown: boolean }
+type FilterChip = { label: string; f: DeckFilter }
+
 interface FlashCard {
   id: string
   term: string
@@ -104,11 +108,9 @@ export default function Flashcards() {
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
   // Highlight-to-define on card back
-  interface DefPopup { text: string; explanation: string | null; loading: boolean; x: number; y: number; flipDown: boolean }
   const [defPopup, setDefPopup] = useState<DefPopup | null>(null)
 
   // Deck filter
-  type DeckFilter = null | { kind: 'subject'; value: string } | { kind: 'session'; value: string; label: string }
   const [deckFilter, setDeckFilter] = useState<DeckFilter>(null)
   const [filterSubjects, setFilterSubjects] = useState<string[]>([])
   const [filterSessions, setFilterSessions] = useState<{ id: string; label: string }[]>([])
@@ -447,6 +449,12 @@ export default function Flashcards() {
     }, stepMs)
     return () => clearInterval(id)
   }, [phase]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const filterChips: FilterChip[] = [
+    { label: 'All', f: null },
+    ...filterSubjects.map(s => ({ label: s, f: { kind: 'subject' as const, value: s } })),
+    ...filterSessions.map(s => ({ label: s.label, f: { kind: 'session' as const, value: s.id, label: s.label } })),
+  ]
 
   const queueLabel = [
     dueCount > 0 && `${dueCount} due`,
@@ -804,30 +812,22 @@ export default function Flashcards() {
           </div>
 
           {/* Deck filter chips */}
-          {(filterSubjects.length > 0 || filterSessions.length > 0) && (() => {
-            type Chip = { label: string; f: DeckFilter }
-            const chips: Chip[] = [
-              { label: 'All', f: null },
-              ...filterSubjects.map(s => ({ label: s, f: { kind: 'subject' as const, value: s } })),
-              ...filterSessions.map(s => ({ label: s.label, f: { kind: 'session' as const, value: s.id, label: s.label } })),
-            ]
-            return (
-              <div className="shrink-0 flex gap-1.5 overflow-x-auto pb-1.5 mb-1 -mx-4 sm:-mx-6 px-4 sm:px-6" style={{ scrollbarWidth: 'none' }}>
-                {chips.map(({ label, f }) => {
-                  const active = f === null ? deckFilter === null : deckFilter !== null && deckFilter.kind === f.kind && deckFilter.value === f.value
-                  return (
-                    <button
-                      key={label}
-                      onClick={() => { setDeckFilter(f); if (f !== null) capture('flashcard_deck_filtered', { kind: f.kind }) }}
-                      className={`shrink-0 text-[12px] font-medium px-3 py-1.5 rounded-full border transition-colors ${active ? 'bg-yellow-600 border-yellow-600 text-white' : 'dark:bg-white/[0.04] bg-[#F3F1EC] dark:border-white/[0.08] border-black/[0.12] dark:text-gray-400 text-gray-600 hover:border-yellow-500/40'}`}
-                    >
-                      {label}
-                    </button>
-                  )
-                })}
-              </div>
-            )
-          })()}
+          {(filterSubjects.length > 0 || filterSessions.length > 0) && (
+            <div className="shrink-0 flex gap-1.5 overflow-x-auto pb-1.5 mb-1 -mx-4 sm:-mx-6 px-4 sm:px-6" style={{ scrollbarWidth: 'none' }}>
+              {filterChips.map(({ label, f }) => {
+                const active = f === null ? deckFilter === null : deckFilter !== null && deckFilter.kind === f.kind && deckFilter.value === f.value
+                return (
+                  <button
+                    key={label}
+                    onClick={() => { setDeckFilter(f); if (f !== null) capture('flashcard_deck_filtered', { kind: f.kind }) }}
+                    className={`shrink-0 text-[12px] font-medium px-3 py-1.5 rounded-full border transition-colors ${active ? 'bg-yellow-600 border-yellow-600 text-white' : 'dark:bg-white/[0.04] bg-[#F3F1EC] dark:border-white/[0.08] border-black/[0.12] dark:text-gray-400 text-gray-600 hover:border-yellow-500/40'}`}
+                  >
+                    {label}
+                  </button>
+                )
+              })}
+            </div>
+          )}
 
           {/* Queue breakdown */}
           <div className="shrink-0 flex items-center justify-between mb-4">

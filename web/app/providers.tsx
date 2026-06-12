@@ -8,9 +8,9 @@ export function PHProvider({ children }: { children: React.ReactNode }) {
     const el = document.getElementById('init-loader')
     if (!el) return
     el.style.opacity = '0'
-    const remove = () => el.remove()
-    el.addEventListener('transitionend', remove, { once: true })
-    setTimeout(remove, 300)
+    // Use display:none after fade — never call el.remove() since React owns this node
+    // and removing it from the DOM without React's knowledge causes insertBefore errors on navigation
+    setTimeout(() => { el.style.display = 'none' }, 300)
   }, [])
 
   return (
