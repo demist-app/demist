@@ -7,11 +7,10 @@ import { useTheme } from 'next-themes'
 import { createClient } from '@/lib/supabase'
 
 const NAV = [
-  { href: '/dashboard',  label: 'Home',       icon: HomeIcon },
-  { href: '/flashcards', label: 'Flashcards',  icon: CardsIcon },
-  { href: '/glossary',   label: 'Glossary',    icon: GlossaryIcon },
-  { href: '/history',    label: 'History',     icon: HistoryIcon },
-  { href: '/quiz',       label: 'Quiz',        icon: QuizIcon },
+  { href: '/dashboard', label: 'Home',     icon: HomeIcon },
+  { href: '/study',     label: 'Study',    icon: StudyIcon },
+  { href: '/glossary',  label: 'Glossary', icon: GlossaryIcon },
+  { href: '/history',   label: 'History',  icon: HistoryIcon },
 ]
 
 const DESKTOP_EXTRA = [
@@ -20,29 +19,55 @@ const DESKTOP_EXTRA = [
   { href: '/stats',   label: 'Stats' },
 ]
 
+const MORE_ITEMS = [
+  {
+    href: '/import',
+    label: 'Import',
+    desc: 'Upload audio, slides, or a transcript',
+    icon: ImportMenuIcon,
+  },
+  {
+    href: '/profile',
+    label: 'Profile',
+    desc: 'Edit your course and year of study',
+    icon: ProfileMenuIcon,
+  },
+  {
+    href: '/stats',
+    label: 'Stats',
+    desc: 'Streaks, terms learned, and progress',
+    icon: StatsMenuIcon,
+  },
+]
+
+function isStudyActive(pathname: string) {
+  return pathname === '/study' || pathname === '/flashcards' || pathname === '/quiz'
+}
+
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
   const [ready, setReady] = useState(false)
+  const [moreOpen, setMoreOpen] = useState(false)
 
   useEffect(() => {
-    // getSession() reads from local cache — no network round trip
     createClient().auth.getSession().then(({ data }) => {
       if (!data.session) { router.replace('/login'); return }
       setReady(true)
     })
   }, [])
 
+  // Close More sheet on route change
+  useEffect(() => { setMoreOpen(false) }, [pathname])
+
   if (!ready) return (
     <div className="min-h-dvh flex flex-col" style={{ background: 'var(--bg)' }}>
-      {/* Skeleton nav strip */}
       <div className="hidden sm:flex h-14 items-center px-8 gap-8 animate-pulse" style={{ borderBottom: '1px solid var(--border)' }}>
         <div className="h-3.5 w-14 rounded-full" style={{ background: 'var(--surface-2)' }} />
         {[60,52,56,52,48].map((w,i) => (
           <div key={i} className="h-2.5 rounded-full" style={{ width: w, background: 'var(--surface)' }} />
         ))}
       </div>
-      {/* Skeleton content */}
       <div className="flex-1 px-4 sm:px-8 py-6 animate-pulse max-w-4xl mx-auto w-full">
         <div className="h-6 w-40 rounded-full mb-8" style={{ background: 'var(--surface-2)' }} />
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
@@ -54,7 +79,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <div key={i} className="h-14 rounded-2xl mb-2" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }} />
         ))}
       </div>
-      {/* Skeleton mobile nav */}
       <div className="sm:hidden h-[52px] flex items-center justify-around px-2 animate-pulse" style={{ borderTop: '1px solid var(--border)', background: 'var(--mobile-nav-bg)' }}>
         {[0,1,2,3,4].map(i => (
           <div key={i} className="flex flex-col items-center gap-1.5">
@@ -68,6 +92,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <>
+      {/* ── Mobile: theme toggle fixed top-right ── */}
+      <div className="sm:hidden fixed top-3 right-4 z-50">
+        <ThemeToggle />
+      </div>
+
       {/* ── Desktop top nav ── */}
       <nav
         className="hidden sm:flex fixed top-0 inset-x-0 h-14 z-40 items-center px-8 gap-8 backdrop-blur-xl"
@@ -82,7 +111,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </Link>
 
         {[...NAV, ...DESKTOP_EXTRA].map(({ href, label }) => {
-          const active = pathname === href
+          const active = href === '/study' ? isStudyActive(pathname) : pathname === href
           return (
             <Link
               key={href}
@@ -98,7 +127,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           )
         })}
 
-        {/* Theme toggle — pushed to right */}
         <div className="ml-auto">
           <ThemeToggle />
         </div>
@@ -120,12 +148,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         }}
       >
         {NAV.map(({ href, label, icon: Icon }) => {
-          const active = pathname === href
+          const active = href === '/study' ? isStudyActive(pathname) : pathname === href
           return (
             <Link
               key={href}
               href={href}
-              className="flex flex-col items-center gap-[3px] py-1 px-4 transition-colors"
+              className="flex flex-col items-center gap-[3px] py-1 px-3 transition-colors"
               style={{ color: active ? 'var(--accent)' : 'var(--fg-muted)' }}
             >
               <Icon active={active} />
@@ -133,10 +161,79 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </Link>
           )
         })}
-        <div className="flex flex-col items-center gap-[3px] py-1 px-4">
-          <ThemeToggle />
-        </div>
+
+        {/* More button */}
+        <button
+          onClick={() => setMoreOpen(true)}
+          className="flex flex-col items-center gap-[3px] py-1 px-3 transition-colors"
+          style={{ color: moreOpen ? 'var(--accent)' : 'var(--fg-muted)' }}
+          aria-label="More options"
+        >
+          <MoreIcon active={moreOpen} />
+          <span className="text-[10px] font-medium">More</span>
+        </button>
       </nav>
+
+      {/* ── More bottom sheet ── */}
+      {moreOpen && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="sm:hidden fixed inset-0 z-[45] bg-black/30"
+            style={{ backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' }}
+            onClick={() => setMoreOpen(false)}
+          />
+          {/* Sheet */}
+          <div
+            className="sm:hidden fixed bottom-0 inset-x-0 z-[46] rounded-t-[24px] overflow-hidden"
+            style={{
+              background: 'var(--mobile-nav-bg)',
+              borderTop: '1px solid var(--border)',
+              paddingBottom: 'calc(16px + env(safe-area-inset-bottom))',
+              animation: 'sheet-up 260ms cubic-bezier(0.16, 1, 0.3, 1) both',
+            }}
+          >
+            {/* Handle */}
+            <div className="flex justify-center pt-3 pb-1">
+              <div className="w-8 h-1 rounded-full" style={{ background: 'var(--border)' }} />
+            </div>
+
+            <div className="px-4 pt-3 pb-1">
+              {MORE_ITEMS.map(({ href, label, desc, icon: Icon }) => {
+                const active = pathname === href
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    className="flex items-center gap-3.5 px-3 py-3.5 rounded-2xl transition-colors active:scale-[0.98]"
+                    style={{ background: active ? 'var(--accent-soft)' : 'transparent' }}
+                    onMouseEnter={e => !active && (e.currentTarget.style.background = 'var(--surface)')}
+                    onMouseLeave={e => !active && (e.currentTarget.style.background = 'transparent')}
+                  >
+                    <div
+                      className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                      style={{
+                        background: active ? 'var(--accent-icon-bg)' : 'var(--surface-2)',
+                        border: '1px solid var(--border)',
+                        color: active ? 'var(--accent)' : 'var(--fg-muted)',
+                      }}
+                    >
+                      <Icon />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[14px] font-semibold leading-snug" style={{ color: active ? 'var(--accent)' : 'var(--fg)' }}>{label}</p>
+                      <p className="text-[12px] leading-snug mt-0.5" style={{ color: 'var(--fg-muted)' }}>{desc}</p>
+                    </div>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--fg-faint)', flexShrink: 0 }}>
+                      <polyline points="9 18 15 12 9 6" />
+                    </svg>
+                  </Link>
+                )
+              })}
+            </div>
+          </div>
+        </>
+      )}
     </>
   )
 }
@@ -170,21 +267,13 @@ function HomeIcon({ active }: { active: boolean }) {
     </svg>
   )
 }
-function CardsIcon({ active }: { active: boolean }) {
+function StudyIcon({ active }: { active: boolean }) {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
       strokeWidth={active ? 2 : 1.6} strokeLinecap="round" strokeLinejoin="round">
-      <rect x="2" y="5" width="20" height="14" rx="3" />
-      <line x1="2" y1="10" x2="22" y2="10" />
-    </svg>
-  )
-}
-function HistoryIcon({ active }: { active: boolean }) {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-      strokeWidth={active ? 2 : 1.6} strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="9" />
-      <polyline points="12 7 12 12 15 15" />
+      <polygon points="12 2 2 7 12 12 22 7 12 2" />
+      <polyline points="2 17 12 22 22 17" />
+      <polyline points="2 12 12 17 22 12" />
     </svg>
   )
 }
@@ -197,23 +286,48 @@ function GlossaryIcon({ active }: { active: boolean }) {
     </svg>
   )
 }
-function ImportIcon({ active }: { active: boolean }) {
+function HistoryIcon({ active }: { active: boolean }) {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
       strokeWidth={active ? 2 : 1.6} strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="9" />
+      <polyline points="12 7 12 12 15 15" />
+    </svg>
+  )
+}
+function MoreIcon({ active }: { active: boolean }) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth={active ? 2 : 1.6} strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="5" cy="12" r="1.5" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none" />
+      <circle cx="19" cy="12" r="1.5" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+function ImportMenuIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <polyline points="8 17 12 21 16 17" />
       <line x1="12" y1="12" x2="12" y2="21" />
       <path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29" />
     </svg>
   )
 }
-function QuizIcon({ active }: { active: boolean }) {
+function ProfileMenuIcon() {
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-      strokeWidth={active ? 2 : 1.6} strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10" />
-      <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
-      <line x1="12" y1="17" x2="12.01" y2="17" />
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+    </svg>
+  )
+}
+function StatsMenuIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="18" y1="20" x2="18" y2="10" />
+      <line x1="12" y1="20" x2="12" y2="4" />
+      <line x1="6" y1="20" x2="6" y2="14" />
     </svg>
   )
 }

@@ -123,6 +123,10 @@ button, a {
   33%       { transform: translate(18px, -14px) scale(1.04); }
   66%       { transform: translate(-10px, 8px) scale(0.97); }
 }
+@keyframes sheet-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
 
 /* ── Layout utilities ── */
 .nav-bottom-pad {

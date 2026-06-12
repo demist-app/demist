@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { capture } from '@/lib/analytics'
 
@@ -57,6 +59,9 @@ function buildQuestions(terms: Term[], count: number, mode: Mode): QuizQuestion[
 const COUNT_OPTIONS = [5, 10, 15, 20]
 
 export default function QuizPage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const fromStudy = searchParams.get('from') === 'study'
   const [phase, setPhase] = useState<Phase>('loading')
   const [allTerms, setAllTerms] = useState<Term[]>([])
   const [scope, setScope] = useState<Scope>('all')
@@ -196,8 +201,20 @@ export default function QuizPage() {
   if (phase === 'setup') {
     return (
       <main className="h-dvh dark:bg-[#080810] bg-[#EDEAE3] dark:text-white text-gray-900 flex flex-col overflow-hidden nav-bottom-pad">
-        <header className="sm:hidden shrink-0 flex items-center px-6 h-14 border-b dark:border-white/[0.05] border-black/[0.06]">
-          <span className="font-semibold tracking-tight text-[15px]">Quiz</span>
+        <header className="sm:hidden shrink-0 flex items-center px-4 h-14 border-b dark:border-white/[0.05] border-black/[0.06]">
+          {fromStudy ? (
+            <button
+              onClick={() => router.push('/study')}
+              className="flex items-center gap-1 text-[13px] font-medium text-gray-600 hover:dark:text-white hover:text-gray-900 transition-colors -ml-1"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+              Study
+            </button>
+          ) : (
+            <span className="font-semibold tracking-tight text-[15px]">Quiz</span>
+          )}
         </header>
 
         <div className="flex-1 min-h-0 overflow-y-auto">
@@ -300,8 +317,20 @@ export default function QuizPage() {
 
     return (
       <main className="h-dvh dark:bg-[#080810] bg-[#EDEAE3] dark:text-white text-gray-900 flex flex-col overflow-hidden nav-bottom-pad">
-        <header className="sm:hidden shrink-0 flex items-center justify-between px-6 h-14 border-b dark:border-white/[0.05] border-black/[0.06]">
-          <span className="font-semibold tracking-tight text-[15px]">Quiz</span>
+        <header className="sm:hidden shrink-0 flex items-center justify-between px-4 h-14 border-b dark:border-white/[0.05] border-black/[0.06]">
+          {fromStudy ? (
+            <button
+              onClick={() => router.push('/study')}
+              className="flex items-center gap-1 text-[13px] font-medium text-gray-600 hover:dark:text-white hover:text-gray-900 transition-colors -ml-1"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+              Study
+            </button>
+          ) : (
+            <span className="font-semibold tracking-tight text-[15px]">Quiz</span>
+          )}
           <span className="text-[13px] text-gray-600 tabular-nums">{idx + 1} / {questions.length}</span>
         </header>
 
@@ -418,8 +447,20 @@ export default function QuizPage() {
 
   return (
     <main className="h-dvh dark:bg-[#080810] bg-[#EDEAE3] dark:text-white text-gray-900 flex flex-col overflow-hidden nav-bottom-pad">
-      <header className="sm:hidden shrink-0 flex items-center px-6 h-14 border-b dark:border-white/[0.05] border-black/[0.06]">
-        <span className="font-semibold tracking-tight text-[15px]">Quiz complete</span>
+      <header className="sm:hidden shrink-0 flex items-center justify-between px-4 h-14 border-b dark:border-white/[0.05] border-black/[0.06]">
+        {fromStudy ? (
+          <button
+            onClick={() => router.push('/study')}
+            className="flex items-center gap-1 text-[13px] font-medium text-gray-600 hover:dark:text-white hover:text-gray-900 transition-colors -ml-1"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+            Study
+          </button>
+        ) : (
+          <span className="font-semibold tracking-tight text-[15px]">Quiz complete</span>
+        )}
       </header>
 
       <div className="flex-1 min-h-0 overflow-y-auto">

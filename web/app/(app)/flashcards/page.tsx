@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { capture } from '@/lib/analytics'
 
@@ -64,6 +66,9 @@ function calculateStreak(timestamps: string[]): number {
 type Phase = 'loading' | 'empty' | 'review' | 'done'
 
 export default function Flashcards() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const fromStudy = searchParams.get('from') === 'study'
   const [phase, setPhase] = useState<Phase>('loading')
   const [queue, setQueue] = useState<FlashCard[]>([])
   const [current, setCurrent] = useState<FlashCard | null>(null)
@@ -103,6 +108,10 @@ export default function Flashcards() {
   useEffect(() => {
     if (editingId && termInputRef.current) termInputRef.current.focus()
   }, [editingId])
+
+  useEffect(() => {
+    if (searchParams.get('view') === 'browse') openBrowse()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const supabase = createClient()
@@ -356,10 +365,11 @@ export default function Flashcards() {
         </div>
 
         <header className="relative z-10 shrink-0 flex items-center justify-between px-4 sm:px-6 h-14 border-b dark:border-white/[0.05] border-black/[0.06]">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <button
               onClick={() => setBrowseMode(false)}
-              className="text-gray-600 hover:dark:text-white hover:text-gray-900 transition-colors p-1 -ml-1"
+              className="flex items-center gap-1 text-[13px] font-medium text-gray-600 hover:dark:text-white hover:text-gray-900 transition-colors p-1 -ml-1"
+              aria-label="Back"
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="15 18 9 12 15 6" />
@@ -496,8 +506,21 @@ export default function Flashcards() {
       <div aria-hidden className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
         <div className="absolute -top-32 -left-32 w-[500px] h-[500px] rounded-full bg-yellow-700/[0.05] blur-[120px]" />
       </div>
-      <header className="sm:hidden relative z-10 shrink-0 flex items-center justify-between px-6 h-14 border-b dark:border-white/[0.05] border-black/[0.06]">
-        <span className="font-semibold tracking-tight text-[15px]">Flashcards</span>
+      <header className="sm:hidden relative z-10 shrink-0 flex items-center justify-between px-4 h-14 border-b dark:border-white/[0.05] border-black/[0.06]">
+        <div className="flex items-center gap-2">
+          {fromStudy && (
+            <button
+              onClick={() => router.push('/study')}
+              className="flex items-center gap-1 text-[13px] font-medium text-gray-600 hover:dark:text-white hover:text-gray-900 transition-colors -ml-1 pr-2"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+              Study
+            </button>
+          )}
+          {!fromStudy && <span className="font-semibold tracking-tight text-[15px]">Flashcards</span>}
+        </div>
         <div className="flex items-center gap-3">
           {phase === 'review' && (
             <span className="text-[13px] text-gray-600">{queueLabel}</span>
