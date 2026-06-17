@@ -89,6 +89,7 @@ export default function History() {
       const { data: { session } } = await supabase.auth.getSession()
       const user = session?.user
       if (!user) return
+      capture('history_viewed')
 
       const [{ data: sessionsRaw }, { count }] = await Promise.all([
         supabase

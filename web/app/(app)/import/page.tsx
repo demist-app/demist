@@ -159,6 +159,7 @@ export default function ImportPage() {
     const error = searchParams.get('notion_error')
     if (connected === '1') {
       setNotionConnectMsg('Notion connected successfully.')
+      capture('notion_connected')
       const supabase = createClient()
       supabase.auth.getSession().then(({ data: { session } }) => {
         if (!session?.user) return
@@ -360,6 +361,8 @@ export default function ImportPage() {
     setTextStatus('extracting')
     setTextError(null)
     setTextResult(null)
+    const ext = textFile.name.split('.').pop()?.toLowerCase() ?? 'txt'
+    capture('import_text_started', { file_type: ext, file_size_kb: Math.round(textFile.size / 1024) })
 
     try {
       const text = await extractTextFromFile(textFile)
@@ -372,7 +375,6 @@ export default function ImportPage() {
       const token = session?.access_token
       const base = process.env.NEXT_PUBLIC_SUPABASE_URL!
 
-      const ext = textFile.name.split('.').pop()?.toLowerCase()
       const sourceMap: Record<string, string> = { pptx: 'pptx_upload', docx: 'docx_upload', txt: 'transcript_upload' }
 
       if (!token) throw new Error('Not authenticated')
@@ -394,6 +396,7 @@ export default function ImportPage() {
 
       setTextResult(data)
       setTextStatus('done')
+      capture('import_text_completed', { file_type: ext, terms_detected: data.term_count ?? 0 })
     } catch (err) {
       setTextError(err instanceof Error ? err.message : 'Something went wrong')
       setTextStatus('error')
@@ -416,6 +419,7 @@ export default function ImportPage() {
       if (!res.ok || !data.ok) throw new Error(data.error ?? 'Push failed')
       if (data.page_url) setUrl(data.page_url)
       setStatus('done')
+      capture('notion_push_completed', { type })
     } catch {
       setStatus('error')
     }
@@ -482,6 +486,7 @@ export default function ImportPage() {
 
       setNotionPullResult(processData)
       setNotionPullStatus('done')
+      capture('notion_import_completed', { terms_detected: processData.term_count ?? 0 })
     } catch (err) {
       setNotionPullError(err instanceof Error ? err.message : 'Something went wrong')
       setNotionPullStatus('error')

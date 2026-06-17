@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
+import { capture, identify } from '@/lib/analytics'
 
 const YEARS = [
   { value: 1, label: '1st Year' },
@@ -50,6 +51,8 @@ export default function Onboarding() {
         .from('profiles')
         .upsert({ id: user.id, course: course.trim() || null, year_of_study: year })
       if (error) throw error
+      identify(user.id)
+      capture('onboarding_completed', { course: course.trim() || null, year_of_study: year })
       router.replace('/dashboard')
     } catch (e) {
       console.error('onboarding save failed:', e)

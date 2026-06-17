@@ -22,6 +22,7 @@ interface FlashCard {
   sm2_review_count: number
   sm2_due_at: string | null
   isNew: boolean
+  subject?: string | null
 }
 
 function sm2Update(ease: number, interval: number, grade: 0 | 1 | 2 | 3): { interval: number; ease: number } {
@@ -96,6 +97,9 @@ export default function Flashcards() {
   const [allCards, setAllCards] = useState<FlashCard[]>([])
   const [browseLoading, setBrowseLoading] = useState(false)
   const [browseSearch, setBrowseSearch] = useState('')
+
+  // Browse grouping
+  const [browseGroup, setBrowseGroup] = useState<'none' | 'subject'>('none')
 
   // Edit state in browse
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -212,8 +216,9 @@ export default function Flashcards() {
       if (!user) return
       const { data } = await supabase
         .from('terms')
-        .select('id, term, definition, sm2_interval, sm2_ease, sm2_review_count, sm2_due_at')
+        .select('id, term, definition, sm2_interval, sm2_ease, sm2_review_count, sm2_due_at, subject')
         .eq('user_id', user.id)
+        .order('subject', { ascending: true, nullsFirst: false })
         .order('created_at', { ascending: false })
       setAllCards(((data ?? []) as FlashCard[]).map(c => ({ ...c, isNew: false })))
     } catch (e) {
@@ -468,6 +473,17 @@ export default function Flashcards() {
       )
     : allCards
 
+  const browseGroups: { label: string | null; cards: FlashCard[] }[] = browseGroup === 'subject' && !browseSearch
+    ? Object.entries(
+        filteredCards.reduce<Record<string, FlashCard[]>>((acc, c) => {
+          const key = c.subject ?? ''
+          ;(acc[key] ??= []).push(c)
+          return acc
+        }, {})
+      ).sort(([a], [b]) => (a === '' ? 1 : b === '' ? -1 : a.localeCompare(b)))
+        .map(([key, cards]) => ({ label: key || null, cards }))
+    : [{ label: null, cards: filteredCards }]
+
   // ── Browse mode ──────────────────────────────────────────────────────────────
   if (browseMode) {
     return (
@@ -489,7 +505,17 @@ export default function Flashcards() {
             </button>
             <span className="font-semibold tracking-tight text-[15px]">All Cards</span>
           </div>
-          <span className="text-[13px] text-gray-600 tabular-nums">{allCards.length} total</span>
+          <div className="flex items-center gap-3">
+            {filterSubjects.length > 0 && !browseSearch && (
+              <button
+                onClick={() => setBrowseGroup(g => g === 'subject' ? 'none' : 'subject')}
+                className={`text-[12px] font-medium px-2.5 py-1 rounded-full border transition-colors ${browseGroup === 'subject' ? 'bg-yellow-600 border-yellow-600 text-white' : 'dark:bg-white/[0.04] bg-[#F3F1EC] dark:border-white/[0.08] border-black/[0.12] dark:text-gray-400 text-gray-600 hover:border-yellow-500/40'}`}
+              >
+                Group by subject
+              </button>
+            )}
+            <span className="text-[13px] text-gray-600 tabular-nums">{allCards.length} total</span>
+          </div>
         </header>
 
         <div className="flex-1 overflow-y-auto relative z-10">
@@ -521,86 +547,97 @@ export default function Flashcards() {
                   {browseSearch ? `No results for "${browseSearch}"` : 'No cards yet.'}
                 </p>
               ) : (
-                <div className="mt-2 dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl overflow-hidden">
-                  {filteredCards.map((c, i) => (
-                    <div
-                      key={c.id}
-                      className={`px-4 py-3.5 transition-colors ${i > 0 ? 'border-t dark:border-white/[0.04] border-black/[0.05]' : ''} ${editingId === c.id ? 'dark:bg-white/[0.03] bg-[#F3F1EC]' : 'hover:bg-yellow-500/[0.02]'}`}
-                    >
-                      {editingId === c.id ? (
-                        <div className="space-y-2">
-                          <input
-                            ref={termInputRef}
-                            value={editTerm}
-                            onChange={e => setEditTerm(e.target.value)}
-                            placeholder="Term"
-                            className="w-full text-[14px] font-semibold dark:text-white text-gray-900 dark:bg-white/[0.05] bg-[#EFEDE7] border dark:border-amber-500/30 border-amber-500/40 rounded-xl px-3 py-2 focus:outline-none"
-                          />
-                          <textarea
-                            value={editDef}
-                            onChange={e => setEditDef(e.target.value)}
-                            onKeyDown={e => { if (e.key === 'Escape') cancelEdit() }}
-                            placeholder="Definition"
-                            rows={3}
-                            className="w-full text-[13px] dark:text-white/80 text-gray-700 dark:bg-white/[0.05] bg-[#EFEDE7] border dark:border-amber-500/30 border-amber-500/40 rounded-xl px-3 py-2 resize-none focus:outline-none leading-relaxed"
-                          />
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => saveEdit(c.id)}
-                              disabled={savingEditId === c.id}
-                              className="text-[12px] font-semibold text-amber-400 hover:text-amber-300 disabled:opacity-40 transition-colors"
-                            >
-                              {savingEditId === c.id ? 'Saving…' : 'Save'}
-                            </button>
-                            <button onClick={cancelEdit} className="text-[12px] text-gray-600 hover:text-gray-500 transition-colors">Cancel</button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex items-start gap-2">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[14px] font-semibold dark:text-white/90 text-gray-900 leading-snug">{c.term}</p>
-                            <p className="text-[12px] text-gray-600 mt-0.5 leading-relaxed line-clamp-2">{c.definition}</p>
-                            {(c.sm2_review_count ?? 0) > 0 && (
-                              <p className="text-[11px] text-gray-700 mt-1 tabular-nums">
-                                {c.sm2_review_count} review{c.sm2_review_count !== 1 ? 's' : ''}
-                                {c.sm2_due_at ? ` · next ${new Date(c.sm2_due_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : ''}
-                              </p>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-0.5 shrink-0 mt-0.5">
-                            <button
-                              onClick={() => startEdit(c)}
-                              title="Edit card"
-                              className="p-1.5 text-gray-700 hover:dark:text-yellow-400 hover:text-yellow-700 transition-colors rounded-lg hover:dark:bg-white/[0.06] hover:bg-black/[0.05]"
-                            >
-                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                              </svg>
-                            </button>
-                            {confirmDeleteId === c.id ? (
-                              <div className="flex items-center gap-1 ml-1">
-                                <button onClick={() => setConfirmDeleteId(null)} className="text-[11px] text-gray-600 hover:text-gray-500 px-1.5 py-1 transition-colors">Cancel</button>
-                                <button
-                                  onClick={() => deleteCard(c.id)}
-                                  disabled={deletingId === c.id}
-                                  className="text-[11px] font-semibold text-red-400 hover:text-red-300 px-1.5 py-1 disabled:opacity-40 transition-colors"
-                                >
-                                  {deletingId === c.id ? '…' : 'Delete'}
-                                </button>
+                <div className="mt-2 space-y-4">
+                  {browseGroups.map(({ label, cards }) => (
+                    <div key={label ?? '__none__'}>
+                      {browseGroups.length > 1 && (
+                        <p className="text-[10px] font-bold tracking-[0.12em] uppercase text-gray-600 px-1 mb-1.5">
+                          {label ?? 'Other'}
+                        </p>
+                      )}
+                      <div className="dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl overflow-hidden">
+                        {cards.map((c, i) => (
+                          <div
+                            key={c.id}
+                            className={`px-4 py-3.5 transition-colors ${i > 0 ? 'border-t dark:border-white/[0.04] border-black/[0.05]' : ''} ${editingId === c.id ? 'dark:bg-white/[0.03] bg-[#F3F1EC]' : 'hover:bg-yellow-500/[0.02]'}`}
+                          >
+                            {editingId === c.id ? (
+                              <div className="space-y-2">
+                                <input
+                                  ref={termInputRef}
+                                  value={editTerm}
+                                  onChange={e => setEditTerm(e.target.value)}
+                                  placeholder="Term"
+                                  className="w-full text-[14px] font-semibold dark:text-white text-gray-900 dark:bg-white/[0.05] bg-[#EFEDE7] border dark:border-amber-500/30 border-amber-500/40 rounded-xl px-3 py-2 focus:outline-none"
+                                />
+                                <textarea
+                                  value={editDef}
+                                  onChange={e => setEditDef(e.target.value)}
+                                  onKeyDown={e => { if (e.key === 'Escape') cancelEdit() }}
+                                  placeholder="Definition"
+                                  rows={3}
+                                  className="w-full text-[13px] dark:text-white/80 text-gray-700 dark:bg-white/[0.05] bg-[#EFEDE7] border dark:border-amber-500/30 border-amber-500/40 rounded-xl px-3 py-2 resize-none focus:outline-none leading-relaxed"
+                                />
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={() => saveEdit(c.id)}
+                                    disabled={savingEditId === c.id}
+                                    className="text-[12px] font-semibold text-amber-400 hover:text-amber-300 disabled:opacity-40 transition-colors"
+                                  >
+                                    {savingEditId === c.id ? 'Saving…' : 'Save'}
+                                  </button>
+                                  <button onClick={cancelEdit} className="text-[12px] text-gray-600 hover:text-gray-500 transition-colors">Cancel</button>
+                                </div>
                               </div>
                             ) : (
-                              <button
-                                onClick={() => setConfirmDeleteId(c.id)}
-                                title="Delete card"
-                                className="p-1.5 text-gray-700 hover:text-red-400 transition-colors rounded-lg hover:dark:bg-white/[0.06] hover:bg-black/[0.05]"
-                              >
-                                <TrashIcon />
-                              </button>
+                              <div className="flex items-start gap-2">
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-[14px] font-semibold dark:text-white/90 text-gray-900 leading-snug">{c.term}</p>
+                                  <p className="text-[12px] text-gray-600 mt-0.5 leading-relaxed line-clamp-2">{c.definition}</p>
+                                  {(c.sm2_review_count ?? 0) > 0 && (
+                                    <p className="text-[11px] text-gray-700 mt-1 tabular-nums">
+                                      {c.sm2_review_count} review{c.sm2_review_count !== 1 ? 's' : ''}
+                                      {c.sm2_due_at ? ` · next ${new Date(c.sm2_due_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : ''}
+                                    </p>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-0.5 shrink-0 mt-0.5">
+                                  <button
+                                    onClick={() => startEdit(c)}
+                                    title="Edit card"
+                                    className="p-1.5 text-gray-700 hover:dark:text-yellow-400 hover:text-yellow-700 transition-colors rounded-lg hover:dark:bg-white/[0.06] hover:bg-black/[0.05]"
+                                  >
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                                    </svg>
+                                  </button>
+                                  {confirmDeleteId === c.id ? (
+                                    <div className="flex items-center gap-1 ml-1">
+                                      <button onClick={() => setConfirmDeleteId(null)} className="text-[11px] text-gray-600 hover:text-gray-500 px-1.5 py-1 transition-colors">Cancel</button>
+                                      <button
+                                        onClick={() => deleteCard(c.id)}
+                                        disabled={deletingId === c.id}
+                                        className="text-[11px] font-semibold text-red-400 hover:text-red-300 px-1.5 py-1 disabled:opacity-40 transition-colors"
+                                      >
+                                        {deletingId === c.id ? '…' : 'Delete'}
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <button
+                                      onClick={() => setConfirmDeleteId(c.id)}
+                                      title="Delete card"
+                                      className="p-1.5 text-gray-700 hover:text-red-400 transition-colors rounded-lg hover:dark:bg-white/[0.06] hover:bg-black/[0.05]"
+                                    >
+                                      <TrashIcon />
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
                             )}
                           </div>
-                        </div>
-                      )}
+                        ))}
+                      </div>
                     </div>
                   ))}
                 </div>
