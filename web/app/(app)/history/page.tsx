@@ -607,7 +607,7 @@ export default function History() {
                             </div>
                           ) : null}
 
-                          {s.transcript && (
+                          {s.transcript ? (
                             <details className="mt-3 group">
                               <summary className="cursor-pointer list-none flex items-center gap-1.5 text-[12px] font-medium dark:text-white/50 text-gray-600 hover:dark:text-white/80 hover:text-gray-900 transition-colors">
                                 <svg className="transition-transform group-open:rotate-90" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
@@ -617,6 +617,11 @@ export default function History() {
                                 <TranscriptViewer transcript={s.transcript} subject={s.subject} year={null} sessionId={s.id} terms={s.terms?.map(t => ({ term: t.term, definition: t.definition }))} />
                               </div>
                             </details>
+                          ) : (
+                            <p className="text-[12px] text-gray-400 dark:text-white/30 mt-2 leading-relaxed">
+                              Live sessions keep your glossary, not the lecture transcript.{' '}
+                              <span className="text-amber-600 dark:text-amber-400">Ask your lecturer to unlock full notes.</span>
+                            </p>
                           )}
 
                           {loadingTerms === s.id && <p className="text-gray-700 text-[13px] py-3">Loading…</p>}

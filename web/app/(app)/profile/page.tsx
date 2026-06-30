@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { capture, reset } from '@/lib/analytics'
+import { ConsentManager } from '@/components/ConsentUnlock'
 
 interface ProfileData {
   display_name: string | null
@@ -447,6 +448,13 @@ export default function Profile() {
             <span className="text-[14px] dark:text-white/80 text-gray-800">View your stats</span>
             <span className="text-gray-600 text-[18px] leading-none">›</span>
           </a>
+        </div>
+
+        {/* Lecturer consents */}
+        <div className="space-y-3 animate-step opacity-0" style={{ animationDelay: '150ms', animationFillMode: 'forwards' }}>
+          <p className="text-[10px] font-bold tracking-[0.18em] text-gray-600 uppercase">Lecturer consents</p>
+          <p className="text-[12px] text-gray-500 dark:text-white/40">Modules where your lecturer is happy for Demist to save full notes.</p>
+          <ConsentManager />
         </div>
 
         {/* Sign out */}

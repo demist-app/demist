@@ -7,7 +7,7 @@ export const metadata: Metadata = {
 }
 
 export default function Privacy() {
-  const updated = '24 May 2025'
+  const updated = '1 July 2026'
 
   return (
     <main className="min-h-dvh bg-[#080810] text-white px-6 py-16">
@@ -32,9 +32,10 @@ export default function Privacy() {
             <h2 className="text-[17px] font-semibold mb-3">Data we collect</h2>
             <ul className="space-y-3 text-gray-400">
               <li><span className="text-white font-medium">Email address</span>: used only for authentication via a one-time code. We do not send marketing emails.</li>
-              <li><span className="text-white font-medium">Audio recordings</span>: microphone audio is captured in 10-second chunks, sent to OpenAI&apos;s Whisper API for transcription, and immediately discarded. We do not store any audio files.</li>
+              <li><span className="text-white font-medium">Audio recordings</span>: microphone audio is captured in short chunks, sent to Groq or OpenAI for transcription, and immediately discarded. We do not store audio files.</li>
+              <li><span className="text-white font-medium">Transcripts</span>: for live microphone sessions we do not save a transcript of the lecture unless your lecturer has consented for your module. For recordings you upload or capture from an officially provided source, transcripts are saved to your account.</li>
               <li><span className="text-white font-medium">Detected terms</span>: the terms and definitions picked up from your sessions are stored in your account so you can review them later.</li>
-              <li><span className="text-white font-medium">Profile information</span>: course and year of study. Both optional. Used to tailor term explanations to your level.</li>
+              <li><span className="text-white font-medium">Profile information</span>: course, year of study, and date of birth. Used to tailor term explanations to your level and to keep the service age-appropriate. Date of birth is never shared.</li>
               <li><span className="text-white font-medium">Session data</span>: timestamps and duration of recording sessions. Used to calculate your streak and weekly stats.</li>
               <li><span className="text-white font-medium">Flashcard history</span>: your grading responses (Again / Hard / Good / Easy) used to schedule spaced repetition reviews.</li>
               <li><span className="text-white font-medium">Usage analytics</span>: anonymised events (e.g. &quot;recording started&quot;, &quot;flashcard graded&quot;) collected via PostHog to help us improve the product. No personal data is included in these events.</li>
@@ -45,7 +46,7 @@ export default function Privacy() {
             <h2 className="text-[17px] font-semibold mb-3">Third-party services</h2>
             <ul className="space-y-3 text-gray-400">
               <li><span className="text-white font-medium">Supabase</span>: database and authentication. Your data is stored in Supabase&apos;s EU infrastructure.</li>
-              <li><span className="text-white font-medium">OpenAI</span>: audio transcription (Whisper) and term detection (GPT-4o mini). Audio and transcripts are processed under OpenAI&apos;s API data usage policy and are not used to train their models.</li>
+              <li><span className="text-white font-medium">Groq &amp; OpenAI</span>: audio is transcribed using Groq&apos;s and/or OpenAI&apos;s APIs, and term detection uses OpenAI. Audio is processed in real time and not stored by us. These providers are based in the United States; data is transferred under their data processing agreements and standard contractual clauses, and is not used to train their models.</li>
               <li><span className="text-white font-medium">PostHog</span>: product analytics. Events are anonymised before being sent.</li>
             </ul>
           </section>
@@ -74,7 +75,14 @@ export default function Privacy() {
           <section>
             <h2 className="text-[17px] font-semibold mb-3">Contact</h2>
             <p className="text-gray-400">
-              Questions about this policy or your data: <a href="mailto:shiv.chop0301@gmail.com" className="text-yellow-400 hover:text-yellow-300 transition-colors">shiv.chop0301@gmail.com</a>
+              Questions about this policy or your data: <a href="mailto:privacy@demist.app" className="text-yellow-400 hover:text-yellow-300 transition-colors">privacy@demist.app</a>
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-[17px] font-semibold mb-3">Complaints</h2>
+            <p className="text-gray-400">
+              If you have a concern about how we handle your data, email <a href="mailto:privacy@demist.app" className="text-yellow-400 hover:text-yellow-300 transition-colors">privacy@demist.app</a>. We&apos;ll acknowledge your complaint within 30 days. You also have the right to complain to the UK Information Commissioner&apos;s Office (<a href="https://ico.org.uk" className="text-yellow-400 hover:text-yellow-300 transition-colors">ico.org.uk</a>).
             </p>
           </section>
 

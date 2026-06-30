@@ -74,6 +74,34 @@ serve(async (req) => {
       })
     }
 
+    // Guard: mic-mode sessions require lecturer consent before generating a synopsis
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    )
+    const { data: sessionRow } = await supabaseAdmin
+      .from('sessions')
+      .select('capture_mode')
+      .eq('id', session_id)
+      .eq('user_id', user.id)
+      .single()
+
+    if (!sessionRow?.capture_mode || sessionRow.capture_mode === 'microphone') {
+      const { data: consent } = await supabaseAdmin
+        .from('lecturer_consents')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('module_name', subject ?? '')
+        .maybeSingle()
+
+      if (!consent) {
+        return new Response(
+          JSON.stringify({ ok: false, reason: 'mic_mode_no_consent' }),
+          { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } },
+        )
+      }
+    }
+
     let termRows: { term: string; definition: string }[] = passedTerms ?? []
 
     // If terms weren't passed, fetch them. RLS ensures we only get the user's own terms.

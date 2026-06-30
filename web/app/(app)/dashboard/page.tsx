@@ -13,6 +13,7 @@ const SummaryViewer = dynamic(() => import('../summary-viewer').then(m => ({ def
 const OnboardingOverlay = dynamic(() => import('@/components/OnboardingOverlay').then(m => ({ default: m.OnboardingOverlay })), { ssr: false })
 const MicCheck = dynamic(() => import('@/components/MicCheck').then(m => ({ default: m.MicCheck })), { ssr: false })
 const SessionReview = dynamic(() => import('@/components/SessionReview').then(m => ({ default: m.SessionReview })), { ssr: false })
+import { ConsentUnlockBanner, ConsentModal, MicModeNotice } from '@/components/ConsentUnlock'
 
 type CaptureMode = 'microphone' | 'tab'
 
@@ -124,6 +125,8 @@ export default function Dashboard() {
   const [liveSessionId, setLiveSessionId] = useState<string | null>(null)
   const [showMicCheck, setShowMicCheck] = useState(false)
   const [reviewTerms, setReviewTerms] = useState<{ term: string; definition: string; dbId?: string }[] | null>(null)
+  const [showConsentModal, setShowConsentModal] = useState(false)
+  const [consentVersion, setConsentVersion] = useState(0)
 
   const profileRef = useRef<Profile | null>(null)
   const userIdRef = useRef<string | null>(null)
@@ -142,6 +145,7 @@ export default function Dashboard() {
   const startRecordingRef = useRef<() => Promise<void>>(() => Promise.resolve())
   const stopRecordingRef = useRef<() => Promise<void>>(() => Promise.resolve())
   const startingRef = useRef(false)
+  const captureModeRef = useRef<CaptureMode>('microphone')
 
   const detectionBufferRef = useRef('')   // accumulated Whisper text waiting for detect-terms
   const lastDetectionTimeRef = useRef(0)  // ms timestamp of last detect-terms call
@@ -542,6 +546,7 @@ export default function Dashboard() {
   const startRecording = async (mode: CaptureMode = 'microphone') => {
     if (isActiveRef.current || startingRef.current) return
     startingRef.current = true
+    captureModeRef.current = mode
     setCapturedTabTitle(null)
 
     // Paywall gate — no-op while PAYWALL_ENABLED is false
@@ -634,7 +639,7 @@ export default function Dashboard() {
     const supabase = createClient()
     const { data: session, error: sessionErr } = await supabase
       .from('sessions')
-      .insert({ user_id: userIdRef.current, subject: profileRef.current?.course, year_of_study: profileRef.current?.year_of_study })
+      .insert({ user_id: userIdRef.current, subject: profileRef.current?.course, year_of_study: profileRef.current?.year_of_study, capture_mode: mode })
       .select('id').single()
 
     if (sessionErr || !session) {
@@ -867,9 +872,24 @@ export default function Dashboard() {
       const capturedSid = sid
       const capturedSubject = profileRef.current?.course
       const capturedGlossary = [...sessionGlossary]
+      const capturedMode = captureModeRef.current
       setTimeout(async () => {
         try {
           const sb = createClient()
+
+          // Mic mode requires lecturer consent before storing transcript or summary
+          if (capturedMode === 'microphone') {
+            const { data: consent } = await sb
+              .from('lecturer_consents')
+              .select('id')
+              .eq('module_name', capturedSubject ?? '')
+              .maybeSingle()
+            if (!consent) {
+              await sb.from('transcript_chunks').delete().eq('session_id', capturedSid)
+              return
+            }
+          }
+
           const whisperTx = transcriptRef.current.trim()
           const speechTx = webSpeechFinalRef.current.trim()
           const tx = speechTx.length > whisperTx.length ? speechTx : whisperTx
@@ -981,6 +1001,11 @@ export default function Dashboard() {
     sessionSummarizingRef.current.delete(s.id)
     setSessionFailIds(prev => { const next = new Set(prev); next.delete(s.id); return next })
     maybeGenerateOnDashboard(s)
+  }
+
+  const reportDefinition = async (term: string, definition: string) => {
+    await createClient().from('definition_reports').insert({ term, definition })
+    capture('definition_reported', { term })
   }
 
   const toggleExpandSession = async (id: string) => {
@@ -1235,6 +1260,17 @@ export default function Dashboard() {
                   Good for Zoom, Teams, Google Meet, or any online lecture. Pick the tab playing audio, tick <span className="dark:text-white/60 text-gray-800 font-medium">Share tab audio</span>, and Demist listens in.
                 </p>
               )}
+              {captureMode === 'microphone' && <MicModeNotice />}
+              {captureMode === 'microphone' && (
+                <div className="w-full max-w-xs mt-3">
+                  <ConsentUnlockBanner
+                    key={consentVersion}
+                    currentSubject={profile?.course}
+                    onOpenModal={() => { capture('consent_modal_opened', { subject: profile?.course }); setShowConsentModal(true) }}
+                    refreshKey={consentVersion}
+                  />
+                </div>
+              )}
               {recordingWarning && (
                 <p className="mt-3 text-amber-500 text-[12px] text-center max-w-xs leading-relaxed" role="status">{recordingWarning}</p>
               )}
@@ -1386,6 +1422,15 @@ export default function Dashboard() {
         )}
       </div>
 
+      {/* Consent modal */}
+      {showConsentModal && (
+        <ConsentModal
+          subject={profile?.course}
+          onClose={() => setShowConsentModal(false)}
+          onGranted={() => { setShowConsentModal(false); setConsentVersion(v => v + 1) }}
+        />
+      )}
+
       {/* Mic check overlay */}
       {showMicCheck && (
         <MicCheck
@@ -1409,6 +1454,7 @@ export default function Dashboard() {
             onDismiss={() => dismissTerm(t.id)}
             onKnown={() => markKnown(t)}
             onPin={() => pinTerm(t.id)}
+            onReport={() => reportDefinition(t.term, t.definition)}
           />
         ))}
       </div>
@@ -1440,7 +1486,9 @@ function TermCard({
   onDismiss,
   onKnown,
   onPin,
-}: Omit<LiveTerm, 'id'> & { onDismiss: () => void; onKnown: () => void; onPin: () => void }) {
+  onReport,
+}: Omit<LiveTerm, 'id'> & { onDismiss: () => void; onKnown: () => void; onPin: () => void; onReport: () => void }) {
+  const [reported, setReported] = useState(false)
   return (
     <div className={`pointer-events-auto w-full max-w-[420px] ${dismissing ? 'animate-slide-down' : 'animate-slide-up'}`}>
       <div
@@ -1474,13 +1522,23 @@ function TermCard({
           </div>
         </div>
 
-        <div className="mt-3 pt-2.5 border-t dark:border-white/[0.06] border-black/[0.07] ml-[15px]">
+        <div className="mt-3 pt-2.5 border-t dark:border-white/[0.06] border-black/[0.07] ml-[15px] flex items-center justify-between">
           <button
             onClick={e => { e.stopPropagation(); onKnown() }}
             className="text-[12px] dark:text-white/30 text-gray-400 dark:hover:text-amber-400 hover:text-amber-700 transition-colors"
           >
             I already know this
           </button>
+          {reported ? (
+            <span className="text-[11px] text-gray-600 dark:text-white/25">Reported ✓</span>
+          ) : (
+            <button
+              onClick={e => { e.stopPropagation(); onReport(); setReported(true) }}
+              className="text-[11px] text-gray-400 dark:text-white/30 hover:text-red-500 transition-colors"
+            >
+              Report
+            </button>
+          )}
         </div>
       </div>
     </div>

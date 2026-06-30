@@ -18,9 +18,10 @@ const YEARS = [
 
 export default function Onboarding() {
   const router = useRouter()
-  const [step, setStep] = useState<1 | 2>(1)
+  const [step, setStep] = useState<1 | 2 | 3>(1)
   const [course, setCourse] = useState('')
   const [year, setYear] = useState<number | null>(null)
+  const [dob, setDob] = useState('')
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
 
@@ -49,10 +50,10 @@ export default function Onboarding() {
       if (!user) { router.replace('/login'); return }
       const { error } = await supabase
         .from('profiles')
-        .upsert({ id: user.id, course: course.trim() || null, year_of_study: year })
+        .upsert({ id: user.id, course: course.trim() || null, year_of_study: year, date_of_birth: dob || null, ai_disclaimer_ack_at: new Date().toISOString() })
       if (error) throw error
       identify(user.id)
-      capture('onboarding_completed', { course: course.trim() || null, year_of_study: year })
+      capture('onboarding_completed', { course: course.trim() || null, year_of_study: year, has_dob: !!dob })
       router.replace('/dashboard')
     } catch (e) {
       console.error('onboarding save failed:', e)
@@ -138,11 +139,47 @@ export default function Onboarding() {
                 ←
               </button>
               <button
-                onClick={handleFinish}
-                disabled={!year || saving}
+                onClick={() => setStep(3)}
+                disabled={!year}
                 className="flex-1 py-4 rounded-2xl text-[15px] font-semibold bg-amber-600 hover:brightness-[1.1] disabled:opacity-25 disabled:cursor-not-allowed text-white transition-all"
               >
-                {saving ? 'Setting up…' : "Let's go →"}
+                Continue →
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Step 3 */}
+        {step === 3 && (
+          <div key="step3" className="animate-step">
+            <h1 className="text-[32px] sm:text-[38px] font-bold tracking-tight leading-tight mb-2">
+              When&apos;s your<br />birthday?
+            </h1>
+            <p className="text-gray-500 mb-8">
+              We ask so we can keep Demist appropriate for your age. We never share it.
+            </p>
+            <input
+              type="date"
+              value={dob}
+              onChange={e => setDob(e.target.value)}
+              className="w-full bg-white/[0.05] border border-white/[0.1] rounded-2xl px-5 py-4 text-white text-[15px] placeholder-gray-600 focus:outline-none focus:border-amber-500/50 focus:bg-white/[0.07] transition-all"
+            />
+            <p className="text-[11px] text-gray-400 mt-3 leading-relaxed">
+              Demist&apos;s explanations are AI-generated and occasionally imperfect. Always check anything important against your course materials.
+            </p>
+            <div className="flex gap-2.5 mt-4">
+              <button
+                onClick={() => setStep(2)}
+                className="px-6 py-4 rounded-2xl text-[15px] font-medium bg-white/[0.05] border border-white/[0.08] text-gray-400 hover:bg-white/[0.09] transition-all"
+              >
+                ←
+              </button>
+              <button
+                onClick={handleFinish}
+                disabled={!dob || saving}
+                className="flex-1 py-4 rounded-2xl text-[15px] font-semibold bg-amber-600 hover:brightness-[1.1] disabled:opacity-25 disabled:cursor-not-allowed text-white transition-all"
+              >
+                {saving ? 'Setting up…' : 'Done →'}
               </button>
             </div>
           </div>
@@ -156,6 +193,7 @@ export default function Onboarding() {
         <div className="flex items-center gap-2 mt-10">
           <div className={`h-1 rounded-full transition-all duration-400 ${step === 1 ? 'w-8 bg-amber-500' : 'w-2 bg-white/20'}`} />
           <div className={`h-1 rounded-full transition-all duration-400 ${step === 2 ? 'w-8 bg-amber-500' : 'w-2 bg-white/20'}`} />
+          <div className={`h-1 rounded-full transition-all duration-400 ${step === 3 ? 'w-8 bg-amber-500' : 'w-2 bg-white/20'}`} />
         </div>
       </div>
     </main>

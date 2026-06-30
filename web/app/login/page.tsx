@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import posthog from 'posthog-js'
 
@@ -251,6 +252,13 @@ export default function Login() {
         {error && (
           <p className="mt-4 text-red-400 text-[13px] text-center" role="alert">{error}</p>
         )}
+
+        <p className="text-[12px] text-gray-600 text-center mt-8">
+          By signing in you agree to our{' '}
+          <Link href="/terms" className="hover:text-gray-500 transition-colors underline underline-offset-2">Terms of Service</Link>
+          {' '}and{' '}
+          <Link href="/privacy" className="hover:text-gray-500 transition-colors underline underline-offset-2">Privacy Policy</Link>.
+        </p>
       </div>
     </main>
   )
