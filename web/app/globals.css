@@ -198,10 +198,13 @@ button, a {
 
 /* ── Reduced motion ── */
 @media (prefers-reduced-motion: reduce) {
-  .animate-step, .animate-float {
+  .animate-step, .animate-float, .animate-slide-up, .animate-slide-down, .animate-ring {
     animation: none !important;
     opacity: 1 !important;
     transform: none !important;
+  }
+  * {
+    transition-duration: 0.01ms !important;
   }
 }
 

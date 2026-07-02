@@ -135,7 +135,9 @@
       "Bash(grep -v \"//\\\\|import\\\\|interface\\\\|type \")",
       "Bash(powershell -Command \"Expand-Archive -Path 'demist-feedback-kit.zip' -DestinationPath 'demist-feedback-kit' -Force\")",
       "Bash(powershell -Command \"Get-ChildItem -Recurse 'C:\\\\Users\\\\shivb\\\\Downloads\\\\demist-feedback-kit' | Select-Object FullName, Length | Format-Table -AutoSize\")",
-      "Bash(cp \"C:\\\\Users\\\\shivb\\\\Downloads\\\\demist-feedback-kit\\\\demist-feedback-kit\\\\SessionReview.tsx\" \"c:\\\\Users\\\\shivb\\\\Desktop\\\\coding bits\\\\demist\\\\web\\\\components\\\\SessionReview.tsx\")"
+      "Bash(cp \"C:\\\\Users\\\\shivb\\\\Downloads\\\\demist-feedback-kit\\\\demist-feedback-kit\\\\SessionReview.tsx\" \"c:\\\\Users\\\\shivb\\\\Desktop\\\\coding bits\\\\demist\\\\web\\\\components\\\\SessionReview.tsx\")",
+      "Bash(claude skills *)",
+      "PowerShell(claude skills list 2>&1)"
     ],
     "additionalDirectories": [
       "c:\\Users\\shivb\\Desktop\\coding bits\\demist\\web\\app\\u",

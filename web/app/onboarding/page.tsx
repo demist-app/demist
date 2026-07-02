@@ -97,10 +97,9 @@ export default function Onboarding() {
 
             <button
               onClick={() => setStep(2)}
-              disabled={!course.trim()}
-              className="mt-4 w-full py-4 rounded-2xl text-[15px] font-semibold transition-all bg-amber-600 hover:brightness-[1.1] disabled:opacity-25 disabled:cursor-not-allowed text-white"
+              className="mt-4 w-full py-4 rounded-2xl text-[15px] font-semibold transition-all bg-amber-600 hover:brightness-[1.1] text-white"
             >
-              Continue →
+              {course.trim() ? 'Continue →' : 'Skip for now →'}
             </button>
           </div>
         )}
@@ -155,16 +154,17 @@ export default function Onboarding() {
             <h1 className="text-[32px] sm:text-[38px] font-bold tracking-tight leading-tight mb-2">
               When&apos;s your<br />birthday?
             </h1>
-            <p className="text-gray-500 mb-8">
-              We ask so we can keep Demist appropriate for your age. We never share it.
+            <p className="text-gray-500 mb-1">
+              We use this to keep Demist age-appropriate. We never share it.
             </p>
+            <p className="text-[12px] text-gray-600 mb-6">Optional — you can skip this.</p>
             <input
               type="date"
               value={dob}
               onChange={e => setDob(e.target.value)}
               className="w-full bg-white/[0.05] border border-white/[0.1] rounded-2xl px-5 py-4 text-white text-[15px] placeholder-gray-600 focus:outline-none focus:border-amber-500/50 focus:bg-white/[0.07] transition-all"
             />
-            <p className="text-[11px] text-gray-400 mt-3 leading-relaxed">
+            <p className="text-[12px] text-gray-500 mt-3 leading-relaxed">
               Demist&apos;s explanations are AI-generated and occasionally imperfect. Always check anything important against your course materials.
             </p>
             <div className="flex gap-2.5 mt-4">
@@ -176,10 +176,10 @@ export default function Onboarding() {
               </button>
               <button
                 onClick={handleFinish}
-                disabled={!dob || saving}
+                disabled={saving}
                 className="flex-1 py-4 rounded-2xl text-[15px] font-semibold bg-amber-600 hover:brightness-[1.1] disabled:opacity-25 disabled:cursor-not-allowed text-white transition-all"
               >
-                {saving ? 'Setting up…' : 'Done →'}
+                {saving ? 'Setting up…' : dob ? 'Done →' : 'Skip →'}
               </button>
             </div>
           </div>

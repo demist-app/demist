@@ -81,6 +81,9 @@ export default function History() {
   const [bulkDeleting, setBulkDeleting] = useState(false)
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false)
 
+  // Subject filter
+  const [subjectFilter, setSubjectFilter] = useState<string | null>(null)
+
   const summarizingRef = useRef(new Set<string>())
 
   useEffect(() => {
@@ -170,7 +173,8 @@ export default function History() {
   }
 
   const selectAll = () => {
-    setSelectedIds(new Set(sessions.map(s => s.id)))
+    const visible = subjectFilter ? sessions.filter(s => s.subject === subjectFilter) : sessions
+    setSelectedIds(new Set(visible.map(s => s.id)))
     setConfirmBulkDelete(false)
   }
 
@@ -351,15 +355,19 @@ export default function History() {
 
   const sessionNumber = (i: number) => totalCount - i
 
+  const subjectOptions = [...new Set(sessions.map(s => s.subject).filter(Boolean))] as string[]
+  const visibleSessions = subjectFilter ? sessions.filter(s => s.subject === subjectFilter) : sessions
+
   const grouped: { label: string; sessions: { s: Session; n: number }[] }[] = []
-  sessions.forEach((s, i) => {
+  visibleSessions.forEach((s) => {
+    const i = sessions.indexOf(s)
     const label = fmtDate(s.started_at)
     const last = grouped[grouped.length - 1]
     if (last && last.label === label) last.sessions.push({ s, n: sessionNumber(i) })
     else grouped.push({ label, sessions: [{ s, n: sessionNumber(i) }] })
   })
 
-  const allSelected = sessions.length > 0 && selectedIds.size === sessions.length
+  const allSelected = visibleSessions.length > 0 && visibleSessions.every(s => selectedIds.has(s.id))
 
   return (
     <main className="min-h-dvh dark:bg-[#080810] bg-[#EDEAE3] dark:text-white text-gray-900 flex flex-col nav-bottom-pad">
@@ -403,6 +411,22 @@ export default function History() {
           )}
         </div>
       </header>
+
+      {!loading && subjectOptions.length > 1 && (
+        <div className="shrink-0 px-4 sm:px-6 py-2 border-b dark:border-white/[0.05] border-black/[0.06]">
+          <div className="flex gap-1.5 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+            {subjectOptions.map(s => (
+              <button
+                key={s}
+                onClick={() => setSubjectFilter(subjectFilter === s ? null : s)}
+                className={`shrink-0 text-[12px] font-medium px-3 py-1.5 rounded-full border transition-colors ${subjectFilter === s ? 'bg-amber-500 text-white border-amber-500' : 'dark:border-white/10 border-black/10 text-gray-600 dark:hover:border-white/20 hover:border-black/20'}`}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto">
         <div className="w-full max-w-3xl mx-auto px-4 sm:px-6 py-4 animate-step opacity-0" style={{ animationFillMode: 'forwards' }}>

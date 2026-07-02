@@ -160,11 +160,12 @@ export default function Login() {
         {/* ── Email step ── */}
         {step === 'email' && (
           <div className="animate-step">
+            <p className="text-[12px] dark:text-white/40 text-gray-500 mb-3">Real-time term detection for lectures</p>
             <h1 className="text-[30px] sm:text-[36px] font-bold tracking-tight leading-tight mb-2">
               Sign in
             </h1>
             <p className="text-gray-700 mb-8">
-              We&apos;ll send a code to your email.
+              We&apos;ll send a code to your email — no password needed.
             </p>
 
             <form onSubmit={handleSendCode} className="flex flex-col gap-3">

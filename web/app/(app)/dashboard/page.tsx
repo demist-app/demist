@@ -256,6 +256,17 @@ export default function Dashboard() {
     }
   }, [liveSessionId])
 
+  // Pre-fetch mic acknowledgment whenever the session subject changes so the
+  // modal opens immediately without waiting for a DB round-trip at tap time.
+  useEffect(() => {
+    createClient()
+      .from('mic_acknowledgments')
+      .select('user_id')
+      .eq('subject', sessionSubject)
+      .maybeSingle()
+      .then(({ data }) => setMicCheckAcknowledged(!!data))
+  }, [sessionSubject])
+
   // Auto-scroll the live transcript to the bottom as new sentences arrive
   useEffect(() => {
     if (!autoScrollRef.current) return
@@ -323,12 +334,6 @@ export default function Dashboard() {
       profileRef.current = prof as Profile
       setProfile(prof as Profile)
 
-      const defaultSubject = (prof as Profile)?.course ?? ''
-      if (!sessionSubjectRef.current) {
-        sessionSubjectRef.current = defaultSubject
-        setSessionSubject(defaultSubject)
-      }
-
       const known = new Set<string>()
       const freq = new Map<string, number>()
       for (const t of allTerms ?? []) {
@@ -351,7 +356,19 @@ export default function Dashboard() {
         for (const r of termRows ?? []) countMap[r.session_id] = (countMap[r.session_id] ?? 0) + 1
         const tc = totalSessionCountRef.current
         setRecentSessions(sessionsRaw.map((s, i) => ({ id: s.id, name: (s as { name?: string | null }).name ?? null, subject: (s as { subject?: string | null }).subject ?? null, started_at: s.started_at, ended_at: s.ended_at, termCount: countMap[s.id] ?? 0, sessionNumber: tc - i, synopsis: (s as { synopsis?: string | null }).synopsis ?? null, transcript: (s as { transcript?: string | null }).transcript ?? null, expanded: false })))
-        setRecentSubjects([...new Set(sessionsRaw.map((s: { subject?: string | null }) => s.subject).filter(Boolean))].slice(0, 6) as string[])
+        const recentSubjectsArr = [...new Set(sessionsRaw.map((s: { subject?: string | null }) => s.subject).filter(Boolean))].slice(0, 6) as string[]
+        setRecentSubjects(recentSubjectsArr)
+        if (!sessionSubjectRef.current) {
+          const defaultSubject = recentSubjectsArr[0] || (prof as Profile)?.course || ''
+          sessionSubjectRef.current = defaultSubject
+          setSessionSubject(defaultSubject)
+        }
+      }
+
+      if (!sessionsRaw?.length && !sessionSubjectRef.current) {
+        const defaultSubject = (prof as Profile)?.course || ''
+        sessionSubjectRef.current = defaultSubject
+        setSessionSubject(defaultSubject)
       }
 
       setLoading(false)
@@ -1239,13 +1256,7 @@ export default function Dashboard() {
                 <span className="absolute w-[194px] h-[194px] rounded-full bg-yellow-600/[0.025]" style={{ animation: 'glow-float 4s ease-in-out -2.7s infinite' }} />
                 <button
                   ref={btnRef}
-                  onClick={async () => {
-                    if (captureMode !== 'microphone') { startRecording(captureMode); return }
-                    const sb = createClient()
-                    const { data } = await sb.from('mic_acknowledgments').select('user_id').eq('subject', sessionSubjectRef.current).maybeSingle()
-                    setMicCheckAcknowledged(!!data)
-                    setShowMicCheck(true)
-                  }}
+                  onClick={() => captureMode === 'microphone' ? setShowMicCheck(true) : startRecording(captureMode)}
                   aria-label="Start recording"
                   className="relative z-10 w-[96px] h-[96px] rounded-full dark:bg-white/[0.08] bg-[#FAF9F6] border border-yellow-500/40 hover:bg-yellow-500/10 hover:border-yellow-500/60 hover:shadow-[0_0_48px_rgba(161,98,7,0.30)] dark:hover:shadow-[0_0_48px_rgba(251,191,36,0.30)] active:scale-[0.97] flex items-center justify-center transition-all duration-200 select-none shadow-sm"
                 >
@@ -1291,31 +1302,39 @@ export default function Dashboard() {
               </div>
 
               {/* Capture mode toggle */}
-              <div className="flex items-center gap-2 mt-4">
-                <button
-                  onClick={() => setCaptureMode('microphone')}
-                  className={`text-[12px] font-medium px-3.5 py-2.5 min-h-[44px] rounded-full border transition-colors ${captureMode === 'microphone' ? 'bg-amber-500 text-white border-amber-500' : 'dark:border-white/10 border-black/10 text-gray-600 dark:hover:border-white/20 hover:border-black/20'}`}
-                >
-                  <span className="block">In person</span>
-                  {captureMode === 'microphone' && <span className="block text-[10px] opacity-80 font-normal leading-tight mt-0.5">uses your mic</span>}
-                </button>
+              <div className="mt-4 w-full max-w-xs">
                 {tabCaptureSupportedState && (
-                  <Tooltip content="When the sharing dialog opens, make sure to tick 'Share tab audio'">
+                  <div className="flex dark:bg-white/[0.07] bg-black/[0.06] rounded-full p-1">
                     <button
-                      onClick={() => setCaptureMode('tab')}
-                      className={`text-[12px] font-medium px-3.5 py-2.5 min-h-[44px] rounded-full border transition-colors ${captureMode === 'tab' ? 'bg-amber-500 text-white border-amber-500' : 'dark:border-white/10 border-black/10 text-gray-600 dark:hover:border-white/20 hover:border-black/20'}`}
+                      onClick={() => setCaptureMode('microphone')}
+                      className={`flex-1 text-[13px] font-medium px-4 py-2.5 rounded-full transition-all duration-200 active:scale-[0.97] ${
+                        captureMode === 'microphone'
+                          ? 'bg-amber-500 text-white shadow-sm'
+                          : 'text-gray-500 dark:text-white/45 hover:text-gray-700 dark:hover:text-white/65'
+                      }`}
                     >
-                      <span className="block">Online lecture</span>
-                      {captureMode === 'tab' && <span className="block text-[10px] opacity-80 font-normal leading-tight mt-0.5">Zoom / Teams / Panopto</span>}
+                      In person
                     </button>
-                  </Tooltip>
+                    <Tooltip content="When the sharing dialog opens, make sure to tick 'Share tab audio'">
+                      <button
+                        onClick={() => setCaptureMode('tab')}
+                        className={`flex-1 text-[13px] font-medium px-4 py-2.5 rounded-full transition-all duration-200 active:scale-[0.97] ${
+                          captureMode === 'tab'
+                            ? 'bg-amber-500 text-white shadow-sm'
+                            : 'text-gray-500 dark:text-white/45 hover:text-gray-700 dark:hover:text-white/65'
+                        }`}
+                      >
+                        Online lecture
+                      </button>
+                    </Tooltip>
+                  </div>
                 )}
-              </div>
-              {captureMode === 'tab' && (
-                <p className="text-gray-600 dark:text-white/60 text-[12px] mt-2 text-center max-w-xs leading-relaxed">
-                  Pick the tab playing audio, tick <span className="dark:text-white/80 text-gray-800 font-medium">Share tab audio</span>, and Demist listens in.
+                <p className="text-[12px] text-gray-500 dark:text-white/40 text-center mt-2 leading-relaxed">
+                  {captureMode === 'microphone'
+                    ? 'Uses your microphone'
+                    : <>Pick the tab playing audio, tick <span className="text-gray-700 dark:text-white/70 font-medium">Share tab audio</span>, and Demist listens in.</>}
                 </p>
-              )}
+              </div>
               {captureMode === 'microphone' && <MicModeNotice />}
               {captureMode === 'microphone' && (
                 <div className="w-full max-w-xs mt-3">
