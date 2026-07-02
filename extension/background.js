@@ -10,8 +10,9 @@ let timerInterval = null
 const overlayTabs = new Set()
 
 // MV3 service workers are killed after ~30s of inactivity, wiping all state.
-// On every wake-up, ping all open tabs to rediscover which ones have the overlay.
-// For tabs that don't respond (opened before extension install), inject the script now.
+// On every wake-up, re-discover the Demist tab and ping any overlay tabs that
+// were previously injected (but don't inject into new pages — overlay is now
+// injected on demand when a session starts or the action icon is clicked).
 async function rediscoverOverlayTabs() {
   const tabs = await chrome.tabs.query({})
   await Promise.all(tabs.map(async (tab) => {
@@ -23,7 +24,6 @@ async function rediscoverOverlayTabs() {
     if (isRestricted) return
 
     if (isDemist) {
-      // Ensure content-bridge.js is running on the Demist tab
       demistTabId = tab.id
       try {
         await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['content-bridge.js'] })
@@ -31,15 +31,14 @@ async function rediscoverOverlayTabs() {
       return
     }
 
-    // For all other tabs: ping first, inject if no response
-    try {
-      const res = await chrome.tabs.sendMessage(tab.id, { type: 'PING' })
-      if (res?.ok) overlayTabs.add(tab.id)
-    } catch (_) {
+    // For tabs that already have the overlay (injected this session), ping to confirm
+    if (overlayTabs.has(tab.id)) {
       try {
-        await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['content-overlay.js'] })
-        overlayTabs.add(tab.id)
-      } catch (_2) {} // restricted pages (pdfs, chrome store, etc.) will throw here
+        const res = await chrome.tabs.sendMessage(tab.id, { type: 'PING' })
+        if (!res?.ok) overlayTabs.delete(tab.id)
+      } catch (_) {
+        overlayTabs.delete(tab.id)
+      }
     }
   }))
 }
@@ -116,7 +115,7 @@ async function forwardToOverlay(msg) {
     try {
       await chrome.tabs.sendMessage(tabId, msg)
     } catch (_) {
-      // Tab doesn't have content-overlay.js — inject it on the spot and retry
+      // Overlay not running on this tab — try injecting on demand and retry
       try {
         await chrome.scripting.executeScript({ target: { tabId }, files: ['content-overlay.js'] })
         overlayTabs.add(tabId)
@@ -132,17 +131,18 @@ async function forwardToOverlay(msg) {
 }
 
 async function startRecording() {
-  // Capture the tab the user is currently on
+  // Capture the tab the user is currently on and inject overlay on demand
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
-  if (tab?.id && !tab.url?.includes('demist.app')) activeTabId = tab.id
+  if (tab?.id && !tab.url?.includes('demist.app')) {
+    activeTabId = tab.id
+    await injectOverlayIfNeeded(tab.id)
+  }
 
   if (demistTabId) {
-    // Already have a demist.app tab — just send the command
     sendCommandToDemist('start-recording')
     return
   }
 
-  // Open demist.app in the background and start recording once loaded
   chrome.tabs.create({ url: 'https://demist.app/dashboard', active: false }, (tab) => {
     demistTabId = tab.id
     waitForTabLoad(tab.id, () => {
@@ -150,6 +150,24 @@ async function startRecording() {
     })
   })
 }
+
+async function injectOverlayIfNeeded(tabId) {
+  if (overlayTabs.has(tabId)) return
+  try {
+    await chrome.scripting.executeScript({ target: { tabId }, files: ['content-overlay.js'] })
+    overlayTabs.add(tabId)
+  } catch (_) {
+    // Restricted page (chrome://, PDF, etc.) — signal popup to show hint
+    chrome.runtime.sendMessage({ type: 'INJECT_FAILED', tabId }).catch(() => {})
+  }
+}
+
+// Inject overlay when user clicks the extension icon on a tab
+chrome.action.onClicked.addListener(async (tab) => {
+  if (!tab.id || tab.url?.includes('demist.app')) return
+  activeTabId = tab.id
+  await injectOverlayIfNeeded(tab.id)
+})
 
 function sendCommandToDemist(command, termId = null) {
   if (!demistTabId) return

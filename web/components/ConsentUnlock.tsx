@@ -15,10 +15,65 @@ interface Consent {
 
 export function MicModeNotice() {
   return (
-    <p className="text-[12px] text-gray-500 dark:text-white/35 text-center leading-relaxed">
+    <p className="text-[12px] text-gray-500 dark:text-white/60 text-center leading-relaxed">
       Live mic sessions detect terms in real time but don&apos;t save a lecture transcript.
     </p>
   )
+}
+
+// ── MicModeGateContent ─────────────────────────────────────────────────────────
+// Reusable acknowledgment content shown before the first mic session per subject.
+
+export function MicModeGateContent({
+  subject,
+  onAcknowledge,
+  onCancel,
+  acknowledging,
+}: {
+  subject: string
+  onAcknowledge: () => void
+  onCancel: () => void
+  acknowledging: boolean
+}) {
+  return (
+    <div className="w-full max-w-sm dark:bg-[#0f0f17] bg-[#FDFCF9] border dark:border-white/[0.08] border-black/[0.10] rounded-t-[24px] sm:rounded-[24px] shadow-2xl px-6 py-7 animate-step opacity-0" style={{ animationFillMode: 'forwards' }}>
+      <p className="text-[10px] font-bold tracking-[0.18em] uppercase dark:text-amber-400/70 text-amber-700/80 mb-1.5">Before you record</p>
+      <p className="text-[18px] font-bold dark:text-white text-gray-900 mb-1">No transcript saved</p>
+      <p className="text-[13px] dark:text-white/60 text-gray-600 mb-6 leading-relaxed">
+        Live mic sessions detect terms in real time{subject ? ` for ${subject}` : ''}. No transcript is stored unless your lecturer has given consent — add consent any time from the banner below the mic button.
+      </p>
+      <div className="flex gap-2">
+        <button
+          onClick={onCancel}
+          className="flex-1 py-3 rounded-2xl dark:bg-white/[0.04] bg-[#F3F1EC] border dark:border-white/[0.07] border-black/[0.12] text-[14px] font-medium dark:text-gray-300 text-gray-700 active:scale-[0.97] transition-all"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={onAcknowledge}
+          disabled={acknowledging}
+          className="flex-1 py-3 rounded-2xl bg-yellow-600 hover:brightness-110 text-white text-[14px] font-semibold active:scale-[0.97] transition-[filter,transform] duration-150 disabled:opacity-40"
+        >
+          {acknowledging ? 'One sec…' : 'Got it'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ── useMicModeAcknowledged ─────────────────────────────────────────────────────
+
+export function useMicModeAcknowledged(subject: string) {
+  const [acknowledged, setAcknowledged] = useState(false)
+  useEffect(() => {
+    createClient()
+      .from('mic_acknowledgments')
+      .select('user_id')
+      .eq('subject', subject)
+      .maybeSingle()
+      .then(({ data }) => setAcknowledged(!!data))
+  }, [subject])
+  return acknowledged
 }
 
 // ── ConsentUnlockBanner ────────────────────────────────────────────────────────

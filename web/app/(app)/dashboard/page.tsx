@@ -36,6 +36,7 @@ interface SessionTerm {
 interface RecentSession {
   id: string
   name: string | null
+  subject: string | null
   started_at: string
   ended_at: string | null
   termCount: number
@@ -127,8 +128,13 @@ export default function Dashboard() {
   const [reviewTerms, setReviewTerms] = useState<{ term: string; definition: string; dbId?: string }[] | null>(null)
   const [showConsentModal, setShowConsentModal] = useState(false)
   const [consentVersion, setConsentVersion] = useState(0)
+  const [sessionSubject, setSessionSubject] = useState<string>('')
+  const [recentSubjects, setRecentSubjects] = useState<string[]>([])
+  const [showSubjectInput, setShowSubjectInput] = useState(false)
+  const [micCheckAcknowledged, setMicCheckAcknowledged] = useState(false)
 
   const profileRef = useRef<Profile | null>(null)
+  const sessionSubjectRef = useRef<string>('')
   const userIdRef = useRef<string | null>(null)
   const totalSessionCountRef = useRef(0)
   const sessionIdRef = useRef<string | null>(null)
@@ -309,13 +315,19 @@ export default function Dashboard() {
         supabase.from('sessions').select('started_at').eq('user_id', user.id).order('started_at', { ascending: false }),
         supabase.from('terms').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('known', false).gt('sm2_review_count', 0).lte('sm2_due_at', now.toISOString()),
         supabase.from('terms').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('known', false).eq('sm2_review_count', 0),
-        supabase.from('sessions').select('id, name, started_at, ended_at, synopsis, transcript').eq('user_id', user.id).order('started_at', { ascending: false }).limit(5),
+        supabase.from('sessions').select('id, name, subject, started_at, ended_at, synopsis, transcript').eq('user_id', user.id).order('started_at', { ascending: false }).limit(5),
         supabase.from('sessions').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
       ])
       totalSessionCountRef.current = totalCount ?? 0
 
       profileRef.current = prof as Profile
       setProfile(prof as Profile)
+
+      const defaultSubject = (prof as Profile)?.course ?? ''
+      if (!sessionSubjectRef.current) {
+        sessionSubjectRef.current = defaultSubject
+        setSessionSubject(defaultSubject)
+      }
 
       const known = new Set<string>()
       const freq = new Map<string, number>()
@@ -338,7 +350,8 @@ export default function Dashboard() {
         const countMap: Record<string, number> = {}
         for (const r of termRows ?? []) countMap[r.session_id] = (countMap[r.session_id] ?? 0) + 1
         const tc = totalSessionCountRef.current
-        setRecentSessions(sessionsRaw.map((s, i) => ({ id: s.id, name: (s as { name?: string | null }).name ?? null, started_at: s.started_at, ended_at: s.ended_at, termCount: countMap[s.id] ?? 0, sessionNumber: tc - i, synopsis: (s as { synopsis?: string | null }).synopsis ?? null, transcript: (s as { transcript?: string | null }).transcript ?? null, expanded: false })))
+        setRecentSessions(sessionsRaw.map((s, i) => ({ id: s.id, name: (s as { name?: string | null }).name ?? null, subject: (s as { subject?: string | null }).subject ?? null, started_at: s.started_at, ended_at: s.ended_at, termCount: countMap[s.id] ?? 0, sessionNumber: tc - i, synopsis: (s as { synopsis?: string | null }).synopsis ?? null, transcript: (s as { transcript?: string | null }).transcript ?? null, expanded: false })))
+        setRecentSubjects([...new Set(sessionsRaw.map((s: { subject?: string | null }) => s.subject).filter(Boolean))].slice(0, 6) as string[])
       }
 
       setLoading(false)
@@ -357,7 +370,7 @@ export default function Dashboard() {
       body: JSON.stringify({
         transcript,
         context,
-        subject: profileRef.current?.course ?? 'general',
+        subject: sessionSubjectRef.current || profileRef.current?.course || 'general',
         year: profileRef.current?.year_of_study ?? 1,
         known_terms: Array.from(knownTermsRef.current),
       }),
@@ -423,7 +436,7 @@ export default function Dashboard() {
         session_id: sessionId,
         term: t.term,
         definition: t.definition,
-        subject: profileRef.current?.course,
+        subject: sessionSubjectRef.current || profileRef.current?.course,
       })))
       .select('id, term, definition')
 
@@ -639,7 +652,7 @@ export default function Dashboard() {
     const supabase = createClient()
     const { data: session, error: sessionErr } = await supabase
       .from('sessions')
-      .insert({ user_id: userIdRef.current, subject: profileRef.current?.course, year_of_study: profileRef.current?.year_of_study, capture_mode: mode })
+      .insert({ user_id: userIdRef.current, subject: sessionSubjectRef.current || profileRef.current?.course, year_of_study: profileRef.current?.year_of_study, capture_mode: mode })
       .select('id').single()
 
     if (sessionErr || !session) {
@@ -779,7 +792,7 @@ export default function Dashboard() {
       recognition.start()
     }
 
-    capture('recording_started', { subject: profileRef.current?.course, mode: SpeechRecognitionAPI ? 'whisper+speech_api' : 'whisper' })
+    capture('recording_started', { subject: sessionSubjectRef.current || profileRef.current?.course, mode: SpeechRecognitionAPI ? 'whisper+speech_api' : 'whisper' })
   }
 
   const stopRecording = async () => {
@@ -854,7 +867,7 @@ export default function Dashboard() {
     setStats({ streak, termsThisWeek, dueFlashcards })
 
     const [{ data: sessionsRaw }, { count: newTotal }] = await Promise.all([
-      supabase.from('sessions').select('id, name, started_at, ended_at, synopsis, transcript')
+      supabase.from('sessions').select('id, name, subject, started_at, ended_at, synopsis, transcript')
         .eq('user_id', userIdRef.current!).order('started_at', { ascending: false }).limit(5),
       supabase.from('sessions').select('id', { count: 'exact', head: true }).eq('user_id', userIdRef.current!),
     ])
@@ -865,12 +878,13 @@ export default function Dashboard() {
       const countMap: Record<string, number> = {}
       for (const r of termRows ?? []) countMap[r.session_id] = (countMap[r.session_id] ?? 0) + 1
       const tc = totalSessionCountRef.current
-      setRecentSessions(sessionsRaw.map((s: { id: string; name?: string | null; started_at: string; ended_at: string | null; synopsis?: string | null; transcript?: string | null }, i: number) => ({ id: s.id, name: s.name ?? null, started_at: s.started_at, ended_at: s.ended_at, termCount: countMap[s.id] ?? 0, sessionNumber: tc - i, synopsis: s.synopsis ?? null, transcript: s.transcript ?? null, expanded: false })))
+      setRecentSessions(sessionsRaw.map((s: { id: string; name?: string | null; subject?: string | null; started_at: string; ended_at: string | null; synopsis?: string | null; transcript?: string | null }, i: number) => ({ id: s.id, name: s.name ?? null, subject: s.subject ?? null, started_at: s.started_at, ended_at: s.ended_at, termCount: countMap[s.id] ?? 0, sessionNumber: tc - i, synopsis: s.synopsis ?? null, transcript: s.transcript ?? null, expanded: false })))
+      setRecentSubjects([...new Set(sessionsRaw.map((s: { subject?: string | null }) => s.subject).filter(Boolean))].slice(0, 6) as string[])
     }
 
     if (sid) {
       const capturedSid = sid
-      const capturedSubject = profileRef.current?.course
+      const capturedSubject = sessionSubjectRef.current || profileRef.current?.course
       const capturedGlossary = [...sessionGlossary]
       const capturedMode = captureModeRef.current
       setTimeout(async () => {
@@ -905,6 +919,7 @@ export default function Dashboard() {
           }
         } catch (e) {
           console.error('post-session error:', e)
+          setSessionFailIds(prev => new Set(prev).add(capturedSid))
         }
       }, 6000)
     }
@@ -1224,7 +1239,13 @@ export default function Dashboard() {
                 <span className="absolute w-[194px] h-[194px] rounded-full bg-yellow-600/[0.025]" style={{ animation: 'glow-float 4s ease-in-out -2.7s infinite' }} />
                 <button
                   ref={btnRef}
-                  onClick={() => captureMode === 'microphone' ? setShowMicCheck(true) : startRecording(captureMode)}
+                  onClick={async () => {
+                    if (captureMode !== 'microphone') { startRecording(captureMode); return }
+                    const sb = createClient()
+                    const { data } = await sb.from('mic_acknowledgments').select('user_id').eq('subject', sessionSubjectRef.current).maybeSingle()
+                    setMicCheckAcknowledged(!!data)
+                    setShowMicCheck(true)
+                  }}
                   aria-label="Start recording"
                   className="relative z-10 w-[96px] h-[96px] rounded-full dark:bg-white/[0.08] bg-[#FAF9F6] border border-yellow-500/40 hover:bg-yellow-500/10 hover:border-yellow-500/60 hover:shadow-[0_0_48px_rgba(161,98,7,0.30)] dark:hover:shadow-[0_0_48px_rgba(251,191,36,0.30)] active:scale-[0.97] flex items-center justify-center transition-all duration-200 select-none shadow-sm"
                 >
@@ -1232,32 +1253,67 @@ export default function Dashboard() {
                 </button>
               </div>
               <p className="dark:text-white/90 text-gray-900 font-semibold text-[17px]">
-                {profile?.course ? `Ready for ${profile.course}` : 'Start recording'}
+                {sessionSubject ? `Ready for ${sessionSubject}` : 'Start recording'}
               </p>
               <p className="text-gray-600 text-[13px] mt-1.5">Tap the mic before your next lecture</p>
+
+              {/* Subject picker */}
+              <div className="w-full max-w-xs mt-4">
+                {recentSubjects.length > 0 && !showSubjectInput ? (
+                  <div className="flex gap-1.5 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+                    {recentSubjects.map(s => (
+                      <button
+                        key={s}
+                        onClick={() => { sessionSubjectRef.current = s; setSessionSubject(s); capture('session_subject_selected', { source: 'chip' }) }}
+                        className={`shrink-0 text-[12px] font-medium px-3 py-1.5 rounded-full border transition-colors ${sessionSubject === s ? 'bg-amber-500 text-white border-amber-500' : 'dark:border-white/10 border-black/10 text-gray-600 dark:hover:border-white/20 hover:border-black/20'}`}
+                      >
+                        {s}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => setShowSubjectInput(true)}
+                      className="shrink-0 text-[12px] font-medium px-3 py-1.5 rounded-full border dark:border-white/10 border-black/10 text-gray-600 dark:hover:border-white/20 hover:border-black/20 transition-colors"
+                    >
+                      +
+                    </button>
+                  </div>
+                ) : (
+                  <input
+                    type="text"
+                    value={sessionSubject}
+                    onChange={e => { sessionSubjectRef.current = e.target.value; setSessionSubject(e.target.value) }}
+                    onBlur={() => { if (recentSubjects.length > 0) { setShowSubjectInput(false) } capture('session_subject_selected', { source: showSubjectInput ? 'new' : 'default' }) }}
+                    placeholder={profile?.course || 'Subject or module'}
+                    className="w-full dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.10] border-black/[0.13] rounded-2xl px-4 py-2.5 text-[13px] dark:text-white text-gray-900 placeholder-gray-500 focus:outline-none focus:border-yellow-500/50 transition-colors"
+                    autoFocus={showSubjectInput}
+                  />
+                )}
+              </div>
 
               {/* Capture mode toggle */}
               <div className="flex items-center gap-2 mt-4">
                 <button
                   onClick={() => setCaptureMode('microphone')}
-                  className={`text-[12px] font-medium px-3.5 py-1.5 rounded-full border transition-colors ${captureMode === 'microphone' ? 'bg-amber-500 text-white border-amber-500' : 'dark:border-white/10 border-black/10 text-gray-600 dark:hover:border-white/20 hover:border-black/20'}`}
+                  className={`text-[12px] font-medium px-3.5 py-2.5 min-h-[44px] rounded-full border transition-colors ${captureMode === 'microphone' ? 'bg-amber-500 text-white border-amber-500' : 'dark:border-white/10 border-black/10 text-gray-600 dark:hover:border-white/20 hover:border-black/20'}`}
                 >
-                  Microphone
+                  <span className="block">In person</span>
+                  {captureMode === 'microphone' && <span className="block text-[10px] opacity-80 font-normal leading-tight mt-0.5">uses your mic</span>}
                 </button>
                 {tabCaptureSupportedState && (
                   <Tooltip content="When the sharing dialog opens, make sure to tick 'Share tab audio'">
                     <button
                       onClick={() => setCaptureMode('tab')}
-                      className={`text-[12px] font-medium px-3.5 py-1.5 rounded-full border transition-colors ${captureMode === 'tab' ? 'bg-amber-500 text-white border-amber-500' : 'dark:border-white/10 border-black/10 text-gray-600 dark:hover:border-white/20 hover:border-black/20'}`}
+                      className={`text-[12px] font-medium px-3.5 py-2.5 min-h-[44px] rounded-full border transition-colors ${captureMode === 'tab' ? 'bg-amber-500 text-white border-amber-500' : 'dark:border-white/10 border-black/10 text-gray-600 dark:hover:border-white/20 hover:border-black/20'}`}
                     >
-                      From tab
+                      <span className="block">Online lecture</span>
+                      {captureMode === 'tab' && <span className="block text-[10px] opacity-80 font-normal leading-tight mt-0.5">Zoom / Teams / Panopto</span>}
                     </button>
                   </Tooltip>
                 )}
               </div>
               {captureMode === 'tab' && (
-                <p className="text-gray-600 text-[12px] mt-2 text-center max-w-xs leading-relaxed">
-                  Good for Zoom, Teams, Google Meet, or any online lecture. Pick the tab playing audio, tick <span className="dark:text-white/60 text-gray-800 font-medium">Share tab audio</span>, and Demist listens in.
+                <p className="text-gray-600 dark:text-white/60 text-[12px] mt-2 text-center max-w-xs leading-relaxed">
+                  Pick the tab playing audio, tick <span className="dark:text-white/80 text-gray-800 font-medium">Share tab audio</span>, and Demist listens in.
                 </p>
               )}
               {captureMode === 'microphone' && <MicModeNotice />}
@@ -1265,8 +1321,8 @@ export default function Dashboard() {
                 <div className="w-full max-w-xs mt-3">
                   <ConsentUnlockBanner
                     key={consentVersion}
-                    currentSubject={profile?.course}
-                    onOpenModal={() => { capture('consent_modal_opened', { subject: profile?.course }); setShowConsentModal(true) }}
+                    currentSubject={sessionSubject}
+                    onOpenModal={() => { capture('consent_modal_opened', { subject: sessionSubject }); setShowConsentModal(true) }}
                     refreshKey={consentVersion}
                   />
                 </div>
@@ -1425,15 +1481,17 @@ export default function Dashboard() {
       {/* Consent modal */}
       {showConsentModal && (
         <ConsentModal
-          subject={profile?.course}
+          subject={sessionSubject}
           onClose={() => setShowConsentModal(false)}
           onGranted={() => { setShowConsentModal(false); setConsentVersion(v => v + 1) }}
         />
       )}
 
-      {/* Mic check overlay */}
+      {/* Mic check overlay (with acknowledgment gate on first use per subject) */}
       {showMicCheck && (
         <MicCheck
+          subject={sessionSubject}
+          initialAcknowledged={micCheckAcknowledged}
           onStart={() => { setShowMicCheck(false); startRecording('microphone') }}
           onCancel={() => setShowMicCheck(false)}
         />
@@ -1525,7 +1583,7 @@ function TermCard({
         <div className="mt-3 pt-2.5 border-t dark:border-white/[0.06] border-black/[0.07] ml-[15px] flex items-center justify-between">
           <button
             onClick={e => { e.stopPropagation(); onKnown() }}
-            className="text-[12px] dark:text-white/30 text-gray-400 dark:hover:text-amber-400 hover:text-amber-700 transition-colors"
+            className="text-[12px] dark:text-white/60 text-gray-500 dark:hover:text-amber-400 hover:text-amber-700 transition-colors"
           >
             I already know this
           </button>

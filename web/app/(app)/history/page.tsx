@@ -618,7 +618,7 @@ export default function History() {
                               </div>
                             </details>
                           ) : (
-                            <p className="text-[12px] text-gray-400 dark:text-white/30 mt-2 leading-relaxed">
+                            <p className="text-[12px] text-gray-500 dark:text-white/60 mt-2 leading-relaxed">
                               Live sessions keep your glossary, not the lecture transcript.{' '}
                               <span className="text-amber-600 dark:text-amber-400">Ask your lecturer to unlock full notes.</span>
                             </p>

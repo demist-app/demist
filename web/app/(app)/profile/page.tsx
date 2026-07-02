@@ -453,7 +453,7 @@ export default function Profile() {
         {/* Lecturer consents */}
         <div className="space-y-3 animate-step opacity-0" style={{ animationDelay: '150ms', animationFillMode: 'forwards' }}>
           <p className="text-[10px] font-bold tracking-[0.18em] text-gray-600 uppercase">Lecturer consents</p>
-          <p className="text-[12px] text-gray-500 dark:text-white/40">Modules where your lecturer is happy for Demist to save full notes.</p>
+          <p className="text-[12px] text-gray-500 dark:text-white/60">Modules where your lecturer is happy for Demist to save full notes.</p>
           <ConsentManager />
         </div>
 

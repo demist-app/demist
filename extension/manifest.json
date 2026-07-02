@@ -3,8 +3,7 @@
   "name": "Demist",
   "version": "2.0.0",
   "description": "Real-time term definitions during any lecture — works like Grammarly, right where you are",
-  "permissions": ["tabs", "storage", "scripting"],
-  "host_permissions": ["<all_urls>"],
+  "permissions": ["activeTab", "tabs", "storage", "scripting"],
   "content_scripts": [
     {
       "matches": [
@@ -14,17 +13,6 @@
       ],
       "js": ["content-bridge.js"],
       "run_at": "document_idle"
-    },
-    {
-      "matches": ["<all_urls>"],
-      "exclude_matches": [
-        "https://demist.app/*",
-        "https://*.demist.app/*",
-        "*://localhost:*/*"
-      ],
-      "js": ["content-overlay.js"],
-      "run_at": "document_idle",
-      "all_frames": false
     }
   ],
   "background": {
