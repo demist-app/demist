@@ -129,7 +129,6 @@ export default function Dashboard() {
   const [showConsentModal, setShowConsentModal] = useState(false)
   const [consentVersion, setConsentVersion] = useState(0)
   const [sessionSubject, setSessionSubject] = useState<string>('')
-  const [recentSubjects, setRecentSubjects] = useState<string[]>([])
   const [showSubjectInput, setShowSubjectInput] = useState(false)
   const [micCheckAcknowledged, setMicCheckAcknowledged] = useState(false)
 
@@ -357,7 +356,6 @@ export default function Dashboard() {
         const tc = totalSessionCountRef.current
         setRecentSessions(sessionsRaw.map((s, i) => ({ id: s.id, name: (s as { name?: string | null }).name ?? null, subject: (s as { subject?: string | null }).subject ?? null, started_at: s.started_at, ended_at: s.ended_at, termCount: countMap[s.id] ?? 0, sessionNumber: tc - i, synopsis: (s as { synopsis?: string | null }).synopsis ?? null, transcript: (s as { transcript?: string | null }).transcript ?? null, expanded: false })))
         const recentSubjectsArr = [...new Set(sessionsRaw.map((s: { subject?: string | null }) => s.subject).filter(Boolean))].slice(0, 6) as string[]
-        setRecentSubjects(recentSubjectsArr)
         if (!sessionSubjectRef.current) {
           const defaultSubject = recentSubjectsArr[0] || (prof as Profile)?.course || ''
           sessionSubjectRef.current = defaultSubject
@@ -896,7 +894,6 @@ export default function Dashboard() {
       for (const r of termRows ?? []) countMap[r.session_id] = (countMap[r.session_id] ?? 0) + 1
       const tc = totalSessionCountRef.current
       setRecentSessions(sessionsRaw.map((s: { id: string; name?: string | null; subject?: string | null; started_at: string; ended_at: string | null; synopsis?: string | null; transcript?: string | null }, i: number) => ({ id: s.id, name: s.name ?? null, subject: s.subject ?? null, started_at: s.started_at, ended_at: s.ended_at, termCount: countMap[s.id] ?? 0, sessionNumber: tc - i, synopsis: s.synopsis ?? null, transcript: s.transcript ?? null, expanded: false })))
-      setRecentSubjects([...new Set(sessionsRaw.map((s: { subject?: string | null }) => s.subject).filter(Boolean))].slice(0, 6) as string[])
     }
 
     if (sid) {
@@ -1277,32 +1274,20 @@ export default function Dashboard() {
               </div>
               <p className="text-gray-600 text-[13px] mt-1.5">Tap the mic before your next lecture</p>
 
-              {/* Subject picker */}
-              <div className="w-full max-w-xs mt-4">
-                {recentSubjects.length > 0 && !showSubjectInput ? (
-                  <div className="flex gap-1.5 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
-                    {recentSubjects.map(s => (
-                      <button
-                        key={s}
-                        onClick={() => { sessionSubjectRef.current = s; setSessionSubject(s); capture('session_subject_selected', { source: 'chip' }) }}
-                        className={`shrink-0 text-[12px] font-medium px-3 py-1.5 rounded-full border transition-colors ${sessionSubject === s ? 'bg-amber-500 text-white border-amber-500' : 'dark:border-white/10 border-black/10 text-gray-600 dark:hover:border-white/20 hover:border-black/20'}`}
-                      >
-                        {s}
-                      </button>
-                    ))}
-                  </div>
-                ) : (
+              {/* Subject picker — only shown while actively editing (or before any subject is set) */}
+              {(showSubjectInput || !sessionSubject) && (
+                <div className="w-full max-w-xs mt-4">
                   <input
                     type="text"
                     value={sessionSubject}
                     onChange={e => { sessionSubjectRef.current = e.target.value; setSessionSubject(e.target.value) }}
-                    onBlur={() => { if (recentSubjects.length > 0) { setShowSubjectInput(false) } capture('session_subject_selected', { source: showSubjectInput ? 'new' : 'default' }) }}
+                    onBlur={() => { setShowSubjectInput(false); capture('session_subject_selected', { source: showSubjectInput ? 'new' : 'default' }) }}
                     placeholder={profile?.course || 'Subject or module'}
                     className="w-full dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.10] border-black/[0.13] rounded-2xl px-4 py-2.5 text-[13px] dark:text-white text-gray-900 placeholder-gray-500 focus:outline-none focus:border-yellow-500/50 transition-colors"
                     autoFocus={showSubjectInput}
                   />
-                )}
-              </div>
+                </div>
+              )}
 
               {/* Capture mode toggle */}
               <div className="mt-4 w-full max-w-xs">
