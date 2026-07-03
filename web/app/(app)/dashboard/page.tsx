@@ -1263,9 +1263,18 @@ export default function Dashboard() {
                   <MicIcon />
                 </button>
               </div>
-              <p className="dark:text-white/90 text-gray-900 font-semibold text-[17px]">
-                {sessionSubject ? `Ready for ${sessionSubject}` : 'Start recording'}
-              </p>
+              <div className="flex items-center gap-1.5">
+                <p className="dark:text-white/90 text-gray-900 font-semibold text-[17px]">
+                  {sessionSubject ? `Ready for ${sessionSubject}` : 'Start recording'}
+                </p>
+                <button
+                  onClick={() => setShowSubjectInput(true)}
+                  aria-label="Change subject"
+                  className="p-1 -m-1 rounded-full text-gray-500 dark:text-white/40 hover:text-gray-700 dark:hover:text-white/70 transition-colors"
+                >
+                  <EditIcon />
+                </button>
+              </div>
               <p className="text-gray-600 text-[13px] mt-1.5">Tap the mic before your next lecture</p>
 
               {/* Subject picker */}
@@ -1281,12 +1290,6 @@ export default function Dashboard() {
                         {s}
                       </button>
                     ))}
-                    <button
-                      onClick={() => setShowSubjectInput(true)}
-                      className="shrink-0 text-[12px] font-medium px-3 py-1.5 rounded-full border dark:border-white/10 border-black/10 text-gray-600 dark:hover:border-white/20 hover:border-black/20 transition-colors"
-                    >
-                      +
-                    </button>
                   </div>
                 ) : (
                   <input
@@ -1303,32 +1306,33 @@ export default function Dashboard() {
 
               {/* Capture mode toggle */}
               <div className="mt-4 w-full max-w-xs">
-                {tabCaptureSupportedState && (
-                  <div className="flex dark:bg-white/[0.07] bg-black/[0.06] rounded-full p-1">
+                <div className="flex dark:bg-white/[0.07] bg-black/[0.06] rounded-full p-1">
+                  <button
+                    onClick={() => setCaptureMode('microphone')}
+                    className={`flex-1 text-[13px] font-medium px-4 py-2.5 rounded-full transition-all duration-200 active:scale-[0.97] ${
+                      captureMode === 'microphone'
+                        ? 'bg-amber-500 text-white shadow-sm'
+                        : 'text-gray-500 dark:text-white/45 hover:text-gray-700 dark:hover:text-white/65'
+                    }`}
+                  >
+                    Live mic capture
+                  </button>
+                  <Tooltip content={tabCaptureSupportedState ? "When the sharing dialog opens, make sure to tick 'Share tab audio'" : 'Not supported on this browser — try a desktop browser instead'}>
                     <button
-                      onClick={() => setCaptureMode('microphone')}
+                      onClick={() => tabCaptureSupportedState && setCaptureMode('tab')}
+                      disabled={!tabCaptureSupportedState}
                       className={`flex-1 text-[13px] font-medium px-4 py-2.5 rounded-full transition-all duration-200 active:scale-[0.97] ${
-                        captureMode === 'microphone'
-                          ? 'bg-amber-500 text-white shadow-sm'
-                          : 'text-gray-500 dark:text-white/45 hover:text-gray-700 dark:hover:text-white/65'
-                      }`}
-                    >
-                      In person
-                    </button>
-                    <Tooltip content="When the sharing dialog opens, make sure to tick 'Share tab audio'">
-                      <button
-                        onClick={() => setCaptureMode('tab')}
-                        className={`flex-1 text-[13px] font-medium px-4 py-2.5 rounded-full transition-all duration-200 active:scale-[0.97] ${
-                          captureMode === 'tab'
+                        !tabCaptureSupportedState
+                          ? 'text-gray-400 dark:text-white/20 cursor-not-allowed'
+                          : captureMode === 'tab'
                             ? 'bg-amber-500 text-white shadow-sm'
                             : 'text-gray-500 dark:text-white/45 hover:text-gray-700 dark:hover:text-white/65'
-                        }`}
-                      >
-                        Online lecture
-                      </button>
-                    </Tooltip>
-                  </div>
-                )}
+                      }`}
+                    >
+                      Tab capture
+                    </button>
+                  </Tooltip>
+                </div>
                 <p className="text-[12px] text-gray-500 dark:text-white/40 text-center mt-2 leading-relaxed">
                   {captureMode === 'microphone'
                     ? 'Uses your microphone'
@@ -1486,7 +1490,7 @@ export default function Dashboard() {
                   </div>
                   {tabCaptureSupportedState && (
                     <p className="text-[12px] text-gray-700 max-w-xs leading-relaxed">
-                      On Zoom or in an online lecture? Switch to <span className="dark:text-white/60 text-gray-800 font-medium">From tab</span> above to capture the audio directly from your browser.
+                      On Zoom or in an online lecture? Switch to <span className="dark:text-white/60 text-gray-800 font-medium">Tab capture</span> above to capture the audio directly from your browser.
                     </p>
                   )}
                 </div>
@@ -1643,6 +1647,16 @@ function MicIcon() {
       <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" />
       <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
       <line x1="12" y1="19" x2="12" y2="22" />
+    </svg>
+  )
+}
+
+function EditIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
     </svg>
   )
 }
