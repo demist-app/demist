@@ -137,7 +137,13 @@
       "Bash(powershell -Command \"Get-ChildItem -Recurse 'C:\\\\Users\\\\shivb\\\\Downloads\\\\demist-feedback-kit' | Select-Object FullName, Length | Format-Table -AutoSize\")",
       "Bash(cp \"C:\\\\Users\\\\shivb\\\\Downloads\\\\demist-feedback-kit\\\\demist-feedback-kit\\\\SessionReview.tsx\" \"c:\\\\Users\\\\shivb\\\\Desktop\\\\coding bits\\\\demist\\\\web\\\\components\\\\SessionReview.tsx\")",
       "Bash(claude skills *)",
-      "PowerShell(claude skills list 2>&1)"
+      "PowerShell(claude skills list 2>&1)",
+      "Bash(unzip -l \"C:\\\\Users\\\\shivb\\\\Downloads\\\\demist-local-kit.zip\")",
+      "Bash(mkdir -p \"/tmp_extract\")",
+      "Bash(unzip -o \"C:\\\\Users\\\\shivb\\\\Downloads\\\\demist-local-kit.zip\" -d .)",
+      "Bash(supabase migration *)",
+      "Bash(npm i *)",
+      "Bash(deno check *)"
     ],
     "additionalDirectories": [
       "c:\\Users\\shivb\\Desktop\\coding bits\\demist\\web\\app\\u",

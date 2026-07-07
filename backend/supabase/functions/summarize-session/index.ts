@@ -87,16 +87,15 @@ serve(async (req) => {
       .single()
 
     if (!sessionRow?.capture_mode || sessionRow.capture_mode === 'microphone') {
-      const { data: consent } = await supabaseAdmin
-        .from('lecturer_consents')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('module_name', subject ?? '')
-        .maybeSingle()
+      const [{ data: consent }, { data: prof }] = await Promise.all([
+        supabaseAdmin.from('lecturer_consents').select('id').eq('user_id', user.id).eq('module_name', subject ?? '').maybeSingle(),
+        supabaseAdmin.from('profiles').select('support_need').eq('id', user.id).maybeSingle(),
+      ])
+      const eligible = (prof?.support_need && prof.support_need !== 'none') || !!consent
 
-      if (!consent) {
+      if (!eligible) {
         return new Response(
-          JSON.stringify({ ok: false, reason: 'mic_mode_no_consent' }),
+          JSON.stringify({ ok: false, reason: 'not_eligible' }),
           { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } },
         )
       }

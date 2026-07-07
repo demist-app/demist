@@ -182,9 +182,9 @@ export function OnboardingOverlay() {
 
             <div className="space-y-3 mb-6">
               <div className="rounded-2xl bg-amber-50 border border-amber-400/30 px-4 py-3.5">
-                <p className="text-[13px] font-semibold text-amber-900 mb-1">Check your institution's policy</p>
+                <p className="text-[13px] font-semibold text-amber-900 mb-1">Recording lectures</p>
                 <p className="text-[12px] text-amber-800/80 leading-relaxed">
-                  Some universities and lecturers require consent before audio recording. Always verify you have permission before using Demist in a live lecture.
+                  Many universities allow lecture recording as a learning support measure. If that doesn't apply to you, check your institution's policy or get your lecturer's consent from Settings before recording.
                 </p>
               </div>
 

@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import dynamic from 'next/dynamic'
 import { capture } from '@/lib/analytics'
+import { useEntitlements } from '@/lib/entitlements'
+import { PaywallModal } from '@/components/PaywallModal'
 
 const SummaryViewer = dynamic(() => import('../summary-viewer').then(m => ({ default: m.SummaryViewer })), { ssr: false })
 const TranscriptViewer = dynamic(() => import('../transcript-viewer').then(m => ({ default: m.TranscriptViewer })), { ssr: false })
@@ -13,6 +15,7 @@ interface SessionTerm {
   term: string
   definition: string
   known: boolean
+  context?: string | null
 }
 
 interface Session {
@@ -84,6 +87,9 @@ export default function History() {
   // Subject filter
   const [subjectFilter, setSubjectFilter] = useState<string | null>(null)
 
+  const { limits } = useEntitlements()
+  const [paywall, setPaywall] = useState<string | null>(null)
+
   const summarizingRef = useRef(new Set<string>())
 
   useEffect(() => {
@@ -94,13 +100,18 @@ export default function History() {
       if (!user) return
       capture('history_viewed')
 
+      let sessionsQuery = supabase
+        .from('sessions')
+        .select('id, name, subject, synopsis, transcript, started_at, ended_at')
+        .eq('user_id', user.id)
+        .order('started_at', { ascending: false })
+        .limit(100)
+      if (limits.historyDays != null) {
+        sessionsQuery = sessionsQuery.gte('started_at', new Date(Date.now() - limits.historyDays * 86400000).toISOString())
+      }
+
       const [{ data: sessionsRaw }, { count }] = await Promise.all([
-        supabase
-          .from('sessions')
-          .select('id, name, subject, synopsis, transcript, started_at, ended_at')
-          .eq('user_id', user.id)
-          .order('started_at', { ascending: false })
-          .limit(100),
+        sessionsQuery,
         supabase
           .from('sessions')
           .select('id', { count: 'exact', head: true })
@@ -140,7 +151,7 @@ export default function History() {
       if (targetId && built.find(s => s.id === targetId)) {
         const { data: termsData } = await supabase
           .from('terms')
-          .select('id, term, definition, known')
+          .select('id, term, definition, known, context')
           .eq('session_id', targetId)
           .order('created_at', { ascending: true })
         const idx = built.findIndex(s => s.id === targetId)
@@ -205,6 +216,16 @@ export default function History() {
   const maybeSummarize = async (s: Session) => {
     if (s.synopsis || s.termCount === 0) return
     if (summarizingRef.current.has(s.id)) return
+    if (limits.summariesPerWeek != null) {
+      const supabase = createClient()
+      const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString()
+      const { count } = await supabase
+        .from('sessions')
+        .select('id', { count: 'exact', head: true })
+        .not('synopsis', 'is', null)
+        .gte('started_at', weekAgo)
+      if ((count ?? 0) >= limits.summariesPerWeek) { setPaywall('summary_cap'); return }
+    }
     summarizingRef.current.add(s.id)
     setGeneratingIds(prev => new Set(prev).add(s.id))
     setFailedIds(prev => { const next = new Set(prev); next.delete(s.id); return next })
@@ -262,7 +283,7 @@ export default function History() {
     const supabase = createClient()
     const { data } = await supabase
       .from('terms')
-      .select('id, term, definition, known')
+      .select('id, term, definition, known, context')
       .eq('session_id', id)
       .order('created_at', { ascending: true })
 
@@ -638,13 +659,13 @@ export default function History() {
                                 Transcript
                               </summary>
                               <div className="mt-2">
-                                <TranscriptViewer transcript={s.transcript} subject={s.subject} year={null} sessionId={s.id} terms={s.terms?.map(t => ({ term: t.term, definition: t.definition }))} />
+                                <TranscriptViewer transcript={s.transcript} subject={s.subject} year={null} sessionId={s.id} terms={s.terms?.map(t => ({ term: t.term, definition: t.definition, context: t.context }))} />
                               </div>
                             </details>
                           ) : (
                             <p className="text-[12px] text-gray-500 dark:text-white/60 mt-2 leading-relaxed">
                               Live sessions keep your glossary, not the lecture transcript.{' '}
-                              <span className="text-amber-600 dark:text-amber-400">Ask your lecturer to unlock full notes.</span>
+                              <span className="text-amber-600 dark:text-amber-400">Set a support need in your profile, or ask your lecturer, to unlock full notes.</span>
                             </p>
                           )}
 
@@ -737,8 +758,18 @@ export default function History() {
               </div>
             </div>
           ))}
+          {limits.historyDays != null && totalCount > sessions.length && (
+            <button
+              onClick={() => setPaywall('history_depth')}
+              className="w-full text-center text-[12px] text-gray-600 hover:dark:text-white/70 hover:text-gray-800 transition-colors py-2"
+            >
+              Sessions older than {limits.historyDays} days are part of Pro
+            </button>
+          )}
         </div>
       </div>
+
+      {paywall && <PaywallModal source={paywall} onClose={() => setPaywall(null)} />}
 
       {/* Bulk action bar */}
       {selectMode && selectedIds.size > 0 && (

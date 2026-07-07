@@ -8,12 +8,14 @@ import { capture, identify } from '@/lib/analytics'
 import { requestWakeLock, releaseWakeLock, reacquireWakeLockOnVisibility, wakeLockSupported } from '@/lib/wakeLock'
 import { startTabCapture, tabCaptureSupported } from '@/lib/tabCapture'
 import { checkRecordingLimit } from '@/lib/subscription'
+import { useEntitlements } from '@/lib/entitlements'
+import { useLocalAsr, localAsrPreferred } from '@/lib/useLocalAsr'
+import { extractCandidates } from '@/lib/extractTerms'
 
 const SummaryViewer = dynamic(() => import('../summary-viewer').then(m => ({ default: m.SummaryViewer })), { ssr: false })
 const OnboardingOverlay = dynamic(() => import('@/components/OnboardingOverlay').then(m => ({ default: m.OnboardingOverlay })), { ssr: false })
-const MicCheck = dynamic(() => import('@/components/MicCheck').then(m => ({ default: m.MicCheck })), { ssr: false })
 const SessionReview = dynamic(() => import('@/components/SessionReview').then(m => ({ default: m.SessionReview })), { ssr: false })
-import { ConsentUnlockBanner, ConsentModal, MicModeNotice } from '@/components/ConsentUnlock'
+import { PaywallModal } from '@/components/PaywallModal'
 
 type CaptureMode = 'microphone' | 'tab'
 
@@ -21,6 +23,7 @@ interface LiveTerm {
   id: string
   term: string
   definition: string
+  translation?: string | null
   dismissing: boolean
   dbId?: string
   pinned?: boolean
@@ -50,6 +53,8 @@ interface RecentSession {
 interface Profile {
   course: string | null
   year_of_study: number | null
+  support_need: string | null
+  translate_to: string | null
 }
 
 interface Stats {
@@ -107,7 +112,7 @@ export default function Dashboard() {
 
   const [elapsed, setElapsed] = useState(0)
   const [liveTerms, setLiveTerms] = useState<LiveTerm[]>([])
-  const [sessionGlossary, setSessionGlossary] = useState<{ term: string; definition: string }[]>([])
+  const [sessionGlossary, setSessionGlossary] = useState<{ term: string; definition: string; context?: string | null; translation?: string | null }[]>([])
   const [profile, setProfile] = useState<Profile | null>(null)
   const [stats, setStats] = useState<Stats>({ streak: 0, termsThisWeek: 0, dueFlashcards: 0 })
   const [recentSessions, setRecentSessions] = useState<RecentSession[]>([])
@@ -124,13 +129,12 @@ export default function Dashboard() {
   const [sentences, setSentences] = useState<string[]>([])
   const [isScrolledUp, setIsScrolledUp] = useState(false)
   const [liveSessionId, setLiveSessionId] = useState<string | null>(null)
-  const [showMicCheck, setShowMicCheck] = useState(false)
   const [reviewTerms, setReviewTerms] = useState<{ term: string; definition: string; dbId?: string }[] | null>(null)
-  const [showConsentModal, setShowConsentModal] = useState(false)
-  const [consentVersion, setConsentVersion] = useState(0)
   const [sessionSubject, setSessionSubject] = useState<string>('')
   const [showSubjectInput, setShowSubjectInput] = useState(false)
-  const [micCheckAcknowledged, setMicCheckAcknowledged] = useState(false)
+  const { limits } = useEntitlements()
+  const [paywall, setPaywall] = useState<string | null>(null)
+  const [usingLocalAsr, setUsingLocalAsr] = useState(false)
 
   const profileRef = useRef<Profile | null>(null)
   const sessionSubjectRef = useRef<string>('')
@@ -143,6 +147,7 @@ export default function Dashboard() {
   const chunkTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const knownTermsRef = useRef<Set<string>>(new Set())
+  const sentTermsRef = useRef<Set<string>>(new Set())  // lowercased candidate terms already sent to detect-terms this session
   const termFrequencyRef = useRef<Map<string, number>>(new Map())
   const sessionSummarizingRef = useRef(new Set<string>())
   const transcriptRef = useRef<string>('')
@@ -151,6 +156,8 @@ export default function Dashboard() {
   const stopRecordingRef = useRef<() => Promise<void>>(() => Promise.resolve())
   const startingRef = useRef(false)
   const captureModeRef = useRef<CaptureMode>('microphone')
+  const localAsr = useLocalAsr()
+  const useLocalRef = useRef(false)
 
   const detectionBufferRef = useRef('')   // accumulated Whisper text waiting for detect-terms
   const lastDetectionTimeRef = useRef(0)  // ms timestamp of last detect-terms call
@@ -255,17 +262,6 @@ export default function Dashboard() {
     }
   }, [liveSessionId])
 
-  // Pre-fetch mic acknowledgment whenever the session subject changes so the
-  // modal opens immediately without waiting for a DB round-trip at tap time.
-  useEffect(() => {
-    createClient()
-      .from('mic_acknowledgments')
-      .select('user_id')
-      .eq('subject', sessionSubject)
-      .maybeSingle()
-      .then(({ data }) => setMicCheckAcknowledged(!!data))
-  }, [sessionSubject])
-
   // Auto-scroll the live transcript to the bottom as new sentences arrive
   useEffect(() => {
     if (!autoScrollRef.current) return
@@ -282,6 +278,13 @@ export default function Dashboard() {
       setShowAddToHomeScreen(true)
     }
     setTabCaptureSupportedState(tabCaptureSupported())
+  }, [])
+
+  // Warm up on-device transcription in the background so it's ready by the time
+  // the user hits record, rather than downloading the model mid-lecture.
+  useEffect(() => {
+    if (localAsrPreferred()) localAsr.start()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Stop Web Speech and the recording session cleanly if the user closes the
@@ -320,7 +323,7 @@ export default function Dashboard() {
         { data: sessionsRaw },
         { count: totalCount },
       ] = await Promise.all([
-        supabase.from('profiles').select('course, year_of_study').eq('id', user.id).maybeSingle(),
+        supabase.from('profiles').select('course, year_of_study, support_need, translate_to').eq('id', user.id).maybeSingle(),
         supabase.from('terms').select('term, known, created_at').eq('user_id', user.id),
         supabase.from('sessions').select('started_at').eq('user_id', user.id).order('started_at', { ascending: false }),
         supabase.from('terms').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('known', false).gt('sm2_review_count', 0).lte('sm2_due_at', now.toISOString()),
@@ -379,15 +382,25 @@ export default function Dashboard() {
     const supabase = createClient()
     const base = process.env.NEXT_PUBLIC_SUPABASE_URL!
 
+    // Client-side candidate extraction: only isolated terms + one sentence each
+    // leave the device, never full transcript windows.
+    const newSentences = transcript.split(/(?<=[.!?])\s+/).filter(s => s.trim())
+    const candidates = newSentences.flatMap(s => extractCandidates(s, knownTermsRef.current, sentTermsRef.current))
+    if (sentTermsRef.current.size > 500) {
+      sentTermsRef.current = new Set(Array.from(sentTermsRef.current).slice(-500))
+    }
+    if (candidates.length === 0) return   // nothing new, skip the network call entirely
+
     const dtRes = await fetch(`${base}/functions/v1/detect-terms`, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        transcript,
+        candidates,
         context,
         subject: sessionSubjectRef.current || profileRef.current?.course || 'general',
         year: profileRef.current?.year_of_study ?? 1,
         known_terms: Array.from(knownTermsRef.current),
+        translate_to: profileRef.current?.translate_to || undefined,
       }),
     })
     if (!dtRes.ok) {
@@ -417,7 +430,7 @@ export default function Dashboard() {
     zeroTermChunksRef.current = 0
     chunkIntervalRef.current = 5_000
 
-    const filtered = (detected.terms as { term: string; definition: string }[]).filter(t => {
+    const filtered = (detected.terms as { term: string; definition: string; context?: string; translation?: string }[]).filter(t => {
       const key = t.term.toLowerCase()
       return isLatinTerm(t.term) &&
              !knownTermsRef.current.has(key) &&
@@ -427,15 +440,17 @@ export default function Dashboard() {
 
     for (const t of filtered) {
       termFrequencyRef.current.set(t.term.toLowerCase(), (termFrequencyRef.current.get(t.term.toLowerCase()) ?? 0) + 1)
+      knownTermsRef.current.add(t.term.toLowerCase())
     }
 
     // Optimistic UI: show the card and glossary entry immediately, before the
     // DB insert round-trip. dbId arriving later confirms the save.
-    setSessionGlossary(prev => [...filtered.map(t => ({ term: t.term, definition: t.definition })), ...prev])
+    setSessionGlossary(prev => [...filtered.map(t => ({ term: t.term, definition: t.definition, context: t.context ?? null, translation: t.translation ?? null })), ...prev])
     const incoming: LiveTerm[] = filtered.slice(0, 1).map(t => ({
       id: `${Date.now()}-${Math.random()}`,
       term: t.term,
       definition: t.definition,
+      translation: t.translation ?? null,
       dismissing: false,
     }))
     setLiveTerms(prev => [...prev, ...incoming].slice(-3))
@@ -451,6 +466,7 @@ export default function Dashboard() {
         session_id: sessionId,
         term: t.term,
         definition: t.definition,
+        context: t.context ?? null,
         subject: sessionSubjectRef.current || profileRef.current?.course,
       })))
       .select('id, term, definition')
@@ -513,6 +529,38 @@ export default function Dashboard() {
       if (t.id === id && !t.pinned) capture('term_card_expanded', { term: t.term })
       return t.id === id ? { ...t, pinned: true } : t
     }))
+  }
+
+  // On-device Whisper chunks can repeat a trailing word at the boundary; trim it
+  // from the front of the next chunk before appending.
+  const dedupeBoundary = (prev: string, next: string): string => {
+    const tail = prev.split(' ').slice(-4).join(' ').toLowerCase()
+    const words = next.split(' ')
+    for (let k = Math.min(4, words.length); k > 0; k--) {
+      if (tail.endsWith(words.slice(0, k).join(' ').toLowerCase())) return words.slice(k).join(' ')
+    }
+    return next
+  }
+
+  // ── Local ASR path: mirrors the cloud path's state updates for on-device text ──
+  const appendLocalTranscript = async (rawText: string, sessionId: string) => {
+    const chunkText = dedupeBoundary(transcriptRef.current, rawText)
+    if (!chunkText.trim()) return
+    transcriptRef.current = transcriptRef.current ? transcriptRef.current + ' ' + chunkText : chunkText
+    if (!speechModeRef.current || !webSpeechHasFiredRef.current) setSentences(prev => [...prev, chunkText])
+
+    detectionBufferRef.current += (detectionBufferRef.current ? ' ' : '') + chunkText
+    const msSinceDetection = Date.now() - lastDetectionTimeRef.current
+    if ((msSinceDetection >= 15_000 || !isActiveRef.current) && detectionBufferRef.current.trim()) {
+      const toDetect = detectionBufferRef.current
+      const context = recentContextRef.current
+      recentContextRef.current = (context + ' ' + toDetect).trim().slice(-300)
+      detectionBufferRef.current = ''
+      lastDetectionTimeRef.current = Date.now()
+      const { data: { session } } = await createClient().auth.getSession()
+      const token = session?.access_token
+      if (token) await runDetection(toDetect, sessionId, token, context)
+    }
   }
 
   // ── Whisper path: transcribe audio blob then detect terms ─────────────────────
@@ -682,6 +730,7 @@ export default function Dashboard() {
     sessionIdRef.current = sessionId
     isActiveRef.current = true
     termFrequencyRef.current = new Map()
+    sentTermsRef.current = new Set()
     transcriptRef.current = ''
     chunkIndexRef.current = 0
     detectionBufferRef.current = ''
@@ -713,6 +762,11 @@ export default function Dashboard() {
       })).catch(() => {})
     }
 
+    // Decide the transcription path once per session. Local mode is mic-only —
+    // tab capture and uploads always keep the cloud path.
+    useLocalRef.current = mode === 'microphone' && localAsrPreferred() && localAsr.status === 'ready'
+    setUsingLocalAsr(useLocalRef.current)
+
     // ── Whisper path: 10-second chunk loop ──────────────────────────────────────
     const doChunk = () => {
       const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
@@ -726,7 +780,15 @@ export default function Dashboard() {
       recorder.ondataavailable = (e: BlobEvent) => { if (e.data.size > 0) chunks.push(e.data) }
       recorder.onstop = () => {
         const blob = new Blob(chunks, { type: mimeType })
-        if (sessionIdRef.current) processChunk(blob, sessionIdRef.current)
+        const sid = sessionIdRef.current
+        if (sid) {
+          if (useLocalRef.current) {
+            chunkPeakRef.current = 0
+            localAsr.transcribe(blob).then(text => { if (text) appendLocalTranscript(text, sid) })
+          } else {
+            processChunk(blob, sid)
+          }
+        }
         if (isActiveRef.current) doChunk()
       }
       recorder.start()
@@ -737,7 +799,7 @@ export default function Dashboard() {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const SpeechRecognitionAPI = typeof window !== 'undefined' ? ((window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition ?? null) : null
-    if (SpeechRecognitionAPI) {
+    if (SpeechRecognitionAPI && !useLocalRef.current) {
       speechModeRef.current = true
       webSpeechHasFiredRef.current = false
       hasInterimRef.current = false
@@ -855,6 +917,7 @@ export default function Dashboard() {
       await supabase.from('sessions').update({ ended_at: new Date().toISOString() }).eq('id', sid)
     }
     setIsRecording(false)
+    setUsingLocalAsr(false)
     setRecordingWarning(null)
     setCapturedTabTitle(null)
     setLiveSessionId(null)
@@ -905,16 +968,20 @@ export default function Dashboard() {
         try {
           const sb = createClient()
 
-          // Mic mode requires lecturer consent before storing transcript or summary
+          // Mic mode requires lecturer consent OR a declared support need before storing transcript or summary
           if (capturedMode === 'microphone') {
-            const { data: consent } = await sb
-              .from('lecturer_consents')
-              .select('id')
-              .eq('module_name', capturedSubject ?? '')
-              .maybeSingle()
-            if (!consent) {
-              await sb.from('transcript_chunks').delete().eq('session_id', capturedSid)
-              return
+            const supportNeed = profileRef.current?.support_need
+            const eligibleBySupportNeed = !!supportNeed && supportNeed !== 'none'
+            if (!eligibleBySupportNeed) {
+              const { data: consent } = await sb
+                .from('lecturer_consents')
+                .select('id')
+                .eq('module_name', capturedSubject ?? '')
+                .maybeSingle()
+              if (!consent) {
+                await sb.from('transcript_chunks').delete().eq('session_id', capturedSid)
+                return
+              }
             }
           }
 
@@ -1004,6 +1071,16 @@ export default function Dashboard() {
   const maybeGenerateOnDashboard = async (s: RecentSession) => {
     if (s.synopsis || !s.terms?.length) return
     if (sessionSummarizingRef.current.has(s.id)) return
+    if (limits.summariesPerWeek != null) {
+      const supabase = createClient()
+      const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString()
+      const { count } = await supabase
+        .from('sessions')
+        .select('id', { count: 'exact', head: true })
+        .not('synopsis', 'is', null)
+        .gte('started_at', weekAgo)
+      if ((count ?? 0) >= limits.summariesPerWeek) { setPaywall('summary_cap'); return }
+    }
     sessionSummarizingRef.current.add(s.id)
     setSessionGenIds(prev => new Set(prev).add(s.id))
     setSessionFailIds(prev => { const next = new Set(prev); next.delete(s.id); return next })
@@ -1156,6 +1233,16 @@ export default function Dashboard() {
                 </p>
               )}
 
+              {usingLocalAsr && (
+                <button
+                  onClick={() => { useLocalRef.current = false; setUsingLocalAsr(false) }}
+                  title="Switch this session to cloud transcription"
+                  className="mb-4 text-[11px] font-medium dark:text-emerald-400 text-emerald-700 dark:bg-emerald-500/10 bg-emerald-500/[0.08] border dark:border-emerald-500/20 border-emerald-600/20 rounded-full px-3 py-1 hover:opacity-80 transition-opacity"
+                >
+                  On-device
+                </button>
+              )}
+
               <div className="relative flex items-center justify-center mb-6">
                 <span ref={ring1Ref} className="absolute w-[88px] h-[88px] rounded-full bg-red-500/[0.18]" style={{ willChange: 'transform' }} />
                 <span ref={ring2Ref} className="absolute w-[88px] h-[88px] rounded-full bg-red-500/[0.11]" style={{ willChange: 'transform' }} />
@@ -1233,6 +1320,9 @@ export default function Dashboard() {
                       <div className="min-w-0">
                         <span className="text-[13px] font-semibold dark:text-white/90 text-gray-900">{t.term}</span>
                         <p className="text-[12px] text-gray-700 mt-0.5 leading-relaxed">{t.definition}</p>
+                        {t.translation && (
+                          <p className="text-[12px] dark:text-amber-400/80 text-amber-700 mt-0.5 leading-relaxed">{t.translation}</p>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -1253,7 +1343,7 @@ export default function Dashboard() {
                 <span className="absolute w-[194px] h-[194px] rounded-full bg-yellow-600/[0.025]" style={{ animation: 'glow-float 4s ease-in-out -2.7s infinite' }} />
                 <button
                   ref={btnRef}
-                  onClick={() => captureMode === 'microphone' ? setShowMicCheck(true) : startRecording(captureMode)}
+                  onClick={() => startRecording(captureMode)}
                   aria-label="Start recording"
                   className="relative z-10 w-[96px] h-[96px] rounded-full dark:bg-white/[0.08] bg-[#FAF9F6] border border-yellow-500/40 hover:bg-yellow-500/10 hover:border-yellow-500/60 hover:shadow-[0_0_48px_rgba(161,98,7,0.30)] dark:hover:shadow-[0_0_48px_rgba(251,191,36,0.30)] active:scale-[0.97] flex items-center justify-center transition-all duration-200 select-none shadow-sm"
                 >
@@ -1318,23 +1408,12 @@ export default function Dashboard() {
                     </button>
                   </Tooltip>
                 </div>
-                <p className="text-[12px] text-gray-500 dark:text-white/40 text-center mt-2 leading-relaxed">
+                <p className="text-[12px] text-gray-500 dark:text-white/60 text-center mt-2 leading-relaxed">
                   {captureMode === 'microphone'
                     ? 'Uses your microphone'
                     : <>Pick the tab playing audio, tick <span className="text-gray-700 dark:text-white/70 font-medium">Share tab audio</span>, and Demist listens in.</>}
                 </p>
               </div>
-              {captureMode === 'microphone' && <MicModeNotice />}
-              {captureMode === 'microphone' && (
-                <div className="w-full max-w-xs mt-3">
-                  <ConsentUnlockBanner
-                    key={consentVersion}
-                    currentSubject={sessionSubject}
-                    onOpenModal={() => { capture('consent_modal_opened', { subject: sessionSubject }); setShowConsentModal(true) }}
-                    refreshKey={consentVersion}
-                  />
-                </div>
-              )}
               {recordingWarning && (
                 <p className="mt-3 text-amber-500 text-[12px] text-center max-w-xs leading-relaxed" role="status">{recordingWarning}</p>
               )}
@@ -1459,7 +1538,7 @@ export default function Dashboard() {
                 <div className="flex flex-col items-center py-8 text-center gap-5">
                   <div>
                     <p className="text-gray-600 text-[14px] font-medium mb-1">No sessions yet</p>
-                    <p className="text-gray-700 text-[13px]">Hit record before your next lecture and Demist handles the rest.</p>
+                    <p className="text-gray-700 text-[13px]">Hit record before your next lecture — Demist transcribes it, explains unfamiliar terms, and reads it back for you.</p>
                   </div>
                   <div className="w-full max-w-xs flex flex-col gap-2 text-left">
                     {[
@@ -1486,24 +1565,7 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Consent modal */}
-      {showConsentModal && (
-        <ConsentModal
-          subject={sessionSubject}
-          onClose={() => setShowConsentModal(false)}
-          onGranted={() => { setShowConsentModal(false); setConsentVersion(v => v + 1) }}
-        />
-      )}
-
-      {/* Mic check overlay (with acknowledgment gate on first use per subject) */}
-      {showMicCheck && (
-        <MicCheck
-          subject={sessionSubject}
-          initialAcknowledged={micCheckAcknowledged}
-          onStart={() => { setShowMicCheck(false); startRecording('microphone') }}
-          onCancel={() => setShowMicCheck(false)}
-        />
-      )}
+      {paywall && <PaywallModal source={paywall} onClose={() => setPaywall(null)} />}
 
       {/* End-of-session flashcard review */}
       {reviewTerms && <SessionReview terms={reviewTerms} onClose={() => setReviewTerms(null)} />}
@@ -1547,6 +1609,7 @@ export default function Dashboard() {
 function TermCard({
   term,
   definition,
+  translation,
   dismissing,
   pinned,
   onDismiss,
@@ -1585,6 +1648,9 @@ function TermCard({
             </div>
             <p className="text-[15px] font-semibold truncate dark:text-white/95 text-gray-900">{term}</p>
             <p className="text-[13px] leading-relaxed mt-1 dark:text-white/55 text-gray-600">{definition}</p>
+            {translation && (
+              <p className="text-[13px] leading-relaxed mt-1 dark:text-amber-300/80 text-amber-700">{translation}</p>
+            )}
           </div>
         </div>
 

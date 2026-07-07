@@ -141,6 +141,10 @@ const FAQS = [
     q: 'Where is my data stored?',
     a: 'Your data is tied to your account and not shared. Audio is processed for transcription only and isn\'t stored after the request finishes.',
   },
+  {
+    q: 'Is Demist available through DSA?',
+    a: 'Demist is free for every student. If you receive Disabled Students\' Allowance and want it in your support plan, see our accessibility page at demist.app/accessibility.',
+  },
 ]
 
 const STEPS = [
@@ -296,7 +300,7 @@ export default function LandingClient() {
           className="text-[16px] sm:text-[18px] leading-relaxed mb-10 max-w-[480px]"
           style={{ color: 'var(--fg-muted)', ...anim(240).style }}
         >
-          Record a live lecture or import a slide deck or audio file. Demist catches every unfamiliar term, explains it on screen, and builds your glossary, summaries, and flashcards automatically.
+          Record a live lecture or import a slide deck or audio file. Demist transcribes it, reads it back, explains and translates unfamiliar terms, and builds your glossary, summaries, and flashcards automatically — for students who find lectures harder to follow.
         </p>
 
         <div className="flex flex-col sm:flex-row items-center gap-3 mb-16" {...anim(320)}>
@@ -633,6 +637,7 @@ export default function LandingClient() {
       <footer className="relative z-10 px-6 sm:px-12 py-8 flex items-center justify-between gap-4" style={{ borderTop: '1px solid var(--border)' }}>
         <span className="text-[11px] font-bold tracking-[0.2em] uppercase" style={{ color: 'var(--fg-faint)' }}>Demist</span>
         <div className="flex items-center gap-5">
+          <a href="/accessibility" className="text-[12px] transition-colors" style={{ color: 'var(--fg-faint)' }}>Accessibility</a>
           <a href="/privacy" className="text-[12px] transition-colors" style={{ color: 'var(--fg-faint)' }}>Privacy</a>
           <p className="text-[12px]" style={{ color: 'var(--fg-faint)' }}>© {new Date().getFullYear()} Demist</p>
         </div>

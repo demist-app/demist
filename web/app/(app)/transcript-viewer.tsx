@@ -2,10 +2,12 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase'
+import { useReadAloud } from '@/lib/readAloud'
 
 interface Popup {
   term: string
   definition: string | null
+  context?: string | null
   loading: boolean
   saving: boolean
   saved: boolean
@@ -17,11 +19,12 @@ interface Popup {
 interface TermHint {
   term: string
   definition: string
+  context?: string | null
 }
 
 type Segment =
   | { highlight: false; content: string }
-  | { highlight: true; content: string; definition: string }
+  | { highlight: true; content: string; definition: string; context?: string | null }
 
 function buildSegments(text: string, terms: TermHint[]): Segment[] {
   if (!terms.length) return [{ highlight: false, content: text }]
@@ -30,7 +33,7 @@ function buildSegments(text: string, terms: TermHint[]): Segment[] {
   const sorted = [...terms].sort((a, b) => b.term.length - a.term.length)
   let segs: Segment[] = [{ highlight: false, content: text }]
 
-  for (const { term, definition } of sorted) {
+  for (const { term, definition, context } of sorted) {
     const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
     const re = new RegExp(`\\b${escaped}\\b`, 'gi')
     const next: Segment[] = []
@@ -40,7 +43,7 @@ function buildSegments(text: string, terms: TermHint[]): Segment[] {
       let m
       while ((m = re.exec(seg.content)) !== null) {
         if (m.index > last) next.push({ highlight: false, content: seg.content.slice(last, m.index) })
-        next.push({ highlight: true, content: m[0], definition })
+        next.push({ highlight: true, content: m[0], definition, context })
         last = m.index + m[0].length
       }
       if (last < seg.content.length) next.push({ highlight: false, content: seg.content.slice(last) })
@@ -65,18 +68,19 @@ export function TranscriptViewer({
 }) {
   const [popup, setPopup] = useState<Popup | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const readAloud = useReadAloud(transcript)
 
-  const showAt = (term: string, definition: string | null, loading: boolean, el: Element) => {
+  const showAt = (term: string, definition: string | null, loading: boolean, el: Element, context?: string | null) => {
     const rect = el.getBoundingClientRect()
     const x = Math.min(Math.max(rect.left + rect.width / 2, 140), window.innerWidth - 140)
     const flipDown = rect.top < 140
     const y = flipDown ? rect.bottom : rect.top
-    setPopup({ term, definition, loading, saving: false, saved: false, x, y, flipDown })
+    setPopup({ term, definition, context, loading, saving: false, saved: false, x, y, flipDown })
   }
 
-  const handleTermClick = (term: string, definition: string, e: React.PointerEvent<HTMLSpanElement>) => {
+  const handleTermClick = (term: string, definition: string, context: string | null | undefined, e: React.PointerEvent<HTMLSpanElement>) => {
     e.stopPropagation()
-    showAt(term, definition, false, e.currentTarget)
+    showAt(term, definition, false, e.currentTarget, context)
   }
 
   const handlePointerUp = async () => {
@@ -145,26 +149,53 @@ export function TranscriptViewer({
   }, [])
 
   const segments = buildSegments(transcript, terms ?? [])
+  const active = readAloud.activeSentence >= 0 ? readAloud.sentences[readAloud.activeSentence] : null
+  const activeRange = active ? { start: active.start, end: active.start + active.text.length } : null
+
+  let charOffset = 0
 
   return (
     <div ref={containerRef} className="relative">
+      {readAloud.supported && (
+        <div className="flex items-center gap-2 mb-2.5">
+          <button
+            onClick={() => (readAloud.speaking ? (readAloud.paused ? readAloud.resume() : readAloud.pause()) : readAloud.play())}
+            className="flex items-center gap-1.5 text-[12px] font-medium text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/15 rounded-full px-3 py-1.5 transition-colors"
+          >
+            {readAloud.speaking && !readAloud.paused ? '⏸ Pause' : readAloud.paused ? '▶ Resume' : '▶ Read aloud'}
+          </button>
+          {readAloud.speaking && (
+            <button
+              onClick={readAloud.stop}
+              className="text-[12px] text-gray-600 hover:text-gray-400 transition-colors"
+            >
+              Stop
+            </button>
+          )}
+        </div>
+      )}
+
       <p
         className="text-[13px] text-gray-500 leading-relaxed select-text cursor-text whitespace-pre-wrap"
         onPointerUp={handlePointerUp}
       >
-        {segments.map((seg, i) =>
-          seg.highlight ? (
+        {segments.map((seg, i) => {
+          const segStart = charOffset
+          charOffset += seg.content.length
+          const isSpoken = !!activeRange && segStart < activeRange.end && segStart + seg.content.length > activeRange.start
+          const spokenClass = isSpoken ? 'bg-amber-500/20 rounded' : ''
+          return seg.highlight ? (
             <span
               key={i}
-              className="text-amber-400/80 underline decoration-amber-500/40 decoration-dotted underline-offset-2 cursor-pointer"
-              onPointerUp={e => handleTermClick(seg.content, seg.definition, e)}
+              className={`text-amber-400/80 underline decoration-amber-500/40 decoration-dotted underline-offset-2 cursor-pointer ${spokenClass}`}
+              onPointerUp={e => handleTermClick(seg.content, seg.definition, seg.context, e)}
             >
               {seg.content}
             </span>
           ) : (
-            seg.content
+            <span key={i} className={spokenClass}>{seg.content}</span>
           )
-        )}
+        })}
       </p>
 
       {popup && (
@@ -186,6 +217,11 @@ export function TranscriptViewer({
           ) : popup.definition ? (
             <>
               <p className="text-[12px] text-gray-400 leading-relaxed mb-2.5">{popup.definition}</p>
+              {popup.context && (
+                <p className="text-[11px] text-gray-600 leading-relaxed mb-2.5 pb-2.5 border-b border-white/[0.08] italic">
+                  {popup.context}
+                </p>
+              )}
               {sessionId && (
                 <button
                   onClick={saveFlashcard}

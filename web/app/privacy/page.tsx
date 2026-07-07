@@ -7,7 +7,7 @@ export const metadata: Metadata = {
 }
 
 export default function Privacy() {
-  const updated = '1 July 2026'
+  const updated = '7 July 2026'
 
   return (
     <main className="min-h-dvh bg-[#080810] text-white px-6 py-16">
@@ -24,7 +24,7 @@ export default function Privacy() {
           <section>
             <h2 className="text-[17px] font-semibold mb-3">What Demist does</h2>
             <p className="text-gray-400">
-              Demist is a study tool that listens to your lectures, picks out unfamiliar terminology, and builds a personal glossary for you to review. This policy explains what data we collect, why, and how it is handled.
+              Demist transcribes your lectures, reads them back, and explains and translates unfamiliar terminology in real time, building a personal glossary for you to review — built for students who find lectures harder to follow. This policy explains what data we collect, why, and how it is handled.
             </p>
           </section>
 
@@ -32,13 +32,16 @@ export default function Privacy() {
             <h2 className="text-[17px] font-semibold mb-3">Data we collect</h2>
             <ul className="space-y-3 text-gray-400">
               <li><span className="text-white font-medium">Email address</span>: used only for authentication via a one-time code. We do not send marketing emails.</li>
-              <li><span className="text-white font-medium">Audio recordings</span>: microphone audio is captured in short chunks, sent to Groq or OpenAI for transcription, and immediately discarded. We do not store audio files.</li>
-              <li><span className="text-white font-medium">Transcripts</span>: for live microphone sessions we do not save a transcript of the lecture unless your lecturer has consented for your module. For recordings you upload or capture from an officially provided source, transcripts are saved to your account.</li>
+              <li><span className="text-white font-medium">Audio recordings</span>: microphone audio is captured in short chunks, sent to Groq or OpenAI for transcription, and immediately discarded. We do not store audio files. If you turn on Private transcription in settings, microphone audio is transcribed entirely on your device and is never sent to us or any provider.</li>
+              <li><span className="text-white font-medium">Transcripts</span>: for live microphone sessions we save a transcript only if you've declared a support need in your profile, or your lecturer has consented for your module. For recordings you upload or capture from an officially provided source, transcripts are saved to your account.</li>
+              <li><span className="text-white font-medium">Term definitions</span>: to define a term we send the flagged term and a short excerpt of surrounding context to OpenAI. From the web app this is a single sentence per term, never full transcripts. Nothing sent for definitions is stored by us.</li>
               <li><span className="text-white font-medium">Detected terms</span>: the terms and definitions picked up from your sessions are stored in your account so you can review them later.</li>
               <li><span className="text-white font-medium">Profile information</span>: course, year of study, and date of birth. Used to tailor term explanations to your level and to keep the service age-appropriate. Date of birth is never shared.</li>
+              <li><span className="text-white font-medium">Support need</span>: an optional, self-declared category (hearing, reading/dyslexia, focus/attention, language, or unspecified) used only to unlock full transcript saving without requiring lecturer consent each time. You choose whether to set this, can change it any time in your profile, and it is never shared or used for any other purpose.</li>
               <li><span className="text-white font-medium">Session data</span>: timestamps and duration of recording sessions. Used to calculate your streak and weekly stats.</li>
               <li><span className="text-white font-medium">Flashcard history</span>: your grading responses (Again / Hard / Good / Easy) used to schedule spaced repetition reviews.</li>
               <li><span className="text-white font-medium">Usage analytics</span>: anonymised events (e.g. &quot;recording started&quot;, &quot;flashcard graded&quot;) collected via PostHog to help us improve the product. No personal data is included in these events.</li>
+              <li><span className="text-white font-medium">Pro waitlist</span>: if you join the waitlist we store your email and which feature prompted you, used only to contact you about Pro.</li>
             </ul>
           </section>
 

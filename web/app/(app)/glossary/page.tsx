@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { capture } from '@/lib/analytics'
+import { TermContext } from '@/components/TermContext'
 
 const ShareCard = dynamic(() => import('@/components/ShareCard').then(m => ({ default: m.ShareCard })), { ssr: false })
 
@@ -17,6 +18,7 @@ interface Term {
   created_at: string
   sm2_review_count: number
   known: boolean
+  context?: string | null
 }
 
 interface GlossarySession {
@@ -198,7 +200,7 @@ export default function Glossary() {
           { data: termsData, error: termsErr },
           { data: sessionsData, error: sessionsErr },
         ] = await Promise.all([
-          supabase.from('terms').select('id, term, definition, session_id, subject, created_at, sm2_review_count, known').eq('user_id', user.id).order('created_at', { ascending: true }),
+          supabase.from('terms').select('id, term, definition, session_id, subject, created_at, sm2_review_count, known, context').eq('user_id', user.id).order('created_at', { ascending: true }),
           supabase.from('sessions').select('id, name, started_at, subject').eq('user_id', user.id).order('started_at', { ascending: true }),
         ])
 
@@ -435,7 +437,11 @@ export default function Glossary() {
             </div>
           ) : (
             <>
-              <p className="text-[15px] font-semibold dark:text-white/90 text-gray-900 leading-snug">{t.term}</p>
+              <p className="text-[15px] font-semibold dark:text-white/90 text-gray-900 leading-snug">
+                {t.context ? (
+                  <TermContext term={t.term} definition={t.definition} context={t.context}>{t.term}</TermContext>
+                ) : t.term}
+              </p>
               <p className="text-[13px] text-gray-700 mt-1 leading-relaxed">{t.definition}</p>
             </>
           )}

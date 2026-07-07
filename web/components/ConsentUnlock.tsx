@@ -11,56 +11,6 @@ interface Consent {
   notes: string | null
 }
 
-// ── MicModeNotice ──────────────────────────────────────────────────────────────
-
-export function MicModeNotice() {
-  return (
-    <p className="text-[12px] text-gray-500 dark:text-white/60 text-center leading-relaxed">
-      Live mic sessions detect terms in real time but don&apos;t save a lecture transcript.
-    </p>
-  )
-}
-
-// ── MicModeGateContent ─────────────────────────────────────────────────────────
-// Reusable acknowledgment content shown before the first mic session per subject.
-
-export function MicModeGateContent({
-  subject,
-  onAcknowledge,
-  onCancel,
-  acknowledging,
-}: {
-  subject: string
-  onAcknowledge: () => void
-  onCancel: () => void
-  acknowledging: boolean
-}) {
-  return (
-    <div className="w-full max-w-sm dark:bg-[#0f0f17] bg-[#FDFCF9] border dark:border-white/[0.08] border-black/[0.10] rounded-t-[24px] sm:rounded-[24px] shadow-2xl px-6 py-7 animate-step opacity-0" style={{ animationFillMode: 'forwards' }}>
-      <p className="text-[10px] font-bold tracking-[0.18em] uppercase dark:text-amber-400/70 text-amber-700/80 mb-1.5">Before you record</p>
-      <p className="text-[18px] font-bold dark:text-white text-gray-900 mb-1">No transcript saved</p>
-      <p className="text-[13px] dark:text-white/60 text-gray-600 mb-6 leading-relaxed">
-        Live mic sessions detect terms in real time{subject ? ` for ${subject}` : ''}. No transcript is stored unless your lecturer has given consent — add consent any time from the banner below the mic button.
-      </p>
-      <div className="flex gap-2">
-        <button
-          onClick={onCancel}
-          className="flex-1 py-3 rounded-2xl dark:bg-white/[0.04] bg-[#F3F1EC] border dark:border-white/[0.07] border-black/[0.12] text-[14px] font-medium dark:text-gray-300 text-gray-700 active:scale-[0.97] transition-all"
-        >
-          Cancel
-        </button>
-        <button
-          onClick={onAcknowledge}
-          disabled={acknowledging}
-          className="flex-1 py-3 rounded-2xl bg-yellow-600 hover:brightness-110 text-white text-[14px] font-semibold active:scale-[0.97] transition-[filter,transform] duration-150 disabled:opacity-40"
-        >
-          {acknowledging ? 'One sec…' : 'Got it'}
-        </button>
-      </div>
-    </div>
-  )
-}
-
 // ── useMicModeAcknowledged ─────────────────────────────────────────────────────
 
 export function useMicModeAcknowledged(subject: string) {
@@ -74,51 +24,6 @@ export function useMicModeAcknowledged(subject: string) {
       .then(({ data }) => setAcknowledged(!!data))
   }, [subject])
   return acknowledged
-}
-
-// ── ConsentUnlockBanner ────────────────────────────────────────────────────────
-
-export function ConsentUnlockBanner({
-  currentSubject,
-  onOpenModal,
-  refreshKey,
-}: {
-  currentSubject: string | null | undefined
-  onOpenModal: () => void
-  refreshKey?: number
-}) {
-  const [hasConsent, setHasConsent] = useState<boolean | null>(null)
-
-  useEffect(() => {
-    if (!currentSubject) { setHasConsent(null); return }
-    const supabase = createClient()
-    supabase
-      .from('lecturer_consents')
-      .select('id')
-      .eq('module_name', currentSubject)
-      .maybeSingle()
-      .then(({ data }) => setHasConsent(!!data))
-  }, [currentSubject, refreshKey])
-
-  if (!currentSubject || hasConsent !== false) return null
-
-  return (
-    <div className="w-full rounded-2xl border border-amber-500/30 dark:bg-amber-500/[0.07] bg-amber-50 px-4 py-3 flex items-start gap-3 animate-step opacity-0" style={{ animationFillMode: 'forwards' }}>
-      <span className="text-amber-600 dark:text-amber-400 text-[17px] shrink-0 mt-0.5">⚠</span>
-      <div className="flex-1 min-w-0">
-        <p className="text-[13px] font-semibold dark:text-amber-300 text-amber-800 leading-snug">Lecturer&apos;s permission needed</p>
-        <p className="text-[12px] dark:text-amber-400/70 text-amber-700/80 mt-0.5 leading-relaxed">
-          UK law protects lectures as performances. Get written consent to save a transcript for {currentSubject}.
-        </p>
-      </div>
-      <button
-        onClick={() => { capture('consent_banner_clicked', { subject: currentSubject }); onOpenModal() }}
-        className="shrink-0 text-[12px] font-semibold dark:text-amber-300 text-amber-800 hover:dark:text-amber-200 hover:text-amber-900 transition-colors active:scale-[0.97]"
-      >
-        Learn&nbsp;more
-      </button>
-    </div>
-  )
 }
 
 // ── ConsentModal ───────────────────────────────────────────────────────────────
@@ -255,8 +160,10 @@ export function ConsentManager() {
   const [consents, setConsents] = useState<Consent[]>([])
   const [loading, setLoading] = useState(true)
   const [removing, setRemoving] = useState<string | null>(null)
+  const [addingSubject, setAddingSubject] = useState('')
+  const [showAddModal, setShowAddModal] = useState(false)
 
-  useEffect(() => {
+  const fetchConsents = () => {
     const supabase = createClient()
     supabase
       .from('lecturer_consents')
@@ -266,7 +173,9 @@ export function ConsentManager() {
         setConsents((data as Consent[]) ?? [])
         setLoading(false)
       })
-  }, [])
+  }
+
+  useEffect(() => { fetchConsents() }, [])
 
   const removeConsent = async (id: string, moduleName: string) => {
     setRemoving(id)
@@ -282,44 +191,69 @@ export function ConsentManager() {
     }
   }
 
-  if (loading) return (
-    <div className="space-y-2">
-      {[0, 1].map(i => (
-        <div key={i} className="h-14 dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl animate-pulse" />
-      ))}
-    </div>
-  )
-
-  if (!consents.length) return (
-    <div className="dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl px-4 py-4">
-      <p className="text-[13px] text-gray-600">No lecturer consents recorded yet.</p>
-      <p className="text-[12px] text-gray-500 mt-0.5">Use the consent banner on the dashboard to add one.</p>
-    </div>
-  )
-
   return (
-    <div className="space-y-2">
-      {consents.map(c => (
-        <div
-          key={c.id}
-          className="dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl px-4 py-3 flex items-center gap-3"
+    <div className="space-y-3">
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={addingSubject}
+          onChange={e => setAddingSubject(e.target.value)}
+          placeholder="Module or subject name"
+          maxLength={100}
+          className="flex-1 dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.10] border-black/[0.13] rounded-xl px-3 py-2 text-[13px] dark:text-white text-gray-900 placeholder-gray-500 focus:outline-none focus:border-yellow-500/50 transition-colors"
+        />
+        <button
+          onClick={() => { if (addingSubject.trim()) { capture('consent_modal_opened', { subject: addingSubject.trim() }); setShowAddModal(true) } }}
+          disabled={!addingSubject.trim()}
+          className="shrink-0 text-[13px] font-semibold text-yellow-600 dark:text-yellow-400 hover:opacity-80 disabled:opacity-40 transition-opacity px-3"
         >
-          <div className="flex-1 min-w-0">
-            <p className="text-[14px] font-medium dark:text-white/80 text-gray-800 truncate">{c.module_name}</p>
-            <p className="text-[11px] text-gray-600 mt-0.5 truncate">
-              {new Date(c.granted_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-              {c.notes ? ` · ${c.notes}` : ''}
-            </p>
-          </div>
-          <button
-            onClick={() => removeConsent(c.id, c.module_name)}
-            disabled={removing === c.id}
-            className="shrink-0 text-[12px] text-red-400/60 hover:text-red-400 transition-colors disabled:opacity-40 active:scale-[0.97]"
-          >
-            {removing === c.id ? '…' : 'Remove'}
-          </button>
+          Add
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="space-y-2">
+          {[0, 1].map(i => (
+            <div key={i} className="h-14 dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl animate-pulse" />
+          ))}
         </div>
-      ))}
+      ) : !consents.length ? (
+        <div className="dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl px-4 py-4">
+          <p className="text-[13px] text-gray-600">No lecturer consents recorded yet.</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {consents.map(c => (
+            <div
+              key={c.id}
+              className="dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl px-4 py-3 flex items-center gap-3"
+            >
+              <div className="flex-1 min-w-0">
+                <p className="text-[14px] font-medium dark:text-white/80 text-gray-800 truncate">{c.module_name}</p>
+                <p className="text-[11px] text-gray-600 mt-0.5 truncate">
+                  {new Date(c.granted_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  {c.notes ? ` · ${c.notes}` : ''}
+                </p>
+              </div>
+              <button
+                onClick={() => removeConsent(c.id, c.module_name)}
+                disabled={removing === c.id}
+                className="shrink-0 text-[12px] text-red-400/60 hover:text-red-400 transition-colors disabled:opacity-40 active:scale-[0.97]"
+              >
+                {removing === c.id ? '…' : 'Remove'}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {showAddModal && (
+        <ConsentModal
+          subject={addingSubject}
+          onClose={() => setShowAddModal(false)}
+          onGranted={() => { setShowAddModal(false); setAddingSubject(''); fetchConsents() }}
+        />
+      )}
     </div>
   )
 }

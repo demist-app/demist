@@ -7,7 +7,7 @@ export const metadata: Metadata = {
 }
 
 export default function Terms() {
-  const updated = '1 July 2026'
+  const updated = '7 July 2026'
 
   return (
     <main className="min-h-dvh bg-[#080810] text-white px-6 py-16">
@@ -24,14 +24,14 @@ export default function Terms() {
           <section>
             <h2 className="text-[17px] font-semibold mb-3">About Demist</h2>
             <p className="text-gray-400">
-              Demist is a study tool that helps university students understand lecture terminology in real time. It is provided as-is to support personal learning. By using Demist, you agree to these terms.
+              Demist transcribes lectures, reads them back, and explains and translates unfamiliar terminology in real time for university students, including those who find lectures harder to follow. It is provided as-is to support personal learning. By using Demist, you agree to these terms.
             </p>
           </section>
 
           <section>
             <h2 className="text-[17px] font-semibold mb-3">Acceptable use</h2>
             <p className="text-gray-400">
-              Demist is for your personal study only. You are responsible for ensuring you have any permissions required to record or process lectures at your institution — in particular, written consent from lecturers before saving transcripts in microphone mode. Do not use Demist to redistribute others&apos; lecture content publicly or in any way that infringes copyright or performers&apos; rights.
+              Demist is for your personal study only. You are responsible for ensuring you have any permissions required to record or process lectures at your institution — in microphone mode, transcripts are only saved if you've declared a support need in your profile or your lecturer has given written consent. Do not use Demist to redistribute others&apos; lecture content publicly or in any way that infringes copyright or performers&apos; rights.
             </p>
           </section>
 
@@ -54,6 +54,14 @@ export default function Terms() {
             <p className="text-gray-400">
               You may delete your account at any time from your profile settings. We may suspend or terminate accounts that misuse the service, abuse our systems, or violate these terms.
             </p>
+          </section>
+
+          <section>
+            <h2 className="text-[17px] font-semibold mb-3">Beta features and the Pro waitlist</h2>
+            <ul className="space-y-3 text-gray-400">
+              <li>Pro is not yet purchasable. Joining the waitlist creates no payment obligation. Waitlist members receive one free month of Pro when it launches.</li>
+              <li>Private transcription is a beta feature. Accuracy varies by device and environment, and cloud transcription remains available at any time.</li>
+            </ul>
           </section>
 
           <section>

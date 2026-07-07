@@ -5,11 +5,16 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { capture, reset } from '@/lib/analytics'
 import { ConsentManager } from '@/components/ConsentUnlock'
+import { useEntitlements } from '@/lib/entitlements'
+import { PaywallModal } from '@/components/PaywallModal'
+import { useLocalAsr, localAsrPreferred, setLocalAsrPreferred } from '@/lib/useLocalAsr'
 
 interface ProfileData {
   display_name: string | null
   course: string | null
   year_of_study: number | null
+  support_need: SupportNeed | null
+  translate_to: TranslateTo | null
   email: string
   is_public: boolean
 }
@@ -25,6 +30,26 @@ const YEAR_OPTIONS = [
   { value: 8, label: 'PhD' },
 ]
 
+type SupportNeed = 'hearing' | 'dyslexia' | 'attention' | 'language' | 'other'
+
+const SUPPORT_NEED_OPTIONS: { value: SupportNeed; label: string }[] = [
+  { value: 'hearing', label: 'Hearing' },
+  { value: 'dyslexia', label: 'Reading or dyslexia' },
+  { value: 'attention', label: 'Focus or attention' },
+  { value: 'language', label: 'English isn’t my first language' },
+  { value: 'other', label: 'Prefer not to say' },
+]
+
+type TranslateTo = 'zh' | 'ar' | 'hi' | 'es' | 'fr'
+
+const TRANSLATE_OPTIONS: { value: TranslateTo; label: string }[] = [
+  { value: 'zh', label: 'Mandarin' },
+  { value: 'ar', label: 'Arabic' },
+  { value: 'hi', label: 'Hindi' },
+  { value: 'es', label: 'Spanish' },
+  { value: 'fr', label: 'French' },
+]
+
 
 export default function Profile() {
   const router = useRouter()
@@ -32,6 +57,8 @@ export default function Profile() {
   const [displayName, setDisplayName] = useState('')
   const [course, setCourse] = useState('')
   const [year, setYear] = useState<number | null>(null)
+  const [supportNeed, setSupportNeed] = useState<SupportNeed | null>(null)
+  const [translateTo, setTranslateTo] = useState<TranslateTo | null>(null)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [isPublic, setIsPublic] = useState(false)
@@ -42,6 +69,23 @@ export default function Profile() {
   const [userId, setUserId] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
   const [exported, setExported] = useState(false)
+  const { limits } = useEntitlements()
+  const [paywall, setPaywall] = useState<string | null>(null)
+  const localAsr = useLocalAsr()
+  const [localAsrOn, setLocalAsrOn] = useState(false)
+  const [isMobile, setIsMobile] = useState(true)
+
+  useEffect(() => {
+    setLocalAsrOn(localAsrPreferred())
+    setIsMobile(/Android|iPhone|iPad|iPod/i.test(navigator.userAgent))
+  }, [])
+
+  const toggleLocalAsr = () => {
+    const next = !localAsrOn
+    setLocalAsrPreferred(next)
+    setLocalAsrOn(next)
+    if (next) localAsr.start()
+  }
 
   // Account deletion state
   const [showDeleteModal, setShowDeleteModal] = useState(false)
@@ -62,16 +106,18 @@ export default function Profile() {
         { count: termCount },
         { data: sessionRows },
       ] = await Promise.all([
-        supabase.from('profiles').select('display_name, course, year_of_study, is_public').eq('id', user.id).maybeSingle(),
+        supabase.from('profiles').select('display_name, course, year_of_study, support_need, translate_to, is_public').eq('id', user.id).maybeSingle(),
         supabase.from('terms').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
         supabase.from('sessions').select('started_at, ended_at').eq('user_id', user.id),
       ])
 
-      const p = prof as { display_name: string | null; course: string | null; year_of_study: number | null; is_public: boolean }
-      setProfile({ display_name: p?.display_name ?? null, course: p?.course ?? null, year_of_study: p?.year_of_study ?? null, email: user.email ?? '', is_public: p?.is_public ?? false })
+      const p = prof as { display_name: string | null; course: string | null; year_of_study: number | null; support_need: SupportNeed | null; translate_to: TranslateTo | null; is_public: boolean }
+      setProfile({ display_name: p?.display_name ?? null, course: p?.course ?? null, year_of_study: p?.year_of_study ?? null, support_need: p?.support_need ?? null, translate_to: p?.translate_to ?? null, email: user.email ?? '', is_public: p?.is_public ?? false })
       setDisplayName(p?.display_name ?? '')
       setCourse(p?.course ?? '')
       setYear(p?.year_of_study ?? null)
+      setSupportNeed(p?.support_need ?? null)
+      setTranslateTo(p?.translate_to ?? null)
       setIsPublic(p?.is_public ?? false)
       setTotalTerms(termCount ?? 0)
 
@@ -124,6 +170,8 @@ export default function Profile() {
           display_name: displayName.trim().slice(0, 60) || null,
           course: course.trim().slice(0, 100) || null,
           year_of_study: year,
+          support_need: supportNeed,
+          translate_to: translateTo,
           is_public: isPublic,
         })
         .eq('id', userId)
@@ -153,6 +201,7 @@ export default function Profile() {
   }
 
   const exportToAnki = async () => {
+    if (!limits.ankiExport) { setPaywall('anki_export'); return }
     setExporting(true)
     try {
       const supabase = createClient()
@@ -395,6 +444,55 @@ export default function Profile() {
             </div>
           </div>
 
+          <div>
+            <label className="text-[12px] text-gray-600 mb-1.5 block">Does anything make lectures harder to follow?</label>
+            <div className="grid grid-cols-2 gap-2">
+              {SUPPORT_NEED_OPTIONS.map(({ value, label }) => (
+                <button
+                  key={value}
+                  onClick={() => setSupportNeed(value)}
+                  className={`py-3 px-3 rounded-2xl text-[13px] font-medium transition-all ${
+                    supportNeed === value
+                      ? 'bg-yellow-600 border border-yellow-400/40 dark:text-white text-gray-900'
+                      : 'dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.08] border-black/[0.13] text-gray-600 hover:bg-white/[0.09]'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="text-[12px] text-gray-600 mb-1.5 block">Translate definitions into</label>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                onClick={() => setTranslateTo(null)}
+                className={`py-3 px-3 rounded-2xl text-[13px] font-medium transition-all ${
+                  translateTo === null
+                    ? 'bg-yellow-600 border border-yellow-400/40 dark:text-white text-gray-900'
+                    : 'dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.08] border-black/[0.13] text-gray-600 hover:bg-white/[0.09]'
+                }`}
+              >
+                English only
+              </button>
+              {TRANSLATE_OPTIONS.map(({ value, label }) => (
+                <button
+                  key={value}
+                  onClick={() => setTranslateTo(value)}
+                  className={`py-3 px-3 rounded-2xl text-[13px] font-medium transition-all ${
+                    translateTo === value
+                      ? 'bg-yellow-600 border border-yellow-400/40 dark:text-white text-gray-900'
+                      : 'dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.08] border-black/[0.13] text-gray-600 hover:bg-white/[0.09]'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <p className="text-[12px] text-gray-500 mt-1.5">Shows a one-line translation under each term&apos;s definition during live sessions.</p>
+          </div>
+
           <button
             onClick={handleSave}
             disabled={saving}
@@ -449,6 +547,37 @@ export default function Profile() {
             <span className="text-gray-600 text-[18px] leading-none">›</span>
           </a>
         </div>
+
+        {/* Private transcription */}
+        {!isMobile && (
+          <div className="space-y-3 animate-step opacity-0" style={{ animationDelay: '135ms', animationFillMode: 'forwards' }}>
+            <p className="text-[10px] font-bold tracking-[0.18em] text-gray-600 uppercase">Private transcription</p>
+            <div className="dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl px-4 py-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[14px] dark:text-white/80 text-gray-800 font-medium">Private transcription (beta)</p>
+                  <p className="text-[12px] text-gray-600 mt-0.5">Transcribes on this device. Audio never leaves your computer. Desktop only, downloads a 74MB model on first use.</p>
+                </div>
+                <button
+                  onClick={toggleLocalAsr}
+                  className={`relative w-11 h-6 rounded-full transition-colors duration-200 shrink-0 ${localAsrOn ? 'bg-yellow-600' : 'bg-white/[0.1]'}`}
+                >
+                  <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 ${localAsrOn ? 'translate-x-5' : 'translate-x-0'}`} />
+                </button>
+              </div>
+
+              {localAsrOn && localAsr.status === 'downloading' && (
+                <p className="text-[12px] text-gray-600">Downloading on-device model… {localAsr.progress}%</p>
+              )}
+              {localAsrOn && localAsr.status === 'ready' && localAsr.backend === 'wasm' && (
+                <p className="text-[12px] text-gray-600">Running without GPU acceleration, expect slower results.</p>
+              )}
+              {localAsrOn && localAsr.status === 'error' && (
+                <p className="text-[12px] text-red-400">Couldn&apos;t load the on-device model. Cloud transcription will be used instead.</p>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Lecturer consents */}
         <div className="space-y-3 animate-step opacity-0" style={{ animationDelay: '150ms', animationFillMode: 'forwards' }}>
@@ -519,6 +648,7 @@ export default function Profile() {
           </div>
         </div>
       )}
+      {paywall && <PaywallModal source={paywall} onClose={() => setPaywall(null)} />}
     </main>
   )
 }

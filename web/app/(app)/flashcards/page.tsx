@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { capture } from '@/lib/analytics'
+import { TermContext } from '@/components/TermContext'
 
 const NEW_CARDS_PER_DAY = 15
 
@@ -17,6 +18,7 @@ interface FlashCard {
   id: string
   term: string
   definition: string
+  context?: string | null
   sm2_interval: number
   sm2_ease: number
   sm2_review_count: number
@@ -145,7 +147,7 @@ export default function Flashcards() {
       const [{ data: reviews }, { data: newCards }, { count: totalTerms }, { data: sessionDates }, { data: subjectRows }, { data: recentSessions }] = await Promise.all([
         supabase
           .from('terms')
-          .select('id, term, definition, sm2_interval, sm2_ease, sm2_review_count, sm2_due_at')
+          .select('id, term, definition, context, sm2_interval, sm2_ease, sm2_review_count, sm2_due_at')
           .eq('user_id', user.id)
           .eq('known', false)
           .gt('sm2_review_count', 0)
@@ -153,7 +155,7 @@ export default function Flashcards() {
           .order('sm2_due_at', { ascending: true }),
         supabase
           .from('terms')
-          .select('id, term, definition, sm2_interval, sm2_ease, sm2_review_count, sm2_due_at')
+          .select('id, term, definition, context, sm2_interval, sm2_ease, sm2_review_count, sm2_due_at')
           .eq('user_id', user.id)
           .eq('known', false)
           .eq('sm2_review_count', 0)
@@ -216,7 +218,7 @@ export default function Flashcards() {
       if (!user) return
       const { data } = await supabase
         .from('terms')
-        .select('id, term, definition, sm2_interval, sm2_ease, sm2_review_count, sm2_due_at, subject')
+        .select('id, term, definition, context, sm2_interval, sm2_ease, sm2_review_count, sm2_due_at, subject')
         .eq('user_id', user.id)
         .order('subject', { ascending: true, nullsFirst: false })
         .order('created_at', { ascending: false })
@@ -246,11 +248,11 @@ export default function Flashcards() {
       const userId = userIdRef.current!
       const now = new Date().toISOString()
       let dueQ = supabase.from('terms')
-        .select('id, term, definition, sm2_interval, sm2_ease, sm2_review_count, sm2_due_at')
+        .select('id, term, definition, context, sm2_interval, sm2_ease, sm2_review_count, sm2_due_at')
         .eq('user_id', userId).eq('known', false).gt('sm2_review_count', 0).lte('sm2_due_at', now)
         .order('sm2_due_at', { ascending: true })
       let newQ = supabase.from('terms')
-        .select('id, term, definition, sm2_interval, sm2_ease, sm2_review_count, sm2_due_at')
+        .select('id, term, definition, context, sm2_interval, sm2_ease, sm2_review_count, sm2_due_at')
         .eq('user_id', userId).eq('known', false).eq('sm2_review_count', 0)
         .order('created_at', { ascending: true }).limit(NEW_CARDS_PER_DAY)
       if (deckFilter?.kind === 'subject') {
@@ -592,7 +594,11 @@ export default function Flashcards() {
                             ) : (
                               <div className="flex items-start gap-2">
                                 <div className="flex-1 min-w-0">
-                                  <p className="text-[14px] font-semibold dark:text-white/90 text-gray-900 leading-snug">{c.term}</p>
+                                  <p className="text-[14px] font-semibold dark:text-white/90 text-gray-900 leading-snug">
+                                    {c.context ? (
+                                      <TermContext term={c.term} definition={c.definition} context={c.context}>{c.term}</TermContext>
+                                    ) : c.term}
+                                  </p>
                                   <p className="text-[12px] text-gray-600 mt-0.5 leading-relaxed line-clamp-2">{c.definition}</p>
                                   {(c.sm2_review_count ?? 0) > 0 && (
                                     <p className="text-[11px] text-gray-700 mt-1 tabular-nums">
@@ -827,7 +833,11 @@ export default function Flashcards() {
                 <div className="space-y-2">
                   {reviewedCards.map(c => (
                     <div key={c.id} className="dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl px-4 py-3">
-                      <p className="text-[14px] font-medium dark:text-white/90 text-gray-900">{c.term}</p>
+                      <p className="text-[14px] font-medium dark:text-white/90 text-gray-900">
+                        {c.context ? (
+                          <TermContext term={c.term} definition={c.definition} context={c.context}>{c.term}</TermContext>
+                        ) : c.term}
+                      </p>
                       <p className="text-[12px] text-gray-700 mt-1 leading-relaxed">{c.definition}</p>
                     </div>
                   ))}

@@ -22,7 +22,7 @@ export const metadata: Metadata = {
     default: 'Demist: Never Feel Lost in a Lecture Again',
     template: '%s | Demist',
   },
-  description: 'Demist listens to your university lectures and picks out definitions for unfamiliar terms in real time. Build a personal glossary and review with spaced repetition flashcards.',
+  description: 'Demist transcribes your lectures, reads them back, and explains and translates unfamiliar terms in real time — for students who find lectures harder to follow. Builds a glossary and flashcards automatically.',
   keywords: ['lecture tool', 'study app', 'university students', 'real-time definitions', 'glossary builder', 'flashcards', 'spaced repetition', 'student productivity'],
   authors: [{ name: 'Demist' }],
   creator: 'Demist',
