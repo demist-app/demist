@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { createClient } from '@/lib/supabase'
 import { capture } from '@/lib/analytics'
 
@@ -87,7 +88,7 @@ export function ConsentModal({
     }
   }
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center px-4 pb-4 sm:pb-0 dark:bg-black/60 bg-black/30"
       style={{ backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}
@@ -150,7 +151,8 @@ export function ConsentModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 

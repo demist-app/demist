@@ -17,6 +17,7 @@ const DESKTOP_EXTRA = [
   { href: '/import',  label: 'Import' },
   { href: '/profile', label: 'Profile' },
   { href: '/stats',   label: 'Stats' },
+  { href: '/accessibility', label: 'Accessibility' },
 ]
 
 const MORE_ITEMS = [
@@ -37,6 +38,12 @@ const MORE_ITEMS = [
     label: 'Stats',
     desc: 'Streaks, terms learned, and progress',
     icon: StatsMenuIcon,
+  },
+  {
+    href: '/accessibility',
+    label: 'Accessibility',
+    desc: 'DSA support, read-aloud, and translation',
+    icon: AccessibilityMenuIcon,
   },
 ]
 
@@ -331,6 +338,18 @@ function StatsMenuIcon() {
     </svg>
   )
 }
+function AccessibilityMenuIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="4" r="1.6" fill="currentColor" stroke="none" />
+      <path d="M4.5 8.5c2.2.9 5 1.4 7.5 1.4s5.3-.5 7.5-1.4" />
+      <line x1="12" y1="9.9" x2="12" y2="15" />
+      <path d="M8 21l2.5-6" />
+      <path d="M16 21l-2.5-6" />
+    </svg>
+  )
+}
+
 function SunIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

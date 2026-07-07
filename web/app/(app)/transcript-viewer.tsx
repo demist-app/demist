@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { createClient } from '@/lib/supabase'
 import { useReadAloud } from '@/lib/readAloud'
 
@@ -117,6 +118,14 @@ export function TranscriptViewer({
     }
   }
 
+  const speakPopup = () => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window) || !popup) return
+    const parts = [popup.term, popup.context, popup.definition].filter(Boolean) as string[]
+    if (!parts.length) return
+    window.speechSynthesis.cancel()
+    window.speechSynthesis.speak(new SpeechSynthesisUtterance(parts.join('. ')))
+  }
+
   const saveFlashcard = async () => {
     if (!popup?.definition || !sessionId) return
     setPopup(prev => prev ? { ...prev, saving: true } : null)
@@ -198,7 +207,7 @@ export function TranscriptViewer({
         })}
       </p>
 
-      {popup && (
+      {popup && createPortal(
         <div
           className="fixed z-[100] w-[260px] bg-[#0e0e1c] border border-amber-500/25 rounded-xl px-4 py-3 shadow-[0_8px_32px_rgba(0,0,0,0.7)]"
           style={{
@@ -209,9 +218,25 @@ export function TranscriptViewer({
           onMouseDown={e => e.stopPropagation()}
           onPointerUp={e => e.stopPropagation()}
         >
-          <p className="text-[10px] font-bold tracking-[0.15em] text-amber-400/60 uppercase mb-1.5 truncate">
-            {popup.term}
-          </p>
+          <div className="flex items-start justify-between gap-2 mb-1.5">
+            <p className="text-[10px] font-bold tracking-[0.15em] text-amber-400/60 uppercase truncate">
+              {popup.term}
+            </p>
+            {!popup.loading && (popup.definition || popup.context) && readAloud.supported && (
+              <button
+                onClick={speakPopup}
+                aria-label="Read aloud"
+                title="Read term, sentence, and definition aloud"
+                className="shrink-0 text-amber-400/70 hover:text-amber-300 transition-colors"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                  <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+                  <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+                </svg>
+              </button>
+            )}
+          </div>
           {popup.loading ? (
             <p className="text-[12px] text-gray-600">Looking up...</p>
           ) : popup.definition ? (
@@ -235,7 +260,8 @@ export function TranscriptViewer({
           ) : (
             <p className="text-[12px] text-gray-600">Couldn't fetch an explanation. Try again.</p>
           )}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )

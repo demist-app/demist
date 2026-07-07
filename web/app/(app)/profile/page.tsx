@@ -546,6 +546,14 @@ export default function Profile() {
             <span className="text-[14px] dark:text-white/80 text-gray-800">View your stats</span>
             <span className="text-gray-600 text-[18px] leading-none">›</span>
           </a>
+
+          <a
+            href="/accessibility"
+            className="flex items-center justify-between w-full dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl px-4 py-3 hover:dark:bg-white/[0.05] bg-[#F6F5F2] transition-colors duration-150 active:scale-[0.97]"
+          >
+            <span className="text-[14px] dark:text-white/80 text-gray-800">Accessibility &amp; DSA support</span>
+            <span className="text-gray-600 text-[18px] leading-none">›</span>
+          </a>
         </div>
 
         {/* Private transcription */}
