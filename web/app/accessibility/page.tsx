@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { BackLink, CtaLink } from './NavLinks'
 
 export const metadata: Metadata = {
   title: 'Demist for DSA & Accessibility',
@@ -28,7 +29,7 @@ const useCases = [
 export default function AccessibilityPage() {
   return (
     <main className="min-h-screen px-6 sm:px-12 py-20 max-w-3xl mx-auto" style={{ color: 'var(--fg)' }}>
-      <a href="/" className="text-[12px] font-medium" style={{ color: 'var(--fg-faint)' }}>&larr; Demist</a>
+      <BackLink />
 
       <h1 className="text-[32px] sm:text-[42px] font-bold tracking-tight mt-8 mb-4 leading-tight">
         Built for students who find lectures harder to follow
@@ -97,13 +98,7 @@ export default function AccessibilityPage() {
         </p>
       </section>
 
-      <a
-        href="/login"
-        className="inline-block px-7 py-3.5 rounded-2xl text-[14px] font-semibold transition-colors"
-        style={{ background: 'var(--accent)', color: 'var(--accent-fg, #fff)' }}
-      >
-        Try Demist free
-      </a>
+      <CtaLink />
     </main>
   )
 }
