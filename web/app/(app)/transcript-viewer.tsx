@@ -54,20 +54,29 @@ function buildSegments(text: string, terms: TermHint[]): Segment[] {
   return segs
 }
 
+function splitSentences(text: string): string[] {
+  return text.split(/(?<=[.!?])\s+/).filter(s => s.trim())
+}
+
 export function TranscriptViewer({
   transcript,
   subject,
   year,
   terms,
   sessionId,
+  translation,
+  translationLang,
 }: {
   transcript: string
   subject: string | null
   year: number | null
   terms?: TermHint[]
   sessionId?: string
+  translation?: string | null
+  translationLang?: string | null
 }) {
   const [popup, setPopup] = useState<Popup | null>(null)
+  const [bilingual, setBilingual] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const readAloud = useReadAloud(transcript)
 
@@ -165,15 +174,17 @@ export function TranscriptViewer({
 
   return (
     <div ref={containerRef} className="relative">
-      {readAloud.supported && (
+      {(readAloud.supported || translation) && (
         <div className="flex items-center gap-2 mb-2.5">
-          <button
-            onClick={() => (readAloud.speaking ? (readAloud.paused ? readAloud.resume() : readAloud.pause()) : readAloud.play())}
-            className="flex items-center gap-1.5 text-[12px] font-medium text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/15 rounded-full px-3 py-1.5 transition-colors"
-          >
-            {readAloud.speaking && !readAloud.paused ? '⏸ Pause' : readAloud.paused ? '▶ Resume' : '▶ Read aloud'}
-          </button>
-          {readAloud.speaking && (
+          {readAloud.supported && (
+            <button
+              onClick={() => (readAloud.speaking ? (readAloud.paused ? readAloud.resume() : readAloud.pause()) : readAloud.play())}
+              className="flex items-center gap-1.5 text-[12px] font-medium text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/15 rounded-full px-3 py-1.5 transition-colors"
+            >
+              {readAloud.speaking && !readAloud.paused ? '⏸ Pause' : readAloud.paused ? '▶ Resume' : '▶ Read aloud'}
+            </button>
+          )}
+          {readAloud.supported && readAloud.speaking && (
             <button
               onClick={readAloud.stop}
               className="text-[12px] text-gray-600 hover:text-gray-400 transition-colors"
@@ -181,31 +192,87 @@ export function TranscriptViewer({
               Stop
             </button>
           )}
+          {translation && (
+            <button
+              onClick={() => setBilingual(b => !b)}
+              className={`flex items-center gap-1.5 text-[12px] font-medium rounded-full px-3 py-1.5 transition-colors ${
+                bilingual ? 'bg-amber-500/20 text-amber-300' : 'bg-amber-500/10 hover:bg-amber-500/15 text-amber-400 hover:text-amber-300'
+              }`}
+            >
+              Bilingual
+            </button>
+          )}
         </div>
       )}
 
-      <p
-        className="text-[13px] text-gray-500 leading-relaxed select-text cursor-text whitespace-pre-wrap"
-        onPointerUp={handlePointerUp}
-      >
-        {segments.map((seg, i) => {
-          const segStart = charOffset
-          charOffset += seg.content.length
-          const isSpoken = !!activeRange && segStart < activeRange.end && segStart + seg.content.length > activeRange.start
-          const spokenClass = isSpoken ? 'bg-amber-500/20 rounded' : ''
-          return seg.highlight ? (
-            <span
-              key={i}
-              className={`text-amber-400/80 underline decoration-amber-500/40 decoration-dotted underline-offset-2 cursor-pointer ${spokenClass}`}
-              onPointerUp={e => handleTermClick(seg.content, seg.definition, seg.context, e)}
-            >
-              {seg.content}
-            </span>
-          ) : (
-            <span key={i} className={spokenClass}>{seg.content}</span>
-          )
-        })}
-      </p>
+      {bilingual && translation ? (
+        <div className="space-y-2.5">
+          {splitSentences(transcript).map((sentence, i) => {
+            const segs = buildSegments(sentence, terms ?? [])
+            const tgt = splitSentences(translation)[i]
+            return (
+              <div key={i} className="grid grid-cols-1 md:grid-cols-2 gap-1 md:gap-4">
+                <p
+                  className="text-[13px] text-gray-500 leading-relaxed select-text cursor-text"
+                  onPointerUp={handlePointerUp}
+                >
+                  {segs.map((seg, j) => seg.highlight ? (
+                    <span
+                      key={j}
+                      className="text-amber-400/80 underline decoration-amber-500/40 decoration-dotted underline-offset-2 cursor-pointer"
+                      onPointerUp={e => handleTermClick(seg.content, seg.definition, seg.context, e)}
+                    >
+                      {seg.content}
+                    </span>
+                  ) : (
+                    <span key={j}>{seg.content}</span>
+                  ))}
+                </p>
+                <p
+                  dir={translationLang === 'ar' ? 'rtl' : undefined}
+                  className="text-[13px] leading-relaxed dark:text-amber-300/80 text-amber-700"
+                >
+                  {tgt ?? ''}
+                </p>
+              </div>
+            )
+          })}
+          {splitSentences(translation).slice(splitSentences(transcript).length).map((extra, i) => (
+            <div key={`extra-${i}`} className="grid grid-cols-1 md:grid-cols-2 gap-1 md:gap-4">
+              <p />
+              <p
+                dir={translationLang === 'ar' ? 'rtl' : undefined}
+                className="text-[13px] leading-relaxed dark:text-amber-300/80 text-amber-700"
+              >
+                {extra}
+              </p>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p
+          className="text-[13px] text-gray-500 leading-relaxed select-text cursor-text whitespace-pre-wrap"
+          onPointerUp={handlePointerUp}
+        >
+          {segments.map((seg, i) => {
+            const segStart = charOffset
+            charOffset += seg.content.length
+            const isSpoken = !!activeRange && segStart < activeRange.end && segStart + seg.content.length > activeRange.start
+            const spokenClass = isSpoken ? 'bg-amber-500/20 rounded' : ''
+            return seg.highlight ? (
+              <span
+                key={i}
+                className={`text-amber-400/80 underline decoration-amber-500/40 decoration-dotted underline-offset-2 cursor-pointer ${spokenClass}`}
+                onPointerUp={e => handleTermClick(seg.content, seg.definition, seg.context, e)}
+              >
+                {seg.content}
+              </span>
+            ) : (
+              <span key={i} className={spokenClass}>{seg.content}</span>
+            )
+          })}
+        </p>
+      )}
 
       {popup && createPortal(
         <div

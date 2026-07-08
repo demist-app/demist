@@ -10,12 +10,14 @@ import { startTabCapture, tabCaptureSupported } from '@/lib/tabCapture'
 import { checkRecordingLimit } from '@/lib/subscription'
 import { useEntitlements } from '@/lib/entitlements'
 import { useLocalAsr, localAsrPreferred } from '@/lib/useLocalAsr'
+import { useLocalTranslate, floresCode } from '@/lib/useLocalTranslate'
 import { extractCandidates } from '@/lib/extractTerms'
 
 const SummaryViewer = dynamic(() => import('../summary-viewer').then(m => ({ default: m.SummaryViewer })), { ssr: false })
 const OnboardingOverlay = dynamic(() => import('@/components/OnboardingOverlay').then(m => ({ default: m.OnboardingOverlay })), { ssr: false })
 const SessionReview = dynamic(() => import('@/components/SessionReview').then(m => ({ default: m.SessionReview })), { ssr: false })
 import { PaywallModal } from '@/components/PaywallModal'
+import { TranscriptBilingual } from '@/components/TranscriptBilingual'
 
 type CaptureMode = 'microphone' | 'tab'
 
@@ -158,6 +160,9 @@ export default function Dashboard() {
   const captureModeRef = useRef<CaptureMode>('microphone')
   const localAsr = useLocalAsr()
   const useLocalRef = useRef(false)
+  const localTranslate = useLocalTranslate()
+  const sentenceCountRef = useRef(0)
+  const [translatedSentences, setTranslatedSentences] = useState<(string | null)[]>([])
 
   const detectionBufferRef = useRef('')   // accumulated Whisper text waiting for detect-terms
   const lastDetectionTimeRef = useRef(0)  // ms timestamp of last detect-terms call
@@ -335,6 +340,7 @@ export default function Dashboard() {
 
       profileRef.current = prof as Profile
       setProfile(prof as Profile)
+      if ((prof as Profile)?.translate_to) localTranslate.start()
 
       const known = new Set<string>()
       const freq = new Map<string, number>()
@@ -400,7 +406,6 @@ export default function Dashboard() {
         subject: sessionSubjectRef.current || profileRef.current?.course || 'general',
         year: profileRef.current?.year_of_study ?? 1,
         known_terms: Array.from(knownTermsRef.current),
-        translate_to: profileRef.current?.translate_to || undefined,
       }),
     })
     if (!dtRes.ok) {
@@ -430,7 +435,7 @@ export default function Dashboard() {
     zeroTermChunksRef.current = 0
     chunkIntervalRef.current = 5_000
 
-    const filtered = (detected.terms as { term: string; definition: string; context?: string; translation?: string }[]).filter(t => {
+    const filtered = (detected.terms as { term: string; definition: string; context?: string }[]).filter(t => {
       const key = t.term.toLowerCase()
       return isLatinTerm(t.term) &&
              !knownTermsRef.current.has(key) &&
@@ -443,14 +448,20 @@ export default function Dashboard() {
       knownTermsRef.current.add(t.term.toLowerCase())
     }
 
+    // On-device translation only — nothing is sent anywhere for this.
+    const targetLang = profileRef.current?.translate_to ? floresCode(profileRef.current.translate_to) : null
+    const translations = targetLang && localTranslate.status === 'ready'
+      ? await Promise.all(filtered.map(t => localTranslate.translate(t.definition, targetLang)))
+      : filtered.map(() => '')
+
     // Optimistic UI: show the card and glossary entry immediately, before the
     // DB insert round-trip. dbId arriving later confirms the save.
-    setSessionGlossary(prev => [...filtered.map(t => ({ term: t.term, definition: t.definition, context: t.context ?? null, translation: t.translation ?? null })), ...prev])
-    const incoming: LiveTerm[] = filtered.slice(0, 1).map(t => ({
+    setSessionGlossary(prev => [...filtered.map((t, i) => ({ term: t.term, definition: t.definition, context: t.context ?? null, translation: translations[i] || null })), ...prev])
+    const incoming: LiveTerm[] = filtered.slice(0, 1).map((t, i) => ({
       id: `${Date.now()}-${Math.random()}`,
       term: t.term,
       definition: t.definition,
-      translation: t.translation ?? null,
+      translation: translations[i] || null,
       dismissing: false,
     }))
     setLiveTerms(prev => [...prev, ...incoming].slice(-3))
@@ -531,6 +542,26 @@ export default function Dashboard() {
     }))
   }
 
+  // Appends a sentence to the live transcript and, if the user has a translation
+  // language set, kicks off an on-device translation for it (never sent anywhere).
+  const appendSentence = (chunkText: string) => {
+    const idx = sentenceCountRef.current++
+    setSentences(prev => [...prev, chunkText])
+    setTranslatedSentences(prev => [...prev, null])
+    const targetLang = profileRef.current?.translate_to ? floresCode(profileRef.current.translate_to) : null
+    if (targetLang && localTranslate.status === 'ready') {
+      localTranslate.translate(chunkText, targetLang).then(translated => {
+        if (!translated) return
+        setTranslatedSentences(prev => {
+          if (idx >= prev.length) return prev
+          const next = [...prev]
+          next[idx] = translated
+          return next
+        })
+      })
+    }
+  }
+
   // On-device Whisper chunks can repeat a trailing word at the boundary; trim it
   // from the front of the next chunk before appending.
   const dedupeBoundary = (prev: string, next: string): string => {
@@ -547,7 +578,7 @@ export default function Dashboard() {
     const chunkText = dedupeBoundary(transcriptRef.current, rawText)
     if (!chunkText.trim()) return
     transcriptRef.current = transcriptRef.current ? transcriptRef.current + ' ' + chunkText : chunkText
-    if (!speechModeRef.current || !webSpeechHasFiredRef.current) setSentences(prev => [...prev, chunkText])
+    if (!speechModeRef.current || !webSpeechHasFiredRef.current) appendSentence(chunkText)
 
     detectionBufferRef.current += (detectionBufferRef.current ? ' ' : '') + chunkText
     const msSinceDetection = Date.now() - lastDetectionTimeRef.current
@@ -600,7 +631,7 @@ export default function Dashboard() {
       if (!tx?.text?.trim()) return
       const chunkText = tx.text.trim()
       transcriptRef.current = transcriptRef.current ? transcriptRef.current + ' ' + chunkText : chunkText
-      if (!speechModeRef.current || !webSpeechHasFiredRef.current) setSentences(prev => [...prev, chunkText])
+      if (!speechModeRef.current || !webSpeechHasFiredRef.current) appendSentence(chunkText)
 
       // Accumulate text; only call detect-terms every ~15s to keep GPT cost constant
       detectionBufferRef.current += (detectionBufferRef.current ? ' ' : '') + chunkText
@@ -731,6 +762,7 @@ export default function Dashboard() {
     isActiveRef.current = true
     termFrequencyRef.current = new Map()
     sentTermsRef.current = new Set()
+    sentenceCountRef.current = 0
     transcriptRef.current = ''
     chunkIndexRef.current = 0
     detectionBufferRef.current = ''
@@ -743,7 +775,7 @@ export default function Dashboard() {
     allSessionTermsRef.current = []
     startingRef.current = false
     setIsRecording(true); setElapsed(0); setLiveTerms([]); setSessionGlossary([]); setRecordingError(null)
-    setSentences([]); setIsScrolledUp(false); autoScrollRef.current = true
+    setSentences([]); setTranslatedSentences([]); setIsScrolledUp(false); autoScrollRef.current = true
     setLiveSessionId(sessionId)
     setWakeLockUnsupported(!wakeLockSupported())
     window.postMessage({ source: 'demist', type: 'recording-started' }, window.location.origin)
@@ -964,6 +996,8 @@ export default function Dashboard() {
       const capturedSubject = sessionSubjectRef.current || profileRef.current?.course
       const capturedGlossary = [...sessionGlossary]
       const capturedMode = captureModeRef.current
+      const capturedTranslation = translatedSentences.filter(Boolean).join(' ')
+      const capturedTranslateLang = profileRef.current?.translate_to || null
       setTimeout(async () => {
         try {
           const sb = createClient()
@@ -989,7 +1023,11 @@ export default function Dashboard() {
           const speechTx = webSpeechFinalRef.current.trim()
           const tx = speechTx.length > whisperTx.length ? speechTx : whisperTx
           if (tx) {
-            await sb.from('sessions').update({ transcript: tx }).eq('id', capturedSid)
+            await sb.from('sessions').update({
+              transcript: tx,
+              transcript_translation: capturedTranslation || null,
+              translation_lang: capturedTranslation ? capturedTranslateLang : null,
+            }).eq('id', capturedSid)
             setRecentSessions(prev => prev.map(s => s.id === capturedSid ? { ...s, transcript: tx } : s))
           }
           const { data } = await sb.functions.invoke('summarize-session', {
@@ -1286,17 +1324,24 @@ export default function Dashboard() {
                   {sentences.length === 0 && (
                     <p className="text-[13px] text-gray-700 italic">Transcription will appear here as you speak…</p>
                   )}
-                  {sentences.map((sentence, index) => {
-                    const age = Math.min(sentences.length - 1 - index, 5)
-                    return (
-                      <p
-                        key={index}
-                        data-age={age}
-                        className="text-sm leading-relaxed mb-1 transition-opacity duration-500"
-                        dangerouslySetInnerHTML={{ __html: highlightTerms(sentence) }}
-                      />
-                    )
-                  })}
+                  {profile?.translate_to ? (
+                    <TranscriptBilingual
+                      pairs={sentences.map((s, i) => ({ srcHtml: highlightTerms(s), tgt: translatedSentences[i] ?? null }))}
+                      lang={profile.translate_to}
+                    />
+                  ) : (
+                    sentences.map((sentence, index) => {
+                      const age = Math.min(sentences.length - 1 - index, 5)
+                      return (
+                        <p
+                          key={index}
+                          data-age={age}
+                          className="text-sm leading-relaxed mb-1 transition-opacity duration-500"
+                          dangerouslySetInnerHTML={{ __html: highlightTerms(sentence) }}
+                        />
+                      )
+                    })
+                  )}
                 </div>
                 {isScrolledUp && (
                   <button

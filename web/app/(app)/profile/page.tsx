@@ -8,6 +8,7 @@ import { ConsentManager } from '@/components/ConsentUnlock'
 import { useEntitlements } from '@/lib/entitlements'
 import { PaywallModal } from '@/components/PaywallModal'
 import { useLocalAsr, localAsrPreferred, setLocalAsrPreferred } from '@/lib/useLocalAsr'
+import { useLocalTranslate } from '@/lib/useLocalTranslate'
 
 interface ProfileData {
   display_name: string | null
@@ -74,11 +75,17 @@ export default function Profile() {
   const localAsr = useLocalAsr()
   const [localAsrOn, setLocalAsrOn] = useState(false)
   const [isMobile, setIsMobile] = useState(true)
+  const localTranslate = useLocalTranslate()
 
   useEffect(() => {
     setLocalAsrOn(localAsrPreferred())
     setIsMobile(/Android|iPhone|iPad|iPod/i.test(navigator.userAgent))
   }, [])
+
+  useEffect(() => {
+    if (translateTo) localTranslate.start()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [translateTo])
 
   const toggleLocalAsr = () => {
     const next = !localAsrOn
@@ -490,7 +497,16 @@ export default function Profile() {
                 </button>
               ))}
             </div>
-            <p className="text-[12px] text-gray-500 mt-1.5">Shows a one-line translation under each term&apos;s definition during live sessions.</p>
+            <p className="text-[12px] text-gray-500 mt-1.5">Shows a one-line translation under each term&apos;s definition and live sentence during recording. Runs entirely on this device — nothing is sent anywhere to translate.</p>
+            {translateTo && localTranslate.status === 'downloading' && (
+              <p className="text-[12px] text-gray-600 mt-1.5">Downloading translation model… {localTranslate.progress}%</p>
+            )}
+            {translateTo && localTranslate.status === 'ready' && localTranslate.backend === 'wasm' && (
+              <p className="text-[12px] text-gray-600 mt-1.5">Running without GPU acceleration, expect slower results.</p>
+            )}
+            {translateTo && localTranslate.status === 'error' && (
+              <p className="text-[12px] text-red-400 mt-1.5">Couldn&apos;t load the translation model. Term and sentence translation are unavailable until this loads — everything else still works.</p>
+            )}
           </div>
 
           <button

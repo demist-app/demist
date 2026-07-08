@@ -24,6 +24,8 @@ interface Session {
   subject: string | null
   synopsis: string | null
   transcript: string | null
+  transcript_translation: string | null
+  translation_lang: string | null
   started_at: string
   ended_at: string | null
   termCount: number
@@ -102,7 +104,7 @@ export default function History() {
 
       let sessionsQuery = supabase
         .from('sessions')
-        .select('id, name, subject, synopsis, transcript, started_at, ended_at')
+        .select('id, name, subject, synopsis, transcript, transcript_translation, translation_lang, started_at, ended_at')
         .eq('user_id', user.id)
         .order('started_at', { ascending: false })
         .limit(100)
@@ -141,6 +143,8 @@ export default function History() {
         name: (s as { name?: string | null }).name ?? null,
         synopsis: s.synopsis ?? null,
         transcript: (s as { transcript?: string | null }).transcript ?? null,
+        transcript_translation: (s as { transcript_translation?: string | null }).transcript_translation ?? null,
+        translation_lang: (s as { translation_lang?: string | null }).translation_lang ?? null,
         termCount: countMap[s.id] ?? 0,
         preview: previewMap[s.id] ?? [],
         expanded: false,
@@ -659,7 +663,7 @@ export default function History() {
                                 Transcript
                               </summary>
                               <div className="mt-2">
-                                <TranscriptViewer transcript={s.transcript} subject={s.subject} year={null} sessionId={s.id} terms={s.terms?.map(t => ({ term: t.term, definition: t.definition, context: t.context }))} />
+                                <TranscriptViewer transcript={s.transcript} subject={s.subject} year={null} sessionId={s.id} terms={s.terms?.map(t => ({ term: t.term, definition: t.definition, context: t.context }))} translation={s.transcript_translation} translationLang={s.translation_lang} />
                               </div>
                             </details>
                           ) : (

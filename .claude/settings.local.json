@@ -143,7 +143,9 @@
       "Bash(unzip -o \"C:\\\\Users\\\\shivb\\\\Downloads\\\\demist-local-kit.zip\" -d .)",
       "Bash(supabase migration *)",
       "Bash(npm i *)",
-      "Bash(deno check *)"
+      "Bash(deno check *)",
+      "Bash(unzip -l \"C:\\\\Users\\\\shivb\\\\Downloads\\\\demist-local-kit \\(1\\).zip\")",
+      "Bash(grep -n \"sentences.map\\(\\(sentence, index\\)\\\\|handleTranscriptClick\\\\|import { PaywallModal }\" \"app/\\(app\\)/dashboard/page.tsx\")"
     ],
     "additionalDirectories": [
       "c:\\Users\\shivb\\Desktop\\coding bits\\demist\\web\\app\\u",
