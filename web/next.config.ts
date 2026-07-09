@@ -25,11 +25,11 @@ const nextConfig: NextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://eu.posthog.com",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://eu.posthog.com https://cdn.jsdelivr.net",
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: blob: https:",
               "font-src 'self' data:",
-              "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.openai.com https://eu.i.posthog.com https://eu-assets.i.posthog.com https://huggingface.co https://*.huggingface.co https://*.hf.co",
+              "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.openai.com https://eu.i.posthog.com https://eu-assets.i.posthog.com https://huggingface.co https://*.huggingface.co https://*.hf.co https://cdn.jsdelivr.net",
               "media-src 'self' blob:",
               "worker-src 'self' blob:",
               "frame-ancestors 'none'",

@@ -145,7 +145,10 @@
       "Bash(npm i *)",
       "Bash(deno check *)",
       "Bash(unzip -l \"C:\\\\Users\\\\shivb\\\\Downloads\\\\demist-local-kit \\(1\\).zip\")",
-      "Bash(grep -n \"sentences.map\\(\\(sentence, index\\)\\\\|handleTranscriptClick\\\\|import { PaywallModal }\" \"app/\\(app\\)/dashboard/page.tsx\")"
+      "Bash(grep -n \"sentences.map\\(\\(sentence, index\\)\\\\|handleTranscriptClick\\\\|import { PaywallModal }\" \"app/\\(app\\)/dashboard/page.tsx\")",
+      "Bash(curl -sI https://demist.app/dashboard)",
+      "Bash(curl -sI https://demist.app/)",
+      "Bash(curl -sIL https://www.demist.app/)"
     ],
     "additionalDirectories": [
       "c:\\Users\\shivb\\Desktop\\coding bits\\demist\\web\\app\\u",
