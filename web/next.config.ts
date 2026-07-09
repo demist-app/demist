@@ -29,7 +29,7 @@ const nextConfig: NextConfig = {
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: blob: https:",
               "font-src 'self' data:",
-              "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.openai.com https://eu.i.posthog.com https://eu-assets.i.posthog.com",
+              "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.openai.com https://eu.i.posthog.com https://eu-assets.i.posthog.com https://huggingface.co https://*.huggingface.co https://*.hf.co",
               "media-src 'self' blob:",
               "worker-src 'self' blob:",
               "frame-ancestors 'none'",
