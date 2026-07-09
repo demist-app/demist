@@ -1,12 +1,12 @@
 import type { Metadata } from 'next'
-import { AccessibilityClient } from './accessibility-client'
+import { AboutClient } from './about-client'
 
 export const metadata: Metadata = {
-  title: 'Demist for DSA & Accessibility',
+  title: 'About Demist',
   description: 'Demist helps students who struggle to listen and take notes at the same time. Real-time term explanations, automatic notes, and flashcards from every lecture.',
-  alternates: { canonical: 'https://demist.app/accessibility' },
+  alternates: { canonical: 'https://demist.app/about' },
 }
 
-export default function AccessibilityPage() {
-  return <AccessibilityClient />
+export default function AboutPage() {
+  return <AboutClient />
 }

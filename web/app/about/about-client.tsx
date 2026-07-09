@@ -23,7 +23,7 @@ const useCases = [
   },
 ]
 
-export function AccessibilityClient() {
+export function AboutClient() {
   const [authed, setAuthed] = useState(false)
 
   useEffect(() => {
