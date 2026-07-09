@@ -21,6 +21,14 @@ import { TranscriptBilingual } from '@/components/TranscriptBilingual'
 
 type CaptureMode = 'microphone' | 'tab'
 
+const LANGUAGE_NAMES: Record<string, string> = {
+  zh: 'Mandarin',
+  ar: 'Arabic',
+  hi: 'Hindi',
+  es: 'Spanish',
+  fr: 'French',
+}
+
 interface LiveTerm {
   id: string
   term: string
@@ -130,6 +138,7 @@ export default function Dashboard() {
   const [tabCaptureSupportedState, setTabCaptureSupportedState] = useState(false)
   const [sentences, setSentences] = useState<string[]>([])
   const [isScrolledUp, setIsScrolledUp] = useState(false)
+  const [transcriptView, setTranscriptView] = useState<'both' | 'source' | 'translated'>('both')
   const [liveSessionId, setLiveSessionId] = useState<string | null>(null)
   const [reviewTerms, setReviewTerms] = useState<{ term: string; definition: string; dbId?: string }[] | null>(null)
   const [sessionSubject, setSessionSubject] = useState<string>('')
@@ -283,7 +292,14 @@ export default function Dashboard() {
       setShowAddToHomeScreen(true)
     }
     setTabCaptureSupportedState(tabCaptureSupported())
+    const savedView = localStorage.getItem('demist_transcript_view')
+    if (savedView === 'both' || savedView === 'source' || savedView === 'translated') setTranscriptView(savedView)
   }, [])
+
+  const changeTranscriptView = (view: 'both' | 'source' | 'translated') => {
+    setTranscriptView(view)
+    localStorage.setItem('demist_transcript_view', view)
+  }
 
   // Warm up on-device transcription in the background so it's ready by the time
   // the user hits record, rather than downloading the model mid-lecture.
@@ -544,23 +560,36 @@ export default function Dashboard() {
 
   // Appends a sentence to the live transcript and, if the user has a translation
   // language set, kicks off an on-device translation for it (never sent anywhere).
+  const translateSentenceAt = (idx: number, text: string, targetLang: string) => {
+    localTranslate.translate(text, targetLang).then(translated => {
+      setTranslatedSentences(prev => {
+        if (idx >= prev.length) return prev
+        const next = [...prev]
+        next[idx] = translated || ''
+        return next
+      })
+    })
+  }
+
   const appendSentence = (chunkText: string) => {
     const idx = sentenceCountRef.current++
     setSentences(prev => [...prev, chunkText])
     setTranslatedSentences(prev => [...prev, null])
     const targetLang = profileRef.current?.translate_to ? floresCode(profileRef.current.translate_to) : null
-    if (targetLang && localTranslate.status === 'ready') {
-      localTranslate.translate(chunkText, targetLang).then(translated => {
-        if (!translated) return
-        setTranslatedSentences(prev => {
-          if (idx >= prev.length) return prev
-          const next = [...prev]
-          next[idx] = translated
-          return next
-        })
-      })
-    }
+    if (targetLang && localTranslate.status === 'ready') translateSentenceAt(idx, chunkText, targetLang)
   }
+
+  // Catch up any sentences that arrived while the translation model was still
+  // downloading — otherwise they'd be stuck showing the pending marker forever.
+  useEffect(() => {
+    if (localTranslate.status !== 'ready') return
+    const targetLang = profileRef.current?.translate_to ? floresCode(profileRef.current.translate_to) : null
+    if (!targetLang) return
+    translatedSentences.forEach((t, i) => {
+      if (t === null && sentences[i]) translateSentenceAt(i, sentences[i], targetLang)
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [localTranslate.status])
 
   // On-device Whisper chunks can repeat a trailing word at the boundary; trim it
   // from the front of the next chunk before appending.
@@ -1314,22 +1343,52 @@ export default function Dashboard() {
 
             {/* Live transcript — fills the space between the recording button and term cards */}
             <div className="flex-1 min-h-[80px] px-4 sm:px-6 py-3 relative z-10">
-              <div className="relative h-full">
+              <div className="relative h-full flex flex-col">
+                {profile?.translate_to && (
+                  <div className="shrink-0 flex items-center justify-between gap-2 mb-2">
+                    <div className="flex dark:bg-white/[0.07] bg-black/[0.06] rounded-full p-1">
+                      {([
+                        { key: 'source', label: 'English' },
+                        { key: 'both', label: 'Both' },
+                        { key: 'translated', label: LANGUAGE_NAMES[profile.translate_to] ?? 'Translated' },
+                      ] as const).map(({ key, label }) => (
+                        <button
+                          key={key}
+                          onClick={() => changeTranscriptView(key)}
+                          className={`text-[11px] font-medium px-2.5 py-1 rounded-full transition-all ${
+                            transcriptView === key
+                              ? 'bg-amber-500 text-white shadow-sm'
+                              : 'text-gray-500 dark:text-white/45 hover:text-gray-700 dark:hover:text-white/65'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    {localTranslate.status === 'downloading' && (
+                      <span className="text-[11px] text-gray-600 shrink-0">Downloading model… {localTranslate.progress}%</span>
+                    )}
+                    {localTranslate.status === 'error' && (
+                      <span className="text-[11px] text-red-400 shrink-0">Translation unavailable</span>
+                    )}
+                  </div>
+                )}
                 <div
                   ref={transcriptContainerRef}
                   onScroll={handleTranscriptScroll}
                   onClick={handleTranscriptClick}
-                  className={`transcript-container h-full overflow-y-auto ${isScrolledUp ? 'scrolled-up' : ''}`}
+                  className={`transcript-container flex-1 overflow-y-auto ${isScrolledUp ? 'scrolled-up' : ''}`}
                 >
                   {sentences.length === 0 && (
                     <p className="text-[13px] text-gray-700 italic">Transcription will appear here as you speak…</p>
                   )}
-                  {profile?.translate_to ? (
+                  {profile?.translate_to && transcriptView === 'both' && (
                     <TranscriptBilingual
                       pairs={sentences.map((s, i) => ({ srcHtml: highlightTerms(s), tgt: translatedSentences[i] ?? null }))}
                       lang={profile.translate_to}
                     />
-                  ) : (
+                  )}
+                  {(!profile?.translate_to || transcriptView === 'source') && (
                     sentences.map((sentence, index) => {
                       const age = Math.min(sentences.length - 1 - index, 5)
                       return (
@@ -1339,6 +1398,22 @@ export default function Dashboard() {
                           className="text-sm leading-relaxed mb-1 transition-opacity duration-500"
                           dangerouslySetInnerHTML={{ __html: highlightTerms(sentence) }}
                         />
+                      )
+                    })
+                  )}
+                  {profile?.translate_to && transcriptView === 'translated' && (
+                    sentences.map((_, index) => {
+                      const age = Math.min(sentences.length - 1 - index, 5)
+                      const tgt = translatedSentences[index]
+                      return (
+                        <p
+                          key={index}
+                          data-age={age}
+                          dir={profile.translate_to === 'ar' ? 'rtl' : undefined}
+                          className="text-sm leading-relaxed mb-1 transition-opacity duration-500 dark:text-amber-300/80 text-amber-700"
+                        >
+                          {tgt === null ? <span className="dark:text-white/25 text-gray-400">⋯</span> : tgt}
+                        </p>
                       )
                     })
                   )}
