@@ -148,7 +148,10 @@
       "Bash(grep -n \"sentences.map\\(\\(sentence, index\\)\\\\|handleTranscriptClick\\\\|import { PaywallModal }\" \"app/\\(app\\)/dashboard/page.tsx\")",
       "Bash(curl -sI https://demist.app/dashboard)",
       "Bash(curl -sI https://demist.app/)",
-      "Bash(curl -sIL https://www.demist.app/)"
+      "Bash(curl -sIL https://www.demist.app/)",
+      "Bash(curl -sL -o /dev/null -w \"%{url_effective}\\\\n%{http_code}\\\\n\" \"https://huggingface.co/Xenova/nllb-200-distilled-600M/resolve/main/config.json\")",
+      "Bash(curl -sIL \"https://huggingface.co/Xenova/nllb-200-distilled-600M/resolve/main/onnx/encoder_model_quantized.onnx\")",
+      "Bash(curl -sIL \"https://huggingface.co/onnx-community/whisper-base.en/resolve/main/onnx/encoder_model_quantized.onnx\")"
     ],
     "additionalDirectories": [
       "c:\\Users\\shivb\\Desktop\\coding bits\\demist\\web\\app\\u",

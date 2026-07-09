@@ -16,6 +16,10 @@ async function load() {
   if (translator || loading) return
   loading = true
   const hasWebGPU = typeof navigator !== 'undefined' && 'gpu' in navigator
+  // Multiple files (weights, tokenizer, config) download concurrently; track bytes
+  // per file and report the combined ratio so the percentage doesn't jump around
+  // as individual files report their own progress out of sync with each other.
+  const fileProgress = new Map<string, { loaded: number; total: number }>()
   try {
     translator = await pipeline('translation', 'Xenova/nllb-200-distilled-600M', {
       device: hasWebGPU ? 'webgpu' : 'wasm',
@@ -23,7 +27,10 @@ async function load() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       progress_callback: (p: any) => {
         if (p.status === 'progress' && p.total) {
-          self.postMessage({ type: 'progress', pct: Math.round((p.loaded / p.total) * 100), file: p.file })
+          fileProgress.set(p.file, { loaded: p.loaded, total: p.total })
+          let loaded = 0, total = 0
+          for (const f of fileProgress.values()) { loaded += f.loaded; total += f.total }
+          self.postMessage({ type: 'progress', pct: Math.round((loaded / total) * 100) })
         }
       },
     })
