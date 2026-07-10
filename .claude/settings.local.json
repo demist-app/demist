@@ -151,7 +151,10 @@
       "Bash(curl -sIL https://www.demist.app/)",
       "Bash(curl -sL -o /dev/null -w \"%{url_effective}\\\\n%{http_code}\\\\n\" \"https://huggingface.co/Xenova/nllb-200-distilled-600M/resolve/main/config.json\")",
       "Bash(curl -sIL \"https://huggingface.co/Xenova/nllb-200-distilled-600M/resolve/main/onnx/encoder_model_quantized.onnx\")",
-      "Bash(curl -sIL \"https://huggingface.co/onnx-community/whisper-base.en/resolve/main/onnx/encoder_model_quantized.onnx\")"
+      "Bash(curl -sIL \"https://huggingface.co/onnx-community/whisper-base.en/resolve/main/onnx/encoder_model_quantized.onnx\")",
+      "Bash(unzip -l \"C:\\\\Users\\\\shivb\\\\Downloads\\\\demist-local-kit \\(2\\).zip\")",
+      "Bash(mkdir -p /c/Users/shivb/AppData/Local/Temp/claude/c--Users-shivb-Desktop-coding-bits-demist/f6494467-8550-4b50-ae20-2b06aa1ca69b/scratchpad/kit)",
+      "Bash(unzip -o 'C:\\\\Users\\\\shivb\\\\Downloads\\\\demist-local-kit \\(2\\).zip' -d /c/Users/shivb/AppData/Local/Temp/claude/c--Users-shivb-Desktop-coding-bits-demist/f6494467-8550-4b50-ae20-2b06aa1ca69b/scratchpad/kit)"
     ],
     "additionalDirectories": [
       "c:\\Users\\shivb\\Desktop\\coding bits\\demist\\web\\app\\u",

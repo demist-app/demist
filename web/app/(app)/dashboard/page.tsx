@@ -464,20 +464,29 @@ export default function Dashboard() {
       knownTermsRef.current.add(t.term.toLowerCase())
     }
 
-    // On-device translation only — nothing is sent anywhere for this.
+    // On-device translation only — nothing is sent anywhere for this. Cards
+    // render immediately; translations patch in whenever the worker resolves
+    // them (it queues internally, so this fires unconditionally regardless of
+    // whether the model has finished loading yet).
     const targetLang = profileRef.current?.translate_to ? floresCode(profileRef.current.translate_to) : null
-    const translations = targetLang && localTranslate.status === 'ready'
-      ? await Promise.all(filtered.map(t => localTranslate.translate(t.definition, targetLang)))
-      : filtered.map(() => '')
+    if (targetLang) {
+      for (const t of filtered) {
+        localTranslate.translate(t.definition, targetLang).then(translated => {
+          if (!translated) return
+          setSessionGlossary(prev => prev.map(g => (g.term === t.term && g.definition === t.definition) ? { ...g, translation: translated } : g))
+          setLiveTerms(prev => prev.map(lt => lt.term === t.term ? { ...lt, translation: translated } : lt))
+        })
+      }
+    }
 
     // Optimistic UI: show the card and glossary entry immediately, before the
     // DB insert round-trip. dbId arriving later confirms the save.
-    setSessionGlossary(prev => [...filtered.map((t, i) => ({ term: t.term, definition: t.definition, context: t.context ?? null, translation: translations[i] || null })), ...prev])
-    const incoming: LiveTerm[] = filtered.slice(0, 1).map((t, i) => ({
+    setSessionGlossary(prev => [...filtered.map(t => ({ term: t.term, definition: t.definition, context: t.context ?? null, translation: null })), ...prev])
+    const incoming: LiveTerm[] = filtered.slice(0, 1).map(t => ({
       id: `${Date.now()}-${Math.random()}`,
       term: t.term,
       definition: t.definition,
-      translation: translations[i] || null,
+      translation: null,
       dismissing: false,
     }))
     setLiveTerms(prev => [...prev, ...incoming].slice(-3))
@@ -576,20 +585,8 @@ export default function Dashboard() {
     setSentences(prev => [...prev, chunkText])
     setTranslatedSentences(prev => [...prev, null])
     const targetLang = profileRef.current?.translate_to ? floresCode(profileRef.current.translate_to) : null
-    if (targetLang && localTranslate.status === 'ready') translateSentenceAt(idx, chunkText, targetLang)
+    if (targetLang) translateSentenceAt(idx, chunkText, targetLang)
   }
-
-  // Catch up any sentences that arrived while the translation model was still
-  // downloading — otherwise they'd be stuck showing the pending marker forever.
-  useEffect(() => {
-    if (localTranslate.status !== 'ready') return
-    const targetLang = profileRef.current?.translate_to ? floresCode(profileRef.current.translate_to) : null
-    if (!targetLang) return
-    translatedSentences.forEach((t, i) => {
-      if (t === null && sentences[i]) translateSentenceAt(i, sentences[i], targetLang)
-    })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [localTranslate.status])
 
   // On-device Whisper chunks can repeat a trailing word at the boundary; trim it
   // from the front of the next chunk before appending.

@@ -2,6 +2,14 @@
 
 // Owns the on-device translation worker (NLLB-200). Fully local: once the model
 // is downloaded and cached, no text ever leaves the device to be translated.
+//
+// translate() is stable (no state deps) and reads refs instead of closing over
+// `status` — recorder callbacks captured at recording start used to hold a
+// version of translate() frozen at whatever status was true that instant, which
+// silently returned '' forever if the model wasn't ready yet at that exact
+// moment. The worker now queues jobs until ready, so calling before 'ready' is
+// fine; a per-job timeout keeps a pending pair from waiting forever if the
+// worker never responds.
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 
@@ -20,42 +28,68 @@ export function floresCode(lang: string): string | null {
 
 type Status = 'off' | 'downloading' | 'ready' | 'error'
 
+const JOB_TIMEOUT_MS = 90_000  // NLLB-600M on wasm can take seconds per sentence; generous but finite
+
 export function useLocalTranslate() {
   const workerRef = useRef<Worker | null>(null)
-  const pendingRef = useRef<Map<number, (t: string) => void>>(new Map())
+  const statusRef = useRef<Status>('off')
+  const pendingRef = useRef<Map<number, { resolve: (t: string) => void; timer: ReturnType<typeof setTimeout> }>>(new Map())
   const idRef = useRef(0)
   const [status, setStatus] = useState<Status>('off')
   const [progress, setProgress] = useState(0)
   const [backend, setBackend] = useState<'webgpu' | 'wasm' | null>(null)
 
+  const setStatusBoth = (s: Status) => { statusRef.current = s; setStatus(s) }
+
   const start = useCallback(() => {
     if (workerRef.current) return
-    setStatus('downloading')
+    setStatusBoth('downloading')
     const w = new Worker(new URL('../workers/translate.worker.ts', import.meta.url), { type: 'module' })
     w.onmessage = (e) => {
       const m = e.data
       if (m.type === 'progress') setProgress(m.pct)
-      else if (m.type === 'ready') { setStatus('ready'); setBackend(m.backend) }
-      else if (m.type === 'result') { pendingRef.current.get(m.id)?.(m.text); pendingRef.current.delete(m.id) }
+      else if (m.type === 'ready') { setStatusBoth('ready'); setBackend(m.backend) }
+      else if (m.type === 'result') {
+        const job = pendingRef.current.get(m.id)
+        if (job) { clearTimeout(job.timer); job.resolve(m.text); pendingRef.current.delete(m.id) }
+      }
+      else if (m.type === 'generate_error') {
+        console.error('[translate.worker] generate failed:', m.message)
+      }
       else if (m.type === 'error') {
-        if (m.id != null) { pendingRef.current.get(m.id)?.(''); pendingRef.current.delete(m.id) }
-        else setStatus('error')
+        console.error('[translate.worker] load failed:', m.message)
+        setStatusBoth('error')
       }
     }
-    w.postMessage({ type: 'load' })
+    // tryWebGPU stays false by default: the wasm+q8 path is the reliable one for
+    // seq2seq. Flip to true here to experiment with webgpu on capable machines.
+    w.postMessage({ type: 'load', tryWebGPU: false })
     workerRef.current = w
   }, [])
 
-  const translate = useCallback(async (text: string, tgtLang: string): Promise<string> => {
-    if (!workerRef.current || status !== 'ready' || !text.trim()) return ''
+  // Stable: no state deps. Safe to call from closures captured at any time.
+  // The worker queues jobs until the model is ready, so calling while
+  // downloading is fine; the promise resolves when the model catches up.
+  const translate = useCallback((text: string, tgtLang: string): Promise<string> => {
+    if (!workerRef.current || statusRef.current === 'error' || !text.trim() || !tgtLang) {
+      return Promise.resolve('')
+    }
     return new Promise<string>((resolve) => {
       const id = ++idRef.current
-      pendingRef.current.set(id, resolve)
+      const timer = setTimeout(() => {
+        pendingRef.current.delete(id)
+        resolve('')
+      }, JOB_TIMEOUT_MS)
+      pendingRef.current.set(id, { resolve, timer })
       workerRef.current!.postMessage({ type: 'translate', id, text, tgtLang })
     })
-  }, [status])
+  }, [])
 
-  useEffect(() => () => { workerRef.current?.terminate() }, [])
+  useEffect(() => () => {
+    workerRef.current?.terminate()
+    for (const job of pendingRef.current.values()) { clearTimeout(job.timer); job.resolve('') }
+    pendingRef.current.clear()
+  }, [])
 
   return { status, progress, backend, start, translate }
 }
