@@ -154,7 +154,16 @@
       "Bash(curl -sIL \"https://huggingface.co/onnx-community/whisper-base.en/resolve/main/onnx/encoder_model_quantized.onnx\")",
       "Bash(unzip -l \"C:\\\\Users\\\\shivb\\\\Downloads\\\\demist-local-kit \\(2\\).zip\")",
       "Bash(mkdir -p /c/Users/shivb/AppData/Local/Temp/claude/c--Users-shivb-Desktop-coding-bits-demist/f6494467-8550-4b50-ae20-2b06aa1ca69b/scratchpad/kit)",
-      "Bash(unzip -o 'C:\\\\Users\\\\shivb\\\\Downloads\\\\demist-local-kit \\(2\\).zip' -d /c/Users/shivb/AppData/Local/Temp/claude/c--Users-shivb-Desktop-coding-bits-demist/f6494467-8550-4b50-ae20-2b06aa1ca69b/scratchpad/kit)"
+      "Bash(unzip -o 'C:\\\\Users\\\\shivb\\\\Downloads\\\\demist-local-kit \\(2\\).zip' -d /c/Users/shivb/AppData/Local/Temp/claude/c--Users-shivb-Desktop-coding-bits-demist/f6494467-8550-4b50-ae20-2b06aa1ca69b/scratchpad/kit)",
+      "Bash(curl -sf https://www.demist.app/robots.txt)",
+      "Bash(curl -s https://www.demist.app/sitemap.xml)",
+      "Bash(curl -sI https://www.demist.app/llms.txt)",
+      "Bash(curl -s https://www.demist.app/llms.txt)",
+      "Bash(curl -sIL https://www.demist.app/profile)",
+      "Bash(curl -s \"https://huggingface.co/api/models/Xenova/nllb-200-distilled-600M\")",
+      "Bash(python3 -c ' *)",
+      "WebSearch",
+      "Bash(curl -s \"https://raw.githubusercontent.com/huggingface/transformers.js/main/docs/source/guides/dtypes.md\")"
     ],
     "additionalDirectories": [
       "c:\\Users\\shivb\\Desktop\\coding bits\\demist\\web\\app\\u",

@@ -26,6 +26,21 @@ export function floresCode(lang: string): string | null {
   return FLORES_CODES[lang] ?? null
 }
 
+// The model is a one-time ~1.3GB download (cached by the browser after that),
+// large enough that it shouldn't start without the user explicitly agreeing to
+// it on this device — a saved translate_to preference from another device
+// isn't consent to pull that much data on this one.
+const CONSENT_KEY = 'demist_translate_dl_ok'
+
+export function translateDownloadConsent(): boolean {
+  if (typeof window === 'undefined') return false
+  return localStorage.getItem(CONSENT_KEY) === '1'
+}
+
+export function setTranslateDownloadConsent() {
+  localStorage.setItem(CONSENT_KEY, '1')
+}
+
 type Status = 'off' | 'downloading' | 'ready' | 'error'
 
 const JOB_TIMEOUT_MS = 90_000  // NLLB-600M on wasm can take seconds per sentence; generous but finite
@@ -41,8 +56,11 @@ export function useLocalTranslate() {
 
   const setStatusBoth = (s: Status) => { statusRef.current = s; setStatus(s) }
 
+  // Gated on consent here, not just at call sites, so any future caller is
+  // safe by construction — the only way this ever pulls ~1.3GB is if the user
+  // already agreed to it on this device.
   const start = useCallback(() => {
-    if (workerRef.current) return
+    if (workerRef.current || !translateDownloadConsent()) return
     setStatusBoth('downloading')
     const w = new Worker(new URL('../workers/translate.worker.ts', import.meta.url), { type: 'module' })
     w.onmessage = (e) => {

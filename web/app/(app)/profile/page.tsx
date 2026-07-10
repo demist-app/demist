@@ -8,7 +8,7 @@ import { ConsentManager } from '@/components/ConsentUnlock'
 import { useEntitlements } from '@/lib/entitlements'
 import { PaywallModal } from '@/components/PaywallModal'
 import { useLocalAsr, localAsrPreferred, setLocalAsrPreferred } from '@/lib/useLocalAsr'
-import { useLocalTranslate } from '@/lib/useLocalTranslate'
+import { useLocalTranslate, translateDownloadConsent, setTranslateDownloadConsent } from '@/lib/useLocalTranslate'
 
 interface ProfileData {
   display_name: string | null
@@ -76,16 +76,28 @@ export default function Profile() {
   const [localAsrOn, setLocalAsrOn] = useState(false)
   const [isMobile, setIsMobile] = useState(true)
   const localTranslate = useLocalTranslate()
+  const [translateConsent, setTranslateConsentState] = useState(false)
 
   useEffect(() => {
     setLocalAsrOn(localAsrPreferred())
     setIsMobile(/Android|iPhone|iPad|iPod/i.test(navigator.userAgent))
+    setTranslateConsentState(translateDownloadConsent())
   }, [])
 
+  // Only auto-resume the download on this device if the user already agreed
+  // to it here before — a translate_to saved from another device isn't
+  // consent to pull ~1.3GB on this one. Fresh selections wait for the
+  // explicit "Download & enable" button below.
   useEffect(() => {
-    if (translateTo) localTranslate.start()
+    if (translateTo && translateDownloadConsent()) localTranslate.start()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [translateTo])
+  }, [])
+
+  const confirmTranslateDownload = () => {
+    setTranslateDownloadConsent()
+    setTranslateConsentState(true)
+    localTranslate.start()
+  }
 
   const toggleLocalAsr = () => {
     const next = !localAsrOn
@@ -498,7 +510,18 @@ export default function Profile() {
               ))}
             </div>
             <p className="text-[12px] text-gray-500 mt-1.5">Shows a one-line translation under each term&apos;s definition and live sentence during recording. Runs entirely on this device — nothing is sent anywhere to translate.</p>
-            {translateTo && localTranslate.status === 'downloading' && (
+            {translateTo && !translateConsent && localTranslate.status === 'off' && (
+              <div className="mt-2 dark:bg-white/[0.04] bg-[#F6F5F2] border dark:border-white/[0.08] border-black/[0.13] rounded-2xl p-3">
+                <p className="text-[12px] text-gray-600 mb-2">Downloads a one-time ~1.3GB model to this device for offline translation. Only needed once — cached afterwards.</p>
+                <button
+                  onClick={confirmTranslateDownload}
+                  className="w-full py-2.5 rounded-xl text-[13px] font-semibold bg-yellow-600 hover:brightness-[1.1] dark:text-white text-gray-900 transition-all"
+                >
+                  Download & enable
+                </button>
+              </div>
+            )}
+            {translateTo && translateConsent && localTranslate.status === 'downloading' && (
               <p className="text-[12px] text-gray-600 mt-1.5">Downloading translation model… {localTranslate.progress}%</p>
             )}
             {translateTo && localTranslate.status === 'ready' && localTranslate.backend === 'wasm' && (

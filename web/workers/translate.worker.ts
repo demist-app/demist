@@ -5,10 +5,16 @@
 //
 // Jobs that arrive before the model finishes loading are queued and drained on
 // ready instead of rejected — otherwise anything spoken during the ~600MB first
-// download died silently. Defaults to wasm+q8: webgpu+fp16 can pass the download
-// then fail at load or first generate for seq2seq models like NLLB, which looks
-// identical to "downloads fine, never translates". Pass tryWebGPU: true in the
-// load message to experiment with webgpu on capable machines.
+// download died silently. Defaults to wasm+int8: webgpu+fp16 can pass the
+// download then fail at load or first generate for seq2seq models like NLLB,
+// which looks identical to "downloads fine, never translates". q8 (the
+// "_quantized" export) hits a distinct failure — onnxruntime-web's wasm backend
+// can fail to build a session for it ("Can't create a session... Missing
+// required scale") because NLLB's 256k-token shared embedding is exported with
+// the 4-bit MatMulNBits op, which has had unresolved bugs across recent
+// onnxruntime-web releases. int8 uses plain per-tensor quantization for that
+// embedding instead, avoiding the op entirely. Pass tryWebGPU: true in the load
+// message to experiment with webgpu on capable machines.
 
 import { pipeline, env } from '@huggingface/transformers'
 
@@ -32,7 +38,12 @@ async function load(tryWebGPU: boolean) {
   try {
     translator = await pipeline('translation', 'Xenova/nllb-200-distilled-600M', {
       device: hasWebGPU ? 'webgpu' : 'wasm',
-      dtype: hasWebGPU ? 'fp16' : 'q8',
+      // Encoder's quantized (q8) export is fine. Only the decoder's quantized
+      // export hits the MatMulNBits bug (its huge shared embedding is exported
+      // as 4-bit blocks); fp16 sidesteps it at a smaller size cost than any
+      // other non-block-quantized decoder variant. Session keys, not filename
+      // prefixes: the encoder is keyed "model" internally.
+      dtype: hasWebGPU ? 'fp16' : { model: 'q8', decoder_model_merged: 'fp16' },
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       progress_callback: (p: any) => {
         if (p.status === 'progress' && p.total) {

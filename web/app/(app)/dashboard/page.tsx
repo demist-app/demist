@@ -10,7 +10,7 @@ import { startTabCapture, tabCaptureSupported } from '@/lib/tabCapture'
 import { checkRecordingLimit } from '@/lib/subscription'
 import { useEntitlements } from '@/lib/entitlements'
 import { useLocalAsr, localAsrPreferred } from '@/lib/useLocalAsr'
-import { useLocalTranslate, floresCode } from '@/lib/useLocalTranslate'
+import { useLocalTranslate, floresCode, translateDownloadConsent } from '@/lib/useLocalTranslate'
 import { extractCandidates } from '@/lib/extractTerms'
 
 const SummaryViewer = dynamic(() => import('../summary-viewer').then(m => ({ default: m.SummaryViewer })), { ssr: false })
@@ -1341,7 +1341,7 @@ export default function Dashboard() {
             {/* Live transcript — fills the space between the recording button and term cards */}
             <div className="flex-1 min-h-[80px] px-4 sm:px-6 py-3 relative z-10">
               <div className="relative h-full flex flex-col">
-                {profile?.translate_to && (
+                {profile?.translate_to && translateDownloadConsent() && (
                   <div className="shrink-0 flex items-center justify-between gap-2 mb-2">
                     <div className="flex dark:bg-white/[0.07] bg-black/[0.06] rounded-full p-1">
                       {([
@@ -1370,6 +1370,11 @@ export default function Dashboard() {
                     )}
                   </div>
                 )}
+                {profile?.translate_to && !translateDownloadConsent() && (
+                  <p className="shrink-0 text-[11px] text-gray-600 mb-2">
+                    Translation is set up but not downloaded on this device yet — enable it in <a href="/profile" className="underline">Profile</a>.
+                  </p>
+                )}
                 <div
                   ref={transcriptContainerRef}
                   onScroll={handleTranscriptScroll}
@@ -1379,13 +1384,13 @@ export default function Dashboard() {
                   {sentences.length === 0 && (
                     <p className="text-[13px] text-gray-700 italic">Transcription will appear here as you speak…</p>
                   )}
-                  {profile?.translate_to && transcriptView === 'both' && (
+                  {profile?.translate_to && translateDownloadConsent() && transcriptView === 'both' && (
                     <TranscriptBilingual
                       pairs={sentences.map((s, i) => ({ srcHtml: highlightTerms(s), tgt: translatedSentences[i] ?? null }))}
                       lang={profile.translate_to}
                     />
                   )}
-                  {(!profile?.translate_to || transcriptView === 'source') && (
+                  {(!profile?.translate_to || !translateDownloadConsent() || transcriptView === 'source') && (
                     sentences.map((sentence, index) => {
                       const age = Math.min(sentences.length - 1 - index, 5)
                       return (
@@ -1398,7 +1403,7 @@ export default function Dashboard() {
                       )
                     })
                   )}
-                  {profile?.translate_to && transcriptView === 'translated' && (
+                  {profile?.translate_to && translateDownloadConsent() && transcriptView === 'translated' && (
                     sentences.map((_, index) => {
                       const age = Math.min(sentences.length - 1 - index, 5)
                       const tgt = translatedSentences[index]
