@@ -19,13 +19,14 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL('https://demist.app'),
   title: {
-    default: 'Demist: Never Feel Lost in a Lecture Again',
+    default: 'Demist — live lecture transcription, explanations & flashcards',
     template: '%s | Demist',
   },
   description: 'Demist transcribes your lectures, reads them back, and explains and translates unfamiliar terms in real time — for students who find lectures harder to follow. Builds a glossary and flashcards automatically.',
   keywords: ['lecture tool', 'study app', 'university students', 'real-time definitions', 'glossary builder', 'flashcards', 'spaced repetition', 'student productivity'],
   authors: [{ name: 'Demist' }],
   creator: 'Demist',
+  alternates: { canonical: '/' },
   openGraph: {
     siteName: 'Demist',
     type: 'website',

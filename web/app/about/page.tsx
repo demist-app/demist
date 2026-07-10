@@ -7,6 +7,23 @@ export const metadata: Metadata = {
   alternates: { canonical: 'https://demist.app/about' },
 }
 
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebPage',
+  name: 'About Demist',
+  url: 'https://demist.app/about',
+  about: { '@type': 'Thing', name: "Disabled Students' Allowance" },
+  audience: { '@type': 'EducationalAudience', educationalRole: 'student' },
+}
+
 export default function AboutPage() {
-  return <AboutClient />
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }}
+      />
+      <AboutClient />
+    </>
+  )
 }

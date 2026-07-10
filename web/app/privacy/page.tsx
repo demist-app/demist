@@ -4,6 +4,7 @@ import Link from 'next/link'
 export const metadata: Metadata = {
   title: 'Privacy Policy',
   robots: { index: true, follow: true },
+  alternates: { canonical: 'https://demist.app/privacy' },
 }
 
 export default function Privacy() {
