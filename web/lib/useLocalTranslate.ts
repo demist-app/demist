@@ -84,8 +84,10 @@ export function useLocalTranslate() {
         setStatusBoth('error')
       }
     }
-    // tryWebGPU stays false by default: wasm+q8 is the reliable path.
-    w.postMessage({ type: 'load', tgtLang, tryWebGPU: false })
+    // WebGPU attempted first when available; the worker falls back to wasm
+    // automatically if it fails to load. See workers/translate.worker.ts for
+    // why this is safe now (it wasn't with the q8 decoder).
+    w.postMessage({ type: 'load', tgtLang, tryWebGPU: true })
     workerRef.current = w
   }, [])
 

@@ -20,6 +20,16 @@
 // specific tied embedding through the buggy 4-bit block-quantization op
 // regardless of overall model size. Same fix: split dtype so the decoder uses
 // fp16 instead of q8, which doesn't touch that op at all.
+//
+// WebGPU is attempted first when available, falling back to wasm if it fails
+// to load. It was disabled outright before because of a documented
+// transformers.js bug: WebGPU + a q8-quantized decoder silently produces
+// gibberish output for this model family, rather than throwing. That bug was
+// specifically about q8 — the decoder now loads as fp16 on the GPU path,
+// which isn't the reported combination, so it's being re-enabled. A thrown
+// load error here is caught and retried on wasm automatically; a silent
+// quality regression would not be — if translations look wrong specifically
+// when the backend is 'webgpu', that's the signal this assumption was wrong.
 
 import { pipeline, env } from '@huggingface/transformers'
 
@@ -42,6 +52,29 @@ let loadFailed = false
 const queue: { id: number; text: string }[] = []
 let draining = false
 
+function makeFileProgressReporter() {
+  const fileProgress = new Map<string, { loaded: number; total: number }>()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (p: any) => {
+    if (p.status === 'progress' && p.total) {
+      fileProgress.set(p.file, { loaded: p.loaded, total: p.total })
+      let loaded = 0, total = 0
+      for (const f of fileProgress.values()) { loaded += f.loaded; total += f.total }
+      self.postMessage({ type: 'progress', pct: Math.round((loaded / total) * 100) })
+    }
+  }
+}
+
+async function loadWith(modelId: string, useGPU: boolean) {
+  return pipeline('translation', modelId, {
+    device: useGPU ? 'webgpu' : 'wasm',
+    // Session keys, not filename prefixes: the encoder is keyed "model"
+    // internally, decoder is "decoder_model_merged".
+    dtype: useGPU ? 'fp16' : { model: 'q8', decoder_model_merged: 'fp16' },
+    progress_callback: makeFileProgressReporter(),
+  })
+}
+
 async function load(tgtLang: string, tryWebGPU: boolean) {
   if (translator || loading) return
   loading = true
@@ -54,24 +87,17 @@ async function load(tgtLang: string, tryWebGPU: boolean) {
     return
   }
   const hasWebGPU = tryWebGPU && typeof navigator !== 'undefined' && 'gpu' in navigator
-  const fileProgress = new Map<string, { loaded: number; total: number }>()
   try {
-    translator = await pipeline('translation', modelId, {
-      device: hasWebGPU ? 'webgpu' : 'wasm',
-      // Session keys, not filename prefixes: the encoder is keyed "model"
-      // internally, decoder is "decoder_model_merged".
-      dtype: hasWebGPU ? 'fp16' : { model: 'q8', decoder_model_merged: 'fp16' },
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      progress_callback: (p: any) => {
-        if (p.status === 'progress' && p.total) {
-          fileProgress.set(p.file, { loaded: p.loaded, total: p.total })
-          let loaded = 0, total = 0
-          for (const f of fileProgress.values()) { loaded += f.loaded; total += f.total }
-          self.postMessage({ type: 'progress', pct: Math.round((loaded / total) * 100) })
-        }
-      },
-    })
-    self.postMessage({ type: 'ready', backend: hasWebGPU ? 'webgpu' : 'wasm' })
+    let backend: 'webgpu' | 'wasm' = hasWebGPU ? 'webgpu' : 'wasm'
+    try {
+      translator = await loadWith(modelId, hasWebGPU)
+    } catch (gpuErr) {
+      if (!hasWebGPU) throw gpuErr
+      console.error('[translate.worker] webgpu load failed, retrying on wasm:', String((gpuErr as Error)?.message ?? gpuErr))
+      backend = 'wasm'
+      translator = await loadWith(modelId, false)
+    }
+    self.postMessage({ type: 'ready', backend })
     void drain()
   } catch (e) {
     loadFailed = true
