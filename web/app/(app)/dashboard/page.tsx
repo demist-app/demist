@@ -170,9 +170,13 @@ export default function Dashboard() {
   const localAsr = useLocalAsr()
   const useLocalRef = useRef(false)
   const localTranslate = useLocalTranslate()
-  // True once the on-device model is actually usable (consented to and not
-  // still stuck 'off' or errored) — everything else falls back to cloud.
-  const localTranslateUsable = () => translateDownloadConsent() && localTranslate.status !== 'off' && localTranslate.status !== 'error'
+  // Only 'ready' counts as usable — 'downloading' falls back to cloud too,
+  // not just 'off'/'error'. Each detect-terms call decides independently, so
+  // this naturally switches from cloud to local the moment the download
+  // finishes; waiting for 'downloading' to resolve first (the previous
+  // behaviour) meant a device where the download stalls or never succeeds —
+  // like the Opera GX CSP bug — got no translation at all until it gave up.
+  const localTranslateUsable = () => translateDownloadConsent() && localTranslate.status === 'ready'
   const sentenceCountRef = useRef(0)
   const [translatedSentences, setTranslatedSentences] = useState<(string | null)[]>([])
 
@@ -303,6 +307,22 @@ export default function Dashboard() {
     setTranscriptView(view)
     localStorage.setItem('demist_transcript_view', view)
   }
+
+  // The live bilingual view is on-device only (no cloud fallback — see
+  // localTranslateUsable). If the on-device model fails outright, sentences
+  // would otherwise sit on the pending "…" marker forever with no visual cue
+  // anything's wrong beyond the small note in the toggle bar. Drop back to
+  // English-only automatically so the transcript itself doesn't look broken;
+  // term definitions keep working regardless, via the cloud fallback. This is
+  // a transient override for this session only — setTranscriptView, not
+  // changeTranscriptView, so it doesn't overwrite the user's saved preference
+  // for future sessions on a device where translation might work fine.
+  useEffect(() => {
+    if (localTranslate.status === 'error' && transcriptView !== 'source') {
+      setTranscriptView('source')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [localTranslate.status])
 
   // Warm up on-device transcription in the background so it's ready by the time
   // the user hits record, rather than downloading the model mid-lecture.

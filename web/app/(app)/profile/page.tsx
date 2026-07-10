@@ -25,8 +25,6 @@ const YEAR_OPTIONS = [
   { value: 2, label: 'Y2' },
   { value: 3, label: 'Y3' },
   { value: 4, label: 'Y4' },
-  { value: 5, label: 'Y5' },
-  { value: 6, label: 'Y6' },
   { value: 7, label: 'Masters' },
   { value: 8, label: 'PhD' },
 ]
