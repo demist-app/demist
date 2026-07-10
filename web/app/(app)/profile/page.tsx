@@ -513,7 +513,7 @@ export default function Profile() {
                 </button>
               ))}
             </div>
-            <p className="text-[12px] text-gray-500 mt-1.5">Shows a one-line translation under each term&apos;s definition and live sentence during recording. Runs entirely on this device — nothing is sent anywhere to translate.</p>
+            <p className="text-[12px] text-gray-500 mt-1.5">Shows a one-line translation under each term&apos;s definition, and a live bilingual transcript if you download the on-device model below. Term translations run on this device when downloaded; if you skip that, they&apos;re translated by the same OpenAI service that already generates your definitions. The live bilingual transcript view needs the on-device model either way.</p>
             {translateTo && !translateConsent && localTranslate.status === 'off' && (
               <div className="mt-2 dark:bg-white/[0.04] bg-[#F6F5F2] border dark:border-white/[0.08] border-black/[0.13] rounded-2xl p-3">
                 <p className="text-[12px] text-gray-600 mb-2">Downloads a one-time ~170MB model to this device for offline translation. Only needed once per language — cached afterwards.</p>

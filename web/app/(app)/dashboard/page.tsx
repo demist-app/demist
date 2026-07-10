@@ -170,6 +170,9 @@ export default function Dashboard() {
   const localAsr = useLocalAsr()
   const useLocalRef = useRef(false)
   const localTranslate = useLocalTranslate()
+  // True once the on-device model is actually usable (consented to and not
+  // still stuck 'off' or errored) — everything else falls back to cloud.
+  const localTranslateUsable = () => translateDownloadConsent() && localTranslate.status !== 'off' && localTranslate.status !== 'error'
   const sentenceCountRef = useRef(0)
   const [translatedSentences, setTranslatedSentences] = useState<(string | null)[]>([])
 
@@ -413,6 +416,14 @@ export default function Dashboard() {
     }
     if (candidates.length === 0) return   // nothing new, skip the network call entirely
 
+    // Cloud translation fallback: only ask the server to translate definitions
+    // when on-device translation isn't usable on this device (declined or
+    // failed) — otherwise the on-device model handles it, so nothing extra
+    // leaves the device.
+    const cloudTargetLangName = (profileRef.current?.translate_to && !localTranslateUsable())
+      ? LANGUAGE_NAMES[profileRef.current.translate_to]
+      : undefined
+
     const dtRes = await fetch(`${base}/functions/v1/detect-terms`, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -422,6 +433,7 @@ export default function Dashboard() {
         subject: sessionSubjectRef.current || profileRef.current?.course || 'general',
         year: profileRef.current?.year_of_study ?? 1,
         known_terms: Array.from(knownTermsRef.current),
+        target_lang_name: cloudTargetLangName,
       }),
     })
     if (!dtRes.ok) {
@@ -451,7 +463,7 @@ export default function Dashboard() {
     zeroTermChunksRef.current = 0
     chunkIntervalRef.current = 5_000
 
-    const filtered = (detected.terms as { term: string; definition: string; context?: string }[]).filter(t => {
+    const filtered = (detected.terms as { term: string; definition: string; context?: string; translation?: string }[]).filter(t => {
       const key = t.term.toLowerCase()
       return isLatinTerm(t.term) &&
              !knownTermsRef.current.has(key) &&
@@ -464,17 +476,23 @@ export default function Dashboard() {
       knownTermsRef.current.add(t.term.toLowerCase())
     }
 
-    // On-device translation only — nothing is sent anywhere for this. Cards
-    // render immediately; translations patch in whenever the worker resolves
-    // them (it queues internally, so this fires unconditionally regardless of
-    // whether the model has finished loading yet).
+    // Cards render immediately; translations patch in whenever they resolve.
+    // On-device when usable (the worker queues internally, so this fires
+    // unconditionally regardless of whether the model has finished loading
+    // yet); otherwise `t.translation` is already filled in by detect-terms,
+    // which was asked to translate server-side via cloudTargetLangName above.
     if (profileRef.current?.translate_to) {
       for (const t of filtered) {
-        localTranslate.translate(t.definition).then(translated => {
+        const applyTranslation = (translated: string) => {
           if (!translated) return
           setSessionGlossary(prev => prev.map(g => (g.term === t.term && g.definition === t.definition) ? { ...g, translation: translated } : g))
           setLiveTerms(prev => prev.map(lt => lt.term === t.term ? { ...lt, translation: translated } : lt))
-        })
+        }
+        if (localTranslateUsable()) {
+          localTranslate.translate(t.definition).then(applyTranslation)
+        } else if (t.translation) {
+          applyTranslation(t.translation)
+        }
       }
     }
 
@@ -583,7 +601,10 @@ export default function Dashboard() {
     const idx = sentenceCountRef.current++
     setSentences(prev => [...prev, chunkText])
     setTranslatedSentences(prev => [...prev, null])
-    if (profileRef.current?.translate_to) translateSentenceAt(idx, chunkText)
+    // Live sentence-by-sentence translation is on-device only — no cloud
+    // fallback, since per-sentence cloud calls at this cadence would be slow
+    // and costly. Term/glossary definitions still get the cloud fallback above.
+    if (profileRef.current?.translate_to && localTranslateUsable()) translateSentenceAt(idx, chunkText)
   }
 
   // On-device Whisper chunks can repeat a trailing word at the boundary; trim it
