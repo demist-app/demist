@@ -9,9 +9,15 @@ type Asr = Awaited<ReturnType<typeof pipeline<'automatic-speech-recognition'>>>
 let asr: Asr | null = null
 let loading = false
 
+// Xenova's exports, not onnx-community's re-exports: the onnx-community
+// decoder_model_merged.onnx fails onnxruntime-web's graph validation
+// ("Subgraph output... outer scope value being returned directly") — a
+// structural export defect in that specific file, unrelated to quantization.
+// Trying the older Xenova-maintained export of the same weights as the fix;
+// unverified without a live browser, same as the rest of this file's history.
 const MODELS: Record<string, string> = {
-  base: 'onnx-community/whisper-base.en',   // ~74MB, default
-  small: 'onnx-community/whisper-small.en', // ~244MB, accuracy toggle
+  base: 'Xenova/whisper-base.en',   // ~74MB, default
+  small: 'Xenova/whisper-small.en', // ~244MB, accuracy toggle
 }
 
 async function load(model: string) {

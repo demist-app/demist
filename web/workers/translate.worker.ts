@@ -1,6 +1,6 @@
 // On-device translation. Runs in a module Worker. Nothing here touches the
 // network after the one-time model download (cached by the browser after
-// first load). One small OPUS-MT model per target language (~110MB total per
+// first load). One small OPUS-MT model per target language (~170MB total per
 // language: encoder + decoder) instead of a single multilingual model — NLLB-200
 // covered all languages in one ~1.3GB download, but its 256k-token shared
 // embedding is exported with a 4-bit block-quantization op that has unresolved
@@ -13,6 +13,13 @@
 // Jobs that arrive before the model finishes loading are queued and drained on
 // ready instead of rejected — otherwise anything spoken during the download
 // died silently.
+//
+// Even at this much smaller size, OPUS-MT (Marian architecture) still hits the
+// same MatMulNBits/DequantizeLinear session-creation bug NLLB did — it also
+// ties its embedding weights, and Optimum's "quantized" export runs that
+// specific tied embedding through the buggy 4-bit block-quantization op
+// regardless of overall model size. Same fix: split dtype so the decoder uses
+// fp16 instead of q8, which doesn't touch that op at all.
 
 import { pipeline, env } from '@huggingface/transformers'
 
@@ -51,7 +58,9 @@ async function load(tgtLang: string, tryWebGPU: boolean) {
   try {
     translator = await pipeline('translation', modelId, {
       device: hasWebGPU ? 'webgpu' : 'wasm',
-      dtype: hasWebGPU ? 'fp16' : 'q8',
+      // Session keys, not filename prefixes: the encoder is keyed "model"
+      // internally, decoder is "decoder_model_merged".
+      dtype: hasWebGPU ? 'fp16' : { model: 'q8', decoder_model_merged: 'fp16' },
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       progress_callback: (p: any) => {
         if (p.status === 'progress' && p.total) {

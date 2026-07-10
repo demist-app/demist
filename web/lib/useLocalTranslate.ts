@@ -2,7 +2,7 @@
 
 // Owns the on-device translation worker. Fully local: once a language's model
 // is downloaded and cached, no text ever leaves the device to be translated.
-// One small OPUS-MT model per target language (~110MB) rather than a single
+// One small OPUS-MT model per target language (~170MB) rather than a single
 // multilingual model — see workers/translate.worker.ts for why.
 //
 // translate() is stable (no state deps) and reads refs instead of closing over
@@ -15,7 +15,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 
-// The model is a one-time ~110MB-per-language download (cached by the browser
+// The model is a one-time ~170MB-per-language download (cached by the browser
 // after that), large enough that it shouldn't start without the user
 // explicitly agreeing to it on this device — a saved translate_to preference
 // from another device isn't consent to pull that much data on this one.
@@ -55,7 +55,7 @@ export function useLocalTranslate() {
   }
 
   // Gated on consent here, not just at call sites, so any future caller is
-  // safe by construction — the only way this ever pulls ~110MB is if the user
+  // safe by construction — the only way this ever pulls ~170MB is if the user
   // already agreed to it on this device. Switching target language tears down
   // the old worker (a different language is a different model) and starts a
   // fresh download for the new one.

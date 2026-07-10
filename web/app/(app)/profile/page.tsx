@@ -516,7 +516,7 @@ export default function Profile() {
             <p className="text-[12px] text-gray-500 mt-1.5">Shows a one-line translation under each term&apos;s definition and live sentence during recording. Runs entirely on this device — nothing is sent anywhere to translate.</p>
             {translateTo && !translateConsent && localTranslate.status === 'off' && (
               <div className="mt-2 dark:bg-white/[0.04] bg-[#F6F5F2] border dark:border-white/[0.08] border-black/[0.13] rounded-2xl p-3">
-                <p className="text-[12px] text-gray-600 mb-2">Downloads a one-time ~110MB model to this device for offline translation. Only needed once per language — cached afterwards.</p>
+                <p className="text-[12px] text-gray-600 mb-2">Downloads a one-time ~170MB model to this device for offline translation. Only needed once per language — cached afterwards.</p>
                 <button
                   onClick={confirmTranslateDownload}
                   className="w-full py-2.5 rounded-xl text-[13px] font-semibold bg-yellow-600 hover:brightness-[1.1] dark:text-white text-gray-900 transition-all"
