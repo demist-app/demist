@@ -84,19 +84,16 @@ export default function Profile() {
     setTranslateConsentState(translateDownloadConsent())
   }, [])
 
-  // Only auto-resume the download on this device if the user already agreed
-  // to it here before — a translate_to saved from another device isn't
-  // consent to pull ~1.3GB on this one. Fresh selections wait for the
-  // explicit "Download & enable" button below.
-  useEffect(() => {
-    if (translateTo && translateDownloadConsent()) localTranslate.start()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
+  // Auto-resuming the download on load (if already consented) happens where
+  // the profile is fetched below, using the freshly-loaded value directly —
+  // not a reactive effect on `translateTo`, since that state also tracks the
+  // user's in-progress pill selection before Save, which should never
+  // silently trigger a new-language download on its own.
   const confirmTranslateDownload = () => {
+    if (!translateTo) return
     setTranslateDownloadConsent()
     setTranslateConsentState(true)
-    localTranslate.start()
+    localTranslate.start(translateTo)
   }
 
   const toggleLocalAsr = () => {
@@ -137,6 +134,7 @@ export default function Profile() {
       setYear(p?.year_of_study ?? null)
       setSupportNeed(p?.support_need ?? null)
       setTranslateTo(p?.translate_to ?? null)
+      if (p?.translate_to && translateDownloadConsent()) localTranslate.start(p.translate_to)
       setIsPublic(p?.is_public ?? false)
       setTotalTerms(termCount ?? 0)
 
@@ -498,7 +496,13 @@ export default function Profile() {
               {TRANSLATE_OPTIONS.map(({ value, label }) => (
                 <button
                   key={value}
-                  onClick={() => setTranslateTo(value)}
+                  onClick={() => {
+                    setTranslateTo(value)
+                    // Already agreed to on-device translation downloads on this
+                    // device once — switching language is a new small (~110MB)
+                    // download, not a new kind of consent decision.
+                    if (translateConsent) localTranslate.start(value)
+                  }}
                   className={`py-3 px-3 rounded-2xl text-[13px] font-medium transition-all ${
                     translateTo === value
                       ? 'bg-yellow-600 border border-yellow-400/40 dark:text-white text-gray-900'
@@ -512,7 +516,7 @@ export default function Profile() {
             <p className="text-[12px] text-gray-500 mt-1.5">Shows a one-line translation under each term&apos;s definition and live sentence during recording. Runs entirely on this device — nothing is sent anywhere to translate.</p>
             {translateTo && !translateConsent && localTranslate.status === 'off' && (
               <div className="mt-2 dark:bg-white/[0.04] bg-[#F6F5F2] border dark:border-white/[0.08] border-black/[0.13] rounded-2xl p-3">
-                <p className="text-[12px] text-gray-600 mb-2">Downloads a one-time ~1.3GB model to this device for offline translation. Only needed once — cached afterwards.</p>
+                <p className="text-[12px] text-gray-600 mb-2">Downloads a one-time ~110MB model to this device for offline translation. Only needed once per language — cached afterwards.</p>
                 <button
                   onClick={confirmTranslateDownload}
                   className="w-full py-2.5 rounded-xl text-[13px] font-semibold bg-yellow-600 hover:brightness-[1.1] dark:text-white text-gray-900 transition-all"

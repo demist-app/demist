@@ -53,8 +53,14 @@ export function useLocalAsr() {
       else if (m.type === 'ready') { setStatus('ready'); setBackend(m.backend) }
       else if (m.type === 'result') { pendingRef.current.get(m.id)?.(m.text); pendingRef.current.delete(m.id) }
       else if (m.type === 'error') {
-        if (m.id != null) { pendingRef.current.get(m.id)?.(''); pendingRef.current.delete(m.id) }
-        else setStatus('error')
+        if (m.id != null) {
+          console.error('[asr.worker] transcribe failed:', m.message)
+          pendingRef.current.get(m.id)?.('')
+          pendingRef.current.delete(m.id)
+        } else {
+          console.error('[asr.worker] load failed:', m.message)
+          setStatus('error')
+        }
       }
     }
     w.postMessage({ type: 'load', model: localStorage.getItem(MODEL_KEY) ?? 'base' })

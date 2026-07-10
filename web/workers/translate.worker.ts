@@ -1,24 +1,30 @@
 // On-device translation. Runs in a module Worker. Nothing here touches the
-// network after the one-time model download (cached by the browser after first load).
-// NLLB-200 covers all supported target languages in a single model, so switching
-// languages never re-downloads.
+// network after the one-time model download (cached by the browser after
+// first load). One small OPUS-MT model per target language (~110MB total per
+// language: encoder + decoder) instead of a single multilingual model — NLLB-200
+// covered all languages in one ~1.3GB download, but its 256k-token shared
+// embedding is exported with a 4-bit block-quantization op that has unresolved
+// bugs in onnxruntime-web's wasm backend ("Can't create a session... Missing
+// required scale"). OPUS-MT's per-pair vocab is small enough that its quantized
+// export is a plain, uniform 8-bit scheme — no exotic op, no bug — at roughly
+// 1/12th the download size. The trade-off: switching target language now means
+// a new (small) download instead of being instant.
 //
 // Jobs that arrive before the model finishes loading are queued and drained on
-// ready instead of rejected — otherwise anything spoken during the ~600MB first
-// download died silently. Defaults to wasm+int8: webgpu+fp16 can pass the
-// download then fail at load or first generate for seq2seq models like NLLB,
-// which looks identical to "downloads fine, never translates". q8 (the
-// "_quantized" export) hits a distinct failure — onnxruntime-web's wasm backend
-// can fail to build a session for it ("Can't create a session... Missing
-// required scale") because NLLB's 256k-token shared embedding is exported with
-// the 4-bit MatMulNBits op, which has had unresolved bugs across recent
-// onnxruntime-web releases. int8 uses plain per-tensor quantization for that
-// embedding instead, avoiding the op entirely. Pass tryWebGPU: true in the load
-// message to experiment with webgpu on capable machines.
+// ready instead of rejected — otherwise anything spoken during the download
+// died silently.
 
 import { pipeline, env } from '@huggingface/transformers'
 
 env.allowLocalModels = false
+
+const MODELS: Record<string, string> = {
+  zh: 'Xenova/opus-mt-en-zh',
+  ar: 'Xenova/opus-mt-en-ar',
+  hi: 'Xenova/opus-mt-en-hi',
+  es: 'Xenova/opus-mt-en-es',
+  fr: 'Xenova/opus-mt-en-fr',
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Translator = any
@@ -26,24 +32,26 @@ let translator: Translator | null = null
 let loading = false
 let loadFailed = false
 
-const queue: { id: number; text: string; tgtLang: string }[] = []
+const queue: { id: number; text: string }[] = []
 let draining = false
 
-async function load(tryWebGPU: boolean) {
+async function load(tgtLang: string, tryWebGPU: boolean) {
   if (translator || loading) return
   loading = true
   loadFailed = false
+  const modelId = MODELS[tgtLang]
+  if (!modelId) {
+    loadFailed = true
+    self.postMessage({ type: 'error', message: `unsupported_language:${tgtLang}` })
+    loading = false
+    return
+  }
   const hasWebGPU = tryWebGPU && typeof navigator !== 'undefined' && 'gpu' in navigator
   const fileProgress = new Map<string, { loaded: number; total: number }>()
   try {
-    translator = await pipeline('translation', 'Xenova/nllb-200-distilled-600M', {
+    translator = await pipeline('translation', modelId, {
       device: hasWebGPU ? 'webgpu' : 'wasm',
-      // Encoder's quantized (q8) export is fine. Only the decoder's quantized
-      // export hits the MatMulNBits bug (its huge shared embedding is exported
-      // as 4-bit blocks); fp16 sidesteps it at a smaller size cost than any
-      // other non-block-quantized decoder variant. Session keys, not filename
-      // prefixes: the encoder is keyed "model" internally.
-      dtype: hasWebGPU ? 'fp16' : { model: 'q8', decoder_model_merged: 'fp16' },
+      dtype: hasWebGPU ? 'fp16' : 'q8',
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       progress_callback: (p: any) => {
         if (p.status === 'progress' && p.total) {
@@ -58,7 +66,6 @@ async function load(tryWebGPU: boolean) {
     void drain()
   } catch (e) {
     loadFailed = true
-    // Flush anything queued so no caller hangs on a promise.
     while (queue.length) {
       const job = queue.shift()!
       self.postMessage({ type: 'result', id: job.id, text: '' })
@@ -76,7 +83,7 @@ async function drain() {
     const job = queue.shift()!
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const out: any = await translator(job.text, { src_lang: 'eng_Latn', tgt_lang: job.tgtLang })
+      const out: any = await translator(job.text)
       const text = Array.isArray(out) ? out[0]?.translation_text : out?.translation_text
       self.postMessage({ type: 'result', id: job.id, text: String(text ?? '').trim() })
     } catch (err) {
@@ -89,10 +96,10 @@ async function drain() {
 
 self.onmessage = (e: MessageEvent) => {
   const msg = e.data
-  if (msg.type === 'load') { void load(!!msg.tryWebGPU); return }
+  if (msg.type === 'load') { void load(msg.tgtLang, !!msg.tryWebGPU); return }
   if (msg.type === 'translate') {
     if (loadFailed) { self.postMessage({ type: 'result', id: msg.id, text: '' }); return }
-    queue.push({ id: msg.id, text: String(msg.text ?? ''), tgtLang: String(msg.tgtLang ?? '') })
+    queue.push({ id: msg.id, text: String(msg.text ?? '') })
     void drain()
   }
 }

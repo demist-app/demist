@@ -10,7 +10,7 @@ import { startTabCapture, tabCaptureSupported } from '@/lib/tabCapture'
 import { checkRecordingLimit } from '@/lib/subscription'
 import { useEntitlements } from '@/lib/entitlements'
 import { useLocalAsr, localAsrPreferred } from '@/lib/useLocalAsr'
-import { useLocalTranslate, floresCode, translateDownloadConsent } from '@/lib/useLocalTranslate'
+import { useLocalTranslate, translateDownloadConsent } from '@/lib/useLocalTranslate'
 import { extractCandidates } from '@/lib/extractTerms'
 
 const SummaryViewer = dynamic(() => import('../summary-viewer').then(m => ({ default: m.SummaryViewer })), { ssr: false })
@@ -356,7 +356,7 @@ export default function Dashboard() {
 
       profileRef.current = prof as Profile
       setProfile(prof as Profile)
-      if ((prof as Profile)?.translate_to) localTranslate.start()
+      if ((prof as Profile)?.translate_to) localTranslate.start((prof as Profile).translate_to as string)
 
       const known = new Set<string>()
       const freq = new Map<string, number>()
@@ -468,10 +468,9 @@ export default function Dashboard() {
     // render immediately; translations patch in whenever the worker resolves
     // them (it queues internally, so this fires unconditionally regardless of
     // whether the model has finished loading yet).
-    const targetLang = profileRef.current?.translate_to ? floresCode(profileRef.current.translate_to) : null
-    if (targetLang) {
+    if (profileRef.current?.translate_to) {
       for (const t of filtered) {
-        localTranslate.translate(t.definition, targetLang).then(translated => {
+        localTranslate.translate(t.definition).then(translated => {
           if (!translated) return
           setSessionGlossary(prev => prev.map(g => (g.term === t.term && g.definition === t.definition) ? { ...g, translation: translated } : g))
           setLiveTerms(prev => prev.map(lt => lt.term === t.term ? { ...lt, translation: translated } : lt))
@@ -569,8 +568,8 @@ export default function Dashboard() {
 
   // Appends a sentence to the live transcript and, if the user has a translation
   // language set, kicks off an on-device translation for it (never sent anywhere).
-  const translateSentenceAt = (idx: number, text: string, targetLang: string) => {
-    localTranslate.translate(text, targetLang).then(translated => {
+  const translateSentenceAt = (idx: number, text: string) => {
+    localTranslate.translate(text).then(translated => {
       setTranslatedSentences(prev => {
         if (idx >= prev.length) return prev
         const next = [...prev]
@@ -584,8 +583,7 @@ export default function Dashboard() {
     const idx = sentenceCountRef.current++
     setSentences(prev => [...prev, chunkText])
     setTranslatedSentences(prev => [...prev, null])
-    const targetLang = profileRef.current?.translate_to ? floresCode(profileRef.current.translate_to) : null
-    if (targetLang) translateSentenceAt(idx, chunkText, targetLang)
+    if (profileRef.current?.translate_to) translateSentenceAt(idx, chunkText)
   }
 
   // On-device Whisper chunks can repeat a trailing word at the boundary; trim it

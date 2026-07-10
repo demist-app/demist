@@ -163,7 +163,13 @@
       "Bash(curl -s \"https://huggingface.co/api/models/Xenova/nllb-200-distilled-600M\")",
       "Bash(python3 -c ' *)",
       "WebSearch",
-      "Bash(curl -s \"https://raw.githubusercontent.com/huggingface/transformers.js/main/docs/source/guides/dtypes.md\")"
+      "Bash(curl -s \"https://raw.githubusercontent.com/huggingface/transformers.js/main/docs/source/guides/dtypes.md\")",
+      "Bash(curl -sf https://www.demist.app/profile)",
+      "Bash(curl -s https://www.demist.app/dashboard)",
+      "Bash(xargs -I{} curl -s \"https://www.demist.app{}\")",
+      "Bash(curl -s https://www.demist.app/dashboard -o /tmp/dash.html -w \"%{http_code}\\\\n\")",
+      "Bash(curl -sL https://www.demist.app/dashboard -o /tmp/dash.html)",
+      "mcp__claude_ai_Vercel__get_deployment"
     ],
     "additionalDirectories": [
       "c:\\Users\\shivb\\Desktop\\coding bits\\demist\\web\\app\\u",
