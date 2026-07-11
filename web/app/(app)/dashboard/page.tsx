@@ -654,10 +654,11 @@ export default function Dashboard() {
       transcriptRef.current = transcriptRef.current ? transcriptRef.current + ' ' + chunkText : chunkText
       if (!speechModeRef.current || !webSpeechHasFiredRef.current) appendSentence(chunkText)
 
-      // Accumulate text; only call detect-terms every ~15s to keep GPT cost constant
+      // Accumulate text; only call detect-terms every ~10s to bound GPT cost
+      // while keeping the wait for a definition to appear reasonable.
       detectionBufferRef.current += (detectionBufferRef.current ? ' ' : '') + chunkText
       const msSinceDetection = Date.now() - lastDetectionTimeRef.current
-      if ((msSinceDetection >= 15_000 || !isActiveRef.current) && detectionBufferRef.current.trim()) {
+      if ((msSinceDetection >= 10_000 || !isActiveRef.current) && detectionBufferRef.current.trim()) {
         const toDetect = detectionBufferRef.current
         const context = recentContextRef.current
         // Roll context forward: keep last ~60s worth (~300 chars) as future context
@@ -925,7 +926,7 @@ export default function Dashboard() {
     try { recognitionRef.current?.stop() } catch { /* ignore */ }
     recognitionRef.current = null
 
-    // Flush any text waiting for the 15s detect-terms window so terms from the
+    // Flush any text waiting for the 10s detect-terms window so terms from the
     // final seconds of the lecture aren't lost.
     if (detectionBufferRef.current.trim() && sessionIdRef.current) {
       const toDetect = detectionBufferRef.current
@@ -1335,7 +1336,7 @@ export default function Dashboard() {
                       ))}
                     </div>
                     {localTranslate.status === 'downloading' && (
-                      <span className="text-[11px] text-gray-600 shrink-0">Downloading on-device model… {localTranslate.progress}%</span>
+                      <span className="text-[11px] text-gray-600 shrink-0" title="A one-time Chrome download shared by every site — not specific to Demist">Chrome downloading translation model… {localTranslate.progress}%</span>
                     )}
                     {localTranslate.status === 'error' && (
                       <span className="text-[11px] text-red-400 shrink-0">Live translation unavailable — term definitions still translated</span>

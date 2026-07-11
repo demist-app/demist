@@ -9,8 +9,15 @@
 // Our profile language codes (zh/ar/hi/es/fr) are already valid BCP-47 short
 // codes, which is what this API expects — no mapping table needed, unlike the
 // FLORES-200 codes NLLB required.
+//
+// A single instance is shared app-wide via context (mounted once in the (app)
+// layout) rather than one per page. Profile and Dashboard used to each create
+// their own independent Translator session: navigating between them lost all
+// download progress and re-triggered session creation from scratch. Sharing
+// one instance means the earliest possible page load starts the (one-time)
+// download, and every page after that sees the same status/progress.
 
-import { useRef, useState, useCallback } from 'react'
+import { createContext, useContext, useRef, useState, useCallback, ReactNode } from 'react'
 
 export function nativeTranslateSupported(): boolean {
   return typeof window !== 'undefined' && 'Translator' in window
@@ -18,10 +25,19 @@ export function nativeTranslateSupported(): boolean {
 
 type Status = 'off' | 'downloading' | 'ready' | 'error'
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type TranslatorInstance = { translate(text: string): Promise<string> }
 
-export function useNativeTranslate() {
+interface NativeTranslateValue {
+  status: Status
+  progress: number
+  start: (tgtLang: string) => Promise<void>
+  translate: (text: string) => Promise<string>
+  supported: boolean
+}
+
+const NativeTranslateContext = createContext<NativeTranslateValue | null>(null)
+
+export function NativeTranslateProvider({ children }: { children: ReactNode }) {
   const translatorRef = useRef<TranslatorInstance | null>(null)
   const loadedLangRef = useRef<string | null>(null)
   const [status, setStatus] = useState<Status>('off')
@@ -69,5 +85,12 @@ export function useNativeTranslate() {
     }
   }, [])
 
-  return { status, progress, start, translate, supported: nativeTranslateSupported() }
+  const value: NativeTranslateValue = { status, progress, start, translate, supported: nativeTranslateSupported() }
+  return <NativeTranslateContext.Provider value={value}>{children}</NativeTranslateContext.Provider>
+}
+
+export function useNativeTranslate(): NativeTranslateValue {
+  const ctx = useContext(NativeTranslateContext)
+  if (!ctx) throw new Error('useNativeTranslate must be used within NativeTranslateProvider')
+  return ctx
 }

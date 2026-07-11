@@ -482,7 +482,7 @@ export default function Profile() {
             </div>
             <p className="text-[12px] text-gray-500 mt-1.5">Shows a one-line translation under each term&apos;s definition, and a live bilingual transcript in browsers with on-device translation (Chrome). Runs on-device automatically where supported — nothing to download or configure. Elsewhere, definitions are translated by the same OpenAI service that already generates them; the live bilingual transcript needs on-device support either way.</p>
             {translateTo && localTranslate.status === 'downloading' && (
-              <p className="text-[12px] text-gray-600 mt-1.5">Downloading on-device translation model… {localTranslate.progress}%</p>
+              <p className="text-[12px] text-gray-600 mt-1.5">Chrome is downloading its on-device translation model… {localTranslate.progress}% — a one-time download shared by every site, not just Demist. Cloud translation covers definitions in the meantime.</p>
             )}
             {translateTo && localTranslate.status === 'error' && (
               <p className="text-[12px] text-red-400 mt-1.5">On-device translation isn&apos;t available right now. Term definitions are still translated in the cloud.</p>
