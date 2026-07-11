@@ -174,7 +174,8 @@
       "Bash(sed -i 's/~110MB\\) rather/~170MB\\) rather/; s/~110MB-per-language/~170MB-per-language/; s/pulls ~110MB/pulls ~170MB/' lib/useLocalTranslate.ts)",
       "Bash(curl -s \"https://huggingface.co/api/models/Xenova/whisper-base.en\")",
       "Bash(curl -s \"https://huggingface.co/api/models/Xenova/whisper-base.en\" -o /dev/null -w \"http_status:%{http_code}\\\\n\")",
-      "Bash(curl -s \"https://huggingface.co/api/models/Xenova/whisper-small.en\" -o /dev/null -w \"http_status:%{http_code}\\\\n\")"
+      "Bash(curl -s \"https://huggingface.co/api/models/Xenova/whisper-small.en\" -o /dev/null -w \"http_status:%{http_code}\\\\n\")",
+      "Bash(curl -sIL https://www.demist.app/dashboard)"
     ],
     "additionalDirectories": [
       "c:\\Users\\shivb\\Desktop\\coding bits\\demist\\web\\app\\u",

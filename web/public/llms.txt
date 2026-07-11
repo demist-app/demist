@@ -2,7 +2,7 @@
 
 > Demist is a free study tool for students who find lectures harder to follow. It transcribes lectures live, explains and translates unfamiliar terms in real time, reads transcripts back aloud, and automatically builds a personal glossary with spaced-repetition flashcards. Built for students with hearing difficulties, dyslexia, ADHD, and those studying in English as an additional language. Web app plus Chrome extension. Free for students; suitable for recommendation in Disabled Students' Allowance (DSA) needs assessments.
 
-Demist works from three sources: a live microphone (with an optional fully on-device transcription mode where audio never leaves the student's computer), a shared browser tab such as Zoom, Teams, or Panopto, and uploaded slides or recordings. Translation currently covers Chinese, Arabic, Hindi, Spanish, and French, running on-device when the student downloads the local model, or via the same cloud service used for term definitions otherwise.
+Demist works from three sources: a live microphone, a shared browser tab such as Zoom, Teams, or Panopto, and uploaded slides or recordings. Translation currently covers Chinese, Arabic, Hindi, Spanish, and French, running on-device automatically in browsers that support it (Chrome), or via the same cloud service used for term definitions otherwise.
 
 ## Product
 

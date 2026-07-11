@@ -7,8 +7,7 @@ import { capture, reset } from '@/lib/analytics'
 import { ConsentManager } from '@/components/ConsentUnlock'
 import { useEntitlements } from '@/lib/entitlements'
 import { PaywallModal } from '@/components/PaywallModal'
-import { useLocalAsr, localAsrPreferred, setLocalAsrPreferred } from '@/lib/useLocalAsr'
-import { useLocalTranslate, translateDownloadConsent, setTranslateDownloadConsent } from '@/lib/useLocalTranslate'
+import { useNativeTranslate } from '@/lib/useNativeTranslate'
 
 interface ProfileData {
   display_name: string | null
@@ -70,36 +69,7 @@ export default function Profile() {
   const [exported, setExported] = useState(false)
   const { limits } = useEntitlements()
   const [paywall, setPaywall] = useState<string | null>(null)
-  const localAsr = useLocalAsr()
-  const [localAsrOn, setLocalAsrOn] = useState(false)
-  const [isMobile, setIsMobile] = useState(true)
-  const localTranslate = useLocalTranslate()
-  const [translateConsent, setTranslateConsentState] = useState(false)
-
-  useEffect(() => {
-    setLocalAsrOn(localAsrPreferred())
-    setIsMobile(/Android|iPhone|iPad|iPod/i.test(navigator.userAgent))
-    setTranslateConsentState(translateDownloadConsent())
-  }, [])
-
-  // Auto-resuming the download on load (if already consented) happens where
-  // the profile is fetched below, using the freshly-loaded value directly —
-  // not a reactive effect on `translateTo`, since that state also tracks the
-  // user's in-progress pill selection before Save, which should never
-  // silently trigger a new-language download on its own.
-  const confirmTranslateDownload = () => {
-    if (!translateTo) return
-    setTranslateDownloadConsent()
-    setTranslateConsentState(true)
-    localTranslate.start(translateTo)
-  }
-
-  const toggleLocalAsr = () => {
-    const next = !localAsrOn
-    setLocalAsrPreferred(next)
-    setLocalAsrOn(next)
-    if (next) localAsr.start()
-  }
+  const localTranslate = useNativeTranslate()
 
   // Account deletion state
   const [showDeleteModal, setShowDeleteModal] = useState(false)
@@ -132,7 +102,7 @@ export default function Profile() {
       setYear(p?.year_of_study ?? null)
       setSupportNeed(p?.support_need ?? null)
       setTranslateTo(p?.translate_to ?? null)
-      if (p?.translate_to && translateDownloadConsent()) localTranslate.start(p.translate_to)
+      if (p?.translate_to) localTranslate.start(p.translate_to)
       setIsPublic(p?.is_public ?? false)
       setTotalTerms(termCount ?? 0)
 
@@ -496,10 +466,9 @@ export default function Profile() {
                   key={value}
                   onClick={() => {
                     setTranslateTo(value)
-                    // Already agreed to on-device translation downloads on this
-                    // device once — switching language is a new small (~110MB)
-                    // download, not a new kind of consent decision.
-                    if (translateConsent) localTranslate.start(value)
+                    // No-op in unsupported browsers; Chrome downloads its own
+                    // model silently in the background, nothing for us to gate.
+                    localTranslate.start(value)
                   }}
                   className={`py-3 px-3 rounded-2xl text-[13px] font-medium transition-all ${
                     translateTo === value
@@ -511,26 +480,12 @@ export default function Profile() {
                 </button>
               ))}
             </div>
-            <p className="text-[12px] text-gray-500 mt-1.5">Shows a one-line translation under each term&apos;s definition, and a live bilingual transcript if you download the on-device model below. Term translations run on this device when downloaded; if you skip that, they&apos;re translated by the same OpenAI service that already generates your definitions. The live bilingual transcript view needs the on-device model either way.</p>
-            {translateTo && !translateConsent && localTranslate.status === 'off' && (
-              <div className="mt-2 dark:bg-white/[0.04] bg-[#F6F5F2] border dark:border-white/[0.08] border-black/[0.13] rounded-2xl p-3">
-                <p className="text-[12px] text-gray-600 mb-2">Downloads a one-time ~170MB model to this device for offline translation. Only needed once per language — cached afterwards.</p>
-                <button
-                  onClick={confirmTranslateDownload}
-                  className="w-full py-2.5 rounded-xl text-[13px] font-semibold bg-yellow-600 hover:brightness-[1.1] dark:text-white text-gray-900 transition-all"
-                >
-                  Download & enable
-                </button>
-              </div>
-            )}
-            {translateTo && translateConsent && localTranslate.status === 'downloading' && (
-              <p className="text-[12px] text-gray-600 mt-1.5">Downloading translation model… {localTranslate.progress}%</p>
-            )}
-            {translateTo && localTranslate.status === 'ready' && localTranslate.backend === 'wasm' && (
-              <p className="text-[12px] text-gray-600 mt-1.5">Running without GPU acceleration, expect slower results.</p>
+            <p className="text-[12px] text-gray-500 mt-1.5">Shows a one-line translation under each term&apos;s definition, and a live bilingual transcript in browsers with on-device translation (Chrome). Runs on-device automatically where supported — nothing to download or configure. Elsewhere, definitions are translated by the same OpenAI service that already generates them; the live bilingual transcript needs on-device support either way.</p>
+            {translateTo && localTranslate.status === 'downloading' && (
+              <p className="text-[12px] text-gray-600 mt-1.5">Downloading on-device translation model… {localTranslate.progress}%</p>
             )}
             {translateTo && localTranslate.status === 'error' && (
-              <p className="text-[12px] text-red-400 mt-1.5">Couldn&apos;t load the translation model. Term and sentence translation are unavailable until this loads — everything else still works.</p>
+              <p className="text-[12px] text-red-400 mt-1.5">On-device translation isn&apos;t available right now. Term definitions are still translated in the cloud.</p>
             )}
           </div>
 
@@ -588,37 +543,6 @@ export default function Profile() {
             <span className="text-gray-600 text-[18px] leading-none">›</span>
           </a>
         </div>
-
-        {/* Private transcription */}
-        {!isMobile && (
-          <div className="space-y-3 animate-step opacity-0" style={{ animationDelay: '135ms', animationFillMode: 'forwards' }}>
-            <p className="text-[10px] font-bold tracking-[0.18em] text-gray-600 uppercase">Private transcription</p>
-            <div className="dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl px-4 py-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-[14px] dark:text-white/80 text-gray-800 font-medium">Private transcription (beta)</p>
-                  <p className="text-[12px] text-gray-600 mt-0.5">Transcribes on this device. Audio never leaves your computer. Desktop only, downloads a 74MB model on first use.</p>
-                </div>
-                <button
-                  onClick={toggleLocalAsr}
-                  className={`relative w-11 h-6 rounded-full transition-colors duration-200 shrink-0 ${localAsrOn ? 'bg-yellow-600' : 'bg-white/[0.1]'}`}
-                >
-                  <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 ${localAsrOn ? 'translate-x-5' : 'translate-x-0'}`} />
-                </button>
-              </div>
-
-              {localAsrOn && localAsr.status === 'downloading' && (
-                <p className="text-[12px] text-gray-600">Downloading on-device model… {localAsr.progress}%</p>
-              )}
-              {localAsrOn && localAsr.status === 'ready' && localAsr.backend === 'wasm' && (
-                <p className="text-[12px] text-gray-600">Running without GPU acceleration, expect slower results.</p>
-              )}
-              {localAsrOn && localAsr.status === 'error' && (
-                <p className="text-[12px] text-red-400">Couldn&apos;t load the on-device model. Cloud transcription will be used instead.</p>
-              )}
-            </div>
-          </div>
-        )}
 
         {/* Lecturer consents */}
         <div className="space-y-3 animate-step opacity-0" style={{ animationDelay: '150ms', animationFillMode: 'forwards' }}>

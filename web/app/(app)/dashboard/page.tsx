@@ -9,8 +9,7 @@ import { requestWakeLock, releaseWakeLock, reacquireWakeLockOnVisibility, wakeLo
 import { startTabCapture, tabCaptureSupported } from '@/lib/tabCapture'
 import { checkRecordingLimit } from '@/lib/subscription'
 import { useEntitlements } from '@/lib/entitlements'
-import { useLocalAsr, localAsrPreferred } from '@/lib/useLocalAsr'
-import { useLocalTranslate, translateDownloadConsent } from '@/lib/useLocalTranslate'
+import { useNativeTranslate } from '@/lib/useNativeTranslate'
 import { extractCandidates } from '@/lib/extractTerms'
 
 const SummaryViewer = dynamic(() => import('../summary-viewer').then(m => ({ default: m.SummaryViewer })), { ssr: false })
@@ -145,7 +144,6 @@ export default function Dashboard() {
   const [showSubjectInput, setShowSubjectInput] = useState(false)
   const { limits } = useEntitlements()
   const [paywall, setPaywall] = useState<string | null>(null)
-  const [usingLocalAsr, setUsingLocalAsr] = useState(false)
 
   const profileRef = useRef<Profile | null>(null)
   const sessionSubjectRef = useRef<string>('')
@@ -167,16 +165,12 @@ export default function Dashboard() {
   const stopRecordingRef = useRef<() => Promise<void>>(() => Promise.resolve())
   const startingRef = useRef(false)
   const captureModeRef = useRef<CaptureMode>('microphone')
-  const localAsr = useLocalAsr()
-  const useLocalRef = useRef(false)
-  const localTranslate = useLocalTranslate()
-  // Only 'ready' counts as usable — 'downloading' falls back to cloud too,
-  // not just 'off'/'error'. Each detect-terms call decides independently, so
-  // this naturally switches from cloud to local the moment the download
-  // finishes; waiting for 'downloading' to resolve first (the previous
-  // behaviour) meant a device where the download stalls or never succeeds —
-  // like the Opera GX CSP bug — got no translation at all until it gave up.
-  const localTranslateUsable = () => translateDownloadConsent() && localTranslate.status === 'ready'
+  const localTranslate = useNativeTranslate()
+  // Only 'ready' counts as usable — everything else (unsupported browser,
+  // still downloading Chrome's own model, or errored) falls back to cloud.
+  // Each detect-terms call decides independently, so this naturally switches
+  // from cloud to native the moment Chrome's model finishes downloading.
+  const localTranslateUsable = () => localTranslate.status === 'ready'
   const sentenceCountRef = useRef(0)
   const [translatedSentences, setTranslatedSentences] = useState<(string | null)[]>([])
 
@@ -324,13 +318,6 @@ export default function Dashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [localTranslate.status])
 
-  // Warm up on-device transcription in the background so it's ready by the time
-  // the user hits record, rather than downloading the model mid-lecture.
-  useEffect(() => {
-    if (localAsrPreferred()) localAsr.start()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
   // Stop Web Speech and the recording session cleanly if the user closes the
   // tab or navigates away mid-recording.
   useEffect(() => {
@@ -437,9 +424,9 @@ export default function Dashboard() {
     if (candidates.length === 0) return   // nothing new, skip the network call entirely
 
     // Cloud translation fallback: only ask the server to translate definitions
-    // when on-device translation isn't usable on this device (declined or
-    // failed) — otherwise the on-device model handles it, so nothing extra
-    // leaves the device.
+    // when on-device translation isn't usable (unsupported browser, still
+    // downloading, or errored) — otherwise the on-device model handles it, so
+    // nothing extra leaves the device.
     const cloudTargetLangName = (profileRef.current?.translate_to && !localTranslateUsable())
       ? LANGUAGE_NAMES[profileRef.current.translate_to]
       : undefined
@@ -627,37 +614,6 @@ export default function Dashboard() {
     if (profileRef.current?.translate_to && localTranslateUsable()) translateSentenceAt(idx, chunkText)
   }
 
-  // On-device Whisper chunks can repeat a trailing word at the boundary; trim it
-  // from the front of the next chunk before appending.
-  const dedupeBoundary = (prev: string, next: string): string => {
-    const tail = prev.split(' ').slice(-4).join(' ').toLowerCase()
-    const words = next.split(' ')
-    for (let k = Math.min(4, words.length); k > 0; k--) {
-      if (tail.endsWith(words.slice(0, k).join(' ').toLowerCase())) return words.slice(k).join(' ')
-    }
-    return next
-  }
-
-  // ── Local ASR path: mirrors the cloud path's state updates for on-device text ──
-  const appendLocalTranscript = async (rawText: string, sessionId: string) => {
-    const chunkText = dedupeBoundary(transcriptRef.current, rawText)
-    if (!chunkText.trim()) return
-    transcriptRef.current = transcriptRef.current ? transcriptRef.current + ' ' + chunkText : chunkText
-    if (!speechModeRef.current || !webSpeechHasFiredRef.current) appendSentence(chunkText)
-
-    detectionBufferRef.current += (detectionBufferRef.current ? ' ' : '') + chunkText
-    const msSinceDetection = Date.now() - lastDetectionTimeRef.current
-    if ((msSinceDetection >= 15_000 || !isActiveRef.current) && detectionBufferRef.current.trim()) {
-      const toDetect = detectionBufferRef.current
-      const context = recentContextRef.current
-      recentContextRef.current = (context + ' ' + toDetect).trim().slice(-300)
-      detectionBufferRef.current = ''
-      lastDetectionTimeRef.current = Date.now()
-      const { data: { session } } = await createClient().auth.getSession()
-      const token = session?.access_token
-      if (token) await runDetection(toDetect, sessionId, token, context)
-    }
-  }
 
   // ── Whisper path: transcribe audio blob then detect terms ─────────────────────
   // Skips Whisper entirely if audio level was below silence threshold.
@@ -859,12 +815,7 @@ export default function Dashboard() {
       })).catch(() => {})
     }
 
-    // Decide the transcription path once per session. Local mode is mic-only —
-    // tab capture and uploads always keep the cloud path.
-    useLocalRef.current = mode === 'microphone' && localAsrPreferred() && localAsr.status === 'ready'
-    setUsingLocalAsr(useLocalRef.current)
-
-    // ── Whisper path: 10-second chunk loop ──────────────────────────────────────
+    // ── Cloud transcription: chunk loop ─────────────────────────────────────
     const doChunk = () => {
       const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
         ? 'audio/webm;codecs=opus'
@@ -878,14 +829,7 @@ export default function Dashboard() {
       recorder.onstop = () => {
         const blob = new Blob(chunks, { type: mimeType })
         const sid = sessionIdRef.current
-        if (sid) {
-          if (useLocalRef.current) {
-            chunkPeakRef.current = 0
-            localAsr.transcribe(blob).then(text => { if (text) appendLocalTranscript(text, sid) })
-          } else {
-            processChunk(blob, sid)
-          }
-        }
+        if (sid) processChunk(blob, sid)
         if (isActiveRef.current) doChunk()
       }
       recorder.start()
@@ -896,7 +840,7 @@ export default function Dashboard() {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const SpeechRecognitionAPI = typeof window !== 'undefined' ? ((window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition ?? null) : null
-    if (SpeechRecognitionAPI && !useLocalRef.current) {
+    if (SpeechRecognitionAPI) {
       speechModeRef.current = true
       webSpeechHasFiredRef.current = false
       hasInterimRef.current = false
@@ -1014,7 +958,6 @@ export default function Dashboard() {
       await supabase.from('sessions').update({ ended_at: new Date().toISOString() }).eq('id', sid)
     }
     setIsRecording(false)
-    setUsingLocalAsr(false)
     setRecordingWarning(null)
     setCapturedTabTitle(null)
     setLiveSessionId(null)
@@ -1336,16 +1279,6 @@ export default function Dashboard() {
                 </p>
               )}
 
-              {usingLocalAsr && (
-                <button
-                  onClick={() => { useLocalRef.current = false; setUsingLocalAsr(false) }}
-                  title="Switch this session to cloud transcription"
-                  className="mb-4 text-[11px] font-medium dark:text-emerald-400 text-emerald-700 dark:bg-emerald-500/10 bg-emerald-500/[0.08] border dark:border-emerald-500/20 border-emerald-600/20 rounded-full px-3 py-1 hover:opacity-80 transition-opacity"
-                >
-                  On-device
-                </button>
-              )}
-
               <div className="relative flex items-center justify-center mb-6">
                 <span ref={ring1Ref} className="absolute w-[88px] h-[88px] rounded-full bg-red-500/[0.18]" style={{ willChange: 'transform' }} />
                 <span ref={ring2Ref} className="absolute w-[88px] h-[88px] rounded-full bg-red-500/[0.11]" style={{ willChange: 'transform' }} />
@@ -1380,7 +1313,7 @@ export default function Dashboard() {
             {/* Live transcript — fills the space between the recording button and term cards */}
             <div className="flex-1 min-h-[80px] px-4 sm:px-6 py-3 relative z-10">
               <div className="relative h-full flex flex-col">
-                {profile?.translate_to && translateDownloadConsent() && (
+                {profile?.translate_to && localTranslate.supported && (
                   <div className="shrink-0 flex items-center justify-between gap-2 mb-2">
                     <div className="flex dark:bg-white/[0.07] bg-black/[0.06] rounded-full p-1">
                       {([
@@ -1402,17 +1335,12 @@ export default function Dashboard() {
                       ))}
                     </div>
                     {localTranslate.status === 'downloading' && (
-                      <span className="text-[11px] text-gray-600 shrink-0">Downloading model… {localTranslate.progress}%</span>
+                      <span className="text-[11px] text-gray-600 shrink-0">Downloading on-device model… {localTranslate.progress}%</span>
                     )}
                     {localTranslate.status === 'error' && (
-                      <span className="text-[11px] text-red-400 shrink-0">Translation unavailable</span>
+                      <span className="text-[11px] text-red-400 shrink-0">Live translation unavailable — term definitions still translated</span>
                     )}
                   </div>
-                )}
-                {profile?.translate_to && !translateDownloadConsent() && (
-                  <p className="shrink-0 text-[11px] text-gray-600 mb-2">
-                    Translation is set up but not downloaded on this device yet — enable it in <a href="/profile" className="underline">Profile</a>.
-                  </p>
                 )}
                 <div
                   ref={transcriptContainerRef}
@@ -1423,13 +1351,13 @@ export default function Dashboard() {
                   {sentences.length === 0 && (
                     <p className="text-[13px] text-gray-700 italic">Transcription will appear here as you speak…</p>
                   )}
-                  {profile?.translate_to && translateDownloadConsent() && transcriptView === 'both' && (
+                  {profile?.translate_to && localTranslate.supported && transcriptView === 'both' && (
                     <TranscriptBilingual
                       pairs={sentences.map((s, i) => ({ srcHtml: highlightTerms(s), tgt: translatedSentences[i] ?? null }))}
                       lang={profile.translate_to}
                     />
                   )}
-                  {(!profile?.translate_to || !translateDownloadConsent() || transcriptView === 'source') && (
+                  {(!profile?.translate_to || !localTranslate.supported || transcriptView === 'source') && (
                     sentences.map((sentence, index) => {
                       const age = Math.min(sentences.length - 1 - index, 5)
                       return (
@@ -1442,7 +1370,7 @@ export default function Dashboard() {
                       )
                     })
                   )}
-                  {profile?.translate_to && translateDownloadConsent() && transcriptView === 'translated' && (
+                  {profile?.translate_to && localTranslate.supported && transcriptView === 'translated' && (
                     sentences.map((_, index) => {
                       const age = Math.min(sentences.length - 1 - index, 5)
                       const tgt = translatedSentences[index]

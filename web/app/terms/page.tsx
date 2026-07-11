@@ -61,7 +61,6 @@ export default function Terms() {
             <h2 className="text-[17px] font-semibold mb-3">Beta features and the Pro waitlist</h2>
             <ul className="space-y-3 text-gray-400">
               <li>Pro is not yet purchasable. Joining the waitlist creates no payment obligation. Waitlist members receive one free month of Pro when it launches.</li>
-              <li>Private transcription is a beta feature. Accuracy varies by device and environment, and cloud transcription remains available at any time.</li>
             </ul>
           </section>
 
