@@ -43,7 +43,7 @@ export default function Login() {
       type: 'email',
     })
     setLoading(false)
-    if (error) { setError('Invalid or expired code — try again.'); return }
+    if (error) { setError('Invalid or expired code. Try again.'); return }
     router.replace('/(tabs)/')
   }
 

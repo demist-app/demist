@@ -213,7 +213,7 @@ export function TranscriptViewer({
             return (
               <div key={i} className="grid grid-cols-1 md:grid-cols-2 gap-1 md:gap-4">
                 <p
-                  className="text-[13px] text-gray-500 leading-relaxed select-text cursor-text"
+                  className="text-[calc(0.8125rem*var(--df-scale))] text-gray-500 leading-relaxed select-text cursor-text"
                   onPointerUp={handlePointerUp}
                 >
                   {segs.map((seg, j) => seg.highlight ? (
@@ -230,7 +230,7 @@ export function TranscriptViewer({
                 </p>
                 <p
                   dir={translationLang === 'ar' ? 'rtl' : undefined}
-                  className="text-[13px] leading-relaxed dark:text-amber-300/80 text-amber-700"
+                  className="text-[calc(0.8125rem*var(--df-scale))] leading-relaxed dark:text-amber-300/80 text-amber-700"
                 >
                   {tgt ?? ''}
                 </p>
@@ -242,7 +242,7 @@ export function TranscriptViewer({
               <p />
               <p
                 dir={translationLang === 'ar' ? 'rtl' : undefined}
-                className="text-[13px] leading-relaxed dark:text-amber-300/80 text-amber-700"
+                className="text-[calc(0.8125rem*var(--df-scale))] leading-relaxed dark:text-amber-300/80 text-amber-700"
               >
                 {extra}
               </p>
@@ -251,7 +251,7 @@ export function TranscriptViewer({
         </div>
       ) : (
         <p
-          className="text-[13px] text-gray-500 leading-relaxed select-text cursor-text whitespace-pre-wrap"
+          className="text-[calc(0.8125rem*var(--df-scale))] text-gray-500 leading-relaxed select-text cursor-text whitespace-pre-wrap"
           onPointerUp={handlePointerUp}
         >
           {segments.map((seg, i) => {

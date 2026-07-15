@@ -25,7 +25,7 @@ export const startTabCapture = async (): Promise<MediaStream | null> => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (err: any) {
     if (err?.name === 'NotAllowedError') {
-      // User cancelled the picker — handle gracefully
+      // User cancelled the picker: handle gracefully
       return null
     }
     throw err

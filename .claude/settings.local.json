@@ -175,7 +175,14 @@
       "Bash(curl -s \"https://huggingface.co/api/models/Xenova/whisper-base.en\")",
       "Bash(curl -s \"https://huggingface.co/api/models/Xenova/whisper-base.en\" -o /dev/null -w \"http_status:%{http_code}\\\\n\")",
       "Bash(curl -s \"https://huggingface.co/api/models/Xenova/whisper-small.en\" -o /dev/null -w \"http_status:%{http_code}\\\\n\")",
-      "Bash(curl -sIL https://www.demist.app/dashboard)"
+      "Bash(curl -sIL https://www.demist.app/dashboard)",
+      "Bash(echo \"exit:$?\")",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(npx eslint *)",
+      "Bash(sleep 3; cat /tmp/demist-dev.log 2>&1 | tail -30)",
+      "Bash(echo \"TSC_EXIT:$?\")",
+      "Bash(python3 -c \"import json; json.load\\(open\\('extension/manifest.json'\\)\\)\")",
+      "Bash(node -e \"JSON.parse\\(require\\('fs'\\).readFileSync\\('extension/manifest.json'\\)\\)\")"
     ],
     "additionalDirectories": [
       "c:\\Users\\shivb\\Desktop\\coding bits\\demist\\web\\app\\u",

@@ -11,6 +11,7 @@ import { checkRecordingLimit } from '@/lib/subscription'
 import { useEntitlements } from '@/lib/entitlements'
 import { useNativeTranslate } from '@/lib/useNativeTranslate'
 import { extractCandidates } from '@/lib/extractTerms'
+import { summaryFailureMessage } from '@/lib/summaryFailure'
 
 const SummaryViewer = dynamic(() => import('../summary-viewer').then(m => ({ default: m.SummaryViewer })), { ssr: false })
 const OnboardingOverlay = dynamic(() => import('@/components/OnboardingOverlay').then(m => ({ default: m.OnboardingOverlay })), { ssr: false })
@@ -127,6 +128,7 @@ export default function Dashboard() {
   const [recentSessions, setRecentSessions] = useState<RecentSession[]>([])
   const [sessionGenIds, setSessionGenIds] = useState<Set<string>>(new Set())
   const [sessionFailIds, setSessionFailIds] = useState<Set<string>>(new Set())
+  const [sessionFailReasons, setSessionFailReasons] = useState<Record<string, string>>({})
   const [sessionTermLoading, setSessionTermLoading] = useState<string | null>(null)
   const [recordingError, setRecordingError] = useState<string | null>(null)
   const [recordingWarning, setRecordingWarning] = useState<string | null>(null)
@@ -166,7 +168,7 @@ export default function Dashboard() {
   const startingRef = useRef(false)
   const captureModeRef = useRef<CaptureMode>('microphone')
   const localTranslate = useNativeTranslate()
-  // Only 'ready' counts as usable — everything else (unsupported browser,
+  // Only 'ready' counts as usable: everything else (unsupported browser,
   // still downloading Chrome's own model, or errored) falls back to cloud.
   // Each detect-terms call decides independently, so this naturally switches
   // from cloud to native the moment Chrome's model finishes downloading.
@@ -231,7 +233,7 @@ export default function Dashboard() {
     raf = requestAnimationFrame(tick)
     return () => {
       cancelAnimationFrame(raf)
-      // Do NOT close ctx here — it's the processing context owned by startRecording/stopRecording
+      // Do NOT close ctx here: it's the processing context owned by startRecording/stopRecording
       if (btnRef.current) btnRef.current.style.boxShadow = ''
       if (barsRef.current) Array.from(barsRef.current.children).forEach(b => { (b as HTMLElement).style.height = '4px' })
     }
@@ -255,7 +257,7 @@ export default function Dashboard() {
     return () => window.removeEventListener('message', handler)
   }, [])
 
-  // Live transcript — subscribe to new chunks for the active session via Supabase Realtime
+  // Live transcript: subscribe to new chunks for the active session via Supabase Realtime
   useEffect(() => {
     if (!liveSessionId) return
     const supabase = createClient()
@@ -284,7 +286,7 @@ export default function Dashboard() {
     if (el) el.scrollTop = el.scrollHeight
   }, [sentences])
 
-  // iOS "Add to Home Screen" prompt — once per session, for users not already standalone
+  // iOS "Add to Home Screen" prompt: once per session, for users not already standalone
   useEffect(() => {
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches
@@ -302,13 +304,13 @@ export default function Dashboard() {
     localStorage.setItem('demist_transcript_view', view)
   }
 
-  // The live bilingual view is on-device only (no cloud fallback — see
+  // The live bilingual view is on-device only (no cloud fallback, see
   // localTranslateUsable). If the on-device model fails outright, sentences
   // would otherwise sit on the pending "…" marker forever with no visual cue
   // anything's wrong beyond the small note in the toggle bar. Drop back to
   // English-only automatically so the transcript itself doesn't look broken;
   // term definitions keep working regardless, via the cloud fallback. This is
-  // a transient override for this session only — setTranscriptView, not
+  // a transient override for this session only: setTranscriptView, not
   // changeTranscriptView, so it doesn't overwrite the user's saved preference
   // for future sessions on a device where translation might work fine.
   useEffect(() => {
@@ -425,7 +427,7 @@ export default function Dashboard() {
 
     // Cloud translation fallback: only ask the server to translate definitions
     // when on-device translation isn't usable (unsupported browser, still
-    // downloading, or errored) — otherwise the on-device model handles it, so
+    // downloading, or errored); otherwise the on-device model handles it, so
     // nothing extra leaves the device.
     const cloudTargetLangName = (profileRef.current?.translate_to && !localTranslateUsable())
       ? LANGUAGE_NAMES[profileRef.current.translate_to]
@@ -445,7 +447,7 @@ export default function Dashboard() {
     })
     if (!dtRes.ok) {
       if (dtRes.status === 429) {
-        setRecordingWarning('Term detection rate limit reached for this hour — recording and transcription continue normally.')
+        setRecordingWarning('Term detection rate limit reached for this hour. Recording and transcription continue normally.')
       } else if (dtRes.status === 401) {
         setRecordingError('Session expired. Sign in again to continue recording.')
         stopRecordingRef.current()
@@ -460,12 +462,12 @@ export default function Dashboard() {
       zeroTermChunksRef.current++
       if (zeroTermChunksRef.current >= 3 && chunkIntervalRef.current !== 10_000) {
         chunkIntervalRef.current = 10_000
-        console.log('[demist] 3 empty detections — chunk interval expanded to 10s')
+        console.log('[demist] 3 empty detections: chunk interval expanded to 10s')
       }
       return
     }
     if (chunkIntervalRef.current !== 5_000) {
-      console.log('[demist] terms detected — chunk interval reset to 5s')
+      console.log('[demist] terms detected: chunk interval reset to 5s')
     }
     zeroTermChunksRef.current = 0
     chunkIntervalRef.current = 5_000
@@ -608,7 +610,7 @@ export default function Dashboard() {
     const idx = sentenceCountRef.current++
     setSentences(prev => [...prev, chunkText])
     setTranslatedSentences(prev => [...prev, null])
-    // Live sentence-by-sentence translation is on-device only — no cloud
+    // Live sentence-by-sentence translation is on-device only: no cloud
     // fallback, since per-sentence cloud calls at this cadence would be slow
     // and costly. Term/glossary definitions still get the cloud fallback above.
     if (profileRef.current?.translate_to && localTranslateUsable()) translateSentenceAt(idx, chunkText)
@@ -641,7 +643,7 @@ export default function Dashboard() {
       })
       if (!txRes.ok) {
         if (txRes.status === 429) {
-          setRecordingWarning('Transcription rate limit reached — recording continues but text won\'t display until the next hour.')
+          setRecordingWarning('Transcription rate limit reached. Recording continues but text won\'t display until the next hour.')
         } else if (txRes.status === 401) {
           setRecordingError('Session expired. Sign in again to continue recording.')
           stopRecordingRef.current()
@@ -672,13 +674,75 @@ export default function Dashboard() {
     }
   }
 
+  // Audio processing pipeline: boost quiet audio and normalise volume.
+  // Raw stream → gain(2.5×) → compressor → processedStream → MediaRecorder.
+  // Pulled out of startRecording so recoverMicStream can rebuild the same
+  // graph on a replacement stream without duplicating the wiring.
+  const attachAudioGraph = (ctx: AudioContext, rawStream: MediaStream) => {
+    const src = ctx.createMediaStreamSource(rawStream)
+    const gain = ctx.createGain()
+    gain.gain.value = 2.5
+    const compressor = ctx.createDynamicsCompressor()
+    compressor.threshold.value = -30
+    compressor.knee.value = 20
+    compressor.ratio.value = 4
+    compressor.attack.value = 0.003
+    compressor.release.value = 0.15
+    const dest = ctx.createMediaStreamDestination()
+    // Branch the analyser off src so the visualizer reads raw levels without
+    // a second MediaStreamAudioSourceNode (Chrome only allows one per stream per context).
+    const vizAnalyser = ctx.createAnalyser()
+    vizAnalyser.fftSize = 512; vizAnalyser.smoothingTimeConstant = 0.78
+    src.connect(vizAnalyser)
+    vizAnalyserRef.current = vizAnalyser
+    src.connect(gain)
+    gain.connect(compressor)
+    compressor.connect(dest)
+    processedStreamRef.current = dest.stream
+  }
+
+  // Chrome has been observed (mic-mode, desktop) silently ending the
+  // getUserMedia track on some background-tab transitions, not something
+  // any of our timer/lock mitigations touch, since those only protect
+  // against throttling, not the browser revoking the track outright. Rather
+  // than let recording go dead with no signal, listen for the track ending
+  // and try to reacquire the same (or default) microphone and rebuild the
+  // audio graph in place, keeping the session/transcript intact.
+  const recoverMicStream = async () => {
+    if (!isActiveRef.current || captureModeRef.current !== 'microphone') return
+    setRecordingWarning('Microphone disconnected, reconnecting…')
+    const baseAudioConstraints = { echoCancellation: false, noiseSuppression: true, autoGainControl: true }
+    const preferredMicId = localStorage.getItem('demist_mic_device_id') || undefined
+    try {
+      let newStream: MediaStream
+      try {
+        newStream = await navigator.mediaDevices.getUserMedia({
+          audio: preferredMicId ? { ...baseAudioConstraints, deviceId: { exact: preferredMicId } } : baseAudioConstraints,
+          video: false,
+        })
+      } catch {
+        newStream = await navigator.mediaDevices.getUserMedia({ audio: baseAudioConstraints, video: false })
+      }
+      if (!isActiveRef.current) { newStream.getTracks().forEach(t => t.stop()); return }
+      streamRef.current?.getTracks().forEach(t => t.stop())
+      streamRef.current = newStream
+      newStream.getAudioTracks().forEach(track => track.addEventListener('ended', recoverMicStream, { once: true }))
+      if (audioProcessingCtxRef.current) attachAudioGraph(audioProcessingCtxRef.current, newStream)
+      setRecordingWarning(null)
+    } catch (e) {
+      console.error('recoverMicStream failed:', e)
+      setRecordingWarning('Microphone disconnected and could not be reconnected. Please start a new session.')
+      stopRecordingRef.current()
+    }
+  }
+
   const startRecording = async (mode: CaptureMode = 'microphone') => {
     if (isActiveRef.current || startingRef.current) return
     startingRef.current = true
     captureModeRef.current = mode
     setCapturedTabTitle(null)
 
-    // Paywall gate — no-op while PAYWALL_ENABLED is false
+    // Paywall gate: no-op while PAYWALL_ENABLED is false
     if (userIdRef.current) {
       const gate = await checkRecordingLimit(createClient(), userIdRef.current)
       if (!gate.allowed) {
@@ -688,7 +752,7 @@ export default function Dashboard() {
       }
     }
 
-    // Create and resume AudioContext synchronously within the user gesture — if deferred past
+    // Create and resume AudioContext synchronously within the user gesture: if deferred past
     // any await, iOS Safari considers the gesture consumed and keeps the context suspended.
     const audioCtx = new AudioContext()
     audioCtx.resume()
@@ -722,47 +786,37 @@ export default function Dashboard() {
         stopRecordingRef.current()
       })
     } else {
+      const baseAudioConstraints = { echoCancellation: false, noiseSuppression: true, autoGainControl: true }
+      const preferredMicId = localStorage.getItem('demist_mic_device_id') || undefined
       try {
         stream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            echoCancellation: false,
-            noiseSuppression: true,
-            autoGainControl: true,
-          },
+          audio: preferredMicId ? { ...baseAudioConstraints, deviceId: { exact: preferredMicId } } : baseAudioConstraints,
           video: false,
         })
-      } catch {
-        audioCtx.close()
-        audioProcessingCtxRef.current = null
-        startingRef.current = false
-        alert('Microphone access is needed to use Demist.')
-        return
+      } catch (err) {
+        // The saved microphone may have been unplugged or renamed: fall back
+        // to the system default rather than blocking recording entirely.
+        let fallbackStream: MediaStream | null = null
+        if (preferredMicId && (err as DOMException)?.name === 'OverconstrainedError') {
+          try {
+            fallbackStream = await navigator.mediaDevices.getUserMedia({ audio: baseAudioConstraints, video: false })
+          } catch { /* fall through to the error path below */ }
+        }
+        if (!fallbackStream) {
+          audioCtx.close()
+          audioProcessingCtxRef.current = null
+          startingRef.current = false
+          alert('Microphone access is needed to use Demist.')
+          return
+        }
+        stream = fallbackStream
       }
     }
     streamRef.current = stream
-
-    // Audio processing pipeline: boost quiet audio and normalise volume.
-    // Raw stream → gain(2.5×) → compressor → processedStream → MediaRecorder
-    const src = audioCtx.createMediaStreamSource(stream)
-    const gain = audioCtx.createGain()
-    gain.gain.value = 2.5
-    const compressor = audioCtx.createDynamicsCompressor()
-    compressor.threshold.value = -30
-    compressor.knee.value = 20
-    compressor.ratio.value = 4
-    compressor.attack.value = 0.003
-    compressor.release.value = 0.15
-    const dest = audioCtx.createMediaStreamDestination()
-    // Branch the analyser off src so the visualizer reads raw levels without
-    // a second MediaStreamAudioSourceNode (Chrome only allows one per stream per context).
-    const vizAnalyser = audioCtx.createAnalyser()
-    vizAnalyser.fftSize = 512; vizAnalyser.smoothingTimeConstant = 0.78
-    src.connect(vizAnalyser)
-    vizAnalyserRef.current = vizAnalyser
-    src.connect(gain)
-    gain.connect(compressor)
-    compressor.connect(dest)
-    processedStreamRef.current = dest.stream
+    if (mode === 'microphone') {
+      stream.getAudioTracks().forEach(track => track.addEventListener('ended', recoverMicStream, { once: true }))
+    }
+    attachAudioGraph(audioCtx, stream)
     sessionIdRef.current = null
 
     const supabase = createClient()
@@ -821,7 +875,7 @@ export default function Dashboard() {
       const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
         ? 'audio/webm;codecs=opus'
         : MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'
-      // Use raw getUserMedia stream — Chrome suspends AudioContext in background tabs
+      // Use raw getUserMedia stream: Chrome suspends AudioContext in background tabs
       // but always delivers audio from getUserMedia regardless of tab visibility.
       const recorder = new MediaRecorder(streamRef.current!, { mimeType })
       recorderRef.current = recorder
@@ -1132,11 +1186,13 @@ export default function Dashboard() {
     setSessionGenIds(prev => new Set(prev).add(s.id))
     setSessionFailIds(prev => { const next = new Set(prev); next.delete(s.id); return next })
     let succeeded = false
+    let reason: string | undefined
     try {
       const supabase = createClient()
       const { data, error } = await supabase.functions.invoke('summarize-session', {
         body: { session_id: s.id, subject: profileRef.current?.course, terms: s.terms },
       })
+      reason = data?.reason
       if (!error && data?.ok && data?.synopsis) {
         setRecentSessions(prev => prev.map(x => x.id === s.id ? { ...x, synopsis: data.synopsis } : x))
         succeeded = true
@@ -1146,7 +1202,10 @@ export default function Dashboard() {
     } finally {
       sessionSummarizingRef.current.delete(s.id)
       setSessionGenIds(prev => { const next = new Set(prev); next.delete(s.id); return next })
-      if (!succeeded) setSessionFailIds(prev => new Set(prev).add(s.id))
+      if (!succeeded) {
+        setSessionFailIds(prev => new Set(prev).add(s.id))
+        setSessionFailReasons(prev => ({ ...prev, [s.id]: reason ?? '' }))
+      }
     }
   }
 
@@ -1311,7 +1370,7 @@ export default function Dashboard() {
               </p>
             )}
 
-            {/* Live transcript — fills the space between the recording button and term cards */}
+            {/* Live transcript: fills the space between the recording button and term cards */}
             <div className="flex-1 min-h-[80px] px-4 sm:px-6 py-3 relative z-10">
               <div className="relative h-full flex flex-col">
                 {profile?.translate_to && localTranslate.supported && (
@@ -1336,10 +1395,10 @@ export default function Dashboard() {
                       ))}
                     </div>
                     {localTranslate.status === 'downloading' && (
-                      <span className="text-[11px] text-gray-600 shrink-0" title="A one-time Chrome download shared by every site — not specific to Demist">Chrome downloading translation model… {localTranslate.progress}%</span>
+                      <span className="text-[11px] text-gray-600 shrink-0" title="A one-time Chrome download shared by every site, not specific to Demist">Chrome downloading translation model… {localTranslate.progress}%</span>
                     )}
                     {localTranslate.status === 'error' && (
-                      <span className="text-[11px] text-red-400 shrink-0">Live translation unavailable — term definitions still translated</span>
+                      <span className="text-[11px] text-red-400 shrink-0">Live translation unavailable, term definitions still translated</span>
                     )}
                   </div>
                 )}
@@ -1365,7 +1424,7 @@ export default function Dashboard() {
                         <p
                           key={index}
                           data-age={age}
-                          className="text-sm leading-relaxed mb-1 transition-opacity duration-500"
+                          className="text-[calc(0.875rem*var(--df-scale))] leading-relaxed mb-1 transition-opacity duration-500"
                           dangerouslySetInnerHTML={{ __html: highlightTerms(sentence) }}
                         />
                       )
@@ -1380,7 +1439,7 @@ export default function Dashboard() {
                           key={index}
                           data-age={age}
                           dir={profile.translate_to === 'ar' ? 'rtl' : undefined}
-                          className="text-sm leading-relaxed mb-1 transition-opacity duration-500 dark:text-amber-300/80 text-amber-700"
+                          className="text-[calc(0.875rem*var(--df-scale))] leading-relaxed mb-1 transition-opacity duration-500 dark:text-amber-300/80 text-amber-700"
                         >
                           {tgt === null ? <span className="dark:text-white/25 text-gray-400">⋯</span> : tgt}
                         </p>
@@ -1408,10 +1467,10 @@ export default function Dashboard() {
                   {sessionGlossary.map((t, i) => (
                     <div key={i} className="flex gap-3 dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.07] border-black/[0.16] rounded-xl px-3 py-2.5">
                       <div className="min-w-0">
-                        <span className="text-[13px] font-semibold dark:text-white/90 text-gray-900">{t.term}</span>
-                        <p className="text-[12px] text-gray-700 mt-0.5 leading-relaxed">{t.definition}</p>
+                        <span className="text-[calc(0.8125rem*var(--df-scale))] font-semibold dark:text-white/90 text-gray-900">{t.term}</span>
+                        <p className="text-[calc(0.75rem*var(--df-scale))] text-gray-700 mt-0.5 leading-relaxed">{t.definition}</p>
                         {t.translation && (
-                          <p className="text-[12px] dark:text-amber-400/80 text-amber-700 mt-0.5 leading-relaxed">{t.translation}</p>
+                          <p className="text-[calc(0.75rem*var(--df-scale))] dark:text-amber-400/80 text-amber-700 mt-0.5 leading-relaxed">{t.translation}</p>
                         )}
                       </div>
                     </div>
@@ -1454,7 +1513,7 @@ export default function Dashboard() {
               </div>
               <p className="text-gray-600 text-[13px] mt-1.5">Tap the mic before your next lecture</p>
 
-              {/* Subject picker — only shown while actively editing (or before any subject is set) */}
+              {/* Subject picker: only shown while actively editing (or before any subject is set) */}
               {(showSubjectInput || !sessionSubject) && (
                 <div className="w-full max-w-xs mt-4">
                   <input
@@ -1482,7 +1541,7 @@ export default function Dashboard() {
                   >
                     Live mic capture
                   </button>
-                  <Tooltip content={tabCaptureSupportedState ? "When the sharing dialog opens, make sure to tick 'Share tab audio'" : 'Not supported on this browser — try a desktop browser instead'}>
+                  <Tooltip content={tabCaptureSupportedState ? "When the sharing dialog opens, make sure to tick 'Share tab audio'" : 'Not supported on this browser, try a desktop browser instead'}>
                     <button
                       onClick={() => tabCaptureSupportedState && setCaptureMode('tab')}
                       disabled={!tabCaptureSupportedState}
@@ -1522,7 +1581,7 @@ export default function Dashboard() {
                   <div>
                     <p className="text-[14px] font-semibold dark:text-amber-300 text-amber-800">{stats.dueFlashcards} flashcard{stats.dueFlashcards !== 1 ? 's' : ''} due</p>
                     <p className="text-[12px] dark:text-amber-400/50 text-amber-700/80 mt-0.5">
-                      {stats.streak > 1 ? `Don't break your ${stats.streak}-day streak` : 'Review now — spaced repetition only works if you show up'}
+                      {stats.streak > 1 ? `Don't break your ${stats.streak}-day streak` : 'Review now: spaced repetition only works if you show up'}
                     </p>
                   </div>
                   <span className="dark:text-amber-400/60 text-amber-700/50 dark:group-hover:text-amber-300 group-hover:text-amber-900 transition-colors text-[20px] leading-none">›</span>
@@ -1589,7 +1648,7 @@ export default function Dashboard() {
                               <p className="text-[12px] text-gray-700 pt-3">Generating summary...</p>
                             ) : sessionFailIds.has(s.id) ? (
                               <div className="flex items-center gap-3 pt-3">
-                                <p className="text-[12px] text-gray-700">Could not generate summary.</p>
+                                <p className="text-[12px] text-gray-700">{summaryFailureMessage(sessionFailReasons[s.id])}</p>
                                 <button onClick={() => retrySessionSummarize(s)} className="text-[12px] text-yellow-500 hover:dark:text-yellow-400 text-yellow-700 transition-colors shrink-0">Retry</button>
                               </div>
                             ) : null}
@@ -1628,7 +1687,7 @@ export default function Dashboard() {
                 <div className="flex flex-col items-center py-8 text-center gap-5">
                   <div>
                     <p className="text-gray-600 text-[14px] font-medium mb-1">No sessions yet</p>
-                    <p className="text-gray-700 text-[13px]">Hit record before your next lecture — Demist transcribes it, explains unfamiliar terms, and reads it back for you.</p>
+                    <p className="text-gray-700 text-[13px]">Hit record before your next lecture. Demist transcribes it, explains unfamiliar terms, and reads it back for you.</p>
                   </div>
                   <div className="w-full max-w-xs flex flex-col gap-2 text-left">
                     {[

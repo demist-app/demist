@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Demist",
   "version": "2.0.0",
-  "description": "Real-time term definitions during any lecture — works like Grammarly, right where you are",
+  "description": "Real-time term definitions during any lecture, working like Grammarly, right where you are",
   "permissions": ["activeTab", "tabs", "storage", "scripting"],
   "content_scripts": [
     {

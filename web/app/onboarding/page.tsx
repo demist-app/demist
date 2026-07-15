@@ -212,7 +212,7 @@ export default function Onboarding() {
             <p className="text-gray-500 mb-1">
               We use this to keep Demist age-appropriate. We never share it.
             </p>
-            <p className="text-[12px] text-gray-600 mb-6">Optional — you can skip this.</p>
+            <p className="text-[12px] text-gray-600 mb-6">Optional: you can skip this.</p>
             <input
               type="date"
               value={dob}

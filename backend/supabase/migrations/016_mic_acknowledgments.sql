@@ -1,4 +1,4 @@
--- Migration 016: mic_acknowledgments — track per-user, per-subject mic gate acknowledgments
+-- Migration 016: mic_acknowledgments, tracking per-user, per-subject mic gate acknowledgments
 -- Users must acknowledge that mic sessions don't save transcripts before recording starts.
 -- Keyed per subject so the gate reappears if a student starts using a new module.
 -- NOTE: This migration was originally run via the Supabase SQL editor (mic gate feature).

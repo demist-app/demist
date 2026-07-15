@@ -25,7 +25,7 @@ export default function Privacy() {
           <section>
             <h2 className="text-[17px] font-semibold mb-3">What Demist does</h2>
             <p className="text-gray-400">
-              Demist transcribes your lectures, reads them back, and explains and translates unfamiliar terminology in real time, building a personal glossary for you to review — built for students who find lectures harder to follow. This policy explains what data we collect, why, and how it is handled.
+              Demist transcribes your lectures, reads them back, and explains and translates unfamiliar terminology in real time, building a personal glossary for you to review. Built for students who find lectures harder to follow, this policy explains what data we collect, why, and how it is handled.
             </p>
           </section>
 

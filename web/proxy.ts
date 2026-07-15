@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 // Optimistic server-side auth check: redirect unauthenticated requests before
 // they reach app pages. The client-side guard in (app)/layout.tsx remains as
 // a second layer for full JWT validation.
-// NOTE: @supabase/ssr cannot be imported in proxy.ts — use cookie presence check only.
+// NOTE: @supabase/ssr cannot be imported in proxy.ts; use cookie presence check only.
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 

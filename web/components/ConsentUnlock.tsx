@@ -34,7 +34,7 @@ function emailTemplate(module: string) {
 
 Dear [Lecturer name],
 
-I use a tool called Demist to help me understand technical terms during your lectures. It listens via my microphone, identifies subject-specific terms in real time, and generates flash cards — it doesn't share recordings with anyone or store them permanently.
+I use a tool called Demist to help me understand technical terms during your lectures. It listens via my microphone, identifies subject-specific terms in real time, and generates flash cards; it doesn't share recordings with anyone or store them permanently.
 
 I'd like to ask for your permission to use it during ${module} sessions. The app requires explicit written consent before saving any transcript or summary.
 
@@ -123,7 +123,7 @@ export function ConsentModal({
 
         <div>
           <label className="text-[12px] text-gray-600 mb-1.5 block">
-            Notes <span className="text-gray-500">(optional — e.g. &ldquo;Email reply received 30 Jun&rdquo;)</span>
+            Notes <span className="text-gray-500">(optional, e.g. &ldquo;Email reply received 30 Jun&rdquo;)</span>
           </label>
           <textarea
             value={notes}

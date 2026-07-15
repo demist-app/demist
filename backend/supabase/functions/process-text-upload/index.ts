@@ -49,7 +49,7 @@ Terms already identified (skip these): ${seenList}
 ${safeChunk}
 </text_excerpt>
 
-From the content inside <text_excerpt> only, identify at most 3 subject-specific or technical terms a Year ${year} ${subject} student is unlikely to know. Each must be genuinely important for understanding the material — not filler or common English.
+From the content inside <text_excerpt> only, identify at most 3 subject-specific or technical terms a Year ${year} ${subject} student is unlikely to know. Each must be genuinely important for understanding the material, not filler or common English.
 
 Rules:
 - Return 0 terms if nothing qualifies
@@ -189,7 +189,7 @@ serve(async (req) => {
         started_at: now,
         ended_at: now,
         source: safeSource,
-        transcript: text, // store full transcript — PostgreSQL text has no practical limit
+        transcript: text, // store full transcript: PostgreSQL text has no practical limit
       })
       .select('id')
       .single()

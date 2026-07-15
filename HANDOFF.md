@@ -1,4 +1,4 @@
-# Demist — Engineering Handoff
+# Demist: Engineering Handoff
 
 Last updated: June 2026. This file reflects the current production state. If you change the recording pipeline, edge functions, or design tokens, update this file in the same PR.
 
@@ -13,7 +13,7 @@ A web app + Chrome extension for university students. It listens to lectures in 
 ## Tech stack
 
 - **Frontend**: Next.js 16 App Router + TypeScript + Tailwind v4 in `/web`
-  - Tailwind v4 uses `@theme inline` in `globals.css` — there is NO `tailwind.config.ts`
+  - Tailwind v4 uses `@theme inline` in `globals.css`; there is NO `tailwind.config.ts`
   - Next.js 16 middleware is `proxy.ts` with `export function proxy()`. Never import `@supabase/ssr` there
 - **Backend**: Supabase (Postgres + Auth + Deno edge functions)
 - **AI**: Groq Whisper `whisper-large-v3-turbo` for transcription (OpenAI Whisper fallback), GPT-4o-mini for term detection and summaries
@@ -25,7 +25,7 @@ A web app + Chrome extension for university students. It listens to lectures in 
 getUserMedia({ echoCancellation:false, noiseSuppression:true, autoGainControl:true })
 → raw stream (waveform visualiser reads this)
 → GainNode(2.5×) → DynamicsCompressor(threshold:-30, knee:20, ratio:4) → processedStream
-→ MediaRecorder records in 5-SECOND chunks (raw getUserMedia stream — Chrome suspends
+→ MediaRecorder records in 5-SECOND chunks (raw getUserMedia stream: Chrome suspends
   AudioContext in background tabs but always delivers getUserMedia audio)
 → each chunk → processChunk(blob, sessionId)
 → blob > 500 bytes → POST /functions/v1/transcribe (Groq Whisper, OpenAI fallback)
@@ -41,7 +41,7 @@ getUserMedia({ echoCancellation:false, noiseSuppression:true, autoGainControl:tr
 - `speechModeRef` = true means Web Speech is the active display source
 - `webSpeechHasFiredRef` = true once Web Speech has fired at least once
 
-**Supabase Realtime on `transcript_chunks` is a recovery layer only** — it re-populates `sentences` after a mid-session page reload. It is never the primary display path.
+**Supabase Realtime on `transcript_chunks` is a recovery layer only**: it re-populates `sentences` after a mid-session page reload. It is never the primary display path.
 
 Key refs in `web/app/(app)/dashboard/page.tsx`:
 
@@ -89,7 +89,7 @@ If `GROQ_API_KEY` is set in Supabase env, transcription is ~9× cheaper than Ope
 ```
 web/app/(app)/
   dashboard/page.tsx      recording, live term cards, real-time transcript display
-  import/page.tsx         audio file, text/PPTX/DOCX, Notion import (YouTube REMOVED — never re-add)
+  import/page.tsx         audio file, text/PPTX/DOCX, Notion import (YouTube REMOVED, never re-add)
   history/page.tsx        session list, rename, summarize, expand, term preview chips
   flashcards/page.tsx     SM-2 spaced repetition (Again/Hard/Good/Easy), browse mode,
                           completion screen with streak + rating distribution
@@ -118,7 +118,7 @@ mobile/                   Expo scaffold (not built out)
 | Primary accent | yellow/amber (`yellow-500`, `amber-500`, `amber-600`) |
 | Cards | `bg-white/[0.03] border border-white/[0.07] rounded-xl` (light-mode variants throughout) |
 | Entrance animation | `animate-step opacity-0` + `animationFillMode: 'forwards'`, staggered `animationDelay` |
-| Buttons | `active:scale-[0.97]` — never `transition-all`, animate specific properties |
+| Buttons | `active:scale-[0.97]`, never `transition-all`; animate specific properties |
 
 All pages support light + dark mode.
 
@@ -136,22 +136,22 @@ All pages support light + dark mode.
 ## Known issues / technical debt
 
 1. **Opera GX**: its ad blocker blocks `speech.googleapis.com`, so Web Speech word-by-word display fails there. The 5s watchdog falls back to Whisper display gracefully. Users can disable the ad blocker on demist.app.
-2. **Pending manual SQL** (Notion 403 fix — run in Supabase SQL editor):
+2. **Pending manual SQL** (Notion 403 fix, run in Supabase SQL editor):
    ```sql
    GRANT SELECT, INSERT, UPDATE, DELETE ON public.integrations TO authenticated;
    GRANT SELECT ON public.integrations TO anon;
    ```
 3. Rate limit warnings exist in UI (amber, non-blocking) but are untested under real production load.
-4. **No per-user cost caps** — a single user could drain API credits. Fine at current scale, must address before growth (usage_events table is the groundwork).
+4. **No per-user cost caps**: a single user could drain API credits. Fine at current scale, must address before growth (usage_events table is the groundwork).
 
-## Hard constraints — read before coding
+## Hard constraints (read before coding)
 
 - Next.js 16, not 14/15. Check `node_modules/next/dist/docs/` before using Next APIs
-- Tailwind v4 — `@theme inline` in `globals.css`, NOT `tailwind.config.ts`
+- Tailwind v4: `@theme inline` in `globals.css`, NOT `tailwind.config.ts`
 - No `transition-all` on buttons
-- No YouTube import — completely removed, do not re-add
+- No YouTube import: completely removed, do not re-add
 - No `@supabase/ssr` in `proxy.ts`
-- Default to no code comments — only when the WHY is non-obvious
-- Never mock databases in tests — use real Supabase connections
+- Default to no code comments: only when the WHY is non-obvious
+- Never mock databases in tests: use real Supabase connections
 - PostHog: add `posthog.capture()` for any new user-facing interaction
 - All user input sanitised before DB/prompt; JWT on all edge function calls; rate limits on all endpoints

@@ -1,10 +1,10 @@
 -- ============================================================
--- 009 SECURITY HARDENING — run in Supabase SQL editor.
+-- 009 SECURITY HARDENING: run in Supabase SQL editor.
 -- Brings dashboard-created tables under versioned, owner-only RLS
 -- and locks down storage. Idempotent; safe to run twice.
 -- ============================================================
 
--- 1. integrations (holds Notion ACCESS TOKENS — highest sensitivity)
+-- 1. integrations (holds Notion ACCESS TOKENS, highest sensitivity)
 alter table if exists public.integrations enable row level security;
 drop policy if exists "Users manage their own integrations" on public.integrations;
 create policy "Users manage their own integrations"
@@ -15,7 +15,7 @@ using (auth.uid() = user_id) with check (auth.uid() = user_id);
 revoke all on public.integrations from anon;
 grant select, insert, update, delete on public.integrations to authenticated;
 
--- 2. transcript_chunks (no user_id — access gated through sessions)
+-- 2. transcript_chunks (no user_id; access gated through sessions)
 alter table if exists public.transcript_chunks enable row level security;
 drop policy if exists "Users manage their own transcript chunks" on public.transcript_chunks;
 create policy "Users manage their own transcript chunks"

@@ -121,7 +121,7 @@ export function SummaryViewer({
   return (
     <div ref={containerRef} className="relative">
       <p
-        className="text-[13px] text-gray-700 leading-relaxed select-text cursor-text"
+        className="text-[calc(0.8125rem*var(--df-scale))] text-gray-700 leading-relaxed select-text cursor-text"
         onPointerUp={handlePointerUp}
       >
         {synopsis}

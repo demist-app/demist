@@ -17,7 +17,7 @@ function rateLimit(key: string, max: number, windowMs = 3_600_000): boolean {
 // Audio limits
 // Each Whisper request must be ≤ 25 MB. We send 20 MB slices with 5 MB headroom
 // so a corrupted boundary (WebM cluster wrap) never pushes us over.
-// 3 slices × 20 MB = 60 MB max — covers a 3.5-hour lecture at 32 kbps WebM/opus.
+// 3 slices × 20 MB = 60 MB max, covering a 3.5-hour lecture at 32 kbps WebM/opus.
 const WHISPER_SLICE  = 20 * 1024 * 1024   // 20 MB per Whisper call
 const MAX_AUDIO_BYTES = 3 * WHISPER_SLICE  // 60 MB absolute ceiling
 
@@ -71,7 +71,7 @@ async function whisperSlice(buffer: ArrayBuffer, ext: string, contentType: strin
 
 // ── Whisper: full file, chunked if needed ─────────────────────────────────────
 // We split at raw byte boundaries. For WebM/opus (the main browser format) Whisper's
-// ffmpeg decoder re-syncs at the next cluster header — typically losing < 2 seconds
+// ffmpeg decoder re-syncs at the next cluster header, typically losing < 2 seconds
 // at each seam. That's acceptable for a lecture transcript. Slices are sent
 // sequentially to preserve order and stay within Whisper's rate limits.
 
@@ -115,7 +115,7 @@ Terms already identified (skip these): ${seenList}
 ${safeChunk}
 </lecture_excerpt>
 
-From the content inside <lecture_excerpt> only, identify at most 3 subject-specific or technical terms a Year ${year} ${subject} student is unlikely to know. Each must be genuinely important for understanding the lecture — not filler or common English.
+From the content inside <lecture_excerpt> only, identify at most 3 subject-specific or technical terms a Year ${year} ${subject} student is unlikely to know. Each must be genuinely important for understanding the lecture, not filler or common English.
 
 Rules:
 - Return 0 terms if nothing qualifies
@@ -212,7 +212,7 @@ serve(async (req) => {
     })
   }
 
-  // Rate limit: 5 audio imports/hour — each can burn significant Whisper credits
+  // Rate limit: 5 audio imports/hour, since each can burn significant Whisper credits
   if (!rateLimit(user.id, 5)) {
     return new Response(JSON.stringify({ error: 'rate_limited' }), {
       status: 429,
@@ -220,7 +220,7 @@ serve(async (req) => {
     })
   }
 
-  // Service role client — storage only
+  // Service role client, storage only
   const serviceClient = createClient(
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
@@ -234,7 +234,7 @@ serve(async (req) => {
       year_of_study?: number | null
     }
 
-    // Ownership check: strict regex — no traversal, only known audio extensions
+    // Ownership check: strict regex, no traversal, only known audio extensions
     const SAFE_PATH = new RegExp(`^${user.id}/[A-Za-z0-9_-]+\\.(mp3|wav|mp4|m4a|webm|ogg|flac)$`)
     if (!storage_path || storage_path.includes('..') || !SAFE_PATH.test(storage_path)) {
       return new Response(JSON.stringify({ error: 'forbidden' }), {
@@ -274,7 +274,7 @@ serve(async (req) => {
     const sliceCount = Math.ceil(audioBuffer.byteLength / WHISPER_SLICE)
     console.log(`Transcribing ${fileMb} MB audio in ${sliceCount} slice(s)`)
 
-    // Transcribe — handles multi-slice automatically
+    // Transcribe: handles multi-slice automatically
     const transcript = await transcribeAudio(audioBuffer, ext, fileBlob.type || 'audio/webm')
 
     // Create session
@@ -347,7 +347,7 @@ serve(async (req) => {
       await userClient.from('sessions').update({ synopsis }).eq('id', sessionId)
     }
 
-    // Delete from Storage — no longer needed after transcription
+    // Delete from Storage: no longer needed after transcription
     await serviceClient.storage.from('recordings').remove([storage_path])
 
     return new Response(

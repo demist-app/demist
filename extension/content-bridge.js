@@ -1,4 +1,4 @@
-// Runs only on demist.app — bridges window.postMessage <-> chrome.runtime
+// Runs only on demist.app: bridges window.postMessage <-> chrome.runtime
 ;(function () {
   if (window.__demistBridgeLoaded) return
   window.__demistBridgeLoaded = true

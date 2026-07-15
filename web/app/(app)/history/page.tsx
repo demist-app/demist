@@ -6,6 +6,7 @@ import dynamic from 'next/dynamic'
 import { capture } from '@/lib/analytics'
 import { useEntitlements } from '@/lib/entitlements'
 import { PaywallModal } from '@/components/PaywallModal'
+import { summaryFailureMessage } from '@/lib/summaryFailure'
 
 const SummaryViewer = dynamic(() => import('../summary-viewer').then(m => ({ default: m.SummaryViewer })), { ssr: false })
 const TranscriptViewer = dynamic(() => import('../transcript-viewer').then(m => ({ default: m.TranscriptViewer })), { ssr: false })
@@ -71,6 +72,7 @@ export default function History() {
   const [confirmingId, setConfirmingId] = useState<string | null>(null)
   const [generatingIds, setGeneratingIds] = useState<Set<string>>(new Set())
   const [failedIds, setFailedIds] = useState<Set<string>>(new Set())
+  const [failReasons, setFailReasons] = useState<Record<string, string>>({})
   const [editingNameId, setEditingNameId] = useState<string | null>(null)
   const [nameInput, setNameInput] = useState('')
 
@@ -235,6 +237,7 @@ export default function History() {
     setFailedIds(prev => { const next = new Set(prev); next.delete(s.id); return next })
     let succeeded = false
     let skipFailed = false
+    let reason: string | undefined
     try {
       const supabase = createClient()
       const { data: termRows } = await supabase
@@ -246,6 +249,7 @@ export default function History() {
       const { data, error } = await supabase.functions.invoke('summarize-session', {
         body: { session_id: s.id, subject: s.subject, terms: termRows },
       })
+      reason = data?.reason
       if (!error && data?.ok && data?.synopsis) {
         setSessions(prev => prev.map(x => x.id === s.id ? { ...x, synopsis: data.synopsis } : x))
         succeeded = true
@@ -255,7 +259,10 @@ export default function History() {
     } finally {
       summarizingRef.current.delete(s.id)
       setGeneratingIds(prev => { const next = new Set(prev); next.delete(s.id); return next })
-      if (!succeeded && !skipFailed) setFailedIds(prev => new Set(prev).add(s.id))
+      if (!succeeded && !skipFailed) {
+        setFailedIds(prev => new Set(prev).add(s.id))
+        setFailReasons(prev => ({ ...prev, [s.id]: reason ?? '' }))
+      }
     }
   }
 
@@ -651,7 +658,7 @@ export default function History() {
                             <p className="text-[12px] text-gray-700 pt-3 pb-1">Generating summary…</p>
                           ) : failedIds.has(s.id) ? (
                             <div className="flex items-center gap-3 pt-3 pb-1">
-                              <p className="text-[12px] text-gray-700">Couldn't generate summary.</p>
+                              <p className="text-[12px] text-gray-700">{summaryFailureMessage(failReasons[s.id])}</p>
                               <button onClick={() => retrySummarize(s)} className="text-[12px] text-yellow-500 hover:dark:text-yellow-400 hover:text-yellow-700 transition-colors shrink-0">Retry</button>
                             </div>
                           ) : null}
@@ -723,10 +730,10 @@ export default function History() {
                                     ) : (
                                       <>
                                         <div className="flex-1 min-w-0">
-                                          <span className={`text-[13px] font-medium ${t.known ? 'text-gray-600 line-through' : 'dark:text-white/80 text-gray-800'}`}>
+                                          <span className={`text-[calc(0.8125rem*var(--df-scale))] font-medium ${t.known ? 'text-gray-600 line-through' : 'dark:text-white/80 text-gray-800'}`}>
                                             {t.term}
                                           </span>
-                                          <span className="text-gray-600 text-[13px]"> — {t.definition}</span>
+                                          <span className="text-gray-600 text-[calc(0.8125rem*var(--df-scale))]">: {t.definition}</span>
                                         </div>
                                         <button
                                           onClick={() => startEditTerm(t)}

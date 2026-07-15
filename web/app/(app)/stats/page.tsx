@@ -183,7 +183,7 @@ export default function Stats() {
             <p className="text-[22px] font-bold leading-tight">Stats</p>
           </div>
 
-          {/* Key numbers — 2 cols mobile, 4 cols desktop */}
+          {/* Key numbers: 2 cols mobile, 4 cols desktop */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 animate-step opacity-0" style={{ animationDelay: '50ms', animationFillMode: 'forwards' }}>
             <div className="dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.07] border-black/[0.16] rounded-2xl px-4 py-4">
               <div className="flex items-center gap-1.5 mb-2">
@@ -239,7 +239,7 @@ export default function Stats() {
             </div>
           )}
 
-          {/* Charts row — side by side on desktop */}
+          {/* Charts row: side by side on desktop */}
           {(dailySessions.some(d => d.count > 0) || weeklyTerms.some(w => w.count > 0)) && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 animate-step opacity-0" style={{ animationDelay: '100ms', animationFillMode: 'forwards' }}>
               {/* Sessions this week */}

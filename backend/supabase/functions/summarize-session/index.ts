@@ -52,7 +52,7 @@ serve(async (req) => {
     })
   }
 
-  // Rate limit: 30/hour — one per session end, very generous
+  // Rate limit: 30/hour, one per session end, very generous
   if (!rateLimit(user.id, 30)) {
     return new Response(JSON.stringify({ error: 'rate_limited' }), {
       status: 429,
@@ -67,7 +67,7 @@ serve(async (req) => {
       terms?: { term: string; definition: string }[]
     }
 
-    // Validate session_id is a real UUID — rejects malformed or injected values
+    // Validate session_id is a real UUID: rejects malformed or injected values
     if (!session_id || !UUID_RE.test(session_id)) {
       return new Response(JSON.stringify({ ok: false }), {
         headers: { ...CORS, 'Content-Type': 'application/json' },
@@ -114,7 +114,7 @@ serve(async (req) => {
     }
 
     if (!termRows.length) {
-      return new Response(JSON.stringify({ ok: false, reason: 'no terms' }), {
+      return new Response(JSON.stringify({ ok: false, reason: 'no_terms' }), {
         headers: { ...CORS, 'Content-Type': 'application/json' },
       })
     }
@@ -151,17 +151,26 @@ Write a 1–2 sentence summary of what this lecture covered, based only on the t
     })
 
     if (!response.ok) {
-      console.error('OpenAI error:', await response.text())
-      return new Response(JSON.stringify({ ok: false }), {
+      // 429 here is OpenAI's own rate limit, distinct from our per-user one above.
+      console.error('OpenAI error:', response.status, await response.text())
+      return new Response(JSON.stringify({ ok: false, reason: response.status === 429 ? 'ai_rate_limited' : 'ai_error' }), {
         headers: { ...CORS, 'Content-Type': 'application/json' },
       })
     }
 
     const aiData = await response.json()
-    const parsed = JSON.parse(aiData.choices[0].message.content) as { synopsis?: string }
-    const synopsis = parsed.synopsis?.trim() || null
+    let synopsis: string | null = null
+    try {
+      const parsed = JSON.parse(aiData.choices[0].message.content) as { synopsis?: string }
+      synopsis = parsed.synopsis?.trim() || null
+    } catch (e) {
+      console.error('summarize-session: could not parse OpenAI response:', e, aiData)
+      return new Response(JSON.stringify({ ok: false, reason: 'ai_error' }), {
+        headers: { ...CORS, 'Content-Type': 'application/json' },
+      })
+    }
 
-    // Fire-and-forget usage logging — never block the response on this
+    // Fire-and-forget usage logging: never block the response on this
     const inTok = aiData.usage?.prompt_tokens ?? 0
     const outTok = aiData.usage?.completion_tokens ?? 0
     userClient.from('usage_events').insert({
@@ -182,7 +191,7 @@ Write a 1–2 sentence summary of what this lecture covered, based only on the t
     )
   } catch (e) {
     console.error('summarize-session error:', e)
-    return new Response(JSON.stringify({ ok: false }), {
+    return new Response(JSON.stringify({ ok: false, reason: 'server_error' }), {
       status: 500,
       headers: { ...CORS, 'Content-Type': 'application/json' },
     })

@@ -24,13 +24,13 @@ export function TranscriptBilingual({
       {pairs.map((p, i) => (
         <div key={i} className="grid grid-cols-1 md:grid-cols-2 gap-1 md:gap-4">
           <p
-            className="text-sm leading-relaxed"
+            className="text-[calc(0.875rem*var(--df-scale))] leading-relaxed"
             onPointerUp={onSourceClick}
             dangerouslySetInnerHTML={{ __html: p.srcHtml }}
           />
           <p
             dir={rtl ? 'rtl' : undefined}
-            className="text-sm leading-relaxed dark:text-amber-300/80 text-amber-700"
+            className="text-[calc(0.875rem*var(--df-scale))] leading-relaxed dark:text-amber-300/80 text-amber-700"
           >
             {p.tgt === null ? <span className="dark:text-white/25 text-gray-400">⋯</span> : p.tgt}
           </p>

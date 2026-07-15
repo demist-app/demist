@@ -32,7 +32,7 @@ export default function Terms() {
           <section>
             <h2 className="text-[17px] font-semibold mb-3">Acceptable use</h2>
             <p className="text-gray-400">
-              Demist is for your personal study only. You are responsible for ensuring you have any permissions required to record or process lectures at your institution — in microphone mode, transcripts are only saved if you've declared a support need in your profile or your lecturer has given written consent. Do not use Demist to redistribute others&apos; lecture content publicly or in any way that infringes copyright or performers&apos; rights.
+              Demist is for your personal study only. You are responsible for ensuring you have any permissions required to record or process lectures at your institution: in microphone mode, transcripts are only saved if you've declared a support need in your profile or your lecturer has given written consent. Do not use Demist to redistribute others&apos; lecture content publicly or in any way that infringes copyright or performers&apos; rights.
             </p>
           </section>
 

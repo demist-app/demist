@@ -1,4 +1,4 @@
-// Central relay hub — manages recording state and message routing
+// Central relay hub: manages recording state and message routing
 
 let recording = false
 let demistTabId = null      // the hidden demist.app tab
@@ -11,7 +11,7 @@ const overlayTabs = new Set()
 
 // MV3 service workers are killed after ~30s of inactivity, wiping all state.
 // On every wake-up, re-discover the Demist tab and ping any overlay tabs that
-// were previously injected (but don't inject into new pages — overlay is now
+// were previously injected (but don't inject into new pages; overlay is now
 // injected on demand when a session starts or the action icon is clicked).
 async function rediscoverOverlayTabs() {
   const tabs = await chrome.tabs.query({})
@@ -78,7 +78,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       if (msg.termId) sendCommandToDemist('mark-known', msg.termId)
       break
 
-    // Popup/overlay queries recording state — must use sendResponse, not return value
+    // Popup/overlay queries recording state: must use sendResponse, not return value
     case 'GET_STATE':
       sendResponse({ recording, elapsed })
       return true
@@ -97,7 +97,7 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 })
 
 async function forwardToOverlay(msg) {
-  // Always refresh activeTabId — SW restarts wipe it on every wake-up
+  // Always refresh activeTabId: SW restarts wipe it on every wake-up
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
     if (tab?.id && tab.url &&
@@ -115,7 +115,7 @@ async function forwardToOverlay(msg) {
     try {
       await chrome.tabs.sendMessage(tabId, msg)
     } catch (_) {
-      // Overlay not running on this tab — try injecting on demand and retry
+      // Overlay not running on this tab: try injecting on demand and retry
       try {
         await chrome.scripting.executeScript({ target: { tabId }, files: ['content-overlay.js'] })
         overlayTabs.add(tabId)
@@ -157,7 +157,7 @@ async function injectOverlayIfNeeded(tabId) {
     await chrome.scripting.executeScript({ target: { tabId }, files: ['content-overlay.js'] })
     overlayTabs.add(tabId)
   } catch (_) {
-    // Restricted page (chrome://, PDF, etc.) — signal popup to show hint
+    // Restricted page (chrome://, PDF, etc.): signal popup to show hint
     chrome.runtime.sendMessage({ type: 'INJECT_FAILED', tabId }).catch(() => {})
   }
 }

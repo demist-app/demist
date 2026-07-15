@@ -2,12 +2,12 @@
 
 // Chrome's built-in Translator API (stable since Chrome 131): the model is
 // downloaded and run entirely by Chrome itself, shared across every site that
-// uses it — nothing for this app to bundle, manage, or debug. Feature-detected
+// uses it: nothing for this app to bundle, manage, or debug. Feature-detected
 // and unavailable everywhere else (Firefox, Safari, Edge, Opera GX), where the
 // caller should fall back to the cloud translation path instead.
 //
 // Our profile language codes (zh/ar/hi/es/fr) are already valid BCP-47 short
-// codes, which is what this API expects — no mapping table needed, unlike the
+// codes, which is what this API expects: no mapping table needed, unlike the
 // FLORES-200 codes NLLB required.
 //
 // A single instance is shared app-wide via context (mounted once in the (app)
@@ -74,7 +74,7 @@ export function NativeTranslateProvider({ children }: { children: ReactNode }) {
 
   // Stable: safe to call from closures captured at any time. Chrome's own
   // translate() call is local and near-instant once ready, so unlike the old
-  // WASM worker there's no queueing needed — just skip if not ready yet.
+  // WASM worker there's no queueing needed: just skip if not ready yet.
   const translate = useCallback(async (text: string): Promise<string> => {
     if (!translatorRef.current || !text.trim()) return ''
     try {

@@ -8,6 +8,7 @@ import { ConsentManager } from '@/components/ConsentUnlock'
 import { useEntitlements } from '@/lib/entitlements'
 import { PaywallModal } from '@/components/PaywallModal'
 import { useNativeTranslate } from '@/lib/useNativeTranslate'
+import { FontScale, FONT_SCALE_LABELS, getFontScale, setFontScale } from '@/lib/fontScale'
 
 interface ProfileData {
   display_name: string | null
@@ -70,6 +71,10 @@ export default function Profile() {
   const { limits } = useEntitlements()
   const [paywall, setPaywall] = useState<string | null>(null)
   const localTranslate = useNativeTranslate()
+  const [textSize, setTextSize] = useState<FontScale>('md')
+  const [micDevices, setMicDevices] = useState<MediaDeviceInfo[]>([])
+  const [selectedMicId, setSelectedMicId] = useState<string>('')
+  const [micLabelsUnlocked, setMicLabelsUnlocked] = useState(false)
 
   // Account deletion state
   const [showDeleteModal, setShowDeleteModal] = useState(false)
@@ -125,6 +130,48 @@ export default function Profile() {
       setLongestStreak(longest)
     })()
   }, [])
+
+  // Text size and microphone choice are device-local (localStorage), not
+  // profile columns: they depend on the screen/hardware someone's using.
+  useEffect(() => {
+    setTextSize(getFontScale())
+    setSelectedMicId(localStorage.getItem('demist_mic_device_id') ?? '')
+    listMicDevices()
+    navigator.mediaDevices?.addEventListener?.('devicechange', listMicDevices)
+    return () => navigator.mediaDevices?.removeEventListener?.('devicechange', listMicDevices)
+  }, [])
+
+  const listMicDevices = async () => {
+    if (!navigator.mediaDevices?.enumerateDevices) return
+    const devices = await navigator.mediaDevices.enumerateDevices()
+    const mics = devices.filter(d => d.kind === 'audioinput')
+    setMicDevices(mics)
+    if (mics.some(d => d.label)) setMicLabelsUnlocked(true)
+  }
+
+  // Device labels are blank until the mic permission has been granted at
+  // least once. A short-lived getUserMedia call unlocks them without
+  // recording anything.
+  const unlockMicLabels = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      stream.getTracks().forEach(t => t.stop())
+      await listMicDevices()
+    } catch {
+      alert('Microphone access is needed to show device names.')
+    }
+  }
+
+  const handleMicChange = (deviceId: string) => {
+    setSelectedMicId(deviceId)
+    if (deviceId) localStorage.setItem('demist_mic_device_id', deviceId)
+    else localStorage.removeItem('demist_mic_device_id')
+  }
+
+  const handleTextSizeChange = (scale: FontScale) => {
+    setTextSize(scale)
+    setFontScale(scale)
+  }
 
   const handleDeleteAccount = async () => {
     if (deleteConfirmText !== 'DELETE' || deleting) return
@@ -241,7 +288,7 @@ export default function Profile() {
         setCopied(true)
         setTimeout(() => setCopied(false), 2000)
       } catch {
-        // clipboard unavailable — silently ignore
+        // clipboard unavailable: silently ignore
       }
     }
   }
@@ -480,13 +527,60 @@ export default function Profile() {
                 </button>
               ))}
             </div>
-            <p className="text-[12px] text-gray-500 mt-1.5">Shows a one-line translation under each term&apos;s definition, and a live bilingual transcript in browsers with on-device translation (Chrome). Runs on-device automatically where supported — nothing to download or configure. Elsewhere, definitions are translated by the same OpenAI service that already generates them; the live bilingual transcript needs on-device support either way.</p>
+            <p className="text-[12px] text-gray-500 mt-1.5">Shows a one-line translation under each term&apos;s definition, and a live bilingual transcript in browsers with on-device translation (Chrome). Runs on-device automatically where supported: nothing to download or configure. Elsewhere, definitions are translated by the same OpenAI service that already generates them; the live bilingual transcript needs on-device support either way.</p>
             {translateTo && localTranslate.status === 'downloading' && (
-              <p className="text-[12px] text-gray-600 mt-1.5">Chrome is downloading its on-device translation model… {localTranslate.progress}% — a one-time download shared by every site, not just Demist. Cloud translation covers definitions in the meantime.</p>
+              <p className="text-[12px] text-gray-600 mt-1.5">Chrome is downloading its on-device translation model… {localTranslate.progress}%, a one-time download shared by every site, not just Demist. Cloud translation covers definitions in the meantime.</p>
             )}
             {translateTo && localTranslate.status === 'error' && (
               <p className="text-[12px] text-red-400 mt-1.5">On-device translation isn&apos;t available right now. Term definitions are still translated in the cloud.</p>
             )}
+          </div>
+
+          <div>
+            <label className="text-[12px] text-gray-600 mb-1.5 block">Microphone</label>
+            {micDevices.length > 0 ? (
+              <select
+                value={selectedMicId}
+                onChange={e => handleMicChange(e.target.value)}
+                className="w-full dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.08] border-black/[0.13] rounded-2xl px-4 py-3 dark:text-white text-gray-900 text-[14px] focus:outline-none focus:border-yellow-500/50 transition-colors"
+              >
+                <option value="">System default</option>
+                {micDevices.map((d, i) => (
+                  <option key={d.deviceId} value={d.deviceId}>{d.label || `Microphone ${i + 1}`}</option>
+                ))}
+              </select>
+            ) : (
+              <p className="text-[12px] text-gray-600">No microphones detected yet.</p>
+            )}
+            {!micLabelsUnlocked && (
+              <button
+                onClick={unlockMicLabels}
+                className="text-[12px] dark:text-yellow-400 text-yellow-700 hover:opacity-80 transition-opacity mt-1.5"
+              >
+                Grant access to see device names
+              </button>
+            )}
+            <p className="text-[12px] text-gray-500 mt-1.5">Which input Demist records from. Applies the next time you start recording.</p>
+          </div>
+
+          <div>
+            <label className="text-[12px] text-gray-600 mb-1.5 block">Text size</label>
+            <div className="grid grid-cols-3 gap-2">
+              {(Object.keys(FONT_SCALE_LABELS) as FontScale[]).map(scale => (
+                <button
+                  key={scale}
+                  onClick={() => handleTextSizeChange(scale)}
+                  className={`py-3 rounded-2xl text-[13px] font-medium transition-all ${
+                    textSize === scale
+                      ? 'bg-yellow-600 border border-yellow-400/40 dark:text-white text-gray-900'
+                      : 'dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.08] border-black/[0.13] text-gray-600 hover:bg-white/[0.09]'
+                  }`}
+                >
+                  {FONT_SCALE_LABELS[scale]}
+                </button>
+              ))}
+            </div>
+            <p className="text-[12px] text-gray-500 mt-1.5">Size of the live transcript, definitions, and summaries.</p>
           </div>
 
           <button

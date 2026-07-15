@@ -48,7 +48,7 @@ export function LoadingScreen() {
           viewBox="0 0 100 100"
           style={{ position: 'absolute', inset: 0 }}
         >
-          {/* outer ring — 3 arcs, CW, slowest */}
+          {/* outer ring: 3 arcs, CW, slowest */}
           <circle
             cx="50" cy="50" r="42"
             strokeWidth="1.5"
@@ -61,7 +61,7 @@ export function LoadingScreen() {
               animation: 'spin-cw 5s linear infinite',
             }}
           />
-          {/* mid ring — 2 arcs, CCW */}
+          {/* mid ring: 2 arcs, CCW */}
           <circle
             cx="50" cy="50" r="32"
             strokeWidth="1.5"
@@ -74,7 +74,7 @@ export function LoadingScreen() {
               animation: 'spin-ccw 3.2s linear infinite',
             }}
           />
-          {/* inner ring — sweeping arc, CW, fastest */}
+          {/* inner ring: sweeping arc, CW, fastest */}
           <circle
             cx="50" cy="50" r="21"
             strokeWidth="2"
@@ -135,7 +135,7 @@ export function LoadingScreen() {
         ))}
       </div>
 
-      {/* Wordmark — visible immediately, no fade delay */}
+      {/* Wordmark: visible immediately, no fade delay */}
       <div style={{ marginTop: 28 }}>
         <span
           style={{
@@ -151,7 +151,7 @@ export function LoadingScreen() {
         </span>
       </div>
 
-      {/* Tagline — visible immediately */}
+      {/* Tagline: visible immediately */}
       <div style={{ marginTop: 6 }}>
         <span
           style={{

@@ -84,7 +84,7 @@ serve(async (req) => {
       })
     }
 
-    // Whitelist extensions — never trust Content-Type from the client blindly
+    // Whitelist extensions: never trust Content-Type from the client blindly
     const ext = contentType.includes('mp4') || contentType.includes('m4a') ? 'mp4'
       : contentType.includes('mpeg') || contentType.includes('mp3') ? 'mp3'
       : contentType.includes('ogg') ? 'ogg'
@@ -143,7 +143,7 @@ serve(async (req) => {
     let cleanText = collapseRepeats(text.trim())
     if (HALLUCINATION_PATTERNS.some(re => re.test(cleanText))) cleanText = ''
 
-    // Fire-and-forget usage logging — never block the response on this
+    // Fire-and-forget usage logging: never block the response on this
     const estMinutes = 5 / 60 // chunks are ~5s
     supabase.from('usage_events').insert({
       user_id: user.id,

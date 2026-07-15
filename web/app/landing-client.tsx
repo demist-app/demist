@@ -125,7 +125,7 @@ export default function LandingClient() {
   const ctaRef = useInView()
 
   useEffect(() => {
-    // getSession() reads from cookie — no network round-trip. getUser() requires a
+    // getSession() reads from cookie, no network round-trip. getUser() requires a
     // server validation call that can take 5-30s on a cold Supabase instance.
     createClient().auth.getSession().then(({ data }) => {
       if (data.session) setAuthed(true)
@@ -246,7 +246,7 @@ export default function LandingClient() {
           className="text-[16px] sm:text-[18px] leading-relaxed mb-10 max-w-[480px]"
           style={{ color: 'var(--fg-muted)', ...anim(240).style }}
         >
-          Record a live lecture or import a slide deck or audio file. Demist transcribes it, reads it back, explains and translates unfamiliar terms, and builds your glossary, summaries, and flashcards automatically — for students who find lectures harder to follow.
+          Record a live lecture or import a slide deck or audio file. Demist transcribes it, reads it back, explains and translates unfamiliar terms, and builds your glossary, summaries, and flashcards automatically, for students who find lectures harder to follow.
         </p>
 
         <div className="flex flex-col sm:flex-row items-center gap-3 mb-16" {...anim(320)}>

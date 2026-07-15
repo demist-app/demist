@@ -19,10 +19,10 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL('https://demist.app'),
   title: {
-    default: 'Demist — live lecture transcription, explanations & flashcards',
+    default: 'Demist: live lecture transcription, explanations & flashcards',
     template: '%s | Demist',
   },
-  description: 'Demist transcribes your lectures, reads them back, and explains and translates unfamiliar terms in real time — for students who find lectures harder to follow. Builds a glossary and flashcards automatically.',
+  description: 'Demist transcribes your lectures, reads them back, and explains and translates unfamiliar terms in real time, for students who find lectures harder to follow. Builds a glossary and flashcards automatically.',
   keywords: ['lecture tool', 'study app', 'university students', 'real-time definitions', 'glossary builder', 'flashcards', 'spaced repetition', 'student productivity'],
   authors: [{ name: 'Demist' }],
   creator: 'Demist',
@@ -72,7 +72,7 @@ export default function RootLayout({
         <link rel="preconnect" href="https://eu.i.posthog.com" />
         <link rel="dns-prefetch" href="https://eu.i.posthog.com" />
 
-        {/* iOS PWA — improves the home-screen experience for iPhone users */}
+        {/* iOS PWA: improves the home-screen experience for iPhone users */}
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="Demist" />

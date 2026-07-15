@@ -1,25 +1,25 @@
 <wizard-report>
 # PostHog post-wizard report
 
-The wizard has completed a deep integration of PostHog into the Demist Next.js app (App Router, v16.2.6). This second pass extended the existing instrumentation with 7 new events covering onboarding completion, text/slides imports, and Notion integration activity — plus user identification at onboarding.
+The wizard has completed a deep integration of PostHog into the Demist Next.js app (App Router, v16.2.6). This second pass extended the existing instrumentation with 7 new events covering onboarding completion, text/slides imports, and Notion integration activity, plus user identification at onboarding.
 
 ## Summary of changes
 
 | File | Change |
 |------|--------|
-| `instrumentation-client.ts` | **Previously created** — initialises PostHog via the Next.js 15.3+ instrumentation API with EU reverse proxy (`/ingest`), exception capture, and debug mode in development |
-| `app/providers.tsx` | **Previously updated** — simple children passthrough to avoid double-initialisation |
-| `next.config.ts` | **Previously updated** — EU reverse proxy rewrites and `skipTrailingSlashRedirect: true` |
-| `app/onboarding/page.tsx` | **Updated** — added `identify()` and `onboarding_completed` capture on profile save |
-| `app/(app)/import/page.tsx` | **Updated** — added `import_text_started`, `import_text_completed`, `notion_connected`, `notion_push_completed`, `notion_import_completed` |
-| `app/(app)/history/page.tsx` | **Updated** — added `history_viewed` on page load |
-| `.env.local` | **Updated** — `NEXT_PUBLIC_POSTHOG_KEY` and `NEXT_PUBLIC_POSTHOG_HOST` refreshed to correct values |
+| `instrumentation-client.ts` | **Previously created**: initialises PostHog via the Next.js 15.3+ instrumentation API with EU reverse proxy (`/ingest`), exception capture, and debug mode in development |
+| `app/providers.tsx` | **Previously updated**: simple children passthrough to avoid double-initialisation |
+| `next.config.ts` | **Previously updated**: EU reverse proxy rewrites and `skipTrailingSlashRedirect: true` |
+| `app/onboarding/page.tsx` | **Updated**: added `identify()` and `onboarding_completed` capture on profile save |
+| `app/(app)/import/page.tsx` | **Updated**: added `import_text_started`, `import_text_completed`, `notion_connected`, `notion_push_completed`, `notion_import_completed` |
+| `app/(app)/history/page.tsx` | **Updated**: added `history_viewed` on page load |
+| `.env.local` | **Updated**: `NEXT_PUBLIC_POSTHOG_KEY` and `NEXT_PUBLIC_POSTHOG_HOST` refreshed to correct values |
 
 ## Events
 
 | Event | Description | File |
 |-------|-------------|------|
-| `onboarding_completed` | User finishes onboarding by selecting year of study — marks end of activation funnel | `app/onboarding/page.tsx` |
+| `onboarding_completed` | User finishes onboarding by selecting year of study, marking end of activation funnel | `app/onboarding/page.tsx` |
 | `import_text_started` | User initiates a text/slides/document import (PPTX, DOCX, TXT) | `app/(app)/import/page.tsx` |
 | `import_text_completed` | Text/slides import processed successfully with term count | `app/(app)/import/page.tsx` |
 | `notion_connected` | User successfully connected their Notion workspace via OAuth | `app/(app)/import/page.tsx` |

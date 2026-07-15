@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { capture } from '@/lib/analytics'
 
-const FETCH_TIMEOUT_MS = 300_000 // 5 min — long audio files take time
+const FETCH_TIMEOUT_MS = 300_000 // 5 min: long audio files take time
 
 function fetchWithTimeout(url: string, options: RequestInit, ms = FETCH_TIMEOUT_MS): Promise<Response> {
   const ctrl = new AbortController()
@@ -945,7 +945,7 @@ export default function ImportPage() {
                               </a>
                             ) : 'Glossary exported'}
                           </span>
-                        ) : glossaryPushStatus === 'error' ? 'Export failed — retry' : 'Export Term Glossary'}
+                        ) : glossaryPushStatus === 'error' ? 'Export failed, retry' : 'Export Term Glossary'}
                       </button>
                       <button
                         onClick={() => handleNotionPush('summaries')}
@@ -969,7 +969,7 @@ export default function ImportPage() {
                               </a>
                             ) : 'Summaries exported'}
                           </span>
-                        ) : summaryPushStatus === 'error' ? 'Export failed — retry' : 'Export Session Summaries'}
+                        ) : summaryPushStatus === 'error' ? 'Export failed, retry' : 'Export Session Summaries'}
                       </button>
                     </div>
                   </div>

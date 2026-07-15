@@ -372,7 +372,7 @@ export default function Flashcards() {
 
     capture('flashcard_graded', { grade, interval, isNew: current.isNew })
 
-    // fire-and-forget review_log — ignore errors if migration hasn't run yet
+    // fire-and-forget review_log: ignore errors if migration hasn't run yet
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session?.user) return
       supabase.from('review_log').insert({ user_id: session.user.id, term_id: current.id, grade, interval_before: current.sm2_interval, ease_before: current.sm2_ease })
@@ -740,7 +740,7 @@ export default function Flashcards() {
                 </div>
                 <p className="text-[22px] font-bold">No flashcards yet</p>
                 <p className="text-gray-700 text-[14px] leading-relaxed max-w-xs">
-                  Record or import a lecture — every term Demist detects becomes a flashcard automatically.
+                  Record or import a lecture: every term Demist detects becomes a flashcard automatically.
                 </p>
                 <div className="flex items-center gap-2 mt-2">
                   <Link

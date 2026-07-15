@@ -165,7 +165,7 @@ export default function Login() {
               Sign in
             </h1>
             <p className="text-gray-700 mb-8">
-              We&apos;ll send a code to your email — no password needed.
+              We&apos;ll send a code to your email, no password needed.
             </p>
 
             <form onSubmit={handleSendCode} className="flex flex-col gap-3">

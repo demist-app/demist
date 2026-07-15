@@ -1,4 +1,4 @@
-// Init PostHog after the browser is idle — keeps it off the critical JS path
+// Init PostHog after the browser is idle: keeps it off the critical JS path
 if (typeof window !== 'undefined') {
   const doInit = () =>
     import('posthog-js').then(({ default: posthog }) =>

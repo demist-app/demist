@@ -2,9 +2,9 @@
 Never feel lost in a lecture again.
 
 ## Structure
-- /web — Next.js web app
-- /mobile — React Native Expo mobile app
-- /backend — Supabase edge functions
+- /web: Next.js web app
+- /mobile: React Native Expo mobile app
+- /backend: Supabase edge functions
 
 ## Stack
 - Web: Next.js + Tailwind

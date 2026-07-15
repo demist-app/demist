@@ -110,7 +110,7 @@ serve(async (req) => {
       )
     }
 
-    // Generate synopsis — truncate transcript to 2000 chars for cost control
+    // Generate synopsis: truncate transcript to 2000 chars for cost control
     const summaryRes = await fetch(`${base}/functions/v1/summarize-session`, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${anonKey}`, 'Content-Type': 'application/json' },

@@ -4,7 +4,7 @@ import { FAQ } from '@/lib/faq'
 
 export const metadata: Metadata = {
   title: 'Demist: Never Feel Lost in a Lecture Again',
-  description: 'Demist transcribes lectures, reads them back, and explains and translates unfamiliar terms in real time — for students who find lectures harder to follow.',
+  description: 'Demist transcribes lectures, reads them back, and explains and translates unfamiliar terms in real time, for students who find lectures harder to follow.',
   alternates: { canonical: 'https://demist.app' },
   openGraph: {
     title: 'Demist: Never Feel Lost in a Lecture Again',

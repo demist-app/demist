@@ -323,7 +323,7 @@ export default function QuizPage() {
               )}
             </div>
 
-            {/* Mode — hidden for Blitz */}
+            {/* Mode: hidden for Blitz */}
             {scope !== 'blitz' && (
               <div className="animate-step opacity-0" style={{ animationFillMode: 'forwards', animationDelay: '120ms' }}>
                 <p className="text-[10px] font-bold tracking-[0.18em] uppercase text-gray-600 mb-2">Question style</p>
@@ -346,7 +346,7 @@ export default function QuizPage() {
               </div>
             )}
 
-            {/* Count — hidden for Blitz */}
+            {/* Count: hidden for Blitz */}
             {scope !== 'blitz' && (
               <div className="animate-step opacity-0" style={{ animationFillMode: 'forwards', animationDelay: '180ms' }}>
                 <p className="text-[10px] font-bold tracking-[0.18em] uppercase text-gray-600 mb-2">Number of questions</p>
@@ -623,7 +623,7 @@ export default function QuizPage() {
               {pctFinal >= 80
                 ? '🎯 Strong session. You have a solid grip on this material.'
                 : pctFinal >= 50
-                  ? '📈 Good progress. A few terms need more practice — see below.'
+                  ? '📈 Good progress. A few terms need more practice, see below.'
                   : '💪 Keep going. These will click with a few more reviews.'}
             </p>
           </div>

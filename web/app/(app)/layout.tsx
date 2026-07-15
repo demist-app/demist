@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { AppNav } from '@/components/AppNav'
 import { NativeTranslateProvider, useNativeTranslate } from '@/lib/useNativeTranslate'
+import { applyStoredFontScale } from '@/lib/fontScale'
 
 function TranslateWarmup() {
   const nativeTranslate = useNativeTranslate()
@@ -25,6 +26,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
+    applyStoredFontScale()
     createClient().auth.getSession().then(({ data }) => {
       if (!data.session) { router.replace('/login'); return }
       setReady(true)
