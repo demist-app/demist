@@ -15,7 +15,7 @@ function TranslateWarmup() {
       if (!data.user) return
       const { data: prof } = await createClient().from('profiles').select('translate_to').eq('id', data.user.id).maybeSingle()
       const translateTo = (prof as { translate_to: string | null } | null)?.translate_to
-      if (translateTo) nativeTranslate.start(translateTo)
+      if (translateTo) nativeTranslate.start(translateTo, { onlyIfReady: true })
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])

@@ -758,6 +758,12 @@ export default function Dashboard() {
     captureModeRef.current = mode
     setCapturedTabTitle(null)
 
+    // Fire-and-forget, still within the click gesture: if the on-device
+    // translation model hasn't been downloaded on this device yet, this is
+    // the one guaranteed real user gesture every session goes through, so
+    // it's the right place to let Chrome ask for it (see useNativeTranslate).
+    if (profileRef.current?.translate_to) localTranslate.start(profileRef.current.translate_to)
+
     // Paywall gate: no-op while PAYWALL_ENABLED is false
     if (userIdRef.current) {
       const gate = await checkRecordingLimit(createClient(), userIdRef.current)

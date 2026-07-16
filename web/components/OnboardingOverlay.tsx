@@ -2,20 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { capture } from '@/lib/analytics'
-import { createClient } from '@/lib/supabase'
 
 const STORAGE_KEY = 'demist_onboarding_seen'
-const LANG_KEY = 'demist_language'
-
-const LANGUAGES = [
-  'English', 'Spanish', 'French', 'German', 'Mandarin', 'Arabic', 'Portuguese',
-  'Hindi', 'Italian', 'Japanese', 'Korean', 'Russian', 'Dutch', 'Turkish',
-  'Polish', 'Swedish', 'Danish', 'Norwegian', 'Finnish', 'Greek', 'Hebrew',
-  'Indonesian', 'Malay', 'Thai', 'Vietnamese', 'Czech', 'Hungarian', 'Romanian',
-  'Ukrainian', 'Catalan', 'Tagalog', 'Swahili', 'Bengali', 'Punjabi', 'Urdu',
-  'Persian', 'Afrikaans', 'Welsh', 'Irish', 'Slovak', 'Croatian', 'Bulgarian',
-  'Serbian', 'Slovenian', 'Lithuanian', 'Latvian', 'Estonian', 'Icelandic', 'Other',
-]
 
 const HOW_STEPS = [
   {
@@ -51,12 +39,11 @@ const HOW_STEPS = [
   },
 ]
 
-type Step = 'how' | 'language' | 'consent'
+type Step = 'how' | 'consent'
 
 export function OnboardingOverlay() {
   const [visible, setVisible] = useState(false)
   const [step, setStep] = useState<Step>('how')
-  const [selectedLang, setSelectedLang] = useState<string | null>(null)
 
   useEffect(() => {
     if (localStorage.getItem(STORAGE_KEY)) return
@@ -66,19 +53,9 @@ export function OnboardingOverlay() {
 
   if (!visible) return null
 
-  const finish = async () => {
+  const finish = () => {
     localStorage.setItem(STORAGE_KEY, '1')
-    if (selectedLang) {
-      localStorage.setItem(LANG_KEY, selectedLang)
-      try {
-        const supabase = createClient()
-        const { data: { session } } = await supabase.auth.getSession()
-        if (session?.user) {
-          await supabase.from('profiles').upsert({ id: session.user.id, native_language: selectedLang })
-        }
-      } catch {}
-    }
-    capture('onboarding_overlay_completed', { language: selectedLang ?? 'not_set' })
+    capture('onboarding_overlay_completed')
     setVisible(false)
   }
 
@@ -126,7 +103,7 @@ export function OnboardingOverlay() {
               </div>
 
               <button
-                onClick={() => setStep('language')}
+                onClick={() => setStep('consent')}
                 className="w-full py-3 rounded-2xl bg-yellow-600 hover:brightness-110 text-white text-[14px] font-semibold active:scale-[0.97] transition-[filter,transform] duration-150"
               >
                 Next →
@@ -135,46 +112,7 @@ export function OnboardingOverlay() {
           </div>
         )}
 
-        {/* ── Step 2: Language ── */}
-        {step === 'language' && (
-          <div className="p-6 sm:p-7">
-            <p className="text-[10px] font-bold tracking-[0.18em] uppercase text-amber-700/80 mb-1.5">One quick thing</p>
-            <p className="text-[20px] font-bold text-gray-900 mb-1">What's your native language?</p>
-            <p className="text-[13px] text-gray-500 mb-4">Demist uses this to tailor definitions for you.</p>
-
-            <div className="h-[200px] overflow-y-auto rounded-2xl border border-black/[0.08] bg-[#FAF9F6] p-3 mb-2">
-              <div className="flex flex-wrap gap-2">
-                {LANGUAGES.map(lang => (
-                  <button
-                    key={lang}
-                    onClick={() => setSelectedLang(lang)}
-                    className={`px-3.5 py-2 rounded-xl text-[13px] font-medium border transition-colors active:scale-[0.96] ${
-                      selectedLang === lang
-                        ? 'bg-yellow-50 border-yellow-500/40 text-yellow-800'
-                        : 'bg-white border-black/[0.12] text-gray-700 hover:border-yellow-400/40'
-                    }`}
-                  >
-                    {lang === 'English' ? 'English (this is my first language)' : lang}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {!selectedLang && (
-              <p className="text-[11px] text-amber-600 mb-3 text-center">Please select your native language to continue</p>
-            )}
-
-            <button
-              onClick={() => selectedLang && setStep('consent')}
-              disabled={!selectedLang}
-              className="w-full py-3 rounded-2xl bg-yellow-600 hover:brightness-110 text-white text-[14px] font-semibold active:scale-[0.97] transition-[filter,transform] duration-150 disabled:opacity-40 disabled:cursor-not-allowed mt-1"
-            >
-              Continue →
-            </button>
-          </div>
-        )}
-
-        {/* ── Step 3: Consent ── */}
+        {/* ── Step 2: Consent ── */}
         {step === 'consent' && (
           <div className="p-6 sm:p-7">
             <p className="text-[10px] font-bold tracking-[0.18em] uppercase text-amber-700/80 mb-1.5">Before you start</p>
@@ -216,7 +154,7 @@ export function OnboardingOverlay() {
 
         {/* Step dots */}
         <div className="flex items-center justify-center gap-1.5 pb-4">
-          {(['how', 'language', 'consent'] as Step[]).map(s => (
+          {(['how', 'consent'] as Step[]).map(s => (
             <div
               key={s}
               className={`h-1.5 rounded-full transition-all duration-300 ${step === s ? 'w-4 bg-yellow-500' : 'w-1.5 bg-black/[0.12]'}`}

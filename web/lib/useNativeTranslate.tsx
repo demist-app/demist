@@ -30,7 +30,7 @@ type TranslatorInstance = { translate(text: string): Promise<string> }
 interface NativeTranslateValue {
   status: Status
   progress: number
-  start: (tgtLang: string) => Promise<void>
+  start: (tgtLang: string, opts?: { onlyIfReady?: boolean }) => Promise<void>
   translate: (text: string) => Promise<string>
   supported: boolean
 }
@@ -43,15 +43,30 @@ export function NativeTranslateProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<Status>('off')
   const [progress, setProgress] = useState(0)
 
-  const start = useCallback(async (tgtLang: string) => {
+  // opts.onlyIfReady: for passive, no-gesture callers (page-load warmup).
+  // Chrome throws NotAllowedError if create() is called without a real user
+  // gesture while the model still needs downloading ('downloadable' or
+  // 'downloading'). Checking availability first costs nothing and lets a
+  // passive warmup silently no-op instead of erroring, while a genuine
+  // gesture-backed call (the record button, the Profile language picker)
+  // still proceeds normally and can trigger that download.
+  const start = useCallback(async (tgtLang: string, opts?: { onlyIfReady?: boolean }) => {
     if (!nativeTranslateSupported() || !tgtLang) return
     if (translatorRef.current && loadedLangRef.current === tgtLang) return
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const TranslatorApi = (window as any).Translator
+    if (opts?.onlyIfReady) {
+      try {
+        const availability = await TranslatorApi.availability({ sourceLanguage: 'en', targetLanguage: tgtLang })
+        if (availability !== 'available') return
+      } catch {
+        return
+      }
+    }
     setStatus('downloading')
     setProgress(0)
     loadedLangRef.current = tgtLang
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const TranslatorApi = (window as any).Translator
       const translator = await TranslatorApi.create({
         sourceLanguage: 'en',
         targetLanguage: tgtLang,
