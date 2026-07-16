@@ -9,6 +9,7 @@ import { useEntitlements } from '@/lib/entitlements'
 import { PaywallModal } from '@/components/PaywallModal'
 import { useNativeTranslate } from '@/lib/useNativeTranslate'
 import { FontScale, FONT_SCALE_LABELS, getFontScale, setFontScale } from '@/lib/fontScale'
+import { getDemistNative, isElectronNative } from '@/lib/electronNative'
 
 interface ProfileData {
   display_name: string | null
@@ -75,6 +76,8 @@ export default function Profile() {
   const [micDevices, setMicDevices] = useState<MediaDeviceInfo[]>([])
   const [selectedMicId, setSelectedMicId] = useState<string>('')
   const [micLabelsUnlocked, setMicLabelsUnlocked] = useState(false)
+  const [modelTier, setModelTier] = useState<'small' | 'large'>('small')
+  const [tierChanging, setTierChanging] = useState(false)
 
   // Account deletion state
   const [showDeleteModal, setShowDeleteModal] = useState(false)
@@ -138,8 +141,21 @@ export default function Profile() {
     setSelectedMicId(localStorage.getItem('demist_mic_device_id') ?? '')
     listMicDevices()
     navigator.mediaDevices?.addEventListener?.('devicechange', listMicDevices)
+    getDemistNative()?.getModelTier().then(setModelTier)
     return () => navigator.mediaDevices?.removeEventListener?.('devicechange', listMicDevices)
   }, [])
+
+  const handleModelTierChange = async (tier: 'small' | 'large') => {
+    const native = getDemistNative()
+    if (!native || tierChanging) return
+    setTierChanging(true)
+    try {
+      await native.setModelTier(tier)
+      setModelTier(tier)
+    } finally {
+      setTierChanging(false)
+    }
+  }
 
   const listMicDevices = async () => {
     if (!navigator.mediaDevices?.enumerateDevices) return
@@ -582,6 +598,31 @@ export default function Profile() {
             </div>
             <p className="text-[12px] text-gray-500 mt-1.5">Size of the live transcript, definitions, and summaries.</p>
           </div>
+
+          {isElectronNative() && (
+            <div>
+              <label className="text-[12px] text-gray-600 mb-1.5 block">On-device term detection model</label>
+              <div className="grid grid-cols-2 gap-2">
+                {(['small', 'large'] as const).map(tier => (
+                  <button
+                    key={tier}
+                    onClick={() => handleModelTierChange(tier)}
+                    disabled={tierChanging}
+                    className={`py-3 px-3 rounded-2xl text-[13px] font-medium transition-all disabled:opacity-40 ${
+                      modelTier === tier
+                        ? 'bg-yellow-600 border border-yellow-400/40 dark:text-white text-gray-900'
+                        : 'dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.08] border-black/[0.13] text-gray-600 hover:bg-white/[0.09]'
+                    }`}
+                  >
+                    {tier === 'small' ? 'Small (fast)' : 'Large (accurate)'}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[12px] text-gray-500 mt-1.5">
+                Small runs on almost any laptop. Large is closer to cloud-quality term detection but needs 8GB+ RAM free and downloads a bigger model on first use.
+              </p>
+            </div>
+          )}
 
           <button
             onClick={handleSave}

@@ -1,0 +1,21 @@
+{
+  "name": "demist-desktop",
+  "version": "0.1.0",
+  "description": "Demist desktop app: adds fully on-device transcription, translation, and term detection to the existing web app via a native bridge. No lecture audio or text ever leaves the device through this app.",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win msix"
+  },
+  "dependencies": {
+    "nodejs-whisper": "^0.3.0",
+    "node-llama-cpp": "^3.19.0",
+    "onnxruntime-node": "^1.27.0",
+    "@huggingface/transformers": "^4.2.0"
+  },
+  "devDependencies": {
+    "electron": "^43.1.1",
+    "electron-builder": "^26.15.3"
+  }
+}

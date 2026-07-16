@@ -191,7 +191,13 @@
       "Bash(npx --yes sharp-cli -i app/icon.svg -o public/icon-192.png resize 192 192)",
       "Bash(npx --yes sharp-cli -i app/icon.svg -o public/icon-512.png resize 512 512)",
       "Bash(npx --yes sharp-cli -i app/icon.svg -o public/apple-touch-icon.png resize 180 180)",
-      "Bash(node -e \"JSON.parse\\(require\\('fs'\\).readFileSync\\('public/manifest.webmanifest'\\)\\)\")"
+      "Bash(node -e \"JSON.parse\\(require\\('fs'\\).readFileSync\\('public/manifest.webmanifest'\\)\\)\")",
+      "Bash(npm --version)",
+      "Bash(node -e \"console.log\\(process.platform, process.arch\\)\")",
+      "WebFetch(domain:www.npmjs.com)",
+      "Bash(node -e \"require.resolve\\('@huggingface/transformers/package.json'\\)\")",
+      "Bash(npx electron *)",
+      "Bash(node -e \"console.log\\(require\\('./node_modules/electron/package.json'\\).version\\)\")"
     ],
     "additionalDirectories": [
       "c:\\Users\\shivb\\Desktop\\coding bits\\demist\\web\\app\\u",

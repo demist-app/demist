@@ -12,6 +12,7 @@ import { useEntitlements } from '@/lib/entitlements'
 import { useNativeTranslate } from '@/lib/useNativeTranslate'
 import { extractCandidates } from '@/lib/extractTerms'
 import { summaryFailureMessage } from '@/lib/summaryFailure'
+import { getDemistNative } from '@/lib/electronNative'
 
 const SummaryViewer = dynamic(() => import('../summary-viewer').then(m => ({ default: m.SummaryViewer })), { ssr: false })
 const OnboardingOverlay = dynamic(() => import('@/components/OnboardingOverlay').then(m => ({ default: m.OnboardingOverlay })), { ssr: false })
@@ -407,50 +408,62 @@ export default function Dashboard() {
   const runDetection = async (transcript: string, sessionId: string, token: string, context = '') => {
     const supabase = createClient()
     const base = process.env.NEXT_PUBLIC_SUPABASE_URL!
+    const native = getDemistNative()
 
-    // Client-side candidate extraction: only isolated terms + one sentence each
-    // leave the device, never full transcript windows.
-    const newSentences = transcript.split(/(?<=[.!?])\s+/).filter(s => s.trim())
-    const candidates = newSentences.flatMap(s => extractCandidates(s, knownTermsRef.current, sentTermsRef.current))
-    if (sentTermsRef.current.size > 500) {
-      sentTermsRef.current = new Set(Array.from(sentTermsRef.current).slice(-500))
-    }
-    if (candidates.length === 0) return   // nothing new, skip the network call entirely
+    let terms: { term: string; definition: string; context?: string; translation?: string }[]
 
-    // Cloud translation fallback: only ask the server to translate definitions
-    // when on-device translation isn't usable (unsupported browser, still
-    // downloading, or errored); otherwise the on-device model handles it, so
-    // nothing extra leaves the device.
-    const cloudTargetLangName = (profileRef.current?.translate_to && !localTranslateUsable())
-      ? LANGUAGE_NAMES[profileRef.current.translate_to]
-      : undefined
-
-    const dtRes = await fetch(`${base}/functions/v1/detect-terms`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        candidates,
-        context,
-        subject: sessionSubjectRef.current || profileRef.current?.course || 'general',
-        year: profileRef.current?.year_of_study ?? 1,
-        known_terms: Array.from(knownTermsRef.current),
-        target_lang_name: cloudTargetLangName,
-      }),
-    })
-    if (!dtRes.ok) {
-      if (dtRes.status === 429) {
-        setRecordingWarning('Term detection rate limit reached for this hour. Recording and transcription continue normally.')
-      } else if (dtRes.status === 401) {
-        setRecordingError('Session expired. Sign in again to continue recording.')
-        stopRecordingRef.current()
+    if (native) {
+      // Fully on-device: the raw transcript chunk goes straight to the local
+      // model. No candidate pre-filtering (below) and no cloud call at all:
+      // that filtering exists purely to minimize what leaves the device on
+      // the cloud path, which doesn't apply here since nothing leaves it.
+      terms = await native.detectTerms(transcript, context)
+    } else {
+      // Client-side candidate extraction: only isolated terms + one sentence each
+      // leave the device, never full transcript windows.
+      const newSentences = transcript.split(/(?<=[.!?])\s+/).filter(s => s.trim())
+      const candidates = newSentences.flatMap(s => extractCandidates(s, knownTermsRef.current, sentTermsRef.current))
+      if (sentTermsRef.current.size > 500) {
+        sentTermsRef.current = new Set(Array.from(sentTermsRef.current).slice(-500))
       }
-      return
+      if (candidates.length === 0) return   // nothing new, skip the network call entirely
+
+      // Cloud translation fallback: only ask the server to translate definitions
+      // when on-device translation isn't usable (unsupported browser, still
+      // downloading, or errored); otherwise the on-device model handles it, so
+      // nothing extra leaves the device.
+      const cloudTargetLangName = (profileRef.current?.translate_to && !localTranslateUsable())
+        ? LANGUAGE_NAMES[profileRef.current.translate_to]
+        : undefined
+
+      const dtRes = await fetch(`${base}/functions/v1/detect-terms`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          candidates,
+          context,
+          subject: sessionSubjectRef.current || profileRef.current?.course || 'general',
+          year: profileRef.current?.year_of_study ?? 1,
+          known_terms: Array.from(knownTermsRef.current),
+          target_lang_name: cloudTargetLangName,
+        }),
+      })
+      if (!dtRes.ok) {
+        if (dtRes.status === 429) {
+          setRecordingWarning('Term detection rate limit reached for this hour. Recording and transcription continue normally.')
+        } else if (dtRes.status === 401) {
+          setRecordingError('Session expired. Sign in again to continue recording.')
+          stopRecordingRef.current()
+        }
+        return
+      }
+      const detected = await dtRes.json()
+      terms = detected?.terms ?? []
     }
-    const detected = await dtRes.json()
 
     // Adaptive chunking: after 3 consecutive empty detections, slow the chunk
     // loop to 10s to halve API calls during silence. Reset to 5s on any hit.
-    if (!detected?.terms?.length) {
+    if (!terms.length) {
       zeroTermChunksRef.current++
       if (zeroTermChunksRef.current >= 3 && chunkIntervalRef.current !== 10_000) {
         chunkIntervalRef.current = 10_000
@@ -464,7 +477,7 @@ export default function Dashboard() {
     zeroTermChunksRef.current = 0
     chunkIntervalRef.current = 5_000
 
-    const filtered = (detected.terms as { term: string; definition: string; context?: string; translation?: string }[]).filter(t => {
+    const filtered = terms.filter(t => {
       const key = t.term.toLowerCase()
       return isLatinTerm(t.term) &&
              !knownTermsRef.current.has(key) &&
@@ -478,11 +491,11 @@ export default function Dashboard() {
     }
 
     // Cards render immediately; translations patch in whenever they resolve.
-    // On-device when usable (the worker queues internally, so this fires
-    // unconditionally regardless of whether the model has finished loading
-    // yet); otherwise `t.translation` is already filled in by detect-terms,
-    // which was asked to translate server-side via cloudTargetLangName above.
+    // Preference order: Chrome's on-device Translator, then the desktop
+    // app's bundled model, then (browser/PWA only, never in the desktop
+    // app) the translation detect-terms already did server-side.
     if (profileRef.current?.translate_to) {
+      const targetLang = profileRef.current.translate_to
       for (const t of filtered) {
         const applyTranslation = (translated: string) => {
           if (!translated) return
@@ -491,6 +504,8 @@ export default function Dashboard() {
         }
         if (localTranslateUsable()) {
           localTranslate.translate(t.definition).then(applyTranslation)
+        } else if (native) {
+          native.translate(t.definition, targetLang).then(applyTranslation)
         } else if (t.translation) {
           applyTranslation(t.translation)
         }
@@ -628,23 +643,32 @@ export default function Dashboard() {
       const base = process.env.NEXT_PUBLIC_SUPABASE_URL!
       const chunkIndex = chunkIndexRef.current++
 
-      const txRes = await fetch(`${base}/functions/v1/transcribe?session_id=${encodeURIComponent(sessionId)}&chunk_index=${chunkIndex}`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': blob.type || 'audio/webm' },
-        body: blob,
-      })
-      if (!txRes.ok) {
-        if (txRes.status === 429) {
-          setRecordingWarning('Transcription rate limit reached. Recording continues but text won\'t display until the next hour.')
-        } else if (txRes.status === 401) {
-          setRecordingError('Session expired. Sign in again to continue recording.')
-          stopRecordingRef.current()
+      // Desktop app: transcribe on-device via the Electron bridge, audio
+      // never leaves the machine. Everywhere else, the existing cloud path.
+      let chunkText: string
+      const native = getDemistNative()
+      if (native) {
+        chunkText = (await native.transcribe(await blob.arrayBuffer(), blob.type || 'audio/webm')).trim()
+        if (!chunkText) return
+      } else {
+        const txRes = await fetch(`${base}/functions/v1/transcribe?session_id=${encodeURIComponent(sessionId)}&chunk_index=${chunkIndex}`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': blob.type || 'audio/webm' },
+          body: blob,
+        })
+        if (!txRes.ok) {
+          if (txRes.status === 429) {
+            setRecordingWarning('Transcription rate limit reached. Recording continues but text won\'t display until the next hour.')
+          } else if (txRes.status === 401) {
+            setRecordingError('Session expired. Sign in again to continue recording.')
+            stopRecordingRef.current()
+          }
+          return
         }
-        return
+        const tx = await txRes.json()
+        if (!tx?.text?.trim()) return
+        chunkText = tx.text.trim()
       }
-      const tx = await txRes.json()
-      if (!tx?.text?.trim()) return
-      const chunkText = tx.text.trim()
       transcriptRef.current = transcriptRef.current ? transcriptRef.current + ' ' + chunkText : chunkText
       if (!speechModeRef.current || !webSpeechHasFiredRef.current) appendSentence(chunkText)
 

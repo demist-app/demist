@@ -1,0 +1,19 @@
+appId: app.demist.desktop
+productName: Demist
+files:
+  - main.js
+  - preload.js
+  - native/**/*
+
+win:
+  target: [msix]
+  icon: ../web/public/icon-512.png
+
+msix:
+  # Both of these are assigned by Microsoft when you reserve the app name in
+  # Partner Center (Microsoft Store account) — placeholders until then.
+  # https://partner.microsoft.com
+  identityName: REPLACE_WITH_PARTNER_CENTER_IDENTITY_NAME
+  publisher: REPLACE_WITH_PARTNER_CENTER_PUBLISHER_ID
+  publisherDisplayName: Demist
+  displayName: Demist
