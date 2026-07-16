@@ -85,6 +85,16 @@ export default function RootLayout({
             actual active theme (manual toggle, not OS preference) by
             ThemeColorSync in providers.tsx once the app mounts. */}
         <meta name="theme-color" content="#EDEAE3" />
+        {/* Chrome can fire beforeinstallprompt before InstallPrompt.tsx ever
+            mounts (it's nested inside the authenticated layout, behind an
+            async auth check): the event doesn't replay for late listeners,
+            so it has to be captured here, synchronously, before hydration,
+            not inside a React effect. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();window.__demistInstallPrompt=e;window.dispatchEvent(new Event('demist:bip'))});`,
+          }}
+        />
       </head>
       <body className="min-h-full flex flex-col">
         <div id="init-loader" aria-hidden="true" />
