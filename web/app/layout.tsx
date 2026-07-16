@@ -76,8 +76,15 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="Demist" />
-        <link rel="apple-touch-icon" href="/icon.svg" />
-        <meta name="theme-color" content="#e8e4dc" />
+        {/* Apple only renders PNG apple-touch-icons reliably, not SVG */}
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+        {/* PWA install (desktop Chrome/Edge, Android) */}
+        <link rel="manifest" href="/manifest.webmanifest" />
+        {/* Default light value for pre-hydration paint; kept in sync with the
+            actual active theme (manual toggle, not OS preference) by
+            ThemeColorSync in providers.tsx once the app mounts. */}
+        <meta name="theme-color" content="#EDEAE3" />
       </head>
       <body className="min-h-full flex flex-col">
         <div id="init-loader" aria-hidden="true" />

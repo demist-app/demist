@@ -182,7 +182,16 @@
       "Bash(sleep 3; cat /tmp/demist-dev.log 2>&1 | tail -30)",
       "Bash(echo \"TSC_EXIT:$?\")",
       "Bash(python3 -c \"import json; json.load\\(open\\('extension/manifest.json'\\)\\)\")",
-      "Bash(node -e \"JSON.parse\\(require\\('fs'\\).readFileSync\\('extension/manifest.json'\\)\\)\")"
+      "Bash(node -e \"JSON.parse\\(require\\('fs'\\).readFileSync\\('extension/manifest.json'\\)\\)\")",
+      "WebFetch(domain:console.groq.com)",
+      "WebFetch(domain:groq.com)",
+      "WebFetch(domain:developers.openai.com)",
+      "WebFetch(domain:platform.openai.com)",
+      "Bash(npx --yes sharp-cli --version)",
+      "Bash(npx --yes sharp-cli -i app/icon.svg -o public/icon-192.png resize 192 192)",
+      "Bash(npx --yes sharp-cli -i app/icon.svg -o public/icon-512.png resize 512 512)",
+      "Bash(npx --yes sharp-cli -i app/icon.svg -o public/apple-touch-icon.png resize 180 180)",
+      "Bash(node -e \"JSON.parse\\(require\\('fs'\\).readFileSync\\('public/manifest.webmanifest'\\)\\)\")"
     ],
     "additionalDirectories": [
       "c:\\Users\\shivb\\Desktop\\coding bits\\demist\\web\\app\\u",

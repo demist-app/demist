@@ -264,6 +264,11 @@ export default function LandingClient() {
           </button>
         </div>
 
+        <p className="text-[13px] mb-12 -mt-6" style={{ color: 'var(--fg-faint)', ...anim(360).style }}>
+          <span className="sm:hidden">Works instantly in your phone&apos;s browser, no install needed.</span>
+          <span className="hidden sm:inline">On laptop or desktop? Install the app after signing in for the smoothest experience.</span>
+        </p>
+
         {/* Product mockup */}
         <div className="w-full max-w-[340px] mx-auto" style={anim(440, 700).style}>
           <div className="rounded-3xl p-5" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-md)' }}>

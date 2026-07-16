@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { AppNav } from '@/components/AppNav'
+import { InstallPrompt } from '@/components/InstallPrompt'
 import { NativeTranslateProvider, useNativeTranslate } from '@/lib/useNativeTranslate'
 import { applyStoredFontScale } from '@/lib/fontScale'
 
@@ -70,6 +71,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     <NativeTranslateProvider>
       <TranslateWarmup />
       <AppNav />
+      <InstallPrompt />
 
       {/* Content */}
       <div className="sm:pt-14">

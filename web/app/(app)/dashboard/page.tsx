@@ -133,7 +133,6 @@ export default function Dashboard() {
   const [recordingError, setRecordingError] = useState<string | null>(null)
   const [recordingWarning, setRecordingWarning] = useState<string | null>(null)
   const [wakeLockUnsupported, setWakeLockUnsupported] = useState(false)
-  const [showAddToHomeScreen, setShowAddToHomeScreen] = useState(false)
   const [captureMode, setCaptureMode] = useState<CaptureMode>('microphone')
   const [capturedTabTitle, setCapturedTabTitle] = useState<string | null>(null)
   const [tabCaptureSupportedState, setTabCaptureSupportedState] = useState(false)
@@ -286,14 +285,7 @@ export default function Dashboard() {
     if (el) el.scrollTop = el.scrollHeight
   }, [sentences])
 
-  // iOS "Add to Home Screen" prompt: once per session, for users not already standalone
   useEffect(() => {
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches
-    if (isIOS && !isStandalone && !sessionStorage.getItem('demist-a2hs-shown')) {
-      sessionStorage.setItem('demist-a2hs-shown', '1')
-      setShowAddToHomeScreen(true)
-    }
     setTabCaptureSupportedState(tabCaptureSupported())
     const savedView = localStorage.getItem('demist_transcript_view')
     if (savedView === 'both' || savedView === 'source' || savedView === 'translated') setTranscriptView(savedView)
@@ -1735,22 +1727,6 @@ export default function Dashboard() {
           />
         ))}
       </div>
-
-      {/* iOS "Add to Home Screen" prompt */}
-      {showAddToHomeScreen && (
-        <div className="fixed inset-x-4 bottom-20 sm:bottom-6 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:max-w-sm z-50 dark:bg-[#13120e] bg-[#FDFCF9] border dark:border-amber-500/20 border-amber-300/70 rounded-2xl px-4 py-3.5 shadow-lg flex items-start gap-3">
-          <div className="flex-1 text-[13px] dark:text-white/80 text-gray-800 leading-relaxed">
-            For the best experience, add Demist to your home screen. Tap <span className="font-semibold">Share</span> → <span className="font-semibold">Add to Home Screen</span>.
-          </div>
-          <button
-            onClick={() => setShowAddToHomeScreen(false)}
-            aria-label="Dismiss"
-            className="dark:text-white/30 text-gray-400 dark:hover:text-white/60 hover:text-gray-600 transition-colors text-[18px] leading-none shrink-0"
-          >
-            ×
-          </button>
-        </div>
-      )}
     </main>
   )
 }
