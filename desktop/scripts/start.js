@@ -2,7 +2,7 @@
 // VS Code's integrated terminal (and Git Bash sessions opened from it)
 // inherits ELECTRON_RUN_AS_NODE=1 from VS Code's own Electron host process.
 // With that set, the electron binary runs as plain Node instead of launching
-// the app — require('electron') in main.js then returns a path string
+// the app: require('electron') in main.js then returns a path string
 // instead of {app, BrowserWindow, ipcMain, session}, crashing on the first
 // ipcMain.handle() call before any window opens. Clearing it here, in the
 // spawning process, is the only place it can be fixed: by the time main.js

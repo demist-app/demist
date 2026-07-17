@@ -4,6 +4,11 @@ files:
   - main.js
   - preload.js
   - native/**/*
+asarUnpack:
+  - native/**/*
+  - node_modules/onnxruntime-node/**/*
+  - node_modules/node-llama-cpp/**/*
+  - "node_modules/@huggingface/transformers/**/*"
 
 win:
   target: [msix]

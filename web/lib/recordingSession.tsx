@@ -7,7 +7,7 @@
 //
 // This used to all live inside Dashboard itself. That meant navigating to
 // any other tab (Study, Glossary, History, ...) unmounted Dashboard, which
-// unmounted this logic with it — including the beforeunload-handler effect,
+// unmounted this logic with it, including the beforeunload-handler effect,
 // whose cleanup function calls stopRecordingRef.current() on ANY unmount,
 // not just a real page close. So switching tabs mid-recording silently
 // ended the session (confirmed by real testing). Mounting this at the
@@ -23,7 +23,8 @@ import { checkRecordingLimit } from '@/lib/subscription'
 import { useEntitlements } from '@/lib/entitlements'
 import { useNativeTranslate } from '@/lib/useNativeTranslate'
 import { extractCandidates } from '@/lib/extractTerms'
-import { getDemistNative } from '@/lib/electronNative'
+import { isElectronNative, getDemistNative } from '@/lib/electronNative'
+import { startNativeSession, type NativeSessionHandle } from '@/lib/nativeSession'
 
 export type CaptureMode = 'microphone' | 'tab'
 
@@ -215,6 +216,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
   const vizAnalyserRef = useRef<AnalyserNode | null>(null)
   const processedStreamRef = useRef<MediaStream | null>(null)
   const webLockReleaseRef = useRef<(() => void) | null>(null)
+  const nativeSessionRef = useRef<NativeSessionHandle | null>(null)
 
   useEffect(() => {
     const handler = (e: MessageEvent) => {
@@ -362,7 +364,12 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       // model. No candidate pre-filtering (below) and no cloud call at all:
       // that filtering exists purely to minimize what leaves the device on
       // the cloud path, which doesn't apply here since nothing leaves it.
-      terms = await native.detectTerms(transcript, context)
+      terms = await native.detectTerms(
+        transcript,
+        context,
+        sessionSubjectRef.current || profileRef.current?.course || null,
+        profileRef.current?.year_of_study ?? null,
+      )
     } else {
       // Client-side candidate extraction: only isolated terms + one sentence each
       // leave the device, never full transcript windows.
@@ -576,6 +583,36 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     if (profileRef.current?.translate_to && (localTranslateUsable() || getDemistNative())) translateSentenceAt(idx, chunkText)
   }
 
+  // Shared by both transcription paths: the cloud chunk loop (processChunk)
+  // and the native on-device session (onTranscript in startRecording) each
+  // hand a piece of transcript here. Appends to the live transcript/sentence
+  // display and, every ~10s, fires a detect-terms pass. Kept synchronous up
+  // to the point detection actually fires (the token fetch below is the only
+  // async part) so that stopRecording's flush-on-stop check, which runs right
+  // after the native session's stop() resolves, always sees this chunk's text
+  // already in detectionBufferRef, not still pending on a promise.
+  const accumulateAndMaybeDetect = (chunkText: string, sessionId: string) => {
+    transcriptRef.current = transcriptRef.current ? transcriptRef.current + ' ' + chunkText : chunkText
+    if (!speechModeRef.current || !webSpeechHasFiredRef.current) appendSentence(chunkText)
+
+    // Accumulate text; only call detect-terms every ~10s to bound cost while
+    // keeping the wait for a definition to appear reasonable.
+    detectionBufferRef.current += (detectionBufferRef.current ? ' ' : '') + chunkText
+    const msSinceDetection = Date.now() - lastDetectionTimeRef.current
+    if ((msSinceDetection >= 10_000 || !isActiveRef.current) && detectionBufferRef.current.trim()) {
+      const toDetect = detectionBufferRef.current
+      const context = recentContextRef.current
+      // Roll context forward: keep last ~60s worth (~300 chars) as future context
+      recentContextRef.current = (context + ' ' + toDetect).trim().slice(-300)
+      detectionBufferRef.current = ''
+      lastDetectionTimeRef.current = Date.now()
+      createClient().auth.getSession().then(({ data: { session } }) => {
+        const token = session?.access_token
+        if (token) runDetection(toDetect, sessionId, token, context)
+      }).catch(() => {})
+    }
+  }
+
   // ── Whisper path: transcribe audio blob then detect terms ─────────────────────
   // Skips Whisper entirely if audio level was below silence threshold.
 
@@ -595,48 +632,26 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       const base = process.env.NEXT_PUBLIC_SUPABASE_URL!
       const chunkIndex = chunkIndexRef.current++
 
-      // Desktop app: transcribe on-device via the Electron bridge, audio
-      // never leaves the machine. Everywhere else, the existing cloud path.
-      let chunkText: string
-      const native = getDemistNative()
-      if (native) {
-        chunkText = (await native.transcribe(await blob.arrayBuffer(), blob.type || 'audio/webm')).trim()
-        if (!chunkText) return
-      } else {
-        const txRes = await fetch(`${base}/functions/v1/transcribe?session_id=${encodeURIComponent(sessionId)}&chunk_index=${chunkIndex}`, {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': blob.type || 'audio/webm' },
-          body: blob,
-        })
-        if (!txRes.ok) {
-          if (txRes.status === 429) {
-            setRecordingWarning('Transcription rate limit reached. Recording continues but text won\'t display until the next hour.')
-          } else if (txRes.status === 401) {
-            setRecordingError('Session expired. Sign in again to continue recording.')
-            stopRecordingRef.current()
-          }
-          return
+      // Cloud transcription path only: native mic sessions never call
+      // processChunk at all (see startRecording: the MediaRecorder loop
+      // isn't started when isElectronNative() && mode === 'microphone').
+      const txRes = await fetch(`${base}/functions/v1/transcribe?session_id=${encodeURIComponent(sessionId)}&chunk_index=${chunkIndex}`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': blob.type || 'audio/webm' },
+        body: blob,
+      })
+      if (!txRes.ok) {
+        if (txRes.status === 429) {
+          setRecordingWarning('Transcription rate limit reached. Recording continues but text won\'t display until the next hour.')
+        } else if (txRes.status === 401) {
+          setRecordingError('Session expired. Sign in again to continue recording.')
+          stopRecordingRef.current()
         }
-        const tx = await txRes.json()
-        if (!tx?.text?.trim()) return
-        chunkText = tx.text.trim()
+        return
       }
-      transcriptRef.current = transcriptRef.current ? transcriptRef.current + ' ' + chunkText : chunkText
-      if (!speechModeRef.current || !webSpeechHasFiredRef.current) appendSentence(chunkText)
-
-      // Accumulate text; only call detect-terms every ~10s to bound GPT cost
-      // while keeping the wait for a definition to appear reasonable.
-      detectionBufferRef.current += (detectionBufferRef.current ? ' ' : '') + chunkText
-      const msSinceDetection = Date.now() - lastDetectionTimeRef.current
-      if ((msSinceDetection >= 10_000 || !isActiveRef.current) && detectionBufferRef.current.trim()) {
-        const toDetect = detectionBufferRef.current
-        const context = recentContextRef.current
-        // Roll context forward: keep last ~60s worth (~300 chars) as future context
-        recentContextRef.current = (context + ' ' + toDetect).trim().slice(-300)
-        detectionBufferRef.current = ''
-        lastDetectionTimeRef.current = Date.now()
-        await runDetection(toDetect, sessionId, token, context)
-      }
+      const tx = await txRes.json()
+      if (!tx?.text?.trim()) return
+      accumulateAndMaybeDetect(tx.text.trim(), sessionId)
     } catch (e) {
       console.error('processChunk error:', e)
     }
@@ -844,102 +859,132 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       })).catch(() => {})
     }
 
-    // ── Cloud transcription: chunk loop ─────────────────────────────────────
-    const doChunk = () => {
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-        ? 'audio/webm;codecs=opus'
-        : MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'
-      // Use raw getUserMedia stream: Chrome suspends AudioContext in background tabs
-      // but always delivers audio from getUserMedia regardless of tab visibility.
-      const recorder = new MediaRecorder(streamRef.current!, { mimeType })
-      recorderRef.current = recorder
-      const chunks: Blob[] = []
-      recorder.ondataavailable = (e: BlobEvent) => { if (e.data.size > 0) chunks.push(e.data) }
-      recorder.onstop = () => {
-        const blob = new Blob(chunks, { type: mimeType })
-        const sid = sessionIdRef.current
-        if (sid) processChunk(blob, sid)
-        if (isActiveRef.current) doChunk()
+    const useNativeMic = isElectronNative() && mode === 'microphone'
+    let recordingMode: 'native' | 'whisper+speech_api' | 'whisper' = 'whisper'
+
+    if (useNativeMic) {
+      // Fully on-device: raw PCM streamed to Whisper via an AudioWorklet +
+      // native segmenter (desktop/native/whisper.js + pcm-segmenter.js).
+      // Web Speech must NOT start here: it routes audio through Google's
+      // servers, which would falsify "nothing leaves the device", and the
+      // cloud MediaRecorder/processChunk loop never runs in this branch.
+      recordingMode = 'native'
+      try {
+        nativeSessionRef.current = await startNativeSession(streamRef.current!, {
+          onTranscript: (text) => {
+            const sid = sessionIdRef.current
+            if (sid) accumulateAndMaybeDetect(text, sid)
+          },
+          onModelProgress: (label, pct) => {
+            setRecordingWarning(pct >= 100 ? null : `Downloading on-device model (${label})… ${pct}%`)
+          },
+          onError: (message) => {
+            console.error('[demist] native session error:', message)
+          },
+        })
+      } catch (e) {
+        console.error('[demist] failed to start native session:', e)
+        setRecordingError('Could not start on-device transcription.')
       }
-      recorder.start()
-      chunkTimerRef.current = setTimeout(() => { if (recorder.state === 'recording') recorder.stop() }, chunkIntervalRef.current)
-    }
+    } else {
+      // ── Cloud transcription: chunk loop ─────────────────────────────────────
+      const doChunk = () => {
+        const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+          ? 'audio/webm;codecs=opus'
+          : MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'
+        // Use raw getUserMedia stream: Chrome suspends AudioContext in background tabs
+        // but always delivers audio from getUserMedia regardless of tab visibility.
+        const recorder = new MediaRecorder(streamRef.current!, { mimeType })
+        recorderRef.current = recorder
+        const chunks: Blob[] = []
+        recorder.ondataavailable = (e: BlobEvent) => { if (e.data.size > 0) chunks.push(e.data) }
+        recorder.onstop = () => {
+          const blob = new Blob(chunks, { type: mimeType })
+          const sid = sessionIdRef.current
+          if (sid) processChunk(blob, sid)
+          if (isActiveRef.current) doChunk()
+        }
+        recorder.start()
+        chunkTimerRef.current = setTimeout(() => { if (recorder.state === 'recording') recorder.stop() }, chunkIntervalRef.current)
+      }
 
-    doChunk()
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const SpeechRecognitionAPI = typeof window !== 'undefined' ? ((window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition ?? null) : null
-    if (SpeechRecognitionAPI) {
-      speechModeRef.current = true
-      webSpeechHasFiredRef.current = false
-      hasInterimRef.current = false
-
-      const recognition = new SpeechRecognitionAPI()
-      recognition.continuous = true
-      recognition.interimResults = true
-      recognition.lang = 'en-US'
-      recognitionRef.current = recognition
-      let consecutiveNoSpeech = 0
-
-      const noResultWatchdog = setTimeout(() => {
-        if (!isActiveRef.current || webSpeechHasFiredRef.current) return
-        speechModeRef.current = false
-        try { recognition.stop() } catch { /* ignore */ }
-      }, 5_000)
+      doChunk()
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      recognition.onresult = (event: any) => {
-        clearTimeout(noResultWatchdog)
-        webSpeechHasFiredRef.current = true
-        consecutiveNoSpeech = 0
-        let interimText = ''
-        let finalText = ''
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const t = event.results[i][0].transcript
-          if (event.results[i].isFinal) finalText += t + ' '
-          else interimText += t
-        }
-        if (interimText) {
-          setSentences(prev => {
-            if (hasInterimRef.current && prev.length > 0) return [...prev.slice(0, -1), interimText]
-            hasInterimRef.current = true
-            return [...prev, interimText]
-          })
-        }
-        if (finalText.trim()) {
-          webSpeechFinalRef.current += finalText.trim() + ' '
-          setSentences(prev => {
-            const base = hasInterimRef.current && prev.length > 0 ? prev.slice(0, -1) : prev
-            hasInterimRef.current = false
-            return [...base, finalText.trim()]
-          })
-        }
-      }
+      const SpeechRecognitionAPI = typeof window !== 'undefined' ? ((window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition ?? null) : null
+      if (SpeechRecognitionAPI) {
+        recordingMode = 'whisper+speech_api'
+        speechModeRef.current = true
+        webSpeechHasFiredRef.current = false
+        hasInterimRef.current = false
 
-      recognition.onend = () => {
-        if (isActiveRef.current && speechModeRef.current) {
-          try { recognition.start() } catch { /* already starting */ }
-        }
-      }
+        const recognition = new SpeechRecognitionAPI()
+        recognition.continuous = true
+        recognition.interimResults = true
+        recognition.lang = 'en-US'
+        recognitionRef.current = recognition
+        let consecutiveNoSpeech = 0
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      recognition.onerror = (event: any) => {
-        if (event.error === 'no-speech') {
-          consecutiveNoSpeech++
-          if (consecutiveNoSpeech >= 3 && !webSpeechHasFiredRef.current) {
-            speechModeRef.current = false
-            clearTimeout(noResultWatchdog)
+        const noResultWatchdog = setTimeout(() => {
+          if (!isActiveRef.current || webSpeechHasFiredRef.current) return
+          speechModeRef.current = false
+          try { recognition.stop() } catch { /* ignore */ }
+        }, 5_000)
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        recognition.onresult = (event: any) => {
+          clearTimeout(noResultWatchdog)
+          webSpeechHasFiredRef.current = true
+          consecutiveNoSpeech = 0
+          let interimText = ''
+          let finalText = ''
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const t = event.results[i][0].transcript
+            if (event.results[i].isFinal) finalText += t + ' '
+            else interimText += t
           }
-          return
+          if (interimText) {
+            setSentences(prev => {
+              if (hasInterimRef.current && prev.length > 0) return [...prev.slice(0, -1), interimText]
+              hasInterimRef.current = true
+              return [...prev, interimText]
+            })
+          }
+          if (finalText.trim()) {
+            webSpeechFinalRef.current += finalText.trim() + ' '
+            setSentences(prev => {
+              const base = hasInterimRef.current && prev.length > 0 ? prev.slice(0, -1) : prev
+              hasInterimRef.current = false
+              return [...base, finalText.trim()]
+            })
+          }
         }
-        speechModeRef.current = false
-        clearTimeout(noResultWatchdog)
-      }
 
-      recognition.start()
+        recognition.onend = () => {
+          if (isActiveRef.current && speechModeRef.current) {
+            try { recognition.start() } catch { /* already starting */ }
+          }
+        }
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        recognition.onerror = (event: any) => {
+          if (event.error === 'no-speech') {
+            consecutiveNoSpeech++
+            if (consecutiveNoSpeech >= 3 && !webSpeechHasFiredRef.current) {
+              speechModeRef.current = false
+              clearTimeout(noResultWatchdog)
+            }
+            return
+          }
+          speechModeRef.current = false
+          clearTimeout(noResultWatchdog)
+        }
+
+        recognition.start()
+      }
     }
 
-    capture('recording_started', { subject: sessionSubjectRef.current || profileRef.current?.course, mode: SpeechRecognitionAPI ? 'whisper+speech_api' : 'whisper' })
+    capture('recording_started', { subject: sessionSubjectRef.current || profileRef.current?.course, mode: recordingMode })
   }
 
   const stopRecording = async () => {
@@ -953,6 +998,15 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     hasInterimRef.current = false
     try { recognitionRef.current?.stop() } catch { /* ignore */ }
     recognitionRef.current = null
+
+    // Native session flush: waits for in-flight segments so the final
+    // utterance's text (via accumulateAndMaybeDetect, called synchronously
+    // from onTranscript) is already in detectionBufferRef before the flush
+    // check below runs.
+    if (nativeSessionRef.current) {
+      await nativeSessionRef.current.stop()
+      nativeSessionRef.current = null
+    }
 
     // Flush any text waiting for the 10s detect-terms window so terms from the
     // final seconds of the lecture aren't lost.

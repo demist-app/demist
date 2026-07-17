@@ -1,15 +1,28 @@
 'use client'
 
-// Bridge to the desktop app's native on-device processing (see /desktop).
-// window.demistNative only exists when this page is loaded inside the
-// Electron shell (exposed by desktop/preload.js); everywhere else
-// (regular browser, installed PWA) this is undefined and callers should
-// fall back to the existing cloud edge functions.
+// web/lib/electronNative.ts: FULL REPLACEMENT
+// Bridge types for the desktop app's native on-device processing (see
+// /desktop). window.demistNative only exists inside the Electron shell;
+// everywhere else callers fall back to the cloud edge functions.
+
+export interface NativeEvent {
+  event: 'transcript' | 'modelProgress'
+  payload: { seq?: number; text?: string; label?: string; pct?: number; file?: string | null }
+}
 
 export interface DemistNative {
-  transcribe: (audioBuffer: ArrayBuffer, mimeType: string) => Promise<string>
+  startSession: () => Promise<boolean>
+  stopSession: () => Promise<void>
+  preloadWhisper: () => Promise<'fast' | 'accurate'>
+  sendPcm: (arrayBuffer: ArrayBuffer) => void
+  onEvent: (callback: (msg: NativeEvent) => void) => () => void
   translate: (text: string, targetLang: string) => Promise<string>
-  detectTerms: (transcript: string, context: string) => Promise<{ term: string; definition: string; context?: string }[]>
+  detectTerms: (
+    transcript: string,
+    context: string,
+    subject?: string | null,
+    year?: number | null,
+  ) => Promise<{ term: string; definition: string; context?: string }[]>
   getModelTier: () => Promise<'small' | 'large'>
   setModelTier: (tier: 'small' | 'large') => Promise<'small' | 'large'>
   getTranscribeTier: () => Promise<'fast' | 'accurate'>

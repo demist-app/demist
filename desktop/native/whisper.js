@@ -1,41 +1,30 @@
-// On-device transcription via Whisper, running through @huggingface/transformers
-// (onnxruntime-node under the hood): the same library and pattern as
-// native/translate.js, not the nodejs-whisper/whisper.cpp binding this
-// started with.
+// desktop/native/whisper.js: FULL REPLACEMENT
+// On-device transcription, now session-based on raw PCM instead of per-blob.
 //
-// nodejs-whisper was dropped: it compiles whisper.cpp from source with CMake
-// on every fresh install, which needs a full C++ build toolchain (Visual
-// Studio Build Tools on Windows). No end user downloading this app has that
-// installed; it's a fine choice for a developer's own machine, not for
-// something distributed. This path ships as ONNX weights with no
-// compilation step at all, consistent with how translation already works.
-//
-// The renderer sends WebM/Opus (from MediaRecorder), but Whisper needs a
-// 16kHz mono Float32Array. ffmpeg-static bundles a prebuilt ffmpeg binary
-// (downloaded as a precompiled executable at install time, not built from
-// source) purely to do that format conversion: audio never leaves the
-// machine, this is a local decode step only.
+// What changed and why:
+// - The renderer now streams raw 16kHz Float32 PCM (captured by an
+//   AudioWorklet) instead of 5-second WebM blobs. That removes ffmpeg, the
+//   temp files, the decode step, and every container/boundary problem in one
+//   move: there is nothing to decode.
+// - A PcmSegmenter cuts the stream at natural pauses, so Whisper only ever
+//   transcribes complete utterances with real context. This is the actual fix
+//   for word-slicing at chunk boundaries and silence hallucinations.
+// - Segments are transcribed strictly in order through a single promise
+//   queue, so text can never arrive out of order.
+// - Default tier is now 'accurate' (whisper-small.en). The old 'fast' default
+//   (base.en) "noticeably under-transcribes real lecture speech" per the
+//   previous version's own comment; utterance-based processing only
+//   transcribes actual speech (no more padding 5s of audio to 30s per call),
+//   which pays for the bigger model. 'fast' remains available via the
+//   existing tier setter for weak machines.
 
 const { pipeline } = require('@huggingface/transformers')
-const wavefile = require('wavefile')
-const ffmpegPath = require('ffmpeg-static')
-const { execFile } = require('child_process')
-const { promisify } = require('util')
-const fs = require('fs/promises')
 const fsSync = require('fs')
 const os = require('os')
 const path = require('path')
-const { randomUUID } = require('crypto')
 const { makeProgressLogger } = require('./progressLog')
+const { PcmSegmenter } = require('./pcm-segmenter')
 
-const execFileAsync = promisify(execFile)
-
-// English-only models: lecture audio is English-source (translation is a
-// separate step), and the .en variants are smaller/faster than multilingual
-// for the same size class. Two tiers, same shape as native/llm.js's
-// small/large split: "fast" (the original default) noticeably
-// under-transcribes real lecture speech compared to the cloud path, so
-// "accurate" trades size/speed for a meaningfully lower error rate.
 const MODEL_BY_TIER = {
   fast: 'Xenova/whisper-base.en',
   accurate: 'Xenova/whisper-small.en',
@@ -45,9 +34,9 @@ const TIER_FILE = path.join(os.homedir(), '.demist', 'whisper-tier.json')
 function getTier() {
   try {
     const tier = JSON.parse(fsSync.readFileSync(TIER_FILE, 'utf8')).tier
-    return MODEL_BY_TIER[tier] ? tier : 'fast'
+    return MODEL_BY_TIER[tier] ? tier : 'accurate'
   } catch {
-    return 'fast'
+    return 'accurate'
   }
 }
 
@@ -58,64 +47,83 @@ function setTier(tier) {
   return tier
 }
 
-// Keyed by tier, same reasoning as native/translate.js's per-language cache:
-// store the in-flight promise itself, synchronously, so overlapping calls
-// for the same tier share one load instead of racing duplicate ones.
 const transcribersByTier = new Map()
-function getTranscriber() {
+function getTranscriber(emitProgress) {
   const tier = getTier()
   if (!transcribersByTier.has(tier)) {
     transcribersByTier.set(tier, pipeline('automatic-speech-recognition', MODEL_BY_TIER[tier], {
-      progress_callback: makeProgressLogger(`transcription model (${tier})`),
+      progress_callback: makeProgressLogger(`transcription model (${tier})`, emitProgress),
     }))
   }
   return transcribersByTier.get(tier)
 }
 
-function extFor(mimeType) {
-  if (mimeType?.includes('mp4')) return 'mp4'
-  return 'webm'
-}
+// Known Whisper silence hallucinations. Only applied when the segment's
+// audio energy says there was barely anything to transcribe; a lecturer
+// genuinely saying "thank you" mid-lecture has normal energy and passes.
+const HALLUCINATION_BLOCKLIST = new Set([
+  'thank you.', 'thank you', 'thanks for watching.', 'thanks for watching',
+  'you', 'you.', 'bye.', 'bye', '.', 'the',
+])
+const LOW_ENERGY_RMS = 0.004
 
-async function decodeToFloat32(audioBuffer, mimeType) {
-  // randomUUID, not Date.now(): a chunk transcribe() can still be running
-  // (its ffmpeg subprocess or Whisper inference in progress) when the next
-  // chunk's decode starts, since those are all awaits within the same
-  // worker thread rather than serialized — Date.now() collided across
-  // overlapping calls often enough in practice to corrupt or truncate
-  // whichever chunk's temp files got clobbered, producing the garbled,
-  // repeated-hallucination transcripts seen in testing.
-  const id = randomUUID()
-  const inFile = path.join(os.tmpdir(), `demist-in-${id}.${extFor(mimeType)}`)
-  const outFile = path.join(os.tmpdir(), `demist-out-${id}.wav`)
-  await fs.writeFile(inFile, Buffer.from(audioBuffer))
-  try {
-    // Direct binary path, not process.execPath: this is exactly what
-    // nodejs-whisper got wrong under Electron (it resolves execPath
-    // internally for its own build tooling, which points at electron.exe
-    // here, not node.exe). execFile with an explicit path has no such
-    // ambiguity.
-    await execFileAsync(ffmpegPath, ['-y', '-i', inFile, '-ar', '16000', '-ac', '1', outFile])
-    const wav = new wavefile.WaveFile(await fs.readFile(outFile))
-    wav.toBitDepth('32f')
-    wav.toSampleRate(16000)
-    let samples = wav.getSamples()
-    if (Array.isArray(samples)) samples = samples[0] // first channel if multi-channel
-    // wavefile hands back a Float64Array regardless of the '32f' bit depth
-    // set above (verified: that setting affects the WAV encoding, not this
-    // return type); the pipeline expects Float32Array specifically.
-    return Float32Array.from(samples)
-  } finally {
-    await fs.unlink(inFile).catch(() => {})
-    await fs.unlink(outFile).catch(() => {})
+// ── Session ────────────────────────────────────────────────────────────────
+// One live session at a time (one microphone). startSession wires a
+// segmenter whose segments run through a serial transcription queue; each
+// result is pushed via onTranscript with a monotonically increasing seq.
+
+let activeSession = null
+
+function startSession(onTranscript, emitProgress) {
+  stopSession() // safety: a crashed renderer can leave one dangling
+  let seq = 0
+  let queue = Promise.resolve()
+  let lastText = ''
+
+  const segmenter = new PcmSegmenter((segment, meanRms) => {
+    const mySeq = ++seq
+    queue = queue.then(async () => {
+      try {
+        const transcriber = await getTranscriber(emitProgress)
+        const result = await transcriber(segment)
+        let text = (result?.text ?? '').trim()
+        const normalized = text.toLowerCase()
+        if (meanRms < LOW_ENERGY_RMS && HALLUCINATION_BLOCKLIST.has(normalized)) text = ''
+        if (text && normalized === lastText.toLowerCase()) text = '' // collapse repeats
+        if (text) {
+          lastText = text
+          onTranscript({ seq: mySeq, text })
+        }
+      } catch (err) {
+        console.error('[demist] transcription segment failed:', err?.message ?? err)
+      }
+    })
+  })
+
+  activeSession = {
+    feed: (pcm) => segmenter.feed(pcm),
+    stop: async () => {
+      segmenter.flush()
+      await queue // let in-flight segments finish so final words aren't lost
+      activeSession = null
+    },
   }
+  return true
 }
 
-async function transcribe(audioBuffer, mimeType) {
-  const audioData = await decodeToFloat32(audioBuffer, mimeType)
-  const transcriber = await getTranscriber()
-  const result = await transcriber(audioData)
-  return (result?.text ?? '').trim()
+function feedPcm(pcmFloat32) {
+  if (activeSession) activeSession.feed(pcmFloat32)
 }
 
-module.exports = { transcribe, getTier, setTier }
+async function stopSession() {
+  if (activeSession) await activeSession.stop()
+}
+
+// Warm the model outside a session (used by the settings screen so the
+// download happens there, with visible progress, not mid-lecture).
+async function preload(emitProgress) {
+  await getTranscriber(emitProgress)
+  return getTier()
+}
+
+module.exports = { startSession, feedPcm, stopSession, preload, getTier, setTier }

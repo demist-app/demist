@@ -119,15 +119,16 @@ async function ensureLoaded() {
 // conversation state in one context sequence, so two overlapping
 // session.prompt() calls would interleave into the same sequence rather
 // than running as independent requests (confirmed the overlap itself
-// happens in practice — see ensureLoaded above). Chaining onto this promise
+// happens in practice, see ensureLoaded above). Chaining onto this promise
 // queues each call behind whichever is already running instead of racing it.
 let queue = Promise.resolve()
 
-async function detectTerms(transcript, recentContext) {
+async function detectTerms(transcript, recentContext, subject, year) {
   if (!transcript?.trim()) return []
   await ensureLoaded()
 
-  const prompt = `You are a study assistant. From the lecture excerpt below, identify at most 2 subject-specific technical terms a university student is unlikely to know and would need explained to follow the lecture. Ignore common English words and anything already understood from context.
+  const who = subject ? `a ${year ? `Year ${year} ` : ''}${subject} student` : 'a university student'
+  const prompt = `You are a study assistant. From the lecture excerpt below, identify at most 2 subject-specific technical terms ${who} is unlikely to know and would need explained to follow the lecture. Ignore common English words and anything already understood from context.
 
 ${recentContext ? `Recent context: ${recentContext}\n\n` : ''}Lecture excerpt:
 ${transcript}

@@ -47,7 +47,7 @@ function escapeRegExp(s: string): string {
 
 export default function Dashboard() {
   // Recording is owned by a provider mounted at the (app) layout level (see
-  // lib/recordingSession.tsx) so it survives navigating to other tabs — this
+  // lib/recordingSession.tsx) so it survives navigating to other tabs: this
   // page only renders it and keeps its own page-local UI state (scroll
   // position, animation refs, the subject/transcript-view pickers).
   const {
