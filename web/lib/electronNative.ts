@@ -12,6 +12,8 @@ export interface DemistNative {
   detectTerms: (transcript: string, context: string) => Promise<{ term: string; definition: string; context?: string }[]>
   getModelTier: () => Promise<'small' | 'large'>
   setModelTier: (tier: 'small' | 'large') => Promise<'small' | 'large'>
+  getTranscribeTier: () => Promise<'fast' | 'accurate'>
+  setTranscribeTier: (tier: 'fast' | 'accurate') => Promise<'fast' | 'accurate'>
   startWakeLock: () => Promise<void>
   stopWakeLock: () => Promise<void>
 }

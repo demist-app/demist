@@ -15,6 +15,8 @@ const handlers = {
   detectTerms: (transcript, context) => (llm ??= require('./llm')).detectTerms(transcript, context),
   getModelTier: () => (llm ??= require('./llm')).getTier(),
   setModelTier: (tier) => (llm ??= require('./llm')).setTier(tier),
+  getTranscribeTier: () => (whisper ??= require('./whisper')).getTier(),
+  setTranscribeTier: (tier) => (whisper ??= require('./whisper')).setTier(tier),
 }
 
 parentPort.on('message', async ({ id, type, args }) => {

@@ -78,6 +78,8 @@ export default function Profile() {
   const [micLabelsUnlocked, setMicLabelsUnlocked] = useState(false)
   const [modelTier, setModelTier] = useState<'small' | 'large'>('small')
   const [tierChanging, setTierChanging] = useState(false)
+  const [transcribeTier, setTranscribeTier] = useState<'fast' | 'accurate'>('fast')
+  const [transcribeTierChanging, setTranscribeTierChanging] = useState(false)
 
   // Account deletion state
   const [showDeleteModal, setShowDeleteModal] = useState(false)
@@ -142,6 +144,7 @@ export default function Profile() {
     listMicDevices()
     navigator.mediaDevices?.addEventListener?.('devicechange', listMicDevices)
     getDemistNative()?.getModelTier().then(setModelTier)
+    getDemistNative()?.getTranscribeTier().then(setTranscribeTier)
     return () => navigator.mediaDevices?.removeEventListener?.('devicechange', listMicDevices)
   }, [])
 
@@ -154,6 +157,18 @@ export default function Profile() {
       setModelTier(tier)
     } finally {
       setTierChanging(false)
+    }
+  }
+
+  const handleTranscribeTierChange = async (tier: 'fast' | 'accurate') => {
+    const native = getDemistNative()
+    if (!native || transcribeTierChanging) return
+    setTranscribeTierChanging(true)
+    try {
+      await native.setTranscribeTier(tier)
+      setTranscribeTier(tier)
+    } finally {
+      setTranscribeTierChanging(false)
     }
   }
 
@@ -598,6 +613,31 @@ export default function Profile() {
             </div>
             <p className="text-[12px] text-gray-500 mt-1.5">Size of the live transcript, definitions, and summaries.</p>
           </div>
+
+          {isElectronNative() && (
+            <div>
+              <label className="text-[12px] text-gray-600 mb-1.5 block">On-device transcription model</label>
+              <div className="grid grid-cols-2 gap-2">
+                {(['fast', 'accurate'] as const).map(tier => (
+                  <button
+                    key={tier}
+                    onClick={() => handleTranscribeTierChange(tier)}
+                    disabled={transcribeTierChanging}
+                    className={`py-3 px-3 rounded-2xl text-[13px] font-medium transition-all disabled:opacity-40 ${
+                      transcribeTier === tier
+                        ? 'bg-yellow-600 border border-yellow-400/40 dark:text-white text-gray-900'
+                        : 'dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.08] border-black/[0.13] text-gray-600 hover:bg-white/[0.09]'
+                    }`}
+                  >
+                    {tier === 'fast' ? 'Fast' : 'Accurate'}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[12px] text-gray-500 mt-1.5">
+                Fast is the smaller default model. Accurate catches meaningfully more of what you actually said, at the cost of a bigger download and somewhat slower transcription. Applies next time you start recording.
+              </p>
+            </div>
+          )}
 
           {isElectronNative() && (
             <div>

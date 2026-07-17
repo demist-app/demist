@@ -22,6 +22,7 @@ const ffmpegPath = require('ffmpeg-static')
 const { execFile } = require('child_process')
 const { promisify } = require('util')
 const fs = require('fs/promises')
+const fsSync = require('fs')
 const os = require('os')
 const path = require('path')
 const { randomUUID } = require('crypto')
@@ -29,17 +30,46 @@ const { makeProgressLogger } = require('./progressLog')
 
 const execFileAsync = promisify(execFile)
 
-// English-only model: lecture audio is English-source (translation is a
-// separate step), and the .en variant is smaller/faster than multilingual
-// for the same size class.
-const MODEL_ID = 'Xenova/whisper-base.en'
+// English-only models: lecture audio is English-source (translation is a
+// separate step), and the .en variants are smaller/faster than multilingual
+// for the same size class. Two tiers, same shape as native/llm.js's
+// small/large split: "fast" (the original default) noticeably
+// under-transcribes real lecture speech compared to the cloud path, so
+// "accurate" trades size/speed for a meaningfully lower error rate.
+const MODEL_BY_TIER = {
+  fast: 'Xenova/whisper-base.en',
+  accurate: 'Xenova/whisper-small.en',
+}
+const TIER_FILE = path.join(os.homedir(), '.demist', 'whisper-tier.json')
 
-let transcriberPromise = null
+function getTier() {
+  try {
+    const tier = JSON.parse(fsSync.readFileSync(TIER_FILE, 'utf8')).tier
+    return MODEL_BY_TIER[tier] ? tier : 'fast'
+  } catch {
+    return 'fast'
+  }
+}
+
+function setTier(tier) {
+  if (!MODEL_BY_TIER[tier]) throw new Error(`Unknown transcription tier "${tier}"`)
+  fsSync.mkdirSync(path.dirname(TIER_FILE), { recursive: true })
+  fsSync.writeFileSync(TIER_FILE, JSON.stringify({ tier }))
+  return tier
+}
+
+// Keyed by tier, same reasoning as native/translate.js's per-language cache:
+// store the in-flight promise itself, synchronously, so overlapping calls
+// for the same tier share one load instead of racing duplicate ones.
+const transcribersByTier = new Map()
 function getTranscriber() {
-  transcriberPromise ??= pipeline('automatic-speech-recognition', MODEL_ID, {
-    progress_callback: makeProgressLogger('transcription model'),
-  })
-  return transcriberPromise
+  const tier = getTier()
+  if (!transcribersByTier.has(tier)) {
+    transcribersByTier.set(tier, pipeline('automatic-speech-recognition', MODEL_BY_TIER[tier], {
+      progress_callback: makeProgressLogger(`transcription model (${tier})`),
+    }))
+  }
+  return transcribersByTier.get(tier)
 }
 
 function extFor(mimeType) {
@@ -88,4 +118,4 @@ async function transcribe(audioBuffer, mimeType) {
   return (result?.text ?? '').trim()
 }
 
-module.exports = { transcribe }
+module.exports = { transcribe, getTier, setTier }

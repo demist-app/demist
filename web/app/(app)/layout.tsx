@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase'
 import { AppNav } from '@/components/AppNav'
 import { InstallPrompt } from '@/components/InstallPrompt'
 import { NativeTranslateProvider, useNativeTranslate } from '@/lib/useNativeTranslate'
+import { RecordingSessionProvider } from '@/lib/recordingSession'
 import { applyStoredFontScale } from '@/lib/fontScale'
 
 function TranslateWarmup() {
@@ -70,13 +71,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <NativeTranslateProvider>
       <TranslateWarmup />
-      <AppNav />
-      <InstallPrompt />
+      {/* Mounted here, not inside the Dashboard page, so an active
+          recording survives navigating to other tabs instead of being torn
+          down when Dashboard unmounts (see lib/recordingSession.tsx). */}
+      <RecordingSessionProvider>
+        <AppNav />
+        <InstallPrompt />
 
-      {/* Content */}
-      <div className="sm:pt-14">
-        {children}
-      </div>
+        {/* Content */}
+        <div className="sm:pt-14">
+          {children}
+        </div>
+      </RecordingSessionProvider>
     </NativeTranslateProvider>
   )
 }

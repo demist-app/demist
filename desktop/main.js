@@ -93,6 +93,8 @@ ipcMain.handle('demist:translate', (_event, text, targetLang) => callWorker('tra
 ipcMain.handle('demist:detectTerms', (_event, transcript, context) => callWorker('detectTerms', transcript, context))
 ipcMain.handle('demist:getModelTier', () => callWorker('getModelTier'))
 ipcMain.handle('demist:setModelTier', (_event, tier) => callWorker('setModelTier', tier))
+ipcMain.handle('demist:getTranscribeTier', () => callWorker('getTranscribeTier'))
+ipcMain.handle('demist:setTranscribeTier', (_event, tier) => callWorker('setTranscribeTier', tier))
 
 // Screen Wake Lock via the web navigator.wakeLock API never actually grants
 // inside Electron: confirmed by real testing that the request still fails
