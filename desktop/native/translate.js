@@ -2,7 +2,7 @@
 //
 // This is the same OPUS-MT model family and the same underlying library
 // (transformers.js) the web app's earlier browser-based attempt used and
-// removed — but here it runs in a real Node process (Electron's main
+// removed: but here it runs in a real Node process (Electron's main
 // process), not a sandboxed browser tab. That's what actually matters: the
 // CSP allowlisting fight, the SharedArrayBuffer/COOP-COEP requirement for
 // threaded WASM, and the cross-browser quantization crashes were all
@@ -12,10 +12,11 @@
 // @huggingface/transformers is ESM-only; this file stays CommonJS (simpler
 // and more reliable in Electron's main process) and loads it dynamically.
 const importTransformers = () => import('@huggingface/transformers')
+const { makeProgressLogger } = require('./progressLog')
 
 // Demist's profile language codes -> Xenova's ONNX-exported OPUS-MT repos.
 // Verify each of these repos actually exists on Hugging Face before
-// shipping — opus-mt-en-es is confirmed; the others follow the same Xenova
+// shipping: opus-mt-en-es is confirmed; the others follow the same Xenova
 // naming convention but should be individually checked.
 const MODEL_BY_LANG = {
   zh: 'Xenova/opus-mt-en-zh',
@@ -31,8 +32,14 @@ async function getTranslator(lang) {
   const modelId = MODEL_BY_LANG[lang]
   if (!modelId) throw new Error(`No on-device translation model configured for "${lang}"`)
   if (!translators.has(lang)) {
-    const { pipeline } = await importTransformers()
-    translators.set(lang, await pipeline('translation', modelId))
+    // Store the in-flight promise itself, synchronously, before awaiting
+    // anything: otherwise two overlapping calls for the same language (e.g.
+    // two live-transcript sentences translated back to back, same failure
+    // mode confirmed for real in native/llm.js's model loading) would both
+    // see nothing cached yet and each load their own duplicate pipeline.
+    translators.set(lang, importTransformers().then(({ pipeline }) => pipeline('translation', modelId, {
+      progress_callback: makeProgressLogger(`translation model (${lang})`),
+    })))
   }
   return translators.get(lang)
 }

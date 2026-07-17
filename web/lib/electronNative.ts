@@ -2,7 +2,7 @@
 
 // Bridge to the desktop app's native on-device processing (see /desktop).
 // window.demistNative only exists when this page is loaded inside the
-// Electron shell (exposed by desktop/preload.js) — everywhere else
+// Electron shell (exposed by desktop/preload.js); everywhere else
 // (regular browser, installed PWA) this is undefined and callers should
 // fall back to the existing cloud edge functions.
 
@@ -12,6 +12,8 @@ export interface DemistNative {
   detectTerms: (transcript: string, context: string) => Promise<{ term: string; definition: string; context?: string }[]>
   getModelTier: () => Promise<'small' | 'large'>
   setModelTier: (tier: 'small' | 'large') => Promise<'small' | 'large'>
+  startWakeLock: () => Promise<void>
+  stopWakeLock: () => Promise<void>
 }
 
 declare global {

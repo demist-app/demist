@@ -1,5 +1,5 @@
 // User-adjustable text size for reading surfaces (live transcript, term
-// definitions, session summaries). Device-local, not a profile column —
+// definitions, session summaries). Device-local, not a profile column:
 // readability preference tends to depend on the screen someone's using.
 
 export type FontScale = 'sm' | 'md' | 'lg'

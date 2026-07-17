@@ -197,7 +197,8 @@
       "WebFetch(domain:www.npmjs.com)",
       "Bash(node -e \"require.resolve\\('@huggingface/transformers/package.json'\\)\")",
       "Bash(npx electron *)",
-      "Bash(node -e \"console.log\\(require\\('./node_modules/electron/package.json'\\).version\\)\")"
+      "Bash(node -e \"console.log\\(require\\('./node_modules/electron/package.json'\\).version\\)\")",
+      "Bash(curl -s http://localhost:3000/manifest.webmanifest)"
     ],
     "additionalDirectories": [
       "c:\\Users\\shivb\\Desktop\\coding bits\\demist\\web\\app\\u",

@@ -173,6 +173,11 @@ export default function Dashboard() {
   // Each detect-terms call decides independently, so this naturally switches
   // from cloud to native the moment Chrome's model finishes downloading.
   const localTranslateUsable = () => localTranslate.status === 'ready'
+  // Whether the live bilingual view has any on-device translation path at
+  // all: Chrome's Translator API, or (untested, see desktop/README.md) the
+  // desktop app's bundled model if Chrome's own API isn't exposed inside
+  // Electron's bundled Chromium.
+  const liveTranslateAvailable = localTranslate.supported || !!getDemistNative()
   const sentenceCountRef = useRef(0)
   const [translatedSentences, setTranslatedSentences] = useState<(string | null)[]>([])
 
@@ -602,12 +607,20 @@ export default function Dashboard() {
 
   // Appends a sentence to the live transcript and, if the user has a translation
   // language set, kicks off an on-device translation for it (never sent anywhere).
+  // Chrome's Translator first, then the desktop app's bundled model: both
+  // on-device either way, never the cloud, matching definition translation.
   const translateSentenceAt = (idx: number, text: string) => {
-    localTranslate.translate(text).then(translated => {
+    const native = getDemistNative()
+    const translated = localTranslateUsable()
+      ? localTranslate.translate(text)
+      : native
+      ? native.translate(text, profileRef.current!.translate_to!)
+      : Promise.resolve('')
+    translated.then(result => {
       setTranslatedSentences(prev => {
         if (idx >= prev.length) return prev
         const next = [...prev]
-        next[idx] = translated || ''
+        next[idx] = result || ''
         return next
       })
     })
@@ -620,7 +633,7 @@ export default function Dashboard() {
     // Live sentence-by-sentence translation is on-device only: no cloud
     // fallback, since per-sentence cloud calls at this cadence would be slow
     // and costly. Term/glossary definitions still get the cloud fallback above.
-    if (profileRef.current?.translate_to && localTranslateUsable()) translateSentenceAt(idx, chunkText)
+    if (profileRef.current?.translate_to && (localTranslateUsable() || getDemistNative())) translateSentenceAt(idx, chunkText)
   }
 
 
@@ -1395,7 +1408,7 @@ export default function Dashboard() {
             {/* Live transcript: fills the space between the recording button and term cards */}
             <div className="flex-1 min-h-[80px] px-4 sm:px-6 py-3 relative z-10">
               <div className="relative h-full flex flex-col">
-                {profile?.translate_to && localTranslate.supported && (
+                {profile?.translate_to && liveTranslateAvailable && (
                   <div className="shrink-0 flex items-center justify-between gap-2 mb-2">
                     <div className="flex dark:bg-white/[0.07] bg-black/[0.06] rounded-full p-1">
                       {([
@@ -1433,13 +1446,13 @@ export default function Dashboard() {
                   {sentences.length === 0 && (
                     <p className="text-[13px] text-gray-700 italic">Transcription will appear here as you speak…</p>
                   )}
-                  {profile?.translate_to && localTranslate.supported && transcriptView === 'both' && (
+                  {profile?.translate_to && liveTranslateAvailable && transcriptView === 'both' && (
                     <TranscriptBilingual
                       pairs={sentences.map((s, i) => ({ srcHtml: highlightTerms(s), tgt: translatedSentences[i] ?? null }))}
                       lang={profile.translate_to}
                     />
                   )}
-                  {(!profile?.translate_to || !localTranslate.supported || transcriptView === 'source') && (
+                  {(!profile?.translate_to || !liveTranslateAvailable || transcriptView === 'source') && (
                     sentences.map((sentence, index) => {
                       const age = Math.min(sentences.length - 1 - index, 5)
                       return (
@@ -1452,7 +1465,7 @@ export default function Dashboard() {
                       )
                     })
                   )}
-                  {profile?.translate_to && localTranslate.supported && transcriptView === 'translated' && (
+                  {profile?.translate_to && liveTranslateAvailable && transcriptView === 'translated' && (
                     sentences.map((_, index) => {
                       const age = Math.min(sentences.length - 1 - index, 5)
                       const tgt = translatedSentences[index]

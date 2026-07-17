@@ -9,7 +9,7 @@ export function summaryFailureMessage(reason: string | undefined): string {
     case 'no_terms':
       return 'No terms were captured for this session.'
     case 'ai_rate_limited':
-      return 'Summary service is busy right now — try again shortly.'
+      return 'Summary service is busy right now, try again shortly.'
     default:
       return 'Could not generate summary.'
   }

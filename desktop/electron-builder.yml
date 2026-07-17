@@ -11,7 +11,7 @@ win:
 
 msix:
   # Both of these are assigned by Microsoft when you reserve the app name in
-  # Partner Center (Microsoft Store account) — placeholders until then.
+  # Partner Center (Microsoft Store account): placeholders until then.
   # https://partner.microsoft.com
   identityName: REPLACE_WITH_PARTNER_CENTER_IDENTITY_NAME
   publisher: REPLACE_WITH_PARTNER_CENTER_PUBLISHER_ID

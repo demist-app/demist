@@ -20,7 +20,11 @@ function ThemeColorSync() {
 function ServiceWorkerRegistration() {
   useEffect(() => {
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(() => { /* PWA install still works without it */ })
+      // A registered SW with a fetch handler is part of Chrome's PWA
+      // installability checklist alongside the manifest: a silently failed
+      // registration here is a plausible reason beforeinstallprompt never
+      // fires, so surface it instead of masking it.
+      navigator.serviceWorker.register('/sw.js').catch(e => console.error('[demist] service worker registration failed:', e))
     }
   }, [])
   return null

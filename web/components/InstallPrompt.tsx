@@ -104,11 +104,17 @@ export function InstallPrompt() {
       <div className="flex-1 min-w-0">
         <p className="text-[13px] font-semibold dark:text-white text-gray-900">Install Demist</p>
         <p className="text-[12px] dark:text-white/50 text-gray-600 mt-0.5 leading-relaxed">
-          {mode === 'chromium' && <>Its own window, no browser tabs: the best way to use Demist on desktop.</>}
+          {mode === 'chromium' && <>Its own window, no browser tabs.</>}
           {mode === 'mac-safari' && (
             <>Add it to your Dock: <span className="font-medium dark:text-white/70 text-gray-800">File → Add to Dock</span>.</>
           )}
           {mode === 'unsupported' && <>This browser doesn&apos;t support one-click install yet, try Chrome or Edge.</>}
+        </p>
+        {/* This is a UI convenience, not the on-device path: same cloud
+            processing as the website either way. The desktop app (separate
+            download, not out yet) is what actually keeps everything local. */}
+        <p className="text-[11px] dark:text-white/30 text-gray-500 mt-1.5 leading-relaxed">
+          Still processes via the cloud, same as the website. A fully on-device desktop app is on the way.
         </p>
         {mode === 'chromium' && (
           <button

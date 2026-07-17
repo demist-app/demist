@@ -1,6 +1,6 @@
 // Minimal app-shell service worker. Demist is real-time and auth-gated
 // (live recording, Supabase Realtime), so caching pages or API responses
-// would serve stale or wrong data — this only exists to (a) satisfy
+// would serve stale or wrong data: this only exists to (a) satisfy
 // Chromium's install criteria and (b) show a real offline page instead of
 // a browser error when there's genuinely no connection.
 
