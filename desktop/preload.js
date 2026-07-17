@@ -11,8 +11,15 @@ contextBridge.exposeInMainWorld('demistNative', {
   startSession: () => ipcRenderer.invoke('demist:startSession'),
   stopSession: () => ipcRenderer.invoke('demist:stopSession'),
   preloadWhisper: () => ipcRenderer.invoke('demist:preloadWhisper'),
-  // Zero-copy PCM frame: the ArrayBuffer is transferred, not cloned.
-  sendPcm: (arrayBuffer) => ipcRenderer.postMessage('demist:pcm', { buffer: arrayBuffer }, [arrayBuffer]),
+  // Not actually zero-copy: Electron's ipcRenderer.postMessage transfer list
+  // only accepts MessagePort, not ArrayBuffer (confirmed from Electron's own
+  // type definitions, unlike the standard window.postMessage/Worker
+  // postMessage API this was modeled on). Passing an ArrayBuffer there threw
+  // "Invalid value for transfer" on every single frame. Electron's
+  // structured clone still copies the ArrayBuffer correctly here, it's just
+  // a real copy rather than a transfer, negligible for PCM frames this
+  // small, and correct beats a broken optimization.
+  sendPcm: (arrayBuffer) => ipcRenderer.postMessage('demist:pcm', { buffer: arrayBuffer }),
   // Push events from native: { event: 'transcript', payload: { seq, text } }
   // and { event: 'modelProgress', payload: { label, pct, file } }.
   // Returns an unsubscribe function.

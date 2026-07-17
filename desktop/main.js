@@ -90,9 +90,13 @@ ipcMain.handle('demist:setModelTier', (_event, tier) => callWorker('setModelTier
 ipcMain.handle('demist:getTranscribeTier', () => callWorker('getTranscribeTier'))
 ipcMain.handle('demist:setTranscribeTier', (_event, tier) => callWorker('setTranscribeTier', tier))
 
-// ── PCM stream: high-frequency, fire-and-forget, zero-copy into the worker ─
+// ── PCM stream: high-frequency, fire-and-forget ─────────────────────────────
+// The renderer->main hop is a structured-clone copy (see preload.js: Electron's
+// ipcRenderer.postMessage can't transfer a raw ArrayBuffer). This hop, main
+// process -> worker thread, is real zero-copy transfer: worker_threads'
+// postMessage is Node's own implementation and does support it.
 ipcMain.on('demist:pcm', (_event, message) => {
-  const buffer = message.buffer // ArrayBuffer from the renderer's postMessage transfer
+  const buffer = message.buffer
   if (worker) worker.postMessage({ type: 'pcm', buffer }, [buffer])
   else getWorker().postMessage({ type: 'pcm', buffer }, [buffer])
 })
