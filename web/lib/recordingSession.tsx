@@ -309,6 +309,23 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       setProfile(prof as Profile)
       if ((prof as Profile)?.translate_to) localTranslate.start((prof as Profile).translate_to as string)
 
+      // Warm the desktop app's on-device models as soon as the app opens,
+      // not on first use mid-recording: this mounts once at the layout
+      // level (see file header), so it fires well before anyone reaches
+      // for the record button, not per-page-navigation. Fire-and-forget,
+      // in the background; a session that starts before these resolve just
+      // waits on the same in-flight load these calls kick off (see the
+      // loadingPromise/translators-map guards in native/llm.js and
+      // native/translate.js).
+      const native = getDemistNative()
+      if (native) {
+        native.preloadWhisper().catch(() => {})
+        native.preloadTermDetection().catch(() => {})
+        if ((prof as Profile)?.translate_to) {
+          native.preloadTranslation((prof as Profile).translate_to as string).catch(() => {})
+        }
+      }
+
       const known = new Set<string>()
       const freq = new Map<string, number>()
       for (const t of allTerms ?? []) {

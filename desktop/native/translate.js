@@ -45,7 +45,7 @@ const MODEL_BY_LANG = {
 
 const translators = new Map() // lang -> loaded pipeline, cached across calls
 
-async function getTranslator(lang) {
+async function getTranslator(lang, emitProgress) {
   const modelId = MODEL_BY_LANG[lang]
   if (!modelId) throw new Error(`No on-device translation model configured for "${lang}"`)
   if (!translators.has(lang)) {
@@ -55,17 +55,26 @@ async function getTranslator(lang) {
     // mode confirmed for real in native/llm.js's model loading) would both
     // see nothing cached yet and each load their own duplicate pipeline.
     translators.set(lang, importTransformers().then(({ pipeline }) => pipeline('translation', modelId, {
-      progress_callback: makeProgressLogger(`translation model (${lang})`),
+      progress_callback: makeProgressLogger(`translation model (${lang})`, emitProgress),
     })))
   }
   return translators.get(lang)
 }
 
-async function translate(text, targetLang) {
+async function translate(text, targetLang, emitProgress) {
   if (!text?.trim()) return ''
-  const translator = await getTranslator(targetLang)
+  const translator = await getTranslator(targetLang, emitProgress)
   const [result] = await translator(text)
   return result?.translation_text ?? ''
 }
 
-module.exports = { translate }
+// Loads a specific language's model ahead of actually needing it, mirroring
+// native/whisper.js and native/llm.js's preload(), only meaningful per
+// language, since each is a separate model; there's no "preload everything"
+// here, only whichever language the user has actually configured.
+async function preload(lang, emitProgress) {
+  await getTranslator(lang, emitProgress)
+  return lang
+}
+
+module.exports = { translate, preload }

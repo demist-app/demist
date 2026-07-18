@@ -82,6 +82,8 @@ function callWorker(type, ...args) {
 ipcMain.handle('demist:startSession', () => callWorker('startSession'))
 ipcMain.handle('demist:stopSession', () => callWorker('stopSession'))
 ipcMain.handle('demist:preloadWhisper', () => callWorker('preloadWhisper'))
+ipcMain.handle('demist:preloadTermDetection', () => callWorker('preloadTermDetection'))
+ipcMain.handle('demist:preloadTranslation', (_event, lang) => callWorker('preloadTranslation', lang))
 ipcMain.handle('demist:translate', (_event, text, targetLang) => callWorker('translate', text, targetLang))
 ipcMain.handle('demist:detectTerms', (_event, transcript, context, subject, year) =>
   callWorker('detectTerms', transcript, context, subject, year))

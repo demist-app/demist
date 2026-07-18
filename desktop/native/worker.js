@@ -20,11 +20,13 @@ const handlers = {
   ),
   stopSession: () => (whisper ??= require('./whisper')).stopSession(),
   preloadWhisper: () => (whisper ??= require('./whisper')).preload(emitProgress),
+  preloadTermDetection: () => (llm ??= require('./llm')).preload(emitProgress),
+  preloadTranslation: (lang) => (translate ??= require('./translate')).preload(lang, emitProgress),
 
   // Existing request/response surface
-  translate: (text, targetLang) => (translate ??= require('./translate')).translate(text, targetLang),
+  translate: (text, targetLang) => (translate ??= require('./translate')).translate(text, targetLang, emitProgress),
   detectTerms: (transcript, context, subject, year) =>
-    (llm ??= require('./llm')).detectTerms(transcript, context, subject, year),
+    (llm ??= require('./llm')).detectTerms(transcript, context, subject, year, emitProgress),
   getModelTier: () => (llm ??= require('./llm')).getTier(),
   setModelTier: (tier) => (llm ??= require('./llm')).setTier(tier),
   getTranscribeTier: () => (whisper ??= require('./whisper')).getTier(),

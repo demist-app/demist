@@ -14,6 +14,7 @@
 const path = require('path')
 const os = require('os')
 const fs = require('fs')
+const { makeProgressLogger } = require('./progressLog')
 
 const MODEL_DIR = path.join(os.homedir(), '.demist', 'llm-models')
 const MODEL_URI = {
@@ -61,7 +62,7 @@ function setTier(tier) {
   return tier
 }
 
-async function ensureLoaded() {
+async function ensureLoaded(emitProgress) {
   const tier = getTier()
   if (session && loadedTier === tier) return
   // Without this, overlapping detectTerms() calls (e.g. several buffered
@@ -86,17 +87,17 @@ async function ensureLoaded() {
 
     // This step was previously silent, so a multi-GB first-run download and
     // an actual stall looked identical from the outside: no console output
-    // either way. Logging at 10% steps makes that distinction visible.
-    console.log(`[demist] loading term-detection model (${tier} tier): ${MODEL_URI[tier]}`)
-    let lastLoggedPct = -1
+    // either way. Logging at 10% steps makes that distinction visible; the
+    // shared logger also pushes to the renderer when a preload caller wants
+    // visible progress (see preload() below).
+    const label = `term-detection model (${tier})`
+    const logger = makeProgressLogger(label, emitProgress)
+    logger({ status: 'initiate', file: MODEL_URI[tier] })
     const modelPath = await resolveModelFile(MODEL_URI[tier], {
       directory: MODEL_DIR,
       onProgress: ({ totalSize, downloadedSize }) => {
-        const pct = totalSize ? Math.floor((downloadedSize / totalSize) * 100) : 0
-        if (pct >= lastLoggedPct + 10) {
-          lastLoggedPct = pct
-          console.log(`[demist] term-detection model download: ${pct}%`)
-        }
+        const progress = totalSize ? (downloadedSize / totalSize) * 100 : 0
+        logger({ status: 'progress', file: MODEL_URI[tier], progress })
       },
     })
     console.log('[demist] term-detection model downloaded, loading into memory...')
@@ -105,7 +106,7 @@ async function ensureLoaded() {
     session = new LlamaChatSession({ contextSequence: context.getSequence() })
     grammar = await llama.createGrammarForJsonSchema(TERMS_SCHEMA)
     loadedTier = tier
-    console.log('[demist] term-detection model ready')
+    logger({ status: 'ready' })
   })()
 
   try {
@@ -113,6 +114,14 @@ async function ensureLoaded() {
   } finally {
     loadingPromise = null
   }
+}
+
+// Loads the model outside of (ahead of) an actual detectTerms() call, used
+// to warm this up as soon as the app opens rather than mid-lecture, the same
+// role native/whisper.js's preload() plays for transcription.
+async function preload(emitProgress) {
+  await ensureLoaded(emitProgress)
+  return getTier()
 }
 
 // Serializes detectTerms calls: a single LlamaChatSession carries its
@@ -123,9 +132,9 @@ async function ensureLoaded() {
 // queues each call behind whichever is already running instead of racing it.
 let queue = Promise.resolve()
 
-async function detectTerms(transcript, recentContext, subject, year) {
+async function detectTerms(transcript, recentContext, subject, year, emitProgress) {
   if (!transcript?.trim()) return []
-  await ensureLoaded()
+  await ensureLoaded(emitProgress)
 
   const who = subject ? `a ${year ? `Year ${year} ` : ''}${subject} student` : 'a university student'
   const prompt = `You are a study assistant. From the lecture excerpt below, identify at most 2 subject-specific technical terms ${who} is unlikely to know and would need explained to follow the lecture. Ignore common English words and anything already understood from context.
@@ -154,4 +163,4 @@ For each term, return a one-sentence plain-English definition specific to how it
   return run
 }
 
-module.exports = { detectTerms, getTier, setTier }
+module.exports = { detectTerms, preload, getTier, setTier }

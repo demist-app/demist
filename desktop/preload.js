@@ -11,6 +11,8 @@ contextBridge.exposeInMainWorld('demistNative', {
   startSession: () => ipcRenderer.invoke('demist:startSession'),
   stopSession: () => ipcRenderer.invoke('demist:stopSession'),
   preloadWhisper: () => ipcRenderer.invoke('demist:preloadWhisper'),
+  preloadTermDetection: () => ipcRenderer.invoke('demist:preloadTermDetection'),
+  preloadTranslation: (lang) => ipcRenderer.invoke('demist:preloadTranslation', lang),
   // Not actually zero-copy: Electron's ipcRenderer.postMessage transfer list
   // only accepts MessagePort, not ArrayBuffer (confirmed from Electron's own
   // type definitions, unlike the standard window.postMessage/Worker
