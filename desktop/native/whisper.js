@@ -18,12 +18,18 @@
 //   which pays for the bigger model. 'fast' remains available via the
 //   existing tier setter for weak machines.
 
-const { pipeline } = require('@huggingface/transformers')
+const { pipeline, env } = require('@huggingface/transformers')
 const fsSync = require('fs')
 const os = require('os')
 const path = require('path')
 const { makeProgressLogger } = require('./progressLog')
 const { PcmSegmenter } = require('./pcm-segmenter')
+
+// Default cache dir is inside node_modules/@huggingface/transformers/.cache
+// (confirmed by inspecting env.cacheDir directly), wiped by any future
+// `npm install`, and the likely reason models were re-downloading on every
+// session. Same home-directory convention native/llm.js already uses.
+env.cacheDir = path.join(os.homedir(), '.demist', 'model-cache')
 
 const MODEL_BY_TIER = {
   fast: 'Xenova/whisper-base.en',

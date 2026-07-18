@@ -11,8 +11,25 @@
 
 // @huggingface/transformers is ESM-only; this file stays CommonJS (simpler
 // and more reliable in Electron's main process) and loads it dynamically.
-const importTransformers = () => import('@huggingface/transformers')
+const path = require('path')
+const os = require('os')
 const { makeProgressLogger } = require('./progressLog')
+
+let cacheDirSet = false
+async function importTransformers() {
+  const mod = await import('@huggingface/transformers')
+  if (!cacheDirSet) {
+    // Same fix as native/whisper.js: default cache dir is inside
+    // node_modules/@huggingface/transformers/.cache, wiped by any future
+    // `npm install` and the likely reason models were re-downloading on
+    // every session. env is a shared singleton within this process, so
+    // whichever of whisper.js/translate.js runs first sets it for both,
+    // this still sets it explicitly rather than relying on that ordering.
+    mod.env.cacheDir = path.join(os.homedir(), '.demist', 'model-cache')
+    cacheDirSet = true
+  }
+  return mod
+}
 
 // Demist's profile language codes -> Xenova's ONNX-exported OPUS-MT repos.
 // Verify each of these repos actually exists on Hugging Face before

@@ -136,6 +136,15 @@ ${transcript}
 For each term, return a one-sentence plain-English definition specific to how it was used above, and the exact sentence it appeared in as "context", taken verbatim from the excerpt. Return zero terms if nothing qualifies.`
 
   const run = queue.then(async () => {
+    // Each call is independent: recentContext/transcript above already
+    // carry everything the prompt needs. LlamaChatSession accumulates
+    // conversation history by design (it's built for multi-turn chat), so
+    // without this reset every call over a session left the previous
+    // exchange in context: the window grew every single call, made each
+    // one slower than the last, and eventually overflowed the context
+    // entirely, which is consistent with "gets slow over time" and "term
+    // detection stops working" both being the same underlying bug.
+    session.resetChatHistory()
     const response = await session.prompt(prompt, { grammar })
     const parsed = grammar.parse(response)
     return parsed.terms ?? []
