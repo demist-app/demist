@@ -6,6 +6,7 @@
 // browser tab is already the optimal experience there.
 
 import { useEffect, useState } from 'react'
+import { isElectronNative } from '@/lib/electronNative'
 
 const DISMISS_KEY = 'demist_install_dismissed'
 
@@ -47,6 +48,11 @@ export function InstallPrompt() {
   const [mode, setMode] = useState<'chromium' | 'mac-safari' | 'unsupported' | null>(null)
 
   useEffect(() => {
+    // Already running as the real native desktop app: prompting to "install"
+    // the browser PWA here would be nonsensical (it's already installed, in
+    // the better on-device form), and the copy below claiming cloud
+    // processing is flatly false inside this shell.
+    if (isElectronNative()) return
     if (isMobileUA() || isStandalone() || sessionStorage.getItem(DISMISS_KEY)) return
 
     // The event may have already fired and been captured by the inline

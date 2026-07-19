@@ -1,7 +1,16 @@
+import { isElectronNative } from '@/lib/electronNative'
+
 export const tabCaptureSupported = (): boolean =>
   typeof navigator !== 'undefined' &&
   !!navigator.mediaDevices &&
-  !!navigator.mediaDevices.getDisplayMedia
+  !!navigator.mediaDevices.getDisplayMedia &&
+  // The API exists in Electron's Chromium, but desktop/main.js never
+  // registers session.setDisplayMediaRequestHandler, so getDisplayMedia()
+  // rejects at call time (confirmed against Electron's own docs: without a
+  // handler there's no source picker). The mic path is real on-device
+  // capture in the desktop app; tab capture just isn't wired up there, so
+  // don't advertise it as available.
+  !isElectronNative()
 
 export const startTabCapture = async (): Promise<MediaStream | null> => {
   try {

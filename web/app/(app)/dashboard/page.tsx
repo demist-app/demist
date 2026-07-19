@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase'
 import { capture } from '@/lib/analytics'
 import { tabCaptureSupported } from '@/lib/tabCapture'
 import { summaryFailureMessage } from '@/lib/summaryFailure'
+import { isElectronNative } from '@/lib/electronNative'
 import { useRecordingSession, LANGUAGE_NAMES, type LiveTerm } from '@/lib/recordingSession'
 
 const SummaryViewer = dynamic(() => import('../summary-viewer').then(m => ({ default: m.SummaryViewer })), { ssr: false })
@@ -488,7 +489,7 @@ export default function Dashboard() {
                   >
                     Live mic capture
                   </button>
-                  <Tooltip content={tabCaptureSupportedState ? "When the sharing dialog opens, make sure to tick 'Share tab audio'" : 'Not supported on this browser, try a desktop browser instead'}>
+                  <Tooltip content={tabCaptureSupportedState ? "When the sharing dialog opens, make sure to tick 'Share tab audio'" : isElectronNative() ? 'Not available in the desktop app, use the web version at demist.app for tab capture' : 'Not supported on this browser, try a desktop browser instead'}>
                     <button
                       onClick={() => tabCaptureSupportedState && setCaptureMode('tab')}
                       disabled={!tabCaptureSupportedState}

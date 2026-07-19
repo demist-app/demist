@@ -37,6 +37,15 @@ export interface NativeSessionCallbacks {
 
 export interface NativeSessionHandle {
   stop: () => Promise<void>
+  // Rebuilds the browser-side capture graph (AudioContext/worklet) on a
+  // replacement MediaStream without touching the backend session: used when
+  // the mic track dies and reconnects mid-recording (see recoverMicStream in
+  // recordingSession.tsx). The original implementation captured `stream` by
+  // closure with no way to swap it, so a mic reconnect silently left the
+  // worklet listening on the dead track forever, transcription went dark for
+  // the rest of the session but recoverMicStream reported success because it
+  // only ever touched the (separate) visualizer/gain graph.
+  rebindStream: (stream: MediaStream) => Promise<void>
 }
 
 export async function startNativeSession(
@@ -58,45 +67,65 @@ export async function startNativeSession(
 
   await native.startSession()
 
-  const audioContext = new AudioContext()
-  await audioContext.audioWorklet.addModule('/pcm-worklet.js')
-  const source = audioContext.createMediaStreamSource(stream)
-  const worklet = new AudioWorkletNode(audioContext, 'pcm-capture')
-  const inputRate = audioContext.sampleRate
+  let audioContext: AudioContext | null = null
+  let source: MediaStreamAudioSourceNode | null = null
+  let worklet: AudioWorkletNode | null = null
+  let silent: GainNode | null = null
 
-  worklet.port.onmessage = (e: MessageEvent<Float32Array>) => {
-    try {
-      const pcm16k = downsampleTo16k(e.data, inputRate)
-      // Transfer the underlying buffer: zero-copy across the bridge. Always a
-      // plain ArrayBuffer at runtime (freshly allocated by downsampleTo16k, or
-      // the worklet's own non-shared Float32Array); the cast just narrows past
-      // TypedArray.buffer's overly-wide ArrayBufferLike type.
-      native.sendPcm(pcm16k.buffer as ArrayBuffer)
-    } catch (err) {
-      callbacks.onError?.(String((err as Error)?.message ?? err))
-    }
+  const teardownGraph = async () => {
+    if (worklet) worklet.port.onmessage = null
+    source?.disconnect()
+    worklet?.disconnect()
+    silent?.disconnect()
+    const ctx = audioContext
+    audioContext = null; source = null; worklet = null; silent = null
+    await ctx?.close().catch(() => {})
   }
 
-  source.connect(worklet)
-  // Worklets need a destination connection in some Chrome versions to keep
-  // processing; route through a zero-gain node so nothing is audible.
-  const silent = audioContext.createGain()
-  silent.gain.value = 0
-  worklet.connect(silent)
-  silent.connect(audioContext.destination)
+  const attachGraph = async (mediaStream: MediaStream) => {
+    audioContext = new AudioContext()
+    await audioContext.audioWorklet.addModule('/pcm-worklet.js')
+    source = audioContext.createMediaStreamSource(mediaStream)
+    worklet = new AudioWorkletNode(audioContext, 'pcm-capture')
+    const inputRate = audioContext.sampleRate
+
+    worklet.port.onmessage = (e: MessageEvent<Float32Array>) => {
+      try {
+        const pcm16k = downsampleTo16k(e.data, inputRate)
+        // Transfer the underlying buffer: zero-copy across the bridge. Always a
+        // plain ArrayBuffer at runtime (freshly allocated by downsampleTo16k, or
+        // the worklet's own non-shared Float32Array); the cast just narrows past
+        // TypedArray.buffer's overly-wide ArrayBufferLike type.
+        native.sendPcm(pcm16k.buffer as ArrayBuffer)
+      } catch (err) {
+        callbacks.onError?.(String((err as Error)?.message ?? err))
+      }
+    }
+
+    source.connect(worklet)
+    // Worklets need a destination connection in some Chrome versions to keep
+    // processing; route through a zero-gain node so nothing is audible.
+    silent = audioContext.createGain()
+    silent.gain.value = 0
+    worklet.connect(silent)
+    silent.connect(audioContext.destination)
+  }
+
+  await attachGraph(stream)
 
   let stopped = false
   return {
     stop: async () => {
       if (stopped) return
       stopped = true
-      worklet.port.onmessage = null
-      source.disconnect()
-      worklet.disconnect()
-      silent.disconnect()
-      await audioContext.close().catch(() => {})
+      await teardownGraph()
       await native.stopSession() // flushes the segmenter; final words arrive via onEvent first
       unsubscribe()
+    },
+    rebindStream: async (newStream: MediaStream) => {
+      if (stopped) return
+      await teardownGraph()
+      await attachGraph(newStream)
     },
   }
 }

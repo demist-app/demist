@@ -728,6 +728,13 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       streamRef.current = newStream
       newStream.getAudioTracks().forEach(track => track.addEventListener('ended', recoverMicStream, { once: true }))
       if (audioProcessingCtxRef.current) attachAudioGraph(audioProcessingCtxRef.current, newStream)
+      // The desktop app's on-device session captured the old (now-dead)
+      // stream in its own AudioContext/worklet at startNativeSession time,
+      // independent of the gain/visualizer graph attachAudioGraph rebuilds
+      // above. Without this, transcription silently produced nothing for
+      // the rest of the session after any mic reconnect, while this
+      // function reported success and cleared the warning.
+      if (nativeSessionRef.current) await nativeSessionRef.current.rebindStream(newStream)
       setRecordingWarning(null)
     } catch (e) {
       console.error('recoverMicStream failed:', e)
