@@ -127,6 +127,8 @@ interface RecordingSessionValue {
   localTranslate: ReturnType<typeof useNativeTranslate>
   localTranslateUsable: () => boolean
   liveTranslateAvailable: boolean
+  nativeModelsReady: boolean
+  nativeModelProgress: { label: string; pct: number } | null
   vizAnalyserRef: React.RefObject<AnalyserNode | null>
   chunkPeakRef: React.RefObject<number>
   startRecording: (mode?: CaptureMode) => Promise<void>
@@ -166,6 +168,14 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
   const { limits } = useEntitlements()
   const [paywall, setPaywall] = useState<string | null>(null)
   const [translatedSentences, setTranslatedSentences] = useState<(string | null)[]>([])
+  // Gates the record button in the desktop app until its on-device models
+  // have finished loading: true immediately outside Electron, since there's
+  // nothing to wait for there. Starting a native mic session before these
+  // resolve doesn't crash (whisper.js/llm.js/translate.js each guard their
+  // own loads), but the first minute of a lecture would be silently lost to
+  // a multi-hundred-MB download instead of being transcribed.
+  const [nativeModelsReady, setNativeModelsReady] = useState<boolean>(() => !isElectronNative())
+  const [nativeModelProgress, setNativeModelProgress] = useState<{ label: string; pct: number } | null>(null)
 
   const profileRef = useRef<Profile | null>(null)
   const sessionSubjectRef = useRef<string>('')
@@ -319,11 +329,25 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       // native/translate.js).
       const native = getDemistNative()
       if (native) {
-        native.preloadWhisper().catch(() => {})
-        native.preloadTermDetection().catch(() => {})
+        // Surfaced on the dashboard (see nativeModelsReady/nativeModelProgress)
+        // as a progress bar that blocks the record button until every
+        // required model is loaded, so first-lecture users can't start
+        // recording into a multi-hundred-MB download in progress and lose
+        // the first minute of audio to it.
+        native.onEvent((msg) => {
+          if (msg.event !== 'modelProgress') return
+          const { label, pct } = msg.payload
+          if (label === undefined || pct === undefined) return
+          setNativeModelProgress(pct >= 100 ? null : { label, pct })
+        })
+        const tasks: Promise<unknown>[] = [native.preloadWhisper(), native.preloadTermDetection()]
         if ((prof as Profile)?.translate_to) {
-          native.preloadTranslation((prof as Profile).translate_to as string).catch(() => {})
+          tasks.push(native.preloadTranslation((prof as Profile).translate_to as string))
         }
+        Promise.allSettled(tasks).then(() => {
+          setNativeModelsReady(true)
+          setNativeModelProgress(null)
+        })
       }
 
       const known = new Set<string>()
@@ -745,6 +769,13 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
 
   const startRecording = async (mode: CaptureMode = 'microphone') => {
     if (isActiveRef.current || startingRef.current) return
+    // Desktop app only (nativeModelsReady is always true elsewhere): don't
+    // let a session start into an in-progress model download, which would
+    // otherwise silently lose whatever's said until the download finishes.
+    if (isElectronNative() && !nativeModelsReady) {
+      setRecordingError('Still preparing on-device models, one moment…')
+      return
+    }
     startingRef.current = true
     captureModeRef.current = mode
     setCapturedTabTitle(null)
@@ -1254,6 +1285,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     recordingError, recordingWarning, wakeLockUnsupported, captureMode, setCaptureMode, capturedTabTitle,
     sentences, translatedSentences, liveSessionId, reviewTerms, setReviewTerms, sessionSubject, setSessionSubject,
     sessionSubjectRef, paywall, setPaywall, localTranslate, localTranslateUsable, liveTranslateAvailable,
+    nativeModelsReady, nativeModelProgress,
     vizAnalyserRef, chunkPeakRef, startRecording, stopRecording, dismissTerm, pinTerm, markKnown,
     maybeGenerateOnDashboard, retrySessionSummarize, toggleExpandSession,
   }
