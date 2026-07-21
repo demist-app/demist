@@ -649,11 +649,18 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     transcriptRef.current = transcriptRef.current ? transcriptRef.current + ' ' + chunkText : chunkText
     if (!speechModeRef.current || !webSpeechHasFiredRef.current) appendSentence(chunkText)
 
-    // Accumulate text; only call detect-terms every ~10s to bound cost while
-    // keeping the wait for a definition to appear reasonable.
+    // Accumulate text; only call detect-terms periodically. The 10s window
+    // exists to bound cloud API cost; that reasoning doesn't apply to the
+    // desktop app's on-device model (no per-call cost), so it batches much
+    // less there, terms show up noticeably faster after being said. Not
+    // shortened further than this: detectTerms calls are serialized through
+    // one queue in native/llm.js (a single CPU-bound Llama inference at a
+    // time), so a shorter window just grows a backlog instead of actually
+    // producing cards any sooner.
     detectionBufferRef.current += (detectionBufferRef.current ? ' ' : '') + chunkText
     const msSinceDetection = Date.now() - lastDetectionTimeRef.current
-    if ((msSinceDetection >= 10_000 || !isActiveRef.current) && detectionBufferRef.current.trim()) {
+    const detectionIntervalMs = isElectronNative() ? 4_000 : 10_000
+    if ((msSinceDetection >= detectionIntervalMs || !isActiveRef.current) && detectionBufferRef.current.trim()) {
       const toDetect = detectionBufferRef.current
       const context = recentContextRef.current
       // Roll context forward: keep last ~60s worth (~300 chars) as future context
