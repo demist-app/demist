@@ -54,9 +54,17 @@ async function getTranslator(lang, emitProgress) {
     // two live-transcript sentences translated back to back, same failure
     // mode confirmed for real in native/llm.js's model loading) would both
     // see nothing cached yet and each load their own duplicate pipeline.
-    translators.set(lang, importTransformers().then(({ pipeline }) => pipeline('translation', modelId, {
+    const loadPromise = importTransformers().then(({ pipeline }) => pipeline('translation', modelId, {
       progress_callback: makeProgressLogger(`translation model (${lang})`, emitProgress),
-    })))
+    }))
+    // A failed load must not stay cached: confirmed in practice that a
+    // truncated Hugging Face download throws "Error: terminated" partway
+    // through, and without this every future translate() call for this
+    // language replayed the same dead rejected promise forever instead of
+    // getting a fresh attempt, permanently breaking translation until the
+    // app was restarted.
+    loadPromise.catch(() => { if (translators.get(lang) === loadPromise) translators.delete(lang) })
+    translators.set(lang, loadPromise)
   }
   return translators.get(lang)
 }

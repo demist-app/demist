@@ -340,9 +340,22 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
           if (label === undefined || pct === undefined) return
           setNativeModelProgress(pct >= 100 ? null : { label, pct })
         })
-        const tasks: Promise<unknown>[] = [native.preloadWhisper(), native.preloadTermDetection()]
+        // A one-time-setup download failing outright (e.g. a dropped
+        // connection to Hugging Face's CDN, confirmed happening in
+        // practice) shouldn't need an app restart to recover from: retry
+        // once. The desktop-side caches (native/whisper.js,
+        // native/translate.js) now evict a failed load instead of pinning
+        // a permanently rejected promise, so this retry actually attempts
+        // the download again rather than replaying the same failure.
+        const withRetry = <T,>(fn: () => Promise<T>, attemptsLeft = 2): Promise<T> =>
+          fn().catch(err => attemptsLeft > 1 ? withRetry(fn, attemptsLeft - 1) : Promise.reject(err))
+        const tasks: Promise<unknown>[] = [
+          withRetry(() => native.preloadWhisper()),
+          withRetry(() => native.preloadTermDetection()),
+        ]
         if ((prof as Profile)?.translate_to) {
-          tasks.push(native.preloadTranslation((prof as Profile).translate_to as string))
+          const lang = (prof as Profile).translate_to as string
+          tasks.push(withRetry(() => native.preloadTranslation(lang)))
         }
         Promise.allSettled(tasks).then(() => {
           setNativeModelsReady(true)

@@ -57,9 +57,15 @@ const transcribersByTier = new Map()
 function getTranscriber(emitProgress) {
   const tier = getTier()
   if (!transcribersByTier.has(tier)) {
-    transcribersByTier.set(tier, pipeline('automatic-speech-recognition', MODEL_BY_TIER[tier], {
+    const loadPromise = pipeline('automatic-speech-recognition', MODEL_BY_TIER[tier], {
       progress_callback: makeProgressLogger(`transcription model (${tier})`, emitProgress),
-    }))
+    })
+    // Same fix as native/translate.js's getTranslator: don't let a failed
+    // load (e.g. a truncated download) stay cached as a permanently
+    // rejected promise, or every future call replays that same failure
+    // instead of retrying.
+    loadPromise.catch(() => { if (transcribersByTier.get(tier) === loadPromise) transcribersByTier.delete(tier) })
+    transcribersByTier.set(tier, loadPromise)
   }
   return transcribersByTier.get(tier)
 }
