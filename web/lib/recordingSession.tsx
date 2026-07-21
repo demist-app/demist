@@ -418,12 +418,24 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       // model. No candidate pre-filtering (below) and no cloud call at all:
       // that filtering exists purely to minimize what leaves the device on
       // the cloud path, which doesn't apply here since nothing leaves it.
-      terms = await native.detectTerms(
-        transcript,
-        context,
-        sessionSubjectRef.current || profileRef.current?.course || null,
-        profileRef.current?.year_of_study ?? null,
-      )
+      try {
+        terms = await native.detectTerms(
+          transcript,
+          context,
+          sessionSubjectRef.current || profileRef.current?.course || null,
+          profileRef.current?.year_of_study ?? null,
+        )
+      } catch (e) {
+        // Previously unguarded: a failure here (e.g. the local model
+        // producing output that doesn't parse against its JSON grammar)
+        // was an unhandled rejection, no console output, no visible
+        // warning, term detection just silently produced nothing for the
+        // rest of the session with no way to tell that apart from "nothing
+        // worth flagging was said."
+        console.error('native detectTerms error:', e)
+        setRecordingWarning('Term detection hit an error on that segment. Recording continues normally.')
+        return
+      }
     } else {
       // Client-side candidate extraction: only isolated terms + one sentence each
       // leave the device, never full transcript windows.
@@ -1173,10 +1185,17 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
             const supportNeed = profileRef.current?.support_need
             const eligibleBySupportNeed = !!supportNeed && supportNeed !== 'none'
             if (!eligibleBySupportNeed) {
+              // Case/whitespace-insensitive: module_name is free text the user
+              // typed once in Settings, capturedSubject is free text typed
+              // (or defaulted) per session, exact .eq() meant "Chemistry" and
+              // "chemistry" (or a stray trailing space) silently never
+              // matched, blocking a genuinely-consented user's summary with
+              // no indication why. ilike is case-insensitive; escaping % and
+              // _ keeps it an exact match rather than a wildcard search.
               const { data: consent } = await sb
                 .from('lecturer_consents')
                 .select('id')
-                .eq('module_name', capturedSubject ?? '')
+                .ilike('module_name', (capturedSubject ?? '').trim().replace(/[%_]/g, c => '\\' + c))
                 .maybeSingle()
               if (!consent) {
                 await sb.from('transcript_chunks').delete().eq('session_id', capturedSid)

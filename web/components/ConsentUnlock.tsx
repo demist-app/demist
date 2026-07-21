@@ -72,9 +72,13 @@ export function ConsentModal({
       const supabase = createClient()
       const { data: { session } } = await supabase.auth.getSession()
       if (!session?.user) return
+      // Trimmed so a stray trailing space typed here doesn't silently break
+      // the case-insensitive-but-still-exact match against a session's
+      // subject later (see recordingSession.tsx/summarize-session's ilike
+      // lookups, which trim their side too).
       await supabase.from('lecturer_consents').upsert({
         user_id: session.user.id,
-        module_name: module,
+        module_name: module.trim(),
         notes: notes.trim() || null,
         granted_at: new Date().toISOString(),
       }, { onConflict: 'user_id,module_name' })

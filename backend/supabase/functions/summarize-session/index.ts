@@ -87,8 +87,13 @@ serve(async (req) => {
       .single()
 
     if (!sessionRow?.capture_mode || sessionRow.capture_mode === 'microphone') {
+      // Case/whitespace-insensitive match: module_name is free text saved
+      // once from Settings, subject is free text per session, an exact .eq()
+      // meant "Chemistry" vs "chemistry" (or a stray trailing space) never
+      // matched, blocking a genuinely-consented user with no way to tell why.
+      const normalizedSubject = (subject ?? '').trim().replace(/[%_]/g, (c) => '\\' + c)
       const [{ data: consent }, { data: prof }] = await Promise.all([
-        supabaseAdmin.from('lecturer_consents').select('id').eq('user_id', user.id).eq('module_name', subject ?? '').maybeSingle(),
+        supabaseAdmin.from('lecturer_consents').select('id').eq('user_id', user.id).ilike('module_name', normalizedSubject).maybeSingle(),
         supabaseAdmin.from('profiles').select('support_need').eq('id', user.id).maybeSingle(),
       ])
       const eligible = (prof?.support_need && prof.support_need !== 'none') || !!consent
