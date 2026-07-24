@@ -23,7 +23,7 @@ const fsSync = require('fs')
 const os = require('os')
 const path = require('path')
 const { makeProgressLogger } = require('./progressLog')
-const { PcmSegmenter } = require('./pcm-segmenter')
+const { PcmSegmenter, SAMPLE_RATE } = require('./pcm-segmenter')
 
 // Default cache dir is inside node_modules/@huggingface/transformers/.cache
 // (confirmed by inspecting env.cacheDir directly), wiped by any future
@@ -59,6 +59,17 @@ function getTranscriber(emitProgress) {
   if (!transcribersByTier.has(tier)) {
     const loadPromise = pipeline('automatic-speech-recognition', MODEL_BY_TIER[tier], {
       progress_callback: makeProgressLogger(`transcription model (${tier})`, emitProgress),
+    }).then(async (transcriber) => {
+      // The resolved pipeline has weights loaded but onnxruntime-node hasn't
+      // built its inference session yet: that first build (buffer
+      // allocation, graph optimization) happens lazily on the first real
+      // call. Confirmed to add several seconds on top of the segmenter's own
+      // buffering delay, together accounting for the ~20s reported before any
+      // transcript text appeared. Running one throwaway inference here, while
+      // preload() is warming things up at app start rather than mid-lecture,
+      // pays that cost before the user ever starts a session.
+      try { await transcriber(new Float32Array(SAMPLE_RATE)) } catch { /* warm-up only, ignore */ }
+      return transcriber
     })
     // Same fix as native/translate.js's getTranslator: don't let a failed
     // load (e.g. a truncated download) stay cached as a permanently

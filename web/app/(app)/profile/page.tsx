@@ -10,6 +10,7 @@ import { PaywallModal } from '@/components/PaywallModal'
 import { useNativeTranslate } from '@/lib/useNativeTranslate'
 import { FontScale, FONT_SCALE_LABELS, getFontScale, setFontScale } from '@/lib/fontScale'
 import { getDemistNative, isElectronNative } from '@/lib/electronNative'
+import { useRecordingSession } from '@/lib/recordingSession'
 
 interface ProfileData {
   display_name: string | null
@@ -53,6 +54,12 @@ const TRANSLATE_OPTIONS: { value: TranslateTo; label: string }[] = [
 
 export default function Profile() {
   const router = useRouter()
+  // The layout-level RecordingSessionProvider fetches the profile once at
+  // mount and reads it via a ref inside startRecording/stopRecording (for the
+  // mic-mode summary eligibility gate, term-detection subject/year, and
+  // translate_to). Without pushing saves back into it, changing e.g. support
+  // need or translate language here had no effect until a full app reload.
+  const { setProfile: setSharedProfile } = useRecordingSession()
   const [profile, setProfile] = useState<ProfileData | null>(null)
   const [displayName, setDisplayName] = useState('')
   const [course, setCourse] = useState('')
@@ -228,10 +235,11 @@ export default function Profile() {
     setSaving(true)
     try {
       const supabase = createClient()
+      const trimmedCourse = course.trim().slice(0, 100) || null
       const { error } = await supabase.from('profiles')
         .update({
           display_name: displayName.trim().slice(0, 60) || null,
-          course: course.trim().slice(0, 100) || null,
+          course: trimmedCourse,
           year_of_study: year,
           support_need: supportNeed,
           translate_to: translateTo,
@@ -239,6 +247,7 @@ export default function Profile() {
         })
         .eq('id', userId)
       if (error) throw error
+      setSharedProfile({ course: trimmedCourse, year_of_study: year, support_need: supportNeed, translate_to: translateTo })
       capture('profile_updated')
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)

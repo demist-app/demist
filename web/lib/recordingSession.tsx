@@ -101,6 +101,7 @@ interface RecordingSessionValue {
   setLiveTerms: React.Dispatch<React.SetStateAction<LiveTerm[]>>
   sessionGlossary: { term: string; definition: string; context?: string | null; translation?: string | null }[]
   profile: Profile | null
+  setProfile: React.Dispatch<React.SetStateAction<Profile | null>>
   stats: Stats
   recentSessions: RecentSession[]
   setRecentSessions: React.Dispatch<React.SetStateAction<RecentSession[]>>
@@ -227,6 +228,14 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
   const processedStreamRef = useRef<MediaStream | null>(null)
   const webLockReleaseRef = useRef<(() => void) | null>(null)
   const nativeSessionRef = useRef<NativeSessionHandle | null>(null)
+
+  // profileRef is what startRecording/stopRecording/runDetection actually read
+  // (refs avoid stale closures in those callbacks); profile state fetched once
+  // at mount was never re-synced here after a later Profile-page save, so a
+  // user who updated support_need/translate_to/course mid-session (this
+  // provider persists across navigation, see file header) had the change
+  // silently ignored by the recording logic until a full app reload.
+  useEffect(() => { profileRef.current = profile }, [profile])
 
   useEffect(() => {
     const handler = (e: MessageEvent) => {
@@ -496,6 +505,11 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     chunkIntervalRef.current = 5_000
 
     const filtered = terms.filter(t => {
+      // Defensive: a malformed entry here (missing term/definition) used to
+      // throw inside this filter, and the caller's blanket promise .catch()
+      // swallowed it with no console output, so term detection went silently
+      // dark for that window with no way to tell apart from "nothing found".
+      if (!t?.term || !t?.definition) return false
       const key = t.term.toLowerCase()
       return isLatinTerm(t.term) &&
              !knownTermsRef.current.has(key) &&
@@ -681,8 +695,8 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       lastDetectionTimeRef.current = Date.now()
       createClient().auth.getSession().then(({ data: { session } }) => {
         const token = session?.access_token
-        if (token) runDetection(toDetect, sessionId, token, context)
-      }).catch(() => {})
+        if (token) runDetection(toDetect, sessionId, token, context).catch(e => console.error('runDetection error:', e))
+      }).catch(e => console.error('detect-terms auth lookup failed:', e))
     }
   }
 
@@ -1105,8 +1119,8 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       const flushSid = sessionIdRef.current
       createClient().auth.getSession().then(({ data: { session } }) => {
         const token = session?.access_token
-        if (token) runDetection(toDetect, flushSid, token, context)
-      }).catch(() => {})
+        if (token) runDetection(toDetect, flushSid, token, context).catch(e => console.error('runDetection error:', e))
+      }).catch(e => console.error('detect-terms auth lookup failed:', e))
     }
 
     // Release the Web Lock so Chrome can resume normal background throttling
@@ -1319,7 +1333,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
   stopRecordingRef.current = stopRecording
 
   const value: RecordingSessionValue = {
-    loading, isRecording, elapsed, liveTerms, setLiveTerms, sessionGlossary, profile, stats,
+    loading, isRecording, elapsed, liveTerms, setLiveTerms, sessionGlossary, profile, setProfile, stats,
     recentSessions, setRecentSessions, sessionGenIds, sessionFailIds, sessionFailReasons, sessionTermLoading,
     recordingError, recordingWarning, wakeLockUnsupported, captureMode, setCaptureMode, capturedTabTitle,
     sentences, translatedSentences, liveSessionId, reviewTerms, setReviewTerms, sessionSubject, setSessionSubject,

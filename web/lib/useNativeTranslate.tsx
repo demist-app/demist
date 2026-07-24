@@ -40,6 +40,19 @@ const NativeTranslateContext = createContext<NativeTranslateValue | null>(null)
 export function NativeTranslateProvider({ children }: { children: ReactNode }) {
   const translatorRef = useRef<TranslatorInstance | null>(null)
   const loadedLangRef = useRef<string | null>(null)
+  // Tracks the one in-flight create() call, if any. Several independent call
+  // sites share this one instance (TranslateWarmup on layout mount, the
+  // profile-load effect and startRecording in recordingSession.tsx, the
+  // Profile language picker): without this, a call arriving while a download
+  // was already in flight for the same language would skip the "already
+  // ready" guard below (translatorRef.current is still null mid-download)
+  // and fire a second, parallel create(). Each call's own monitor writes to
+  // the same shared status/progress state, so whichever call's events fired
+  // last "won", including a no-gesture call that Chrome rejects with
+  // NotAllowedError after the real one had already started making progress,
+  // clobbering status back to 'error', or just leaving progress reset to 0%
+  // and never updated again once its own (superseded) promise settled.
+  const inflightRef = useRef<{ lang: string; promise: Promise<void> } | null>(null)
   const [status, setStatus] = useState<Status>('off')
   const [progress, setProgress] = useState(0)
 
@@ -53,6 +66,7 @@ export function NativeTranslateProvider({ children }: { children: ReactNode }) {
   const start = useCallback(async (tgtLang: string, opts?: { onlyIfReady?: boolean }) => {
     if (!nativeTranslateSupported() || !tgtLang) return
     if (translatorRef.current && loadedLangRef.current === tgtLang) return
+    if (inflightRef.current?.lang === tgtLang) return inflightRef.current.promise
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const TranslatorApi = (window as any).Translator
     if (opts?.onlyIfReady) {
@@ -66,25 +80,31 @@ export function NativeTranslateProvider({ children }: { children: ReactNode }) {
     setStatus('downloading')
     setProgress(0)
     loadedLangRef.current = tgtLang
-    try {
-      const translator = await TranslatorApi.create({
-        sourceLanguage: 'en',
-        targetLanguage: tgtLang,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        monitor(m: any) {
+    const promise = (async () => {
+      try {
+        const translator = await TranslatorApi.create({
+          sourceLanguage: 'en',
+          targetLanguage: tgtLang,
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          m.addEventListener('downloadprogress', (e: any) => {
-            setProgress(Math.round((e.loaded ?? 0) * 100))
-          })
-        },
-      })
-      if (loadedLangRef.current !== tgtLang) return  // superseded by a later call
-      translatorRef.current = translator
-      setStatus('ready')
-    } catch (e) {
-      console.error('[native translate] create failed:', e)
-      setStatus('error')
-    }
+          monitor(m: any) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            m.addEventListener('downloadprogress', (e: any) => {
+              setProgress(Math.round((e.loaded ?? 0) * 100))
+            })
+          },
+        })
+        if (loadedLangRef.current !== tgtLang) return  // superseded by a later call
+        translatorRef.current = translator
+        setStatus('ready')
+      } catch (e) {
+        console.error('[native translate] create failed:', e)
+        if (loadedLangRef.current === tgtLang) setStatus('error')
+      } finally {
+        if (inflightRef.current?.lang === tgtLang) inflightRef.current = null
+      }
+    })()
+    inflightRef.current = { lang: tgtLang, promise }
+    return promise
   }, [])
 
   // Stable: safe to call from closures captured at any time. Chrome's own

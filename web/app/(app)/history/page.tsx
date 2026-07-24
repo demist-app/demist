@@ -7,6 +7,7 @@ import { capture } from '@/lib/analytics'
 import { useEntitlements } from '@/lib/entitlements'
 import { PaywallModal } from '@/components/PaywallModal'
 import { summaryFailureMessage } from '@/lib/summaryFailure'
+import { useRecordingSession } from '@/lib/recordingSession'
 
 const SummaryViewer = dynamic(() => import('../summary-viewer').then(m => ({ default: m.SummaryViewer })), { ssr: false })
 const TranscriptViewer = dynamic(() => import('../transcript-viewer').then(m => ({ default: m.TranscriptViewer })), { ssr: false })
@@ -93,6 +94,12 @@ export default function History() {
 
   const { limits } = useEntitlements()
   const [paywall, setPaywall] = useState<string | null>(null)
+
+  // Dashboard keeps its own copy of the 5 most recent sessions (recentSessions,
+  // in the layout-level RecordingSessionProvider) so it survives tab navigation.
+  // Without also updating that copy here, deleting/renaming/summarizing a
+  // session from History left Dashboard showing stale data until a full reload.
+  const { setRecentSessions } = useRecordingSession()
 
   const summarizingRef = useRef(new Set<string>())
 
@@ -209,6 +216,7 @@ export default function History() {
       await supabase.from('terms').delete().in('session_id', ids)
       await supabase.from('sessions').delete().in('id', ids)
       setSessions(prev => prev.filter(s => !selectedIds.has(s.id)))
+      setRecentSessions(prev => prev.filter(s => !selectedIds.has(s.id)))
       setTotalCount(prev => prev - ids.length)
       exitSelectMode()
     } catch (e) {
@@ -252,6 +260,7 @@ export default function History() {
       reason = data?.reason
       if (!error && data?.ok && data?.synopsis) {
         setSessions(prev => prev.map(x => x.id === s.id ? { ...x, synopsis: data.synopsis } : x))
+        setRecentSessions(prev => prev.map(x => x.id === s.id ? { ...x, synopsis: data.synopsis } : x))
         succeeded = true
       }
     } catch (e) {
@@ -359,6 +368,7 @@ export default function History() {
       await supabase.from('terms').delete().eq('session_id', id)
       await supabase.from('sessions').delete().eq('id', id)
       setSessions(prev => prev.filter(s => s.id !== id))
+      setRecentSessions(prev => prev.filter(s => s.id !== id))
       setTotalCount(prev => prev - 1)
     } catch (e) {
       console.error('deleteSession error:', e)
@@ -379,9 +389,11 @@ export default function History() {
     const prev_name = sessions.find(s => s.id === id)?.name ?? null
     setEditingNameId(null)
     setSessions(prev => prev.map(s => s.id === id ? { ...s, name } : s))
+    setRecentSessions(prev => prev.map(s => s.id === id ? { ...s, name } : s))
     const { error } = await createClient().from('sessions').update({ name }).eq('id', id)
     if (error) {
       setSessions(prev => prev.map(s => s.id === id ? { ...s, name: prev_name } : s))
+      setRecentSessions(prev => prev.map(s => s.id === id ? { ...s, name: prev_name } : s))
     }
   }
 

@@ -36,6 +36,14 @@ const TERMS_SCHEMA = {
           definition: { type: 'string' },
           context: { type: 'string' },
         },
+        // Without this, the grammar could legally emit an item missing
+        // "term" or "definition" (schema properties are optional unless
+        // listed here). recordingSession.tsx's filter step reads
+        // t.term.toLowerCase() unconditionally, so a term-less entry threw,
+        // and that throw was swallowed by the caller's blanket .catch(() =>
+        // {}) with zero console output: term detection went silently dark
+        // for that window with no way to tell it apart from "nothing found".
+        required: ['term', 'definition'],
       },
     },
   },
