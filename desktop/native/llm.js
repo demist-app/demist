@@ -79,14 +79,6 @@ async function ensureLoaded(emitProgress) {
 
   loadingPromise = (async () => {
     const { getLlama, LlamaChatSession, resolveModelFile } = await import('node-llama-cpp')
-    // gpu: false forces CPU-only execution. Left on 'auto', node-llama-cpp
-    // tries to offload layers to GPU VRAM and picks a configuration based on
-    // what it detects: confirmed by real testing to fail outright on a
-    // machine without much dedicated VRAM ("context size ... too large for
-    // the available VRAM"). CPU is slower but universally reliable, which
-    // matters more than speed given the small tier's whole point is running
-    // on whatever laptop a student actually has.
-    llama ??= await getLlama({ gpu: false })
 
     // This step was previously silent, so a multi-GB first-run download and
     // an actual stall looked identical from the outside: no console output
@@ -104,8 +96,37 @@ async function ensureLoaded(emitProgress) {
       },
     })
     console.log('[demist] term-detection model downloaded, loading into memory...')
-    model = await llama.loadModel({ modelPath })
-    context = await model.createContext()
+
+    // Try GPU first: direct testing measured ~4x faster inference on a
+    // dedicated GPU (12s vs 40-60s per detectTerms call on the same
+    // prompt), which matters a lot given detectTerms is the slow step users
+    // actually notice as "term detection is delayed". This used to be
+    // hard-disabled (gpu: false) for everyone, because GPU offload had
+    // previously failed outright on a machine without much dedicated VRAM
+    // ("context size ... too large for the available VRAM") - but that
+    // traded away a large speed win for every user with a real GPU, just to
+    // protect users without one. Falling back to CPU on any failure here
+    // covers both instead of picking one at the cost of the other.
+    if (!llama) {
+      try {
+        llama = await getLlama({ gpu: 'auto' })
+        model = await llama.loadModel({ modelPath })
+        context = await model.createContext()
+      } catch (e) {
+        console.warn('[demist] GPU load for term-detection model failed, falling back to CPU:', e?.message ?? e)
+        try { await context?.dispose() } catch { /* best-effort cleanup */ }
+        try { await model?.dispose() } catch { /* best-effort cleanup */ }
+        llama = await getLlama({ gpu: false })
+        model = await llama.loadModel({ modelPath })
+        context = await model.createContext()
+      }
+    } else {
+      // Reused across tier switches: whichever GPU/CPU mode succeeded the
+      // first time is kept, rather than re-attempting GPU (and possibly
+      // re-failing) on every switch between "small" and "large".
+      model = await llama.loadModel({ modelPath })
+      context = await model.createContext()
+    }
     session = new LlamaChatSession({ contextSequence: context.getSequence() })
     summaryGrammar = await llama.createGrammarForJsonSchema(SUMMARY_SCHEMA)
     loadedTier = tier
