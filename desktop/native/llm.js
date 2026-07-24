@@ -23,6 +23,14 @@ const MODEL_URI = {
 }
 const TIER_FILE = path.join(MODEL_DIR, 'tier.json')
 
+const SUMMARY_SCHEMA = {
+  type: 'object',
+  properties: {
+    synopsis: { type: 'string' },
+  },
+  required: ['synopsis'],
+}
+
 const TERMS_SCHEMA = {
   type: 'object',
   properties: {
@@ -49,7 +57,7 @@ const TERMS_SCHEMA = {
   },
 }
 
-let llama, model, context, session, grammar, loadedTier, loadingPromise
+let llama, model, context, session, grammar, summaryGrammar, loadedTier, loadingPromise
 
 function getTier() {
   try {
@@ -113,6 +121,7 @@ async function ensureLoaded(emitProgress) {
     context = await model.createContext()
     session = new LlamaChatSession({ contextSequence: context.getSequence() })
     grammar = await llama.createGrammarForJsonSchema(TERMS_SCHEMA)
+    summaryGrammar = await llama.createGrammarForJsonSchema(SUMMARY_SCHEMA)
     loadedTier = tier
     logger({ status: 'ready' })
   })()
@@ -171,4 +180,31 @@ For each term, return a one-sentence plain-English definition specific to how it
   return run
 }
 
-module.exports = { detectTerms, preload, getTier, setTier }
+// On-device replacement for the summarize-session edge function's OpenAI
+// call, so the "nothing leaves the device" guarantee (see file header)
+// extends to end-of-lecture summaries too, not just live term detection.
+// Shares the same LlamaChatSession/queue as detectTerms above, for the same
+// reason: one context sequence, one call at a time.
+async function summarize(termRows, subject) {
+  if (!termRows?.length) return null
+  await ensureLoaded()
+
+  const context = subject ? `for a lecture on "${subject}"` : 'from a lecture'
+  const termList = termRows.map((t) => `- ${t.term}: ${t.definition}`).join('\n')
+  const prompt = `These terms were extracted ${context}:
+
+${termList}
+
+Write a 1-2 sentence summary of what this lecture covered, based only on the terms above. Be specific. Return JSON with a single field "synopsis".`
+
+  const run = queue.then(async () => {
+    session.resetChatHistory()
+    const response = await session.prompt(prompt, { grammar: summaryGrammar })
+    const parsed = summaryGrammar.parse(response)
+    return parsed.synopsis?.trim() || null
+  })
+  queue = run.catch(() => {})
+  return run
+}
+
+module.exports = { detectTerms, summarize, preload, getTier, setTier }

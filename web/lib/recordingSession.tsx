@@ -25,6 +25,7 @@ import { useNativeTranslate } from '@/lib/useNativeTranslate'
 import { extractCandidates } from '@/lib/extractTerms'
 import { isElectronNative, getDemistNative } from '@/lib/electronNative'
 import { startNativeSession, type NativeSessionHandle } from '@/lib/nativeSession'
+import { isEligibleForSummary } from '@/lib/summaryEligibility'
 
 export type CaptureMode = 'microphone' | 'tab'
 
@@ -63,6 +64,7 @@ export interface RecentSession {
   sessionNumber: number
   synopsis: string | null
   transcript: string | null
+  capture_mode: string | null
   expanded: boolean
   terms?: SessionTerm[]
 }
@@ -319,7 +321,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
         supabase.from('sessions').select('started_at').eq('user_id', user.id).order('started_at', { ascending: false }),
         supabase.from('terms').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('known', false).gt('sm2_review_count', 0).lte('sm2_due_at', now.toISOString()),
         supabase.from('terms').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('known', false).eq('sm2_review_count', 0),
-        supabase.from('sessions').select('id, name, subject, started_at, ended_at, synopsis, transcript').eq('user_id', user.id).order('started_at', { ascending: false }).limit(5),
+        supabase.from('sessions').select('id, name, subject, started_at, ended_at, synopsis, transcript, capture_mode').eq('user_id', user.id).order('started_at', { ascending: false }).limit(5),
         supabase.from('sessions').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
       ])
       totalSessionCountRef.current = totalCount ?? 0
@@ -393,7 +395,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
         const countMap: Record<string, number> = {}
         for (const r of termRows ?? []) countMap[r.session_id] = (countMap[r.session_id] ?? 0) + 1
         const tc = totalSessionCountRef.current
-        setRecentSessions(sessionsRaw.map((s, i) => ({ id: s.id, name: (s as { name?: string | null }).name ?? null, subject: (s as { subject?: string | null }).subject ?? null, started_at: s.started_at, ended_at: s.ended_at, termCount: countMap[s.id] ?? 0, sessionNumber: tc - i, synopsis: (s as { synopsis?: string | null }).synopsis ?? null, transcript: (s as { transcript?: string | null }).transcript ?? null, expanded: false })))
+        setRecentSessions(sessionsRaw.map((s, i) => ({ id: s.id, name: (s as { name?: string | null }).name ?? null, subject: (s as { subject?: string | null }).subject ?? null, started_at: s.started_at, ended_at: s.ended_at, termCount: countMap[s.id] ?? 0, sessionNumber: tc - i, synopsis: (s as { synopsis?: string | null }).synopsis ?? null, transcript: (s as { transcript?: string | null }).transcript ?? null, capture_mode: (s as { capture_mode?: string | null }).capture_mode ?? null, expanded: false })))
         const recentSubjectsArr = [...new Set(sessionsRaw.map((s: { subject?: string | null }) => s.subject).filter(Boolean))].slice(0, 6) as string[]
         if (!sessionSubjectRef.current) {
           const defaultSubject = recentSubjectsArr[0] || (prof as Profile)?.course || ''
@@ -1169,7 +1171,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     setStats({ streak, termsThisWeek, dueFlashcards })
 
     const [{ data: sessionsRaw }, { count: newTotal }] = await Promise.all([
-      supabase.from('sessions').select('id, name, subject, started_at, ended_at, synopsis, transcript')
+      supabase.from('sessions').select('id, name, subject, started_at, ended_at, synopsis, transcript, capture_mode')
         .eq('user_id', userIdRef.current!).order('started_at', { ascending: false }).limit(5),
       supabase.from('sessions').select('id', { count: 'exact', head: true }).eq('user_id', userIdRef.current!),
     ])
@@ -1180,7 +1182,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       const countMap: Record<string, number> = {}
       for (const r of termRows ?? []) countMap[r.session_id] = (countMap[r.session_id] ?? 0) + 1
       const tc = totalSessionCountRef.current
-      setRecentSessions(sessionsRaw.map((s: { id: string; name?: string | null; subject?: string | null; started_at: string; ended_at: string | null; synopsis?: string | null; transcript?: string | null }, i: number) => ({ id: s.id, name: s.name ?? null, subject: s.subject ?? null, started_at: s.started_at, ended_at: s.ended_at, termCount: countMap[s.id] ?? 0, sessionNumber: tc - i, synopsis: s.synopsis ?? null, transcript: s.transcript ?? null, expanded: false })))
+      setRecentSessions(sessionsRaw.map((s: { id: string; name?: string | null; subject?: string | null; started_at: string; ended_at: string | null; synopsis?: string | null; transcript?: string | null; capture_mode?: string | null }, i: number) => ({ id: s.id, name: s.name ?? null, subject: s.subject ?? null, started_at: s.started_at, ended_at: s.ended_at, termCount: countMap[s.id] ?? 0, sessionNumber: tc - i, synopsis: s.synopsis ?? null, transcript: s.transcript ?? null, capture_mode: s.capture_mode ?? null, expanded: false })))
     }
 
     if (sid) {
@@ -1229,11 +1231,23 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
             }).eq('id', capturedSid)
             setRecentSessions(prev => prev.map(s => s.id === capturedSid ? { ...s, transcript: tx } : s))
           }
-          const { data } = await sb.functions.invoke('summarize-session', {
-            body: { session_id: capturedSid, subject: capturedSubject, terms: capturedGlossary },
-          })
-          if (data?.ok && data?.synopsis) {
-            setRecentSessions(prev => prev.map(s => s.id === capturedSid ? { ...s, synopsis: data.synopsis } : s))
+          // Eligibility (above) already passed by this point either way.
+          // On-device when available, so the synopsis never leaves the
+          // machine via OpenAI; cloud edge function otherwise (browser/PWA).
+          const native = getDemistNative()
+          if (native) {
+            const synopsis = await native.summarize(capturedGlossary.map(t => ({ term: t.term, definition: t.definition })), capturedSubject)
+            if (synopsis) {
+              await sb.from('sessions').update({ synopsis }).eq('id', capturedSid)
+              setRecentSessions(prev => prev.map(s => s.id === capturedSid ? { ...s, synopsis } : s))
+            }
+          } else {
+            const { data } = await sb.functions.invoke('summarize-session', {
+              body: { session_id: capturedSid, subject: capturedSubject, terms: capturedGlossary },
+            })
+            if (data?.ok && data?.synopsis) {
+              setRecentSessions(prev => prev.map(s => s.id === capturedSid ? { ...s, synopsis: data.synopsis } : s))
+            }
           }
         } catch (e) {
           console.error('post-session error:', e)
@@ -1279,9 +1293,32 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     let succeeded = false
     let reason: string | undefined
     try {
+      const native = getDemistNative()
+      if (native) {
+        // On-device: no edge function in the loop, so this replicates the
+        // same mic-mode eligibility gate summarize-session enforces
+        // server-side (see lib/summaryEligibility.ts) before ever running
+        // the local model.
+        if (!s.capture_mode || s.capture_mode === 'microphone') {
+          const eligible = await isEligibleForSummary(s.subject, profileRef.current?.support_need)
+          if (!eligible) { reason = 'not_eligible'; return }
+        }
+        const synopsis = await native.summarize(s.terms.map(t => ({ term: t.term, definition: t.definition })), s.subject)
+        if (synopsis) {
+          await createClient().from('sessions').update({ synopsis }).eq('id', s.id)
+          setRecentSessions(prev => prev.map(x => x.id === s.id ? { ...x, synopsis } : x))
+          succeeded = true
+        }
+        return
+      }
       const supabase = createClient()
+      // s.subject (this session's own subject), not profileRef.current?.course
+      // (the user's general course/major): using the wrong one here used to
+      // both give the AI the wrong context and, more importantly, could feed
+      // the wrong string into the server's lecturer-consent module_name
+      // match, silently failing eligibility for a genuinely consented user.
       const { data, error } = await supabase.functions.invoke('summarize-session', {
-        body: { session_id: s.id, subject: profileRef.current?.course, terms: s.terms },
+        body: { session_id: s.id, subject: s.subject, terms: s.terms },
       })
       reason = data?.reason
       if (!error && data?.ok && data?.synopsis) {

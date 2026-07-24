@@ -35,6 +35,7 @@ contextBridge.exposeInMainWorld('demistNative', {
   translate: (text, targetLang) => ipcRenderer.invoke('demist:translate', text, targetLang),
   detectTerms: (transcript, context, subject, year) =>
     ipcRenderer.invoke('demist:detectTerms', transcript, context, subject, year),
+  summarize: (termRows, subject) => ipcRenderer.invoke('demist:summarize', termRows, subject),
   getModelTier: () => ipcRenderer.invoke('demist:getModelTier'),
   setModelTier: (tier) => ipcRenderer.invoke('demist:setModelTier', tier),
   getTranscribeTier: () => ipcRenderer.invoke('demist:getTranscribeTier'),

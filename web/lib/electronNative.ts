@@ -25,6 +25,10 @@ export interface DemistNative {
     subject?: string | null,
     year?: number | null,
   ) => Promise<{ term: string; definition: string; context?: string }[]>
+  summarize: (
+    terms: { term: string; definition: string }[],
+    subject?: string | null,
+  ) => Promise<string | null>
   getModelTier: () => Promise<'small' | 'large'>
   setModelTier: (tier: 'small' | 'large') => Promise<'small' | 'large'>
   getTranscribeTier: () => Promise<'fast' | 'accurate'>

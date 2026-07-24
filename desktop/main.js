@@ -57,6 +57,7 @@ const CALL_ROLE = {
 
   preloadTermDetection: 'terms',
   detectTerms: 'terms',
+  summarize: 'terms',
   getModelTier: 'terms',
   setModelTier: 'terms',
 
@@ -123,6 +124,7 @@ ipcMain.handle('demist:preloadTranslation', (_event, lang) => callWorker('preloa
 ipcMain.handle('demist:translate', (_event, text, targetLang) => callWorker('translate', text, targetLang))
 ipcMain.handle('demist:detectTerms', (_event, transcript, context, subject, year) =>
   callWorker('detectTerms', transcript, context, subject, year))
+ipcMain.handle('demist:summarize', (_event, termRows, subject) => callWorker('summarize', termRows, subject))
 ipcMain.handle('demist:getModelTier', () => callWorker('getModelTier'))
 ipcMain.handle('demist:setModelTier', (_event, tier) => callWorker('setModelTier', tier))
 ipcMain.handle('demist:getTranscribeTier', () => callWorker('getTranscribeTier'))

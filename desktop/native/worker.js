@@ -27,6 +27,7 @@ const handlers = {
   translate: (text, targetLang) => (translate ??= require('./translate')).translate(text, targetLang, emitProgress),
   detectTerms: (transcript, context, subject, year) =>
     (llm ??= require('./llm')).detectTerms(transcript, context, subject, year, emitProgress),
+  summarize: (termRows, subject) => (llm ??= require('./llm')).summarize(termRows, subject),
   getModelTier: () => (llm ??= require('./llm')).getTier(),
   setModelTier: (tier) => (llm ??= require('./llm')).setTier(tier),
   getTranscribeTier: () => (whisper ??= require('./whisper')).getTier(),

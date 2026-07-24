@@ -8,6 +8,8 @@ import { useEntitlements } from '@/lib/entitlements'
 import { PaywallModal } from '@/components/PaywallModal'
 import { summaryFailureMessage } from '@/lib/summaryFailure'
 import { useRecordingSession } from '@/lib/recordingSession'
+import { getDemistNative } from '@/lib/electronNative'
+import { isEligibleForSummary } from '@/lib/summaryEligibility'
 
 const SummaryViewer = dynamic(() => import('../summary-viewer').then(m => ({ default: m.SummaryViewer })), { ssr: false })
 const TranscriptViewer = dynamic(() => import('../transcript-viewer').then(m => ({ default: m.TranscriptViewer })), { ssr: false })
@@ -34,6 +36,7 @@ interface Session {
   preview: string[]
   terms?: SessionTerm[]
   expanded: boolean
+  capture_mode: string | null
 }
 
 function fmtDuration(start: string, end: string | null): string {
@@ -99,7 +102,7 @@ export default function History() {
   // in the layout-level RecordingSessionProvider) so it survives tab navigation.
   // Without also updating that copy here, deleting/renaming/summarizing a
   // session from History left Dashboard showing stale data until a full reload.
-  const { setRecentSessions } = useRecordingSession()
+  const { setRecentSessions, profile } = useRecordingSession()
 
   const summarizingRef = useRef(new Set<string>())
 
@@ -113,7 +116,7 @@ export default function History() {
 
       let sessionsQuery = supabase
         .from('sessions')
-        .select('id, name, subject, synopsis, transcript, transcript_translation, translation_lang, started_at, ended_at')
+        .select('id, name, subject, synopsis, transcript, transcript_translation, translation_lang, started_at, ended_at, capture_mode')
         .eq('user_id', user.id)
         .order('started_at', { ascending: false })
         .limit(100)
@@ -154,6 +157,7 @@ export default function History() {
         transcript: (s as { transcript?: string | null }).transcript ?? null,
         transcript_translation: (s as { transcript_translation?: string | null }).transcript_translation ?? null,
         translation_lang: (s as { translation_lang?: string | null }).translation_lang ?? null,
+        capture_mode: (s as { capture_mode?: string | null }).capture_mode ?? null,
         termCount: countMap[s.id] ?? 0,
         preview: previewMap[s.id] ?? [],
         expanded: false,
@@ -254,6 +258,27 @@ export default function History() {
         .eq('session_id', s.id)
         .limit(60)
       if (!termRows?.length) { skipFailed = true; return }
+
+      const native = getDemistNative()
+      if (native) {
+        // On-device: no edge function in the loop, so this replicates the
+        // same mic-mode eligibility gate summarize-session enforces
+        // server-side (see lib/summaryEligibility.ts) before running the
+        // local model.
+        if (!s.capture_mode || s.capture_mode === 'microphone') {
+          const eligible = await isEligibleForSummary(s.subject, profile?.support_need)
+          if (!eligible) { reason = 'not_eligible'; return }
+        }
+        const synopsis = await native.summarize(termRows, s.subject)
+        if (synopsis) {
+          await supabase.from('sessions').update({ synopsis }).eq('id', s.id)
+          setSessions(prev => prev.map(x => x.id === s.id ? { ...x, synopsis } : x))
+          setRecentSessions(prev => prev.map(x => x.id === s.id ? { ...x, synopsis } : x))
+          succeeded = true
+        }
+        return
+      }
+
       const { data, error } = await supabase.functions.invoke('summarize-session', {
         body: { session_id: s.id, subject: s.subject, terms: termRows },
       })
