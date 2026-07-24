@@ -18,9 +18,18 @@
 // download, and every page after that sees the same status/progress.
 
 import { createContext, useContext, useRef, useState, useCallback, ReactNode } from 'react'
+import { isElectronNative } from './electronNative'
 
 export function nativeTranslateSupported(): boolean {
-  return typeof window !== 'undefined' && 'Translator' in window
+  // Excludes Electron even when window.Translator exists there: this API's
+  // actual model download is served through Chrome's own component-update
+  // infrastructure, tied to a real Chrome browser installation, which an
+  // Electron app has no access to. Confirmed by testing: in the desktop app
+  // this reported 'downloading' and sat at 0% forever, since there's nothing
+  // on the other end to ever deliver the component. The desktop app already
+  // has its own bundled on-device translation model (see electronNative.ts);
+  // it should never even attempt this path.
+  return typeof window !== 'undefined' && 'Translator' in window && !isElectronNative()
 }
 
 type Status = 'off' | 'downloading' | 'ready' | 'error'

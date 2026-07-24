@@ -18,22 +18,11 @@ const FRAME_SAMPLES = (SAMPLE_RATE * FRAME_MS) / 1000  // 480
 const HANGOVER_MS = 800        // silence this long ends a segment
 const MIN_SEGMENT_MS = 1000    // ignore blips shorter than this
 const MAX_SEGMENT_MS = 15000   // force a cut so live latency stays bounded
-// Lecturers very often open with an uninterrupted run ("Good morning
-// everyone, today we're going to...") well past any natural pause, so the
-// very first segment of a session was routinely riding the full 15s cap
-// before Whisper ever saw anything, on top of first-inference warm-up cost:
-// together, confirmed to add up to the reported ~20s before any text
-// appeared. Capping only the first segment shorter gets something on screen
-// quickly without shortening the steady-state cap, which exists specifically
-// to keep Whisper seeing whole utterances (see file header) once the session
-// has found its cadence.
-const FIRST_MAX_SEGMENT_MS = 5000
 const PRE_ROLL_MS = 300        // audio kept from just before speech started
 
 const HANGOVER_FRAMES = HANGOVER_MS / FRAME_MS
 const MIN_SEGMENT_SAMPLES = (SAMPLE_RATE * MIN_SEGMENT_MS) / 1000
 const MAX_SEGMENT_SAMPLES = (SAMPLE_RATE * MAX_SEGMENT_MS) / 1000
-const FIRST_MAX_SEGMENT_SAMPLES = (SAMPLE_RATE * FIRST_MAX_SEGMENT_MS) / 1000
 const PRE_ROLL_FRAMES = PRE_ROLL_MS / FRAME_MS
 
 class PcmSegmenter {
@@ -51,7 +40,6 @@ class PcmSegmenter {
     this.noiseFloor = 0.002                  // adaptive; starts near typical mic hiss
     this.rmsSum = 0
     this.rmsCount = 0
-    this.hasEmitted = false                  // true once the first segment has gone out
   }
 
   feed(chunk) {
@@ -103,8 +91,7 @@ class PcmSegmenter {
     this.silentFrames = isSpeech ? 0 : this.silentFrames + 1
 
     const totalSamples = this.segmentFrames.length * FRAME_SAMPLES
-    const maxSamples = this.hasEmitted ? MAX_SEGMENT_SAMPLES : FIRST_MAX_SEGMENT_SAMPLES
-    if (this.silentFrames >= HANGOVER_FRAMES || totalSamples >= maxSamples) {
+    if (this.silentFrames >= HANGOVER_FRAMES || totalSamples >= MAX_SEGMENT_SAMPLES) {
       this._emit()
     }
   }
@@ -116,7 +103,6 @@ class PcmSegmenter {
       let o = 0
       for (const f of this.segmentFrames) { segment.set(f, o); o += f.length }
       const meanRms = this.rmsCount ? this.rmsSum / this.rmsCount : 0
-      this.hasEmitted = true
       this.onSegment(segment, meanRms)
     }
     this.inSpeech = false

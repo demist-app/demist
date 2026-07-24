@@ -5,11 +5,24 @@
 //   small: bundled/auto-downloaded by default, runs on almost any laptop
 //   large: meaningfully more accurate, needs ~8GB+ RAM, opt-in download
 //
-// Grammar-constrained decoding (createGrammarForJsonSchema) guarantees the
-// output is always valid JSON matching the schema below: it does NOT
-// guarantee the *content* is as accurate as GPT-4o-mini; the small model in
-// particular will miss terms or flag common words more often. That's the
-// real, known tradeoff of this tier, not a bug to fix here.
+// Term detection deliberately does NOT use grammar-constrained JSON decoding
+// (unlike summarize() below). Confirmed by direct testing: with a
+// {"terms": [...]} schema, the small tier emitted an empty array for
+// essentially every input, including excerpts stuffed with obvious jargon
+// ("Bayesian ridge regularization", "chemiosmosis", etc). Forcing
+// minItems:1 on that same schema made it produce good terms every time,
+// proving the model itself is capable; the grammar's empty array is simply
+// the shortest, always-legal completion, and small quantized models under
+// constrained decoding gravitate hard toward whatever's shortest, regardless
+// of content. minItems:1 isn't a fix either: it would force a hallucinated
+// term on genuinely mundane excerpts. The free-form "TERM: x | DEFINITION: y
+// | CONTEXT: z" / "NONE" format below has no such trivial escape hatch (NONE
+// is just as short as a real answer), and direct testing confirmed it
+// correctly returns real terms for termful excerpts and NONE for mundane
+// ones. This is a real fix for a real bug: it doesn't remove the small
+// tier's separate, genuine accuracy tradeoff against GPT-4o-mini (missing
+// or misjudging some terms), it removes a failure mode that was producing
+// close to zero terms ever, on any input.
 
 const path = require('path')
 const os = require('os')
@@ -31,33 +44,7 @@ const SUMMARY_SCHEMA = {
   required: ['synopsis'],
 }
 
-const TERMS_SCHEMA = {
-  type: 'object',
-  properties: {
-    terms: {
-      type: 'array',
-      maxItems: 3,
-      items: {
-        type: 'object',
-        properties: {
-          term: { type: 'string' },
-          definition: { type: 'string' },
-          context: { type: 'string' },
-        },
-        // Without this, the grammar could legally emit an item missing
-        // "term" or "definition" (schema properties are optional unless
-        // listed here). recordingSession.tsx's filter step reads
-        // t.term.toLowerCase() unconditionally, so a term-less entry threw,
-        // and that throw was swallowed by the caller's blanket .catch(() =>
-        // {}) with zero console output: term detection went silently dark
-        // for that window with no way to tell it apart from "nothing found".
-        required: ['term', 'definition'],
-      },
-    },
-  },
-}
-
-let llama, model, context, session, grammar, summaryGrammar, loadedTier, loadingPromise
+let llama, model, context, session, summaryGrammar, loadedTier, loadingPromise
 
 function getTier() {
   try {
@@ -120,7 +107,6 @@ async function ensureLoaded(emitProgress) {
     model = await llama.loadModel({ modelPath })
     context = await model.createContext()
     session = new LlamaChatSession({ contextSequence: context.getSequence() })
-    grammar = await llama.createGrammarForJsonSchema(TERMS_SCHEMA)
     summaryGrammar = await llama.createGrammarForJsonSchema(SUMMARY_SCHEMA)
     loadedTier = tier
     logger({ status: 'ready' })
@@ -149,6 +135,23 @@ async function preload(emitProgress) {
 // queues each call behind whichever is already running instead of racing it.
 let queue = Promise.resolve()
 
+// Matches "TERM: x | DEFINITION: y | CONTEXT: z" lines from detectTerms'
+// free-form prompt below. Anything that doesn't match (stray commentary,
+// blank lines, "NONE") is silently skipped rather than treated as an error:
+// the model occasionally adds a line of preamble even when told not to, and
+// that's fine as long as the real lines still match.
+const TERM_LINE_RE = /^\s*TERM:\s*(.+?)\s*\|\s*DEFINITION:\s*(.+?)\s*\|\s*CONTEXT:\s*(.+?)\s*$/i
+
+function parseTermLines(response) {
+  const out = []
+  for (const line of response.split('\n')) {
+    const m = line.match(TERM_LINE_RE)
+    if (m) out.push({ term: m[1], definition: m[2], context: m[3] })
+    if (out.length >= 2) break
+  }
+  return out
+}
+
 async function detectTerms(transcript, recentContext, subject, year, emitProgress) {
   if (!transcript?.trim()) return []
   await ensureLoaded(emitProgress)
@@ -159,7 +162,10 @@ async function detectTerms(transcript, recentContext, subject, year, emitProgres
 ${recentContext ? `Recent context: ${recentContext}\n\n` : ''}Lecture excerpt:
 ${transcript}
 
-For each term, return a one-sentence plain-English definition specific to how it was used above, and the exact sentence it appeared in as "context", taken verbatim from the excerpt. Return zero terms if nothing qualifies.`
+Respond with each term on its own line in exactly this format:
+TERM: <term> | DEFINITION: <one-sentence plain-English definition, specific to how it was used above> | CONTEXT: <the exact sentence it appeared in, verbatim>
+
+If nothing in the excerpt qualifies, respond with exactly: NONE`
 
   const run = queue.then(async () => {
     // Each call is independent: recentContext/transcript above already
@@ -171,9 +177,8 @@ For each term, return a one-sentence plain-English definition specific to how it
     // entirely, which is consistent with "gets slow over time" and "term
     // detection stops working" both being the same underlying bug.
     session.resetChatHistory()
-    const response = await session.prompt(prompt, { grammar })
-    const parsed = grammar.parse(response)
-    return parsed.terms ?? []
+    const response = await session.prompt(prompt)
+    return parseTermLines(response)
   })
   // Swallow so one failed call doesn't poison the queue for calls behind it.
   queue = run.catch(() => {})
