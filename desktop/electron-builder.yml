@@ -4,17 +4,24 @@ files:
   - main.js
   - preload.js
   - native/**/*
+  - licenses/**/*
 asarUnpack:
   - native/**/*
   - node_modules/onnxruntime-node/**/*
   - node_modules/node-llama-cpp/**/*
   - "node_modules/@huggingface/transformers/**/*"
 
+# Target is "appx", not "msix": confirmed by an actual build attempt that
+# the installed electron-builder (26.15.3) only ships AppXOptions, not
+# MsixOptions, msix support only exists on electron-builder's unreleased
+# main branch. .appx is still directly accepted by Partner Center (Microsoft
+# recommends wrapping it as .appxupload at submission time, but doesn't
+# require it) so this isn't a blocker, just means using the older key name.
 win:
-  target: [msix]
+  target: [appx]
   icon: ../web/public/icon-512.png
 
-msix:
+appx:
   # Both of these are assigned by Microsoft when you reserve the app name in
   # Partner Center (Microsoft Store account): placeholders until then.
   # https://partner.microsoft.com
@@ -22,3 +29,9 @@ msix:
   publisher: REPLACE_WITH_PARTNER_CENTER_PUBLISHER_ID
   publisherDisplayName: Demist
   displayName: Demist
+  # microphone: mic recording is the app's core feature. runFullTrust is
+  # auto-added by electron-builder for every Electron app regardless.
+  # Declaring only what's actually used matters: Store certification checks
+  # that requested capabilities match real functionality.
+  capabilities:
+    - microphone

@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 }
 
 export default function Privacy() {
-  const updated = '7 July 2026'
+  const updated = '21 July 2026'
 
   return (
     <main className="min-h-dvh bg-[#080810] text-white px-6 py-16">
@@ -53,6 +53,16 @@ export default function Privacy() {
               <li><span className="text-white font-medium">Groq &amp; OpenAI</span>: audio is transcribed using Groq&apos;s and/or OpenAI&apos;s APIs, and term detection uses OpenAI. Unless your browser supports on-device translation (Chrome), definition translation also uses OpenAI. Audio is processed in real time and not stored by us. These providers are based in the United States; data is transferred under their data processing agreements and standard contractual clauses, and is not used to train their models.</li>
               <li><span className="text-white font-medium">PostHog</span>: product analytics. Events are anonymised before being sent.</li>
             </ul>
+          </section>
+
+          <section>
+            <h2 className="text-[17px] font-semibold mb-3">Desktop app (on-device processing)</h2>
+            <p className="text-gray-400 mb-3">
+              If you use the Demist desktop app (Windows), transcription, translation, and term detection all run locally on your device using bundled open-source models. Your lecture audio and the text derived from it are never sent to Groq, OpenAI, or any other third party for processing while using the desktop app.
+            </p>
+            <p className="text-gray-400">
+              This changes how data is processed, not whether it&apos;s stored: the same consent rules above still apply to saving a microphone-mode transcript, and detected terms, session timestamps, and flashcard history are still synced to our Supabase database exactly as in the web app, so your glossary and progress stay available across devices. The desktop app bundles Whisper (MIT licensed), OPUS-MT translation models (Apache 2.0), and Meta&apos;s Llama models (Llama Community License) to do this processing; license and attribution details ship with the app.
+            </p>
           </section>
 
           <section>

@@ -665,6 +665,12 @@ export default function Profile() {
               <p className="text-[12px] text-gray-500 mt-1.5">
                 Small runs on almost any laptop. Large is closer to cloud-quality term detection but needs 8GB+ RAM free and downloads a bigger model on first use.
               </p>
+              {/* Required by the Llama 3.2/3.1 Community License's redistribution
+                  terms: "prominently display 'Built with Llama'". This is the
+                  desktop app's about/settings surface for the feature that
+                  actually uses it, so it belongs here, not on the (also
+                  cloud-serving) web app's profile page. */}
+              <p className="text-[11px] text-gray-500 mt-1">Built with Llama.</p>
             </div>
           )}
 
