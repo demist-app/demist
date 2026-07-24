@@ -169,6 +169,20 @@ app.whenReady().then(() => {
     const allowed = permission === 'media' || permission === 'unknown'
     return allowed && sameSite(requestingOrigin || webContents?.getURL() || APP_URL, APP_URL)
   })
+  // "Tab capture" (lib/tabCapture.ts) getDisplayMedia() calls reject in
+  // Electron with no handler registered at all: that's why this was
+  // disabled here previously. Electron has no concept of tabs (unlike real
+  // Chrome, which mixes each tab's audio independently), so the closest
+  // available primitive is Windows' system-audio loopback device, which
+  // captures everything currently playing on the machine, not one isolated
+  // source. 'loopback' is documented by Electron as Windows-only, so this is
+  // deliberately not registered on other platforms: without a handler,
+  // getDisplayMedia() just rejects there instead of misbehaving.
+  if (process.platform === 'win32') {
+    session.defaultSession.setDisplayMediaRequestHandler((_request, callback) => {
+      callback({ audio: 'loopback' })
+    })
+  }
   createWindow()
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow() })
 })

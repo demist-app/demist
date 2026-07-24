@@ -11,6 +11,7 @@ export interface NativeEvent {
 }
 
 export interface DemistNative {
+  platform: string
   startSession: () => Promise<boolean>
   stopSession: () => Promise<void>
   preloadWhisper: () => Promise<'fast' | 'accurate'>

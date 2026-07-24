@@ -859,7 +859,9 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
         audioCtx.close()
         audioProcessingCtxRef.current = null
         startingRef.current = false
-        setRecordingError((err as Error)?.message || 'No audio detected. Make sure to select a browser tab, not a window or screen. Also check the "Share tab audio" checkbox in the sharing dialog.')
+        setRecordingError((err as Error)?.message || (isElectronNative()
+          ? 'Could not capture system audio. Make sure something is actually playing audio on this PC.'
+          : 'No audio detected. Make sure to select a browser tab, not a window or screen. Also check the "Share tab audio" checkbox in the sharing dialog.'))
         return
       }
       if (!tabStream) {
@@ -871,7 +873,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       }
       stream = tabStream
       const audioTrack = stream.getAudioTracks()[0]
-      setCapturedTabTitle(audioTrack?.label || 'Browser tab')
+      setCapturedTabTitle(audioTrack?.label || (isElectronNative() ? 'System audio' : 'Browser tab'))
       audioTrack?.addEventListener('ended', () => {
         if (!isActiveRef.current) return
         setRecordingError('The shared tab was closed or sharing was stopped.')

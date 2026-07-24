@@ -1,16 +1,16 @@
-import { isElectronNative } from '@/lib/electronNative'
+import { isElectronNative, getDemistNative } from '@/lib/electronNative'
 
-export const tabCaptureSupported = (): boolean =>
-  typeof navigator !== 'undefined' &&
-  !!navigator.mediaDevices &&
-  !!navigator.mediaDevices.getDisplayMedia &&
-  // The API exists in Electron's Chromium, but desktop/main.js never
-  // registers session.setDisplayMediaRequestHandler, so getDisplayMedia()
-  // rejects at call time (confirmed against Electron's own docs: without a
-  // handler there's no source picker). The mic path is real on-device
-  // capture in the desktop app; tab capture just isn't wired up there, so
-  // don't advertise it as available.
-  !isElectronNative()
+export const tabCaptureSupported = (): boolean => {
+  if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getDisplayMedia) return false
+  if (!isElectronNative()) return true
+  // Electron has no concept of tabs (unlike real Chrome, which mixes each
+  // tab's audio independently), so desktop/main.js's setDisplayMediaRequestHandler
+  // hands back Windows' system-audio loopback device instead: everything
+  // currently playing on the machine, not one isolated tab. That's
+  // documented by Electron as Windows-only and main.js only registers the
+  // handler there, so anywhere else getDisplayMedia() would just reject.
+  return getDemistNative()?.platform === 'win32'
+}
 
 export const startTabCapture = async (): Promise<MediaStream | null> => {
   try {
@@ -23,11 +23,16 @@ export const startTabCapture = async (): Promise<MediaStream | null> => {
       },
     })
 
-    // Check the user actually shared a tab with audio
+    // Check there's actually an audio track: in the browser this means the
+    // user picked a window/screen instead of a tab (no picker exists at all
+    // for Electron's system-audio loopback, so this is unlikely to trigger
+    // there, but the message is kept accurate for it regardless).
     const audioTracks = stream.getAudioTracks()
     if (audioTracks.length === 0) {
       stream.getTracks().forEach(t => t.stop())
-      throw new Error('No audio track found. Make sure to share a tab, not a window or screen.')
+      throw new Error(isElectronNative()
+        ? 'No system audio detected.'
+        : 'No audio track found. Make sure to share a tab, not a window or screen.')
     }
 
     return stream

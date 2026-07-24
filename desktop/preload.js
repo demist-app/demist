@@ -7,6 +7,11 @@
 const { contextBridge, ipcRenderer } = require('electron')
 
 contextBridge.exposeInMainWorld('demistNative', {
+  // Static, no IPC needed: lets the renderer know which platform-specific
+  // capabilities apply (e.g. system-audio capture, see lib/tabCapture.ts,
+  // is only wired up on Windows in main.js).
+  platform: process.platform,
+
   // Live transcription session
   startSession: () => ipcRenderer.invoke('demist:startSession'),
   stopSession: () => ipcRenderer.invoke('demist:stopSession'),

@@ -510,7 +510,15 @@ export default function Dashboard() {
                   >
                     Live mic capture
                   </button>
-                  <Tooltip content={tabCaptureSupportedState ? "When the sharing dialog opens, make sure to tick 'Share tab audio'" : isElectronNative() ? 'Not available in the desktop app, use the web version at demist.app for tab capture' : 'Not supported on this browser, try a desktop browser instead'}>
+                  <Tooltip content={
+                    tabCaptureSupportedState
+                      ? isElectronNative()
+                        ? 'Captures all audio playing on this PC (Windows), not just one tab or app'
+                        : "When the sharing dialog opens, make sure to tick 'Share tab audio'"
+                      : isElectronNative()
+                        ? 'Not available on this platform in the desktop app'
+                        : 'Not supported on this browser, try a desktop browser instead'
+                  }>
                     <button
                       onClick={() => tabCaptureSupportedState && setCaptureMode('tab')}
                       disabled={!tabCaptureSupportedState}
@@ -522,14 +530,16 @@ export default function Dashboard() {
                             : 'text-gray-500 dark:text-white/45 hover:text-gray-700 dark:hover:text-white/65'
                       }`}
                     >
-                      Tab capture
+                      {isElectronNative() ? 'System audio' : 'Tab capture'}
                     </button>
                   </Tooltip>
                 </div>
                 <p className="text-[12px] text-gray-500 dark:text-white/60 text-center mt-2 leading-relaxed">
                   {captureMode === 'microphone'
                     ? 'Uses your microphone'
-                    : <>Pick the tab playing audio, tick <span className="text-gray-700 dark:text-white/70 font-medium">Share tab audio</span>, and Demist listens in.</>}
+                    : isElectronNative()
+                      ? 'Captures all system audio on this PC, not just one tab or app.'
+                      : <>Pick the tab playing audio, tick <span className="text-gray-700 dark:text-white/70 font-medium">Share tab audio</span>, and Demist listens in.</>}
                 </p>
               </div>
               {recordingWarning && (
@@ -672,7 +682,9 @@ export default function Dashboard() {
                   </div>
                   {tabCaptureSupportedState && (
                     <p className="text-[12px] text-gray-700 max-w-xs leading-relaxed">
-                      On Zoom or in an online lecture? Switch to <span className="dark:text-white/60 text-gray-800 font-medium">Tab capture</span> above to capture the audio directly from your browser.
+                      {isElectronNative()
+                        ? <>On Zoom or in an online lecture? Switch to <span className="dark:text-white/60 text-gray-800 font-medium">System audio</span> above to capture it directly, without needing your microphone.</>
+                        : <>On Zoom or in an online lecture? Switch to <span className="dark:text-white/60 text-gray-800 font-medium">Tab capture</span> above to capture the audio directly from your browser.</>}
                     </p>
                   )}
                 </div>
