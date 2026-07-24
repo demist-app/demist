@@ -142,22 +142,38 @@ let queue = Promise.resolve()
 // that's fine as long as the real lines still match.
 const TERM_LINE_RE = /^\s*TERM:\s*(.+?)\s*\|\s*DEFINITION:\s*(.+?)\s*\|\s*CONTEXT:\s*(.+?)\s*$/i
 
-function parseTermLines(response) {
+function normalize(s) {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+}
+
+function parseTermLines(response, transcript) {
+  const normalizedTranscript = normalize(transcript)
   const out = []
   for (const line of response.split('\n')) {
     const m = line.match(TERM_LINE_RE)
-    if (m) out.push({ term: m[1], definition: m[2], context: m[3] })
+    if (!m) continue
+    // The model is asked to only extract terms actually said, verbatim, but
+    // isn't grammar-constrained to guarantee that (see file header): direct
+    // testing surfaced it inventing a plausible-sounding but never-actually-
+    // said term ("Algorithm") once nearby context was full of related
+    // jargon, and separately producing a real term with "context": "None",
+    // i.e. admitting it had no real anchor for it. Requiring the term
+    // itself to actually appear in this transcript chunk is a cheap, direct
+    // check against both: a genuinely-extracted term is definitionally
+    // present in what was actually said.
+    if (!normalizedTranscript.includes(normalize(m[1]))) {
+      console.warn('[demist] dropped likely-hallucinated term (not found in transcript):', m[1])
+      continue
+    }
+    out.push({ term: m[1], definition: m[2], context: m[3] })
     if (out.length >= 2) break
   }
   return out
 }
 
-async function detectTerms(transcript, recentContext, subject, year, emitProgress) {
-  if (!transcript?.trim()) return []
-  await ensureLoaded(emitProgress)
-
+function buildDetectPrompt(transcript, recentContext, subject, year) {
   const who = subject ? `a ${year ? `Year ${year} ` : ''}${subject} student` : 'a university student'
-  const prompt = `You are a study assistant. From the lecture excerpt below, identify at most 2 subject-specific technical terms ${who} is unlikely to know and would need explained to follow the lecture. Ignore common English words and anything already understood from context.
+  return `You are a study assistant. From the lecture excerpt below, identify at most 2 subject-specific technical terms ${who} is unlikely to know and would need explained to follow the lecture. Ignore common English words and anything already understood from context.
 
 ${recentContext ? `Recent context: ${recentContext}\n\n` : ''}Lecture excerpt:
 ${transcript}
@@ -166,7 +182,10 @@ Respond with each term on its own line in exactly this format:
 TERM: <term> | DEFINITION: <one-sentence plain-English definition, specific to how it was used above> | CONTEXT: <the exact sentence it appeared in, verbatim>
 
 If nothing in the excerpt qualifies, respond with exactly: NONE`
+}
 
+async function runDetectOnce(transcript, recentContext, subject, year) {
+  const prompt = buildDetectPrompt(transcript, recentContext, subject, year)
   const run = queue.then(async () => {
     // Each call is independent: recentContext/transcript above already
     // carry everything the prompt needs. LlamaChatSession accumulates
@@ -178,11 +197,67 @@ If nothing in the excerpt qualifies, respond with exactly: NONE`
     // detection stops working" both being the same underlying bug.
     session.resetChatHistory()
     const response = await session.prompt(prompt)
-    return parseTermLines(response)
+    return parseTermLines(response, transcript)
   })
   // Swallow so one failed call doesn't poison the queue for calls behind it.
   queue = run.catch(() => {})
-  return run
+  try {
+    return await run
+  } catch (e) {
+    console.error('[demist] detectTerms generation failed:', e?.message ?? e)
+    return []
+  }
+}
+
+// Direct testing measured ~40-60s per call on this tier/hardware (CPU-only,
+// see gpu:false above), regardless of output length (capping maxTokens
+// didn't meaningfully speed it up: the model is just slow here, not
+// rambling). The desktop app batches new speech into a detectTerms() call
+// every 4s (see recordingSession.tsx's detectionIntervalMs), so strictly
+// queuing every call in arrival order meant each one waited behind roughly
+// ten others by the time it ran: term cards showing up a minute or more
+// after they were actually said, and summarize() (below, sharing this same
+// queue) stuck behind however large that backlog had grown by session end.
+// Instead of queuing unboundedly, only one call actually runs at a time;
+// anything that arrives while it's running gets merged into a single
+// pending batch (transcripts concatenated) rather than queued separately,
+// and that merged batch runs once as soon as the model is free. This bounds
+// the worst case to "whatever's currently running, plus one merged batch"
+// instead of unbounded growth, at the cost of not getting a separate pass
+// over every single 4s window when the model can't keep up with that cadence.
+let detectBusy = false
+let pendingBatch = null
+let pendingWaiters = []
+
+async function detectTerms(transcript, recentContext, subject, year, emitProgress) {
+  if (!transcript?.trim()) return []
+  await ensureLoaded(emitProgress)
+
+  if (detectBusy) {
+    if (pendingBatch) {
+      pendingBatch.transcript += ' ' + transcript
+      if (recentContext) pendingBatch.context = recentContext
+    } else {
+      pendingBatch = { transcript, context: recentContext, subject, year }
+    }
+    return new Promise(resolve => pendingWaiters.push(resolve))
+  }
+
+  detectBusy = true
+  const result = await runDetectOnce(transcript, recentContext, subject, year)
+  // Drain whatever piled up while the call above was running. A loop, not a
+  // single pass: more callers can arrive (and merge into a fresh
+  // pendingBatch) while THIS drain call is itself running.
+  while (pendingBatch) {
+    const batch = pendingBatch
+    pendingBatch = null
+    const waiters = pendingWaiters
+    pendingWaiters = []
+    const batchResult = await runDetectOnce(batch.transcript, batch.context, batch.subject, batch.year)
+    waiters.forEach(resolve => resolve(batchResult))
+  }
+  detectBusy = false
+  return result
 }
 
 // On-device replacement for the summarize-session edge function's OpenAI

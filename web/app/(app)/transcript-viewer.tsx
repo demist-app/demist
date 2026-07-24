@@ -211,7 +211,7 @@ export function TranscriptViewer({
             const segs = buildSegments(sentence, terms ?? [])
             const tgt = splitSentences(translation)[i]
             return (
-              <div key={i} className="grid grid-cols-1 md:grid-cols-2 gap-1 md:gap-4">
+              <div key={i} className="space-y-0.5">
                 <p
                   className="text-[calc(0.8125rem*var(--df-scale))] text-gray-500 leading-relaxed select-text cursor-text"
                   onPointerUp={handlePointerUp}
@@ -238,15 +238,13 @@ export function TranscriptViewer({
             )
           })}
           {splitSentences(translation).slice(splitSentences(transcript).length).map((extra, i) => (
-            <div key={`extra-${i}`} className="grid grid-cols-1 md:grid-cols-2 gap-1 md:gap-4">
-              <p />
-              <p
-                dir={translationLang === 'ar' ? 'rtl' : undefined}
-                className="text-[calc(0.8125rem*var(--df-scale))] leading-relaxed dark:text-amber-300/80 text-amber-700"
-              >
-                {extra}
-              </p>
-            </div>
+            <p
+              key={`extra-${i}`}
+              dir={translationLang === 'ar' ? 'rtl' : undefined}
+              className="text-[calc(0.8125rem*var(--df-scale))] leading-relaxed dark:text-amber-300/80 text-amber-700"
+            >
+              {extra}
+            </p>
           ))}
         </div>
       ) : (

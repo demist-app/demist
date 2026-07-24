@@ -1,8 +1,15 @@
 'use client'
 
-// Aligned sentence pairs. Two columns on desktop, stacked per sentence on
-// mobile. Arabic gets dir="rtl". A pair with tgt === null renders the source
-// with a subtle pending marker; tgt === '' (failed) renders source only.
+// Aligned sentence pairs, source stacked directly above its translation, both
+// at full container width (not two half-width side-by-side columns): a
+// desktop two-column layout meant every sentence wrapped far more than it
+// does in the English-only/translated-only views (each column only gets half
+// the width), so the same content took noticeably more vertical space and
+// scrolling in "Both" mode than switching to a single-language tab. Stacking
+// at full width matches the wrapping (and scroll amount) of those tabs while
+// still pairing each sentence with its translation immediately below it.
+// Arabic gets dir="rtl". A pair with tgt === null renders the source with a
+// subtle pending marker; tgt === '' (failed) renders source only.
 
 export interface SentencePair {
   srcHtml: string
@@ -22,7 +29,7 @@ export function TranscriptBilingual({
   return (
     <div className="space-y-2.5">
       {pairs.map((p, i) => (
-        <div key={i} className="grid grid-cols-1 md:grid-cols-2 gap-1 md:gap-4">
+        <div key={i} className="space-y-0.5">
           <p
             className="text-[calc(0.875rem*var(--df-scale))] leading-relaxed"
             onPointerUp={onSourceClick}
