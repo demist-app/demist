@@ -129,6 +129,29 @@ async function ensureLoaded(emitProgress) {
     }
     session = new LlamaChatSession({ contextSequence: context.getSequence() })
     summaryGrammar = await llama.createGrammarForJsonSchema(SUMMARY_SCHEMA)
+
+    // Pays a large one-time cost here, during preload (while the app shows
+    // "loading models..." before the user ever starts recording), instead
+    // of during the first real detectTerms()/summarize() call mid-lecture.
+    // Confirmed by direct, repeated testing: on CPU, the first real
+    // generation call in a session consistently took 30-40s longer than
+    // every subsequent call in that same session (which settled to ~4-5s).
+    // Same class of cost already fixed for native/whisper.js's ONNX
+    // pipeline; this was the missing equivalent for the LLM. Also confirmed
+    // by testing: a short generic warm-up prompt only partly pays this down
+    // (the first *real* call afterwards was still ~15-17s); using the same
+    // template detectTerms actually sends, just with placeholder content,
+    // brought the first real call down to the normal ~4-10s range instead.
+    try {
+      await session.prompt(
+        buildDetectPrompt('This is placeholder text used only to warm up the model.', '', null, null),
+        { maxTokens: 20 },
+      )
+    } catch (e) {
+      console.warn('[demist] term-detection model warm-up call failed (non-fatal):', e?.message ?? e)
+    }
+    session.resetChatHistory()
+
     loadedTier = tier
     logger({ status: 'ready' })
   })()
