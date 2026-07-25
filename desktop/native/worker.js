@@ -17,6 +17,7 @@ const handlers = {
   startSession: () => (whisper ??= require('./whisper')).startSession(
     (t) => emitEvent('transcript', t),
     emitProgress,
+    (t) => emitEvent('interimTranscript', t),
   ),
   stopSession: () => (whisper ??= require('./whisper')).stopSession(),
   preloadWhisper: () => (whisper ??= require('./whisper')).preload(emitProgress),

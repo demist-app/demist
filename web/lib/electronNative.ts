@@ -6,7 +6,7 @@
 // everywhere else callers fall back to the cloud edge functions.
 
 export interface NativeEvent {
-  event: 'transcript' | 'modelProgress'
+  event: 'transcript' | 'interimTranscript' | 'modelProgress'
   payload: { seq?: number; text?: string; label?: string; pct?: number; file?: string | null }
 }
 

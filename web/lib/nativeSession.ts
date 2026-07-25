@@ -31,6 +31,13 @@ function downsampleTo16k(input: Float32Array, inputRate: number): Float32Array {
 
 export interface NativeSessionCallbacks {
   onTranscript: (text: string) => void
+  // Best-effort live preview of a segment that hasn't closed yet (see
+  // desktop/native/pcm-segmenter.js's INTERIM_INTERVAL_MS comment): can be
+  // flat-out wrong near the end, not just incomplete, and is always
+  // followed by an onTranscript call for the same segment once it actually
+  // closes. Callers should show it as provisional and replace it, not
+  // append to it, when the real onTranscript for that segment arrives.
+  onInterimTranscript?: (text: string) => void
   onModelProgress?: (label: string, pct: number) => void
   onError?: (message: string) => void
 }
@@ -58,6 +65,8 @@ export async function startNativeSession(
   const unsubscribe = native.onEvent((msg) => {
     if (msg.event === 'transcript') {
       if (msg.payload.text) callbacks.onTranscript(msg.payload.text)
+    } else if (msg.event === 'interimTranscript') {
+      if (msg.payload.text) callbacks.onInterimTranscript?.(msg.payload.text)
     } else if (msg.event === 'modelProgress') {
       if (msg.payload.label !== undefined && msg.payload.pct !== undefined) {
         callbacks.onModelProgress?.(msg.payload.label, msg.payload.pct)

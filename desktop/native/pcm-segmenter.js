@@ -19,19 +19,38 @@ const HANGOVER_MS = 800        // silence this long ends a segment
 const MIN_SEGMENT_MS = 1000    // ignore blips shorter than this
 const MAX_SEGMENT_MS = 15000   // force a cut so live latency stays bounded
 const PRE_ROLL_MS = 300        // audio kept from just before speech started
+// Segments only reach Whisper once a natural pause closes them (or the
+// MAX_SEGMENT_MS forced cut), which is the right call for final-transcript
+// accuracy (see file header) but means nothing appears on screen for however
+// long the speaker talks continuously - confirmed by testing, up to the full
+// 15s in the worst case. onInterim (below) is a separate, best-effort escape
+// hatch: a periodic snapshot of the still-accumulating segment, transcribed
+// as a preview and REPLACED (never appended to) once the real segment
+// closes. Direct testing against real speech confirmed early previews can
+// be flat-out wrong at the truncation boundary (Whisper uses trailing
+// context to disambiguate), not just incomplete - callers must treat this
+// as provisional, not authoritative.
+const INTERIM_INTERVAL_MS = 3000
 
 const HANGOVER_FRAMES = HANGOVER_MS / FRAME_MS
 const MIN_SEGMENT_SAMPLES = (SAMPLE_RATE * MIN_SEGMENT_MS) / 1000
 const MAX_SEGMENT_SAMPLES = (SAMPLE_RATE * MAX_SEGMENT_MS) / 1000
 const PRE_ROLL_FRAMES = PRE_ROLL_MS / FRAME_MS
+const INTERIM_INTERVAL_FRAMES = Math.round(INTERIM_INTERVAL_MS / FRAME_MS)
 
 class PcmSegmenter {
   /**
    * @param {(segment: Float32Array, meanRms: number) => void} onSegment
    *   Called with each complete speech segment, strictly in order.
+   * @param {(segment: Float32Array) => void} [onInterim]
+   *   Called periodically (every INTERIM_INTERVAL_MS) with a snapshot of the
+   *   still-accumulating segment, for a best-effort live preview. Optional:
+   *   omit for callers that only want final segments (e.g. term detection
+   *   doesn't need this, only the live transcript display does).
    */
-  constructor(onSegment) {
+  constructor(onSegment, onInterim) {
     this.onSegment = onSegment
+    this.onInterim = onInterim
     this.residual = new Float32Array(0)      // partial frame carried between feeds
     this.preRoll = []                        // last PRE_ROLL_FRAMES frames while silent
     this.segmentFrames = []                  // frames of the in-progress segment
@@ -40,6 +59,7 @@ class PcmSegmenter {
     this.noiseFloor = 0.002                  // adaptive; starts near typical mic hiss
     this.rmsSum = 0
     this.rmsCount = 0
+    this.framesSinceInterim = 0
   }
 
   feed(chunk) {
@@ -77,6 +97,7 @@ class PcmSegmenter {
         this.preRoll = []
         this.rmsSum = rms
         this.rmsCount = 1
+        this.framesSinceInterim = 0
       } else {
         this.preRoll.push(frame.slice())
         if (this.preRoll.length > PRE_ROLL_FRAMES) this.preRoll.shift()
@@ -89,10 +110,20 @@ class PcmSegmenter {
     this.rmsSum += rms
     this.rmsCount++
     this.silentFrames = isSpeech ? 0 : this.silentFrames + 1
+    this.framesSinceInterim++
 
     const totalSamples = this.segmentFrames.length * FRAME_SAMPLES
     if (this.silentFrames >= HANGOVER_FRAMES || totalSamples >= MAX_SEGMENT_SAMPLES) {
       this._emit()
+      return
+    }
+
+    if (this.onInterim && this.framesSinceInterim >= INTERIM_INTERVAL_FRAMES) {
+      this.framesSinceInterim = 0
+      const snapshot = new Float32Array(totalSamples)
+      let o = 0
+      for (const f of this.segmentFrames) { snapshot.set(f, o); o += f.length }
+      this.onInterim(snapshot)
     }
   }
 

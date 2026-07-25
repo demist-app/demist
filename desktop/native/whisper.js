@@ -94,34 +94,64 @@ const LOW_ENERGY_RMS = 0.004
 // One live session at a time (one microphone). startSession wires a
 // segmenter whose segments run through a serial transcription queue; each
 // result is pushed via onTranscript with a monotonically increasing seq.
+// onInterim (optional) additionally gets a best-effort preview of whatever's
+// still accumulating, transcribed as it comes in rather than waiting for the
+// segment to actually close (see pcm-segmenter.js's INTERIM_INTERVAL_MS
+// comment for why this exists and its real accuracy caveats).
 
 let activeSession = null
 
-function startSession(onTranscript, emitProgress) {
+function startSession(onTranscript, emitProgress, onInterim) {
   stopSession() // safety: a crashed renderer can leave one dangling
   let seq = 0
   let queue = Promise.resolve()
   let lastText = ''
+  let queueBusy = false
+  let interimBusy = false
 
-  const segmenter = new PcmSegmenter((segment, meanRms) => {
-    const mySeq = ++seq
-    queue = queue.then(async () => {
-      try {
-        const transcriber = await getTranscriber(emitProgress)
-        const result = await transcriber(segment)
-        let text = (result?.text ?? '').trim()
-        const normalized = text.toLowerCase()
-        if (meanRms < LOW_ENERGY_RMS && HALLUCINATION_BLOCKLIST.has(normalized)) text = ''
-        if (text && normalized === lastText.toLowerCase()) text = '' // collapse repeats
-        if (text) {
-          lastText = text
-          onTranscript({ seq: mySeq, text })
+  const segmenter = new PcmSegmenter(
+    (segment, meanRms) => {
+      const mySeq = ++seq
+      queueBusy = true
+      queue = queue.then(async () => {
+        try {
+          const transcriber = await getTranscriber(emitProgress)
+          const result = await transcriber(segment)
+          let text = (result?.text ?? '').trim()
+          const normalized = text.toLowerCase()
+          if (meanRms < LOW_ENERGY_RMS && HALLUCINATION_BLOCKLIST.has(normalized)) text = ''
+          if (text && normalized === lastText.toLowerCase()) text = '' // collapse repeats
+          if (text) {
+            lastText = text
+            onTranscript({ seq: mySeq, text })
+          }
+        } catch (err) {
+          console.error('[demist] transcription segment failed:', err?.message ?? err)
+        } finally {
+          queueBusy = false
         }
-      } catch (err) {
-        console.error('[demist] transcription segment failed:', err?.message ?? err)
-      }
-    })
-  })
+      })
+    },
+    onInterim && ((segment) => {
+      // Best-effort only, never queued: this shares the same underlying
+      // model/session as final-segment transcription above, so it must
+      // never run concurrently with it (queueBusy) or with a previous,
+      // still-running interim tick (interimBusy). Skipping a tick is
+      // harmless - the next one (or the real final segment) follows shortly
+      // regardless - whereas queuing interim calls behind finals would
+      // delay the finals for a feature that only exists to feel faster.
+      if (queueBusy || interimBusy) return
+      interimBusy = true
+      getTranscriber(emitProgress)
+        .then(transcriber => transcriber(segment))
+        .then(result => {
+          const text = (result?.text ?? '').trim()
+          if (text) onInterim({ seq: seq + 1, text })
+        })
+        .catch(err => console.error('[demist] interim transcription failed:', err?.message ?? err))
+        .finally(() => { interimBusy = false })
+    }),
+  )
 
   activeSession = {
     feed: (pcm) => segmenter.feed(pcm),

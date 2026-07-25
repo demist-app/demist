@@ -225,6 +225,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null)
   const hasInterimRef = useRef(false)     // true when last sentence item is still interim
+  const nativeInterimShowingRef = useRef(false) // true when the last sentence is an unconfirmed Whisper preview (see onInterimTranscript below)
   const audioProcessingCtxRef = useRef<AudioContext | null>(null)
   const vizAnalyserRef = useRef<AnalyserNode | null>(null)
   const processedStreamRef = useRef<MediaStream | null>(null)
@@ -655,10 +656,14 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     })
   }
 
-  const appendSentence = (chunkText: string) => {
-    const idx = sentenceCountRef.current++
-    setSentences(prev => [...prev, chunkText])
-    setTranslatedSentences(prev => [...prev, null])
+  // replaceLast: true when this final text is closing out a segment whose
+  // in-progress preview was already shown via the native interim path (see
+  // nativeInterimShowingRef below) - replaces that provisional row instead
+  // of appending a second one for the same utterance.
+  const appendSentence = (chunkText: string, replaceLast = false) => {
+    const idx = replaceLast ? sentenceCountRef.current - 1 : sentenceCountRef.current++
+    setSentences(prev => (replaceLast && prev.length > 0) ? [...prev.slice(0, -1), chunkText] : [...prev, chunkText])
+    setTranslatedSentences(prev => (replaceLast && prev.length > 0) ? [...prev.slice(0, -1), null] : [...prev, null])
     // Live sentence-by-sentence translation is on-device only: no cloud
     // fallback, since per-sentence cloud calls at this cadence would be slow
     // and costly. Term/glossary definitions still get the cloud fallback above.
@@ -673,9 +678,9 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
   // async part) so that stopRecording's flush-on-stop check, which runs right
   // after the native session's stop() resolves, always sees this chunk's text
   // already in detectionBufferRef, not still pending on a promise.
-  const accumulateAndMaybeDetect = (chunkText: string, sessionId: string) => {
+  const accumulateAndMaybeDetect = (chunkText: string, sessionId: string, replaceLast = false) => {
     transcriptRef.current = transcriptRef.current ? transcriptRef.current + ' ' + chunkText : chunkText
-    if (!speechModeRef.current || !webSpeechHasFiredRef.current) appendSentence(chunkText)
+    if (!speechModeRef.current || !webSpeechHasFiredRef.current) appendSentence(chunkText, replaceLast)
 
     // Accumulate text; only call detect-terms periodically. The 10s window
     // exists to bound cloud API cost; that reasoning doesn't apply to the
@@ -975,10 +980,37 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       // cloud MediaRecorder/processChunk loop never runs in this branch.
       recordingMode = 'native'
       try {
+        nativeInterimShowingRef.current = false
         nativeSessionRef.current = await startNativeSession(streamRef.current!, {
           onTranscript: (text) => {
             const sid = sessionIdRef.current
-            if (sid) accumulateAndMaybeDetect(text, sid)
+            if (sid) accumulateAndMaybeDetect(text, sid, nativeInterimShowingRef.current)
+            nativeInterimShowingRef.current = false
+          },
+          // Best-effort live preview of whatever Whisper is still listening
+          // to, shown immediately rather than waiting for a natural pause to
+          // close the segment (see pcm-segmenter.js: that wait is what's
+          // right for final-transcript accuracy, but on its own left nothing
+          // on screen for however long the speaker talked continuously,
+          // confirmed by testing up to the full 15s worst case). Purely
+          // visual: never touches transcriptRef/detectionBufferRef, so it
+          // can't affect term detection or the stored transcript, and the
+          // real onTranscript above always follows for the same utterance
+          // and replaces this row rather than leaving it in place.
+          onInterimTranscript: (text) => {
+            if (!nativeInterimShowingRef.current) {
+              // Reserve this sentence's index now (matching what
+              // appendSentence would do), so the eventual finalizing
+              // accumulateAndMaybeDetect(text, sid, true) call above computes
+              // the same index and replaces this exact row instead of
+              // drifting out of sync with translatedSentences.
+              sentenceCountRef.current++
+              setSentences(prev => [...prev, text])
+              setTranslatedSentences(prev => [...prev, null])
+            } else {
+              setSentences(prev => prev.length > 0 ? [...prev.slice(0, -1), text] : [...prev, text])
+            }
+            nativeInterimShowingRef.current = true
           },
           onModelProgress: (label, pct) => {
             setRecordingWarning(pct >= 100 ? null : `Downloading on-device model (${label})… ${pct}%`)
