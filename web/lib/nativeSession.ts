@@ -8,7 +8,7 @@
 // model-download progress. recordingSession.tsx calls exactly three things:
 // startNativeSession, then reads callbacks, then stopNativeSession.
 
-import { getDemistNative } from '@/lib/electronNative'
+import { getDemistNative, dlog } from '@/lib/electronNative'
 
 const TARGET_RATE = 16000
 // How much audio to accumulate before sending one message across the bridge.
@@ -61,6 +61,16 @@ export interface NativeSessionCallbacks {
   onInterimTranscript?: (text: string) => void
   onModelProgress?: (label: string, pct: number) => void
   onError?: (message: string) => void
+  // Checked after the backend session call resolves but BEFORE any audio
+  // graph is attached. startSession() can block for a long time when the
+  // native worker is busy loading models, and the caller may have given up
+  // and started a different recording in the meantime. Without this hook the
+  // abandoned call would still wake up and attach a second capture graph on
+  // its own (stale) MediaStream: confirmed in a real session, where two
+  // graphs ran concurrently and fed the SAME native session two interleaved
+  // PCM streams - one silent, one real - shredding the audio and producing
+  // fragments like "Shh!" and "Hmm" between correctly transcribed sentences.
+  isStale?: () => boolean
 }
 
 export interface NativeSessionHandle {
@@ -80,12 +90,12 @@ export async function startNativeSession(
   stream: MediaStream,
   callbacks: NativeSessionCallbacks,
 ): Promise<NativeSessionHandle> {
-  console.log('[demist] startNativeSession: starting')
+  dlog('[demist] startNativeSession: starting')
   const native = getDemistNative()
   if (!native) throw new Error('startNativeSession called outside the desktop app')
 
   const unsubscribe = native.onEvent((msg) => {
-    console.log('[demist] native event:', msg.event, msg.payload)
+    dlog('[demist] native event:', msg.event, msg.payload)
     if (msg.event === 'transcript') {
       if (msg.payload.text) callbacks.onTranscript(msg.payload.text)
     } else if (msg.event === 'interimTranscript') {
@@ -100,7 +110,16 @@ export async function startNativeSession(
   })
 
   await native.startSession()
-  console.log('[demist] startNativeSession: backend session started, attaching audio graph next')
+  if (callbacks.isStale?.()) {
+    // Give the backend session back rather than leaving it running: another
+    // startNativeSession has taken over, and stopSession() here would race
+    // with theirs. Only unsubscribe, so this abandoned call stops delivering
+    // duplicate transcript events to a caller that has moved on.
+    console.warn('[demist] startNativeSession: recording moved on while startSession was pending; abandoning this attempt')
+    unsubscribe()
+    throw new Error('Recording was restarted before on-device transcription finished starting.')
+  }
+  dlog('[demist] startNativeSession: backend session started, attaching audio graph next')
 
   let audioContext: AudioContext | null = null
   let source: MediaStreamAudioSourceNode | null = null
@@ -141,13 +160,13 @@ export async function startNativeSession(
     // running, so this only ever helps. rebindStream re-enters here on a mic
     // reconnect and needs the same treatment.
     await audioContext.resume().catch(() => {})
-    console.log('[demist] attachGraph: AudioContext sampleRate =', audioContext.sampleRate, 'state =', audioContext.state)
+    dlog('[demist] attachGraph: AudioContext sampleRate =', audioContext.sampleRate, 'state =', audioContext.state)
     if (audioContext.state !== 'running') {
       console.error('[demist] attachGraph: AudioContext is not running (state:', audioContext.state + '). No PCM will be captured.')
       callbacks.onError?.(`Audio capture could not start (audio context ${audioContext.state}).`)
     }
     await audioContext.audioWorklet.addModule('/pcm-worklet.js')
-    console.log('[demist] attachGraph: pcm-worklet.js module loaded')
+    dlog('[demist] attachGraph: pcm-worklet.js module loaded')
     // Which device we actually ended up capturing from. getUserMedia happily
     // returns a live, unmuted track that emits nothing but digital silence
     // when the selected device is a disconnected mic, a loopback/"Stereo Mix"
@@ -155,7 +174,7 @@ export async function startNativeSession(
     // privacy level. Nothing downstream can tell that apart from a quiet
     // room, so the device identity has to be logged here.
     const track = mediaStream.getAudioTracks()[0]
-    console.log('[demist] attachGraph: capturing from', JSON.stringify({
+    dlog('[demist] attachGraph: capturing from', JSON.stringify({
       label: track?.label,
       enabled: track?.enabled,
       muted: track?.muted,
@@ -207,7 +226,7 @@ export async function startNativeSession(
         }
         const now = Date.now()
         if (now - lastLogAt >= 1000) {
-          console.log(`[demist] pcm frames: ${frameCount} total, peak level since last log: ${peakSinceLastLog.toFixed(4)} (quiet room/silence is usually < 0.01; speaking should be well above that)`)
+          dlog(`[demist] pcm frames: ${frameCount} total, peak level since last log: ${peakSinceLastLog.toFixed(4)} (quiet room/silence is usually < 0.01; speaking should be well above that)`)
           lastLogAt = now
           peakSinceLastLog = 0
         }
@@ -243,7 +262,7 @@ export async function startNativeSession(
   }
 
   await attachGraph(stream)
-  console.log('[demist] startNativeSession: audio graph attached, streaming should be live now')
+  dlog('[demist] startNativeSession: audio graph attached, streaming should be live now')
 
   let stopped = false
   return {

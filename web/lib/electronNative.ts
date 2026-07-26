@@ -55,6 +55,27 @@ declare global {
   }
 }
 
+// Verbose capture-pipeline tracing, off unless explicitly switched on with
+// localStorage.setItem('demist_debug', '1'). These logs fire per PCM batch and
+// per transcript event, which is several lines a second per capture graph:
+// invaluable while diagnosing a dead pipeline, unusable as a default (it
+// floods DevTools so badly that real errors scroll away). Errors and warnings
+// are NOT routed through this and always print.
+let debugEnabled: boolean | null = null
+export function demistDebugEnabled(): boolean {
+  if (debugEnabled === null) {
+    try {
+      debugEnabled = typeof window !== 'undefined' && window.localStorage?.getItem('demist_debug') === '1'
+    } catch { debugEnabled = false }
+  }
+  return debugEnabled
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function dlog(...args: any[]): void {
+  if (demistDebugEnabled()) console.log(...args)
+}
+
 export function isElectronNative(): boolean {
   return typeof window !== 'undefined' && !!window.demistNative
 }

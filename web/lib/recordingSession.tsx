@@ -23,7 +23,7 @@ import { checkRecordingLimit } from '@/lib/subscription'
 import { useEntitlements } from '@/lib/entitlements'
 import { useNativeTranslate } from '@/lib/useNativeTranslate'
 import { extractCandidates } from '@/lib/extractTerms'
-import { isElectronNative, getDemistNative, type DemistNative } from '@/lib/electronNative'
+import { isElectronNative, getDemistNative, dlog, type DemistNative } from '@/lib/electronNative'
 import { startNativeSession, type NativeSessionHandle } from '@/lib/nativeSession'
 import { isEligibleForSummary } from '@/lib/summaryEligibility'
 
@@ -239,6 +239,13 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
   const processedStreamRef = useRef<MediaStream | null>(null)
   const webLockReleaseRef = useRef<(() => void) | null>(null)
   const nativeSessionRef = useRef<NativeSessionHandle | null>(null)
+  // Bumped on every start and every stop. startNativeSession can be pending
+  // for a long time (its startSession call blocks while the native worker
+  // loads models), and nativeSessionRef is still null throughout, so checking
+  // that ref alone cannot tell a stale in-flight attempt from a live one.
+  // Comparing this counter can: if it moved while we were awaiting, this
+  // attempt has been superseded and must not attach a capture graph.
+  const sessionEpochRef = useRef(0)
 
   // profileRef is what startRecording/stopRecording/runDetection actually read
   // (refs avoid stale closures in those callbacks); profile state fetched once
@@ -324,26 +331,59 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     setNativeModelsError(null)
     const withRetry = <T,>(fn: () => Promise<T>, attemptsLeft = 2): Promise<T> =>
       fn().catch(err => attemptsLeft > 1 ? withRetry(fn, attemptsLeft - 1) : Promise.reject(err))
-    const labeledTasks: { label: string; task: Promise<unknown> }[] = [
-      { label: 'transcription model', task: withRetry(() => native.preloadWhisper()) },
-      { label: 'term detection model', task: withRetry(() => native.preloadTermDetection()) },
-    ]
-    if (translateLang) {
-      labeledTasks.push({ label: 'translation model', task: withRetry(() => native.preloadTranslation(translateLang)) })
-    }
-    Promise.allSettled(labeledTasks.map(t => t.task)).then((results) => {
-      const failed = results
-        .map((r, i) => ({ r, label: labeledTasks[i].label }))
-        .filter((x): x is { r: PromiseRejectedResult; label: string } => x.r.status === 'rejected')
-      if (failed.length > 0) {
-        failed.forEach(({ label, r }) => console.error(`[demist] preload failed for ${label}:`, r.reason))
-        setNativeModelsError(`Couldn't load ${failed.map(f => f.label).join(', ')}. Check your connection and try again.`)
+
+    // Sequential, transcription first, and the record button is released as
+    // soon as THAT one model is ready - it used to fire all three at once and
+    // gate recording on all three finishing.
+    //
+    // Two separate problems with the old version, both confirmed from a real
+    // session log. First, loading whisper (~926MB), OPUS-MT (~448MB) and Llama
+    // 3.2 3B (~2GB) simultaneously means ~3.4GB of concurrent model loading;
+    // onnxruntime and llama.cpp both block their worker's event loop for the
+    // duration, so under that contention the transcribe worker could not even
+    // answer a startSession control message for over 30 seconds, and starting
+    // a recording appeared to hang outright. Loading one at a time removes the
+    // contention. Second, gating on all three meant waiting on models that
+    // recording does not need: transcription needs whisper and nothing else.
+    // Term detection and translation arriving later only means term cards and
+    // translations start appearing a little into the lecture, which is a
+    // vastly better failure mode than not being able to record at all.
+    ;(async () => {
+      try {
+        await withRetry(() => native.preloadWhisper())
+      } catch (err) {
+        console.error('[demist] preload failed for transcription model:', err)
+        setNativeModelsError("Couldn't load the transcription model. Check your connection and try again.")
         setNativeModelProgress(null)
         return
       }
+      // Recording is usable from here; everything below is background work.
       setNativeModelsReady(true)
       setNativeModelProgress(null)
-    })
+
+      // These two are deliberately NOT allowed to block or fail recording.
+      // Reported as a warning so a user who never sees a term card knows why,
+      // rather than silently getting a degraded session.
+      const degraded: string[] = []
+      try {
+        await withRetry(() => native.preloadTermDetection())
+      } catch (err) {
+        console.error('[demist] preload failed for term detection model:', err)
+        degraded.push('term detection')
+      }
+      if (translateLang) {
+        try {
+          await withRetry(() => native.preloadTranslation(translateLang))
+        } catch (err) {
+          console.error('[demist] preload failed for translation model:', err)
+          degraded.push('translation')
+        }
+      }
+      setNativeModelProgress(null)
+      if (degraded.length) {
+        setRecordingWarning(`Couldn't load the ${degraded.join(' and ')} model${degraded.length > 1 ? 's' : ''}. Recording and transcription still work normally.`)
+      }
+    })()
   }
 
   const retryNativeModelPreload = () => {
@@ -1025,7 +1065,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     const useNativeCapture = isElectronNative() && (mode === 'microphone' || mode === 'tab')
     let recordingMode: 'native' | 'whisper+speech_api' | 'whisper' = 'whisper'
 
-    console.log('[demist] capture path decision: useNativeCapture =', useNativeCapture, '(mode:', mode, ', isElectronNative:', isElectronNative(), ')')
+    dlog('[demist] capture path decision: useNativeCapture =', useNativeCapture, '(mode:', mode, ', isElectronNative:', isElectronNative(), ')')
 
     if (useNativeCapture) {
       // Fully on-device: raw PCM streamed to Whisper via an AudioWorklet +
@@ -1048,9 +1088,11 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
           await nativeSessionRef.current.stop().catch(e => console.error('[demist] stopping stale native session failed:', e))
           nativeSessionRef.current = null
         }
-        nativeSessionRef.current = await startNativeSession(streamRef.current!, {
+        const myEpoch = ++sessionEpochRef.current
+        const handle = await startNativeSession(streamRef.current!, {
+          isStale: () => sessionEpochRef.current !== myEpoch || !isActiveRef.current,
           onTranscript: (text) => {
-            console.log('[demist] FINAL transcript received:', text)
+            dlog('[demist] FINAL transcript received:', text)
             const sid = sessionIdRef.current
             if (sid) accumulateAndMaybeDetect(text, sid, nativeInterimShowingRef.current)
             nativeInterimShowingRef.current = false
@@ -1066,7 +1108,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
           // real onTranscript above always follows for the same utterance
           // and replaces this row rather than leaving it in place.
           onInterimTranscript: (text) => {
-            console.log('[demist] interim transcript received:', text)
+            dlog('[demist] interim transcript received:', text)
             if (!nativeInterimShowingRef.current) {
               // Reserve this sentence's index now (matching what
               // appendSentence would do), so the eventual finalizing
@@ -1093,6 +1135,14 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
             setRecordingWarning(message)
           },
         })
+        // One last check: the recording may have been stopped or restarted
+        // during attachGraph itself, after isStale was consulted.
+        if (sessionEpochRef.current !== myEpoch || !isActiveRef.current) {
+          console.warn('[demist] native session finished starting but is already stale; tearing it down')
+          await handle.stop().catch(e => console.error('[demist] tearing down stale native session failed:', e))
+        } else {
+          nativeSessionRef.current = handle
+        }
       } catch (e) {
         console.error('[demist] failed to start native session:', e)
         setRecordingError('Could not start on-device transcription.')
@@ -1200,6 +1250,10 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
 
   const stopRecording = async () => {
     isActiveRef.current = false
+    // Invalidate any startNativeSession still waiting on the native worker, so
+    // it abandons itself instead of attaching a capture graph after the user
+    // has already stopped (see sessionEpochRef).
+    sessionEpochRef.current++
 
     // Always stop the Whisper MediaRecorder loop
     if (chunkTimerRef.current) clearTimeout(chunkTimerRef.current)
