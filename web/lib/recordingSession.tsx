@@ -726,9 +726,9 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       const base = process.env.NEXT_PUBLIC_SUPABASE_URL!
       const chunkIndex = chunkIndexRef.current++
 
-      // Cloud transcription path only: native mic sessions never call
-      // processChunk at all (see startRecording: the MediaRecorder loop
-      // isn't started when isElectronNative() && mode === 'microphone').
+      // Cloud transcription path only: native sessions (mic or system-audio,
+      // in Electron) never call processChunk at all (see startRecording:
+      // the MediaRecorder loop isn't started when useNativeCapture is true).
       const txRes = await fetch(`${base}/functions/v1/transcribe?session_id=${encodeURIComponent(sessionId)}&chunk_index=${chunkIndex}`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': blob.type || 'audio/webm' },
@@ -740,6 +740,14 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
         } else if (txRes.status === 401) {
           setRecordingError('Session expired. Sign in again to continue recording.')
           stopRecordingRef.current()
+        } else {
+          // Any other status (5xx, 403, ...) used to return here with zero
+          // logging and zero user-visible feedback: recording would just go
+          // silently dark, chunk after chunk, with nothing to tell it apart
+          // from "nothing was said". Surface it instead.
+          const body = await txRes.text().catch(() => '')
+          console.error(`processChunk: transcribe returned ${txRes.status}`, body)
+          setRecordingWarning(`Transcription server error (${txRes.status}). Retrying on the next chunk.`)
         }
         return
       }
@@ -969,10 +977,20 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       })).catch(() => {})
     }
 
-    const useNativeMic = isElectronNative() && mode === 'microphone'
+    // Covers both capture modes in Electron, not just the microphone:
+    // startNativeSession just streams whatever MediaStream it's handed
+    // through the same on-device pipeline, so system-audio ('tab' mode,
+    // labeled "System audio" in the desktop app - see tabCapture.ts) needs
+    // this exactly as much as the microphone does. Originally only checked
+    // mode === 'microphone', which meant System Audio capture on desktop
+    // silently fell through to the cloud MediaRecorder/processChunk loop
+    // below (real per-use OpenAI/Groq cost) and could even start Web
+    // Speech recognition (real audio sent to Google's servers) - a genuine
+    // break of "nothing leaves the device" for that one feature specifically.
+    const useNativeCapture = isElectronNative() && (mode === 'microphone' || mode === 'tab')
     let recordingMode: 'native' | 'whisper+speech_api' | 'whisper' = 'whisper'
 
-    if (useNativeMic) {
+    if (useNativeCapture) {
       // Fully on-device: raw PCM streamed to Whisper via an AudioWorklet +
       // native segmenter (desktop/native/whisper.js + pcm-segmenter.js).
       // Web Speech must NOT start here: it routes audio through Google's
