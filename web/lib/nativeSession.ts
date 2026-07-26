@@ -148,9 +148,36 @@ export async function startNativeSession(
     }
     await audioContext.audioWorklet.addModule('/pcm-worklet.js')
     console.log('[demist] attachGraph: pcm-worklet.js module loaded')
+    // Which device we actually ended up capturing from. getUserMedia happily
+    // returns a live, unmuted track that emits nothing but digital silence
+    // when the selected device is a disconnected mic, a loopback/"Stereo Mix"
+    // input with nothing playing, or one Windows has blocked at the OS
+    // privacy level. Nothing downstream can tell that apart from a quiet
+    // room, so the device identity has to be logged here.
+    const track = mediaStream.getAudioTracks()[0]
+    console.log('[demist] attachGraph: capturing from', JSON.stringify({
+      label: track?.label,
+      enabled: track?.enabled,
+      muted: track?.muted,
+      readyState: track?.readyState,
+      deviceId: track?.getSettings?.().deviceId,
+    }))
+    if (track?.muted) {
+      callbacks.onError?.(`Microphone "${track.label || 'unknown'}" is muted at the system level. Unmute it, or pick a different microphone in Profile.`)
+    }
+
     source = audioContext.createMediaStreamSource(mediaStream)
     worklet = new AudioWorkletNode(audioContext, 'pcm-capture')
     const inputRate = audioContext.sampleRate
+
+    // Silence watchdog. A working microphone always has a noise floor: even a
+    // silent room reads ~0.001-0.005. A sustained EXACT zero means the device
+    // is not really producing audio, which previously surfaced only as a
+    // transcript that stayed empty forever with everything else reporting
+    // success. Reported once per graph, and reset on rebindStream.
+    const graphStartedAt = Date.now()
+    let peakEver = 0
+    let silenceReported = false
 
     // Raw input-rate audio waiting to be downsampled and sent (see BATCH_MS).
     // One reused buffer with a write offset rather than concatenating a new
@@ -168,6 +195,15 @@ export async function startNativeSession(
         for (let i = 0; i < e.data.length; i++) {
           const abs = Math.abs(e.data[i])
           if (abs > peakSinceLastLog) peakSinceLastLog = abs
+        }
+        if (peakSinceLastLog > peakEver) peakEver = peakSinceLastLog
+        if (!silenceReported && peakEver === 0 && Date.now() - graphStartedAt > 5000) {
+          silenceReported = true
+          const name = track?.label || 'the selected microphone'
+          console.error(`[demist] no audio at all from "${name}" after 5s (every sample exactly 0)`)
+          callbacks.onError?.(
+            `No audio is reaching Demist from "${name}". It is connected but sending silence: check Windows mic privacy settings, that the right input is selected in Profile, and that the device is not muted.`,
+          )
         }
         const now = Date.now()
         if (now - lastLogAt >= 1000) {

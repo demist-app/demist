@@ -1036,6 +1036,18 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       recordingMode = 'native'
       try {
         nativeInterimShowingRef.current = false
+        // Tear down any graph left over from a previous attempt before
+        // starting another. This ref used to just be overwritten, which
+        // orphaned the old AudioWorklet: it kept running and kept streaming
+        // PCM into the same native session, so the segmenter received two
+        // interleaved copies of the audio and nothing could stop the leaked
+        // one (its handle was gone). Confirmed from a real session log
+        // showing two independent frame counters climbing in parallel.
+        if (nativeSessionRef.current) {
+          console.warn('[demist] a previous native session was still attached; stopping it first')
+          await nativeSessionRef.current.stop().catch(e => console.error('[demist] stopping stale native session failed:', e))
+          nativeSessionRef.current = null
+        }
         nativeSessionRef.current = await startNativeSession(streamRef.current!, {
           onTranscript: (text) => {
             console.log('[demist] FINAL transcript received:', text)

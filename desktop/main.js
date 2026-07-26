@@ -74,8 +74,13 @@ let transcribeSessionActive = false
 function getWorkerState(role) {
   if (workerStates[role]) return workerStates[role]
   const worker = new Worker(path.join(__dirname, 'native', 'worker.js'))
-  const state = { worker, pending: new Map() }
+  // lastMessageAt is the liveness signal used by the call timeout below. Model
+  // loading emits a steady stream of progress events, so a worker that is
+  // merely blocked in a long synchronous native call still looks alive here,
+  // while one that died without firing 'error'/'exit' goes quiet entirely.
+  const state = { worker, pending: new Map(), lastMessageAt: Date.now() }
   worker.on('message', (msg) => {
+    state.lastMessageAt = Date.now()
     // Push events from the worker (transcript segments, model progress):
     // forward straight to the renderer on one channel, same as before, so
     // the renderer doesn't need to know or care that there are now three
@@ -136,14 +141,24 @@ function getWorkerState(role) {
 // running while capturing precisely nothing, with no error anywhere. Confirmed
 // against a real session - the renderer log stopped dead at
 // "startNativeSession: starting" with neither a success nor a failure line.
+// Generous, because "no reply yet" does NOT mean "broken". onnxruntime's
+// model load and session build are synchronous native calls that block the
+// worker's whole event loop, so a startSession posted while the transcribe
+// worker is still loading whisper sits unprocessed until that finishes. A
+// tighter 30s ceiling was confirmed in real testing to fire against a
+// perfectly healthy worker mid-load and throw away the model it had just
+// spent that time loading, which is worse than the hang it was added for.
 const CALL_TIMEOUT_MS = {
-  startSession: 30_000,
-  stopSession: 30_000,
-  getTranscribeTier: 15_000,
-  setTranscribeTier: 15_000,
-  getModelTier: 15_000,
-  setModelTier: 15_000,
+  startSession: 120_000,
+  stopSession: 120_000,
+  getTranscribeTier: 60_000,
+  setTranscribeTier: 60_000,
+  getModelTier: 60_000,
+  setModelTier: 60_000,
 }
+// How long a worker must be COMPLETELY silent - no progress events, no
+// replies - before a timeout is treated as death rather than slowness.
+const WORKER_SILENT_MS = 60_000
 
 function callWorker(type, ...args) {
   return new Promise((resolve, reject) => {
@@ -156,15 +171,22 @@ function callWorker(type, ...args) {
       timer = setTimeout(() => {
         if (!state.pending.has(id)) return
         state.pending.delete(id)
-        // Tear the worker down rather than leaving a thread we now know is
-        // not answering: workerStates is cleared in the 'exit' handler, so
-        // the next call spawns a fresh one instead of queueing behind a
-        // corpse. Without this, every subsequent attempt hangs too, and the
-        // only fix the user has is restarting the whole app.
-        console.error(`[demist] '${type}' got no reply from the ${role} worker in ${timeoutMs}ms; restarting it`)
-        try { state.worker.terminate() } catch { /* already gone */ }
-        if (workerStates[role] === state) workerStates[role] = null
-        reject(new Error(`On-device ${role} engine stopped responding. Try starting the recording again.`))
+        // Only tear the worker down if it has gone genuinely silent. A worker
+        // blocked in a synchronous native call is still emitting progress
+        // events right up to the moment it blocks, so recent traffic means
+        // "busy", not "dead", and terminating it would discard a model load
+        // in progress and guarantee the next attempt starts from scratch.
+        // Killing a healthy-but-slow worker is the more damaging mistake.
+        const quietFor = Date.now() - state.lastMessageAt
+        if (quietFor >= WORKER_SILENT_MS) {
+          console.error(`[demist] '${type}' got no reply from the ${role} worker in ${timeoutMs}ms and it has been silent for ${quietFor}ms; restarting it`)
+          try { state.worker.terminate() } catch { /* already gone */ }
+          if (workerStates[role] === state) workerStates[role] = null
+          reject(new Error(`On-device ${role} engine stopped responding. Try starting the recording again.`))
+        } else {
+          console.error(`[demist] '${type}' got no reply from the ${role} worker in ${timeoutMs}ms, but it was active ${quietFor}ms ago - leaving it alone (still busy)`)
+          reject(new Error(`The on-device ${role} engine is still busy loading. Try starting the recording again in a moment.`))
+        }
       }, timeoutMs)
     }
     state.pending.set(id, {
