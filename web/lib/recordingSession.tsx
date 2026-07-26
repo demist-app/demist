@@ -340,22 +340,26 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     const withRetry = <T,>(fn: () => Promise<T>, attemptsLeft = 2): Promise<T> =>
       fn().catch(err => attemptsLeft > 1 ? withRetry(fn, attemptsLeft - 1) : Promise.reject(err))
 
-    // Sequential, transcription first, and the record button is released as
-    // soon as THAT one model is ready - it used to fire all three at once and
-    // gate recording on all three finishing.
+    // Sequential, and the record button stays locked until EVERY model a
+    // session will use is loaded. Nothing should still be loading once a
+    // lecture is under way: a model that loads mid-session blocks its worker
+    // and competes for the same cores Whisper needs, which is exactly what
+    // made the opening of a recording transcribe slowest.
     //
-    // Two separate problems with the old version, both confirmed from a real
-    // session log. First, loading whisper (~926MB), OPUS-MT (~448MB) and Llama
-    // 3.2 3B (~2GB) simultaneously means ~3.4GB of concurrent model loading;
-    // onnxruntime and llama.cpp both block their worker's event loop for the
-    // duration, so under that contention the transcribe worker could not even
-    // answer a startSession control message for over 30 seconds, and starting
-    // a recording appeared to hang outright. Loading one at a time removes the
-    // contention. Second, gating on all three meant waiting on models that
-    // recording does not need: transcription needs whisper and nothing else.
-    // Term detection and translation arriving later only means term cards and
-    // translations start appearing a little into the lecture, which is a
-    // vastly better failure mode than not being able to record at all.
+    // Sequential is the important part, and is what the original version got
+    // wrong. It fired all three at once - Whisper (~926MB), OPUS-MT (~448MB)
+    // and Llama 3.2 3B (~2GB), so ~3.4GB of concurrent loading - and both
+    // onnxruntime and llama.cpp block their worker's event loop while loading.
+    // Under that contention the transcribe worker could not answer even a
+    // startSession control message for over 30 seconds (confirmed from a real
+    // main-process log), so starting a recording appeared to hang outright.
+    // Loading one at a time removes the contention while still finishing
+    // everything before the first session.
+    //
+    // Only Whisper is a hard requirement: if term detection or translation
+    // genuinely fail after retries, recording is released anyway with a
+    // warning, because refusing to record at all over a missing term-detection
+    // model is a far worse outcome than a lecture with no term cards.
     ;(async () => {
       try {
         await withRetry(() => native.preloadWhisper())
@@ -365,69 +369,37 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
         setNativeModelProgress(null)
         return
       }
-      // Recording is usable from here; everything below is background work.
-      setNativeModelsReady(true)
-      setNativeModelProgress(null)
-      secondaryPreloadFnRef.current = async () => {
-        // These two are deliberately NOT allowed to block or fail recording.
-        // Reported as a warning so a user who never sees a term card knows
-        // why, rather than silently getting a degraded session.
-        const degraded: string[] = []
+
+      const degraded: string[] = []
+      try {
+        await withRetry(() => native.preloadTermDetection())
+        termDetectionReadyRef.current = true
+      } catch (err) {
+        console.error('[demist] preload failed for term detection model:', err)
+        degraded.push('term detection')
+      }
+      if (translateLang) {
         try {
-          await withRetry(() => native.preloadTermDetection())
+          await withRetry(() => native.preloadTranslation(translateLang))
         } catch (err) {
-          console.error('[demist] preload failed for term detection model:', err)
-          degraded.push('term detection')
-        }
-        if (translateLang) {
-          try {
-            await withRetry(() => native.preloadTranslation(translateLang))
-          } catch (err) {
-            console.error('[demist] preload failed for translation model:', err)
-            degraded.push('translation')
-          }
-        }
-        setNativeModelProgress(null)
-        if (degraded.length) {
-          setRecordingWarning(`Couldn't load the ${degraded.join(' and ')} model${degraded.length > 1 ? 's' : ''}. Recording and transcription still work normally.`)
+          console.error('[demist] preload failed for translation model:', err)
+          degraded.push('translation')
         }
       }
-      maybeStartSecondaryPreloads()
+
+      // Everything that will be used is now resident: recording can start.
+      setNativeModelsReady(true)
+      setNativeModelProgress(null)
+      if (degraded.length) {
+        setRecordingWarning(`Couldn't load the ${degraded.join(' and ')} model${degraded.length > 1 ? 's' : ''}. Recording and transcription still work normally.`)
+      }
     })()
   }
 
-  // Term detection (llama.cpp, ~2GB) and translation (~448MB) are only needed
-  // once a lecture is actually under way, and loading them blocks their
-  // worker's event loop and competes for the same cores Whisper needs. Loading
-  // them right after Whisper meant that the moment a user pressed record - the
-  // exact moment transcription latency matters most - the machine was still
-  // busy pulling in 2.4GB of other models, and the first transcript took far
-  // longer than it should. So: run them while the user is idle on the
-  // dashboard, and if a recording is already in progress, wait until the
-  // transcript is genuinely flowing before starting (see markTranscriptFlowing).
-  const secondaryPreloadFnRef = useRef<null | (() => Promise<void>)>(null)
-  const secondaryPreloadStartedRef = useRef(false)
-  const maybeStartSecondaryPreloads = () => {
-    if (secondaryPreloadStartedRef.current) return
-    const fn = secondaryPreloadFnRef.current
-    if (!fn) return
-    // Mid-recording, defer to markTranscriptFlowing instead of competing with
-    // the transcription that is trying to start up right now.
-    if (isActiveRef.current) return
-    secondaryPreloadStartedRef.current = true
-    fn()
-  }
-
-  // Called on the first real transcript of a session: transcription has
-  // demonstrably started working, so the remaining models can load without
-  // being blamed for a silent start.
-  const markTranscriptFlowing = () => {
-    if (secondaryPreloadStartedRef.current) return
-    const fn = secondaryPreloadFnRef.current
-    if (!fn) return
-    secondaryPreloadStartedRef.current = true
-    fn()
-  }
+  // Whether preloadTermDetection actually succeeded. Gates the first-detection
+  // holdoff below: if the model is already resident there is no lazy load to
+  // stagger, and delaying term cards would be pure cost.
+  const termDetectionReadyRef = useRef(false)
 
   const retryNativeModelPreload = () => {
     const native = getDemistNative()
@@ -797,8 +769,6 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
   // after the native session's stop() resolves, always sees this chunk's text
   // already in detectionBufferRef, not still pending on a promise.
   const accumulateAndMaybeDetect = (chunkText: string, sessionId: string, replaceLast = false) => {
-    // Transcription is demonstrably working; the remaining models may now load.
-    markTranscriptFlowing()
     transcriptRef.current = transcriptRef.current ? transcriptRef.current + ' ' + chunkText : chunkText
     if (!speechModeRef.current || !webSpeechHasFiredRef.current) appendSentence(chunkText, replaceLast)
 
@@ -824,6 +794,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     // path, which has no local model to load, or to the final flush on stop.
     const warmupHoldoff = isElectronNative()
       && isActiveRef.current
+      && !termDetectionReadyRef.current
       && !firstDetectionDoneRef.current
       && Date.now() - recordingStartedAtRef.current < FIRST_DETECTION_DELAY_MS
     if (!warmupHoldoff && (msSinceDetection >= detectionIntervalMs || !isActiveRef.current) && detectionBufferRef.current.trim()) {
@@ -1210,6 +1181,11 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
         }
       } catch (e) {
         console.error('[demist] failed to start native session:', e)
+        // Clear the "Preparing on-device transcription…" notice: it is set
+        // just before startNativeSession and only cleared by onReady, so on
+        // any failure path it used to sit on screen forever, telling the user
+        // to keep waiting for something that had already given up.
+        setRecordingWarning(null)
         setRecordingError('Could not start on-device transcription.')
       }
     } else {
@@ -1355,10 +1331,6 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     // Release the Web Lock so Chrome can resume normal background throttling
     webLockReleaseRef.current?.()
     webLockReleaseRef.current = null
-
-    // Back to idle: if the secondary models never got their chance (a short
-    // session that produced no transcript at all), load them now.
-    maybeStartSecondaryPreloads()
 
     // Let the screen lock again now that recording has stopped
     await releaseWakeLock()
