@@ -101,8 +101,19 @@ const LOW_ENERGY_RMS = 0.004
 
 let activeSession = null
 
-function startSession(onTranscript, emitProgress, onInterim) {
+async function startSession(onTranscript, emitProgress, onInterim) {
   stopSession() // safety: a crashed renderer can leave one dangling
+  // Load the model HERE, before reporting the session as started, rather than
+  // lazily on the first segment. Previously startSession only wired up a
+  // segmenter, so it resolved instantly against a worker with no model loaded
+  // -  which happens whenever this worker respawned after a crash or timeout,
+  // since the preload that warmed it ran in the dead thread's module state.
+  // The renderer then showed a running recording while the first segment
+  // silently triggered a multi-hundred-MB load, and nothing appeared for a
+  // minute or more. Awaiting it here means "session started" genuinely means
+  // "ready to transcribe", progress events reach the UI while it happens, and
+  // a failure surfaces as a failed start instead of a dead recording.
+  await getTranscriber(emitProgress)
   let seq = 0
   let queue = Promise.resolve()
   let lastText = ''

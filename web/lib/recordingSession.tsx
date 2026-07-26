@@ -1089,8 +1089,12 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
           nativeSessionRef.current = null
         }
         const myEpoch = ++sessionEpochRef.current
+        // Audio is captured from this moment, but the native model may still
+        // be loading; say so rather than showing an empty transcript.
+        setRecordingWarning('Preparing on-device transcription… your audio is being recorded and will appear shortly.')
         const handle = await startNativeSession(streamRef.current!, {
           isStale: () => sessionEpochRef.current !== myEpoch || !isActiveRef.current,
+          onReady: () => setRecordingWarning(null),
           onTranscript: (text) => {
             dlog('[demist] FINAL transcript received:', text)
             const sid = sessionIdRef.current

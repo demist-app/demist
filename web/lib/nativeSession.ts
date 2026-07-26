@@ -71,6 +71,12 @@ export interface NativeSessionCallbacks {
   // PCM streams - one silent, one real - shredding the audio and producing
   // fragments like "Shh!" and "Hmm" between correctly transcribed sentences.
   isStale?: () => boolean
+  // Fired once the native backend is genuinely ready and any audio captured
+  // while it was still loading has been flushed to it. Between startRecording
+  // and this call, audio is being captured and buffered but not yet
+  // transcribed, so the UI can say so instead of showing an empty transcript
+  // that looks broken.
+  onReady?: () => void
 }
 
 export interface NativeSessionHandle {
@@ -109,17 +115,32 @@ export async function startNativeSession(
     }
   })
 
-  await native.startSession()
-  if (callbacks.isStale?.()) {
-    // Give the backend session back rather than leaving it running: another
-    // startNativeSession has taken over, and stopSession() here would race
-    // with theirs. Only unsubscribe, so this abandoned call stops delivering
-    // duplicate transcript events to a caller that has moved on.
-    console.warn('[demist] startNativeSession: recording moved on while startSession was pending; abandoning this attempt')
-    unsubscribe()
-    throw new Error('Recording was restarted before on-device transcription finished starting.')
+  // Kick the backend session off but do NOT wait for it before capturing.
+  // startSession can take a while when the model still has to load, and until
+  // this resolved the audio graph did not exist at all, so everything said in
+  // that window was gone for good - the user saw a running timer, an empty
+  // transcript, and lost the opening of their lecture. Now capture begins
+  // immediately and PCM is held in `pendingPcm` until the backend is ready,
+  // then flushed in order. Nothing is dropped and the transcript catches up.
+  const sessionStarted = native.startSession()
+
+  let sessionReady = false
+  let pendingPcm: ArrayBuffer[] = []
+  let pendingSamples = 0
+  // ~2 minutes of 16kHz mono float32 (~7.7MB). A bound is needed because this
+  // grows while the backend is unavailable; past it, drop the OLDEST audio,
+  // since if we are this far behind the recent speech is the salvageable part.
+  const MAX_PENDING_SAMPLES = TARGET_RATE * 120
+
+  const sendOrBuffer = (buf: ArrayBuffer) => {
+    if (sessionReady) { native.sendPcm(buf); return }
+    pendingPcm.push(buf)
+    pendingSamples += buf.byteLength / 4
+    while (pendingSamples > MAX_PENDING_SAMPLES && pendingPcm.length > 1) {
+      const dropped = pendingPcm.shift()!
+      pendingSamples -= dropped.byteLength / 4
+    }
   }
-  dlog('[demist] startNativeSession: backend session started, attaching audio graph next')
 
   let audioContext: AudioContext | null = null
   let source: MediaStreamAudioSourceNode | null = null
@@ -245,7 +266,7 @@ export async function startNativeSession(
         // plain ArrayBuffer at runtime (freshly allocated by downsampleTo16k, or
         // the worklet's own non-shared Float32Array); the cast just narrows past
         // TypedArray.buffer's overly-wide ArrayBufferLike type.
-        native.sendPcm(out.buffer as ArrayBuffer)
+        sendOrBuffer(out.buffer as ArrayBuffer)
       } catch (err) {
         console.error('[demist] pcm-worklet onmessage error:', err)
         callbacks.onError?.(String((err as Error)?.message ?? err))
@@ -261,7 +282,40 @@ export async function startNativeSession(
     silent.connect(audioContext.destination)
   }
 
+  // Capture first, THEN wait for the backend. Audio recorded in between is
+  // buffered by sendOrBuffer and flushed below.
   await attachGraph(stream)
+  dlog('[demist] startNativeSession: capturing; waiting for the on-device model to be ready')
+
+  try {
+    await sessionStarted
+  } catch (err) {
+    await teardownGraph()
+    unsubscribe()
+    throw err
+  }
+
+  if (callbacks.isStale?.()) {
+    // Another startNativeSession has taken over. Tear down the graph this
+    // call attached and stop delivering transcript events, so an abandoned
+    // attempt can never become a second live capture pipeline feeding the
+    // same native session (which shredded the audio when it happened).
+    console.warn('[demist] startNativeSession: recording moved on while startSession was pending; abandoning this attempt')
+    await teardownGraph()
+    unsubscribe()
+    throw new Error('Recording was restarted before on-device transcription finished starting.')
+  }
+
+  // Backend is ready: release everything captured while it was loading, in
+  // order, then switch to streaming straight through.
+  sessionReady = true
+  if (pendingPcm.length) {
+    dlog(`[demist] startNativeSession: flushing ${(pendingSamples / TARGET_RATE).toFixed(1)}s of audio buffered while the model loaded`)
+    for (const buf of pendingPcm) native.sendPcm(buf)
+  }
+  pendingPcm = []
+  pendingSamples = 0
+  callbacks.onReady?.()
   dlog('[demist] startNativeSession: audio graph attached, streaming should be live now')
 
   let stopped = false
