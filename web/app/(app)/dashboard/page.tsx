@@ -57,7 +57,7 @@ export default function Dashboard() {
     recordingError, recordingWarning, wakeLockUnsupported, captureMode, setCaptureMode, capturedTabTitle,
     sentences, translatedSentences, reviewTerms, setReviewTerms, sessionSubject, setSessionSubject,
     sessionSubjectRef, paywall, setPaywall, localTranslate, liveTranslateAvailable,
-    nativeModelsReady, nativeModelProgress,
+    nativeModelsReady, nativeModelProgress, nativeModelsError, retryNativeModelPreload,
     vizAnalyserRef, chunkPeakRef, startRecording, stopRecording, dismissTerm, pinTerm, markKnown,
     retrySessionSummarize, toggleExpandSession,
   } = useRecordingSession()
@@ -443,7 +443,7 @@ export default function Dashboard() {
                   ref={btnRef}
                   onClick={() => nativeModelsReady && startRecording(captureMode)}
                   disabled={!nativeModelsReady}
-                  aria-label={nativeModelsReady ? 'Start recording' : 'Preparing on-device models'}
+                  aria-label={nativeModelsReady ? 'Start recording' : nativeModelsError ? 'On-device models failed to load' : 'Preparing on-device models'}
                   className="relative z-10 w-[96px] h-[96px] rounded-full dark:bg-white/[0.08] bg-[#FAF9F6] border border-yellow-500/40 hover:bg-yellow-500/10 hover:border-yellow-500/60 hover:shadow-[0_0_48px_rgba(161,98,7,0.30)] dark:hover:shadow-[0_0_48px_rgba(251,191,36,0.30)] active:scale-[0.97] flex items-center justify-center transition-all duration-200 select-none shadow-sm disabled:opacity-40 disabled:pointer-events-none disabled:hover:shadow-none"
                 >
                   <MicIcon />
@@ -451,7 +451,9 @@ export default function Dashboard() {
               </div>
               <div className="flex items-center gap-1.5">
                 <p className="dark:text-white/90 text-gray-900 font-semibold text-[17px]">
-                  {!nativeModelsReady ? 'Preparing on-device models…' : sessionSubject ? `Ready for ${sessionSubject}` : 'Start recording'}
+                  {nativeModelsReady
+                    ? sessionSubject ? `Ready for ${sessionSubject}` : 'Start recording'
+                    : nativeModelsError ? 'Couldn\'t load on-device models' : 'Preparing on-device models…'}
                 </p>
                 {nativeModelsReady && (
                   <button
@@ -463,7 +465,19 @@ export default function Dashboard() {
                   </button>
                 )}
               </div>
-              {!nativeModelsReady ? (
+              {nativeModelsReady ? (
+                <p className="text-gray-600 text-[13px] mt-1.5">Tap the mic before your next lecture</p>
+              ) : nativeModelsError ? (
+                <div className="w-full max-w-[240px] mt-2.5 flex flex-col items-center gap-2">
+                  <p className="text-red-400 text-[12px] text-center">{nativeModelsError}</p>
+                  <button
+                    onClick={retryNativeModelPreload}
+                    className="text-[12px] font-medium text-yellow-600 dark:text-yellow-400 hover:opacity-80 transition-opacity px-3 py-1 rounded-full border dark:border-yellow-500/30 border-yellow-600/30"
+                  >
+                    Retry
+                  </button>
+                </div>
+              ) : (
                 <div className="w-full max-w-[220px] mt-2.5">
                   <p className="text-gray-600 text-[12px] text-center mb-1.5">
                     {nativeModelProgress
@@ -478,8 +492,6 @@ export default function Dashboard() {
                   </div>
                   <p className="text-gray-500 text-[11px] text-center mt-1.5">One-time setup. Only needed the first time, or after a model change.</p>
                 </div>
-              ) : (
-                <p className="text-gray-600 text-[13px] mt-1.5">Tap the mic before your next lecture</p>
               )}
 
               {/* Subject picker: only shown while actively editing (or before any subject is set) */}

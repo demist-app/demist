@@ -23,7 +23,7 @@ import { checkRecordingLimit } from '@/lib/subscription'
 import { useEntitlements } from '@/lib/entitlements'
 import { useNativeTranslate } from '@/lib/useNativeTranslate'
 import { extractCandidates } from '@/lib/extractTerms'
-import { isElectronNative, getDemistNative } from '@/lib/electronNative'
+import { isElectronNative, getDemistNative, type DemistNative } from '@/lib/electronNative'
 import { startNativeSession, type NativeSessionHandle } from '@/lib/nativeSession'
 import { isEligibleForSummary } from '@/lib/summaryEligibility'
 
@@ -132,6 +132,8 @@ interface RecordingSessionValue {
   liveTranslateAvailable: boolean
   nativeModelsReady: boolean
   nativeModelProgress: { label: string; pct: number } | null
+  nativeModelsError: string | null
+  retryNativeModelPreload: () => void
   vizAnalyserRef: React.RefObject<AnalyserNode | null>
   chunkPeakRef: React.RefObject<number>
   startRecording: (mode?: CaptureMode) => Promise<void>
@@ -179,6 +181,12 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
   // a multi-hundred-MB download instead of being transcribed.
   const [nativeModelsReady, setNativeModelsReady] = useState<boolean>(() => !isElectronNative())
   const [nativeModelProgress, setNativeModelProgress] = useState<{ label: string; pct: number } | null>(null)
+  // Set only when preload genuinely fails (see runNativePreload below), not
+  // merely "still in progress". Distinct from nativeModelsReady being false
+  // during a normal download, so the UI can tell "still loading" apart from
+  // "something actually went wrong" and offer a retry instead of a
+  // perpetual, unexplained spinner.
+  const [nativeModelsError, setNativeModelsError] = useState<string | null>(null)
 
   const profileRef = useRef<Profile | null>(null)
   const sessionSubjectRef = useRef<string>('')
@@ -296,6 +304,53 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     }
   }, [])
 
+  // Loads every required on-device model, retrying each once on failure (a
+  // dropped connection to Hugging Face's CDN is confirmed to happen in
+  // practice; the desktop-side caches evict a failed load instead of pinning
+  // a permanently rejected promise, so retrying here actually attempts the
+  // download again rather than replaying the same failure). Called from the
+  // mount effect below, and again from retryNativeModelPreload if it fails.
+  //
+  // Previously used Promise.allSettled(...).then(() => setNativeModelsReady(true))
+  // unconditionally - allSettled resolves once every promise has *settled*,
+  // fulfilled or rejected, so a genuine download failure (even after both
+  // retries) still flipped nativeModelsReady to true, silently unblocking
+  // the record button. Confirmed by real usage, twice: recording started
+  // normally, but the actual model load then happened lazily on first real
+  // use, deep into the session - which looks exactly like "it takes minutes
+  // to start working" but is really a failed one-time setup masquerading as
+  // success. Now only claims readiness if every task genuinely succeeded.
+  const runNativePreload = (native: DemistNative, translateLang?: string | null) => {
+    setNativeModelsError(null)
+    const withRetry = <T,>(fn: () => Promise<T>, attemptsLeft = 2): Promise<T> =>
+      fn().catch(err => attemptsLeft > 1 ? withRetry(fn, attemptsLeft - 1) : Promise.reject(err))
+    const labeledTasks: { label: string; task: Promise<unknown> }[] = [
+      { label: 'transcription model', task: withRetry(() => native.preloadWhisper()) },
+      { label: 'term detection model', task: withRetry(() => native.preloadTermDetection()) },
+    ]
+    if (translateLang) {
+      labeledTasks.push({ label: 'translation model', task: withRetry(() => native.preloadTranslation(translateLang)) })
+    }
+    Promise.allSettled(labeledTasks.map(t => t.task)).then((results) => {
+      const failed = results
+        .map((r, i) => ({ r, label: labeledTasks[i].label }))
+        .filter((x): x is { r: PromiseRejectedResult; label: string } => x.r.status === 'rejected')
+      if (failed.length > 0) {
+        failed.forEach(({ label, r }) => console.error(`[demist] preload failed for ${label}:`, r.reason))
+        setNativeModelsError(`Couldn't load ${failed.map(f => f.label).join(', ')}. Check your connection and try again.`)
+        setNativeModelProgress(null)
+        return
+      }
+      setNativeModelsReady(true)
+      setNativeModelProgress(null)
+    })
+  }
+
+  const retryNativeModelPreload = () => {
+    const native = getDemistNative()
+    if (native) runNativePreload(native, profileRef.current?.translate_to)
+  }
+
   useEffect(() => {
     const supabase = createClient()
     ;(async () => {
@@ -352,27 +407,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
           if (label === undefined || pct === undefined) return
           setNativeModelProgress(pct >= 100 ? null : { label, pct })
         })
-        // A one-time-setup download failing outright (e.g. a dropped
-        // connection to Hugging Face's CDN, confirmed happening in
-        // practice) shouldn't need an app restart to recover from: retry
-        // once. The desktop-side caches (native/whisper.js,
-        // native/translate.js) now evict a failed load instead of pinning
-        // a permanently rejected promise, so this retry actually attempts
-        // the download again rather than replaying the same failure.
-        const withRetry = <T,>(fn: () => Promise<T>, attemptsLeft = 2): Promise<T> =>
-          fn().catch(err => attemptsLeft > 1 ? withRetry(fn, attemptsLeft - 1) : Promise.reject(err))
-        const tasks: Promise<unknown>[] = [
-          withRetry(() => native.preloadWhisper()),
-          withRetry(() => native.preloadTermDetection()),
-        ]
-        if ((prof as Profile)?.translate_to) {
-          const lang = (prof as Profile).translate_to as string
-          tasks.push(withRetry(() => native.preloadTranslation(lang)))
-        }
-        Promise.allSettled(tasks).then(() => {
-          setNativeModelsReady(true)
-          setNativeModelProgress(null)
-        })
+        runNativePreload(native, (prof as Profile)?.translate_to)
       }
 
       const known = new Set<string>()
@@ -834,7 +869,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     // let a session start into an in-progress model download, which would
     // otherwise silently lose whatever's said until the download finishes.
     if (isElectronNative() && !nativeModelsReady) {
-      setRecordingError('Still preparing on-device models, one moment…')
+      setRecordingError(nativeModelsError ?? 'Still preparing on-device models, one moment…')
       return
     }
     startingRef.current = true
@@ -1431,7 +1466,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     recordingError, recordingWarning, wakeLockUnsupported, captureMode, setCaptureMode, capturedTabTitle,
     sentences, translatedSentences, liveSessionId, reviewTerms, setReviewTerms, sessionSubject, setSessionSubject,
     sessionSubjectRef, paywall, setPaywall, localTranslate, localTranslateUsable, liveTranslateAvailable,
-    nativeModelsReady, nativeModelProgress,
+    nativeModelsReady, nativeModelProgress, nativeModelsError, retryNativeModelPreload,
     vizAnalyserRef, chunkPeakRef, startRecording, stopRecording, dismissTerm, pinTerm, markKnown,
     maybeGenerateOnDashboard, retrySessionSummarize, toggleExpandSession,
   }
