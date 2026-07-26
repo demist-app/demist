@@ -190,8 +190,16 @@ function normalize(s) {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
 }
 
-function parseTermLines(response, transcript) {
-  const normalizedTranscript = normalize(transcript)
+function parseTermLines(response, transcript, recentContext) {
+  // Checked against transcript AND recentContext together, not just
+  // transcript: the prompt itself explicitly hands the model both (see
+  // buildDetectPrompt below) and allows it to draw on recent context, so a
+  // term said right at the boundary of the previous detection window (now
+  // sitting in recentContext, not this call's transcript) is legitimate, not
+  // hallucinated. Confirmed by real usage: "packet switching" and "network
+  // adapter" were both genuinely said but dropped here before this fix,
+  // because they'd landed in recentContext rather than the current chunk.
+  const normalizedHaystack = normalize(`${recentContext ?? ''} ${transcript}`)
   const out = []
   for (const line of response.split('\n')) {
     const m = line.match(TERM_LINE_RE)
@@ -202,11 +210,10 @@ function parseTermLines(response, transcript) {
     // said term ("Algorithm") once nearby context was full of related
     // jargon, and separately producing a real term with "context": "None",
     // i.e. admitting it had no real anchor for it. Requiring the term
-    // itself to actually appear in this transcript chunk is a cheap, direct
-    // check against both: a genuinely-extracted term is definitionally
-    // present in what was actually said.
-    if (!normalizedTranscript.includes(normalize(m[1]))) {
-      console.warn('[demist] dropped likely-hallucinated term (not found in transcript):', m[1])
+    // itself to actually appear in what was said (this chunk or recent
+    // context) is a cheap, direct check against both.
+    if (!normalizedHaystack.includes(normalize(m[1]))) {
+      console.warn('[demist] dropped likely-hallucinated term (not found in transcript or recent context):', m[1])
       continue
     }
     out.push({ term: m[1], definition: m[2], context: m[3] })
@@ -241,7 +248,7 @@ async function runDetectOnce(transcript, recentContext, subject, year) {
     // detection stops working" both being the same underlying bug.
     session.resetChatHistory()
     const response = await session.prompt(prompt)
-    return parseTermLines(response, transcript)
+    return parseTermLines(response, transcript, recentContext)
   })
   // Swallow so one failed call doesn't poison the queue for calls behind it.
   queue = run.catch(() => {})
