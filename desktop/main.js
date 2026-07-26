@@ -133,11 +133,24 @@ ipcMain.handle('demist:setTranscribeTier', (_event, tier) => callWorker('setTran
 // ── PCM stream: high-frequency, fire-and-forget ─────────────────────────────
 // The renderer->main hop is a structured-clone copy (see preload.js: Electron's
 // ipcRenderer.postMessage can't transfer a raw ArrayBuffer). This hop, main
-// process -> worker thread, is real zero-copy transfer: worker_threads'
+// process -> worker thread, is meant to be a real zero-copy transfer: worker_threads'
 // postMessage is Node's own implementation and does support it.
+//
+// message.buffer as it arrives here is reconstructed by Electron's own IPC
+// internals, not Node's - confirmed by real testing that passing it straight
+// into worker.postMessage's transferList crashes the main process outright
+// with "DataCloneError: Found invalid value in transferList" on every single
+// PCM frame (Node's worker_threads transfer check doesn't recognize it as a
+// genuine transferable ArrayBuffer, even though it behaves like one). That
+// crash silently killed transcription entirely, on every capture mode,
+// regardless of what audio was actually said. Copying the bytes into a
+// freshly-allocated, genuinely Node-native ArrayBuffer before transferring
+// fixes it; the copy cost is negligible for a PCM frame this small.
 ipcMain.on('demist:pcm', (_event, message) => {
-  const buffer = message.buffer
-  getWorkerState('transcribe').worker.postMessage({ type: 'pcm', buffer }, [buffer])
+  const src = new Uint8Array(message.buffer)
+  const copy = new Uint8Array(src.length)
+  copy.set(src)
+  getWorkerState('transcribe').worker.postMessage({ type: 'pcm', buffer: copy.buffer }, [copy.buffer])
 })
 
 // ── Wake lock (powerSaveBlocker; navigator.wakeLock never grants in Electron,
