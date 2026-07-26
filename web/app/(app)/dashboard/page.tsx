@@ -275,6 +275,25 @@ export default function Dashboard() {
               </div>
             )}
 
+            {/* Status while recording. These used to render ONLY on the idle
+                screen, so every message that exists to explain a recording
+                that is not producing text - "preparing on-device
+                transcription", the no-audio-from-this-microphone watchdog, a
+                native engine that died mid-session - was invisible during the
+                one state where it matters. The transcript panel just sat on
+                "Transcription will appear here as you speak…" with no way to
+                tell "still warming up" from "silently broken". */}
+            {recordingWarning && (
+              <div className="relative z-10 mx-4 sm:mx-6 mt-4 rounded-lg px-4 py-2 text-[13px] leading-relaxed dark:bg-amber-500/10 bg-amber-50 border dark:border-amber-500/25 border-amber-200 dark:text-amber-300 text-amber-800" role="status">
+                {recordingWarning}
+              </div>
+            )}
+            {recordingError && (
+              <div className="relative z-10 mx-4 sm:mx-6 mt-4 rounded-lg px-4 py-2 text-[13px] leading-relaxed dark:bg-red-500/10 bg-red-50 border dark:border-red-500/25 border-red-200 dark:text-red-300 text-red-700" role="alert">
+                {recordingError}
+              </div>
+            )}
+
             {/* Visualizer */}
             <div className="shrink-0 flex flex-col items-center justify-center pt-8 pb-2 relative z-10">
               <div className="hidden sm:flex items-center gap-2 mb-6">
