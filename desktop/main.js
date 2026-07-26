@@ -67,6 +67,9 @@ const CALL_ROLE = {
 
 const workerStates = {} // role -> { worker, pending: Map }
 let nextRequestId = 1
+// Whether a live transcription session is meant to be running on the
+// 'transcribe' worker, so its death can be reported rather than swallowed.
+let transcribeSessionActive = false
 
 function getWorkerState(role) {
   if (workerStates[role]) return workerStates[role]
@@ -101,23 +104,87 @@ function getWorkerState(role) {
     for (const entry of state.pending.values()) entry.reject(new Error('Native worker exited unexpectedly'))
     state.pending.clear()
     workerStates[role] = null
+    // A replacement transcribe worker starts with no session (activeSession
+    // lives in that thread's module state), so feedPcm on it silently
+    // discards every frame. Recording would carry on looking healthy while
+    // transcribing nothing at all, for the rest of the lecture. Tell the
+    // renderer instead of letting it find out never.
+    if (role === 'transcribe' && transcribeSessionActive) {
+      transcribeSessionActive = false
+      mainWindow?.webContents.send('demist:event', {
+        event: 'sessionLost',
+        payload: { message: 'On-device transcription stopped unexpectedly. Stop and restart the recording to resume.' },
+      })
+    }
   })
   workerStates[role] = state
   return state
 }
 
+// Control messages that must be near-instant once their model is loaded, and
+// the ceiling we give each before declaring the worker unhealthy. Deliberately
+// NOT applied to preloads or inference (detectTerms/summarize/translate): a
+// first-run model download legitimately takes minutes and a llama.cpp
+// generation many seconds, so a timeout there would break working features.
+//
+// This exists because a worker thread can die from a native crash without
+// ever firing 'error' or 'exit' (see the exit handler above - that was
+// confirmed in real testing). When that happened there was nothing to settle
+// the pending promise, so ipcRenderer.invoke('demist:startSession') hung
+// forever: the renderer sat at `await native.startSession()`, never reached
+// the point where it attaches the AudioWorklet, and recording appeared to be
+// running while capturing precisely nothing, with no error anywhere. Confirmed
+// against a real session - the renderer log stopped dead at
+// "startNativeSession: starting" with neither a success nor a failure line.
+const CALL_TIMEOUT_MS = {
+  startSession: 30_000,
+  stopSession: 30_000,
+  getTranscribeTier: 15_000,
+  setTranscribeTier: 15_000,
+  getModelTier: 15_000,
+  setModelTier: 15_000,
+}
+
 function callWorker(type, ...args) {
   return new Promise((resolve, reject) => {
     const id = nextRequestId++
-    const state = getWorkerState(CALL_ROLE[type])
-    state.pending.set(id, { resolve, reject })
+    const role = CALL_ROLE[type]
+    const state = getWorkerState(role)
+    const timeoutMs = CALL_TIMEOUT_MS[type]
+    let timer = null
+    if (timeoutMs) {
+      timer = setTimeout(() => {
+        if (!state.pending.has(id)) return
+        state.pending.delete(id)
+        // Tear the worker down rather than leaving a thread we now know is
+        // not answering: workerStates is cleared in the 'exit' handler, so
+        // the next call spawns a fresh one instead of queueing behind a
+        // corpse. Without this, every subsequent attempt hangs too, and the
+        // only fix the user has is restarting the whole app.
+        console.error(`[demist] '${type}' got no reply from the ${role} worker in ${timeoutMs}ms; restarting it`)
+        try { state.worker.terminate() } catch { /* already gone */ }
+        if (workerStates[role] === state) workerStates[role] = null
+        reject(new Error(`On-device ${role} engine stopped responding. Try starting the recording again.`))
+      }, timeoutMs)
+    }
+    state.pending.set(id, {
+      resolve: (v) => { if (timer) clearTimeout(timer); resolve(v) },
+      reject: (e) => { if (timer) clearTimeout(timer); reject(e) },
+    })
     state.worker.postMessage({ id, type, args })
   })
 }
 
 // ── Request/response bridge ────────────────────────────────────────────────
-ipcMain.handle('demist:startSession', () => callWorker('startSession'))
-ipcMain.handle('demist:stopSession', () => callWorker('stopSession'))
+ipcMain.handle('demist:startSession', async () => {
+  const result = await callWorker('startSession')
+  transcribeSessionActive = true
+  return result
+})
+ipcMain.handle('demist:stopSession', async () => {
+  transcribeSessionActive = false
+  return callWorker('stopSession')
+})
 ipcMain.handle('demist:preloadWhisper', () => callWorker('preloadWhisper'))
 ipcMain.handle('demist:preloadTermDetection', () => callWorker('preloadTermDetection'))
 ipcMain.handle('demist:preloadTranslation', (_event, lang) => callWorker('preloadTranslation', lang))

@@ -1072,8 +1072,13 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
           onModelProgress: (label, pct) => {
             setRecordingWarning(pct >= 100 ? null : `Downloading on-device model (${label})… ${pct}%`)
           },
+          // Previously console-only, which meant the one failure the user
+          // most needs to know about - on-device transcription having died
+          // while the recording carries on looking perfectly healthy - was
+          // invisible outside DevTools.
           onError: (message) => {
             console.error('[demist] native session error:', message)
+            setRecordingWarning(message)
           },
         })
       } catch (e) {

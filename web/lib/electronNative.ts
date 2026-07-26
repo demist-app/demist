@@ -6,8 +6,19 @@
 // everywhere else callers fall back to the cloud edge functions.
 
 export interface NativeEvent {
-  event: 'transcript' | 'interimTranscript' | 'modelProgress'
-  payload: { seq?: number; text?: string; label?: string; pct?: number; file?: string | null }
+  // 'sessionLost': the native transcription worker died mid-recording and was
+  // replaced by one with no session, so nothing further would be transcribed
+  // (see the 'exit' handler in desktop/main.js). Reported so the UI can say so
+  // rather than keep showing a recording that silently captures nothing.
+  event: 'transcript' | 'interimTranscript' | 'modelProgress' | 'sessionLost'
+  payload: {
+    seq?: number
+    text?: string
+    label?: string
+    pct?: number
+    file?: string | null
+    message?: string
+  }
 }
 
 export interface DemistNative {

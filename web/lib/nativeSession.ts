@@ -11,9 +11,30 @@
 import { getDemistNative } from '@/lib/electronNative'
 
 const TARGET_RATE = 16000
+// How much audio to accumulate before sending one message across the bridge.
+// The AudioWorklet hands us a render quantum (128 samples) at a time, which
+// at 48kHz is a callback every ~2.7ms: sending each one straight through
+// meant ~375 IPC messages per second, every one of them paying a
+// structured-clone hop renderer -> main and a second postMessage hop main ->
+// worker thread, to carry ~170 bytes of audio. Batching to 100ms cuts that to
+// 10 messages per second for exactly the same audio. 100ms is far below any
+// latency that matters here (the segmenter's own thresholds are measured in
+// seconds) and well under the smallest thing it can detect.
+const BATCH_MS = 100
 
-function downsampleTo16k(input: Float32Array, inputRate: number): Float32Array {
-  if (inputRate === TARGET_RATE) return input
+// Returns the downsampled audio plus the number of input samples actually
+// consumed. The caller carries the unconsumed tail into the next batch:
+// inputRate/TARGET_RATE is rarely an integer multiple of the buffer length,
+// so dropping the remainder each time (as this did when it ran per 128-sample
+// quantum) silently discarded ~1.6% of every frame and slowly compressed the
+// audio timeline.
+function downsampleTo16k(
+  input: Float32Array,
+  inputRate: number,
+): { out: Float32Array; consumed: number } {
+  // .slice(), not the input itself: callers pass a view into a reused
+  // accumulation buffer, and `out.buffer` is what gets handed to the bridge.
+  if (inputRate === TARGET_RATE) return { out: input.slice(), consumed: input.length }
   const ratio = inputRate / TARGET_RATE
   const outLength = Math.floor(input.length / ratio)
   const out = new Float32Array(outLength)
@@ -26,7 +47,7 @@ function downsampleTo16k(input: Float32Array, inputRate: number): Float32Array {
     for (let j = start; j < end; j++) sum += input[j]
     out[i] = end > start ? sum / (end - start) : 0
   }
-  return out
+  return { out, consumed: Math.floor(outLength * ratio) }
 }
 
 export interface NativeSessionCallbacks {
@@ -73,6 +94,8 @@ export async function startNativeSession(
       if (msg.payload.label !== undefined && msg.payload.pct !== undefined) {
         callbacks.onModelProgress?.(msg.payload.label, msg.payload.pct)
       }
+    } else if (msg.event === 'sessionLost') {
+      callbacks.onError?.(msg.payload.message ?? 'On-device transcription stopped unexpectedly.')
     }
   })
 
@@ -106,12 +129,38 @@ export async function startNativeSession(
 
   const attachGraph = async (mediaStream: MediaStream) => {
     audioContext = new AudioContext()
-    console.log('[demist] attachGraph: AudioContext sampleRate =', audioContext.sampleRate)
+    // This is a SECOND AudioContext, separate from the visualizer/gain one
+    // startRecording creates: that one is created and resumed synchronously
+    // inside the click gesture, but this one is created several awaits later
+    // (recording-limit check, getUserMedia, the sessions insert, wake lock),
+    // by which point the gesture is long consumed. A context created in that
+    // state can start "suspended", and a suspended context never runs its
+    // worklet's process() at all - no PCM is ever emitted, no frames are
+    // logged below, and capture is silently dead end to end while everything
+    // upstream reports success. resume() is a no-op when it is already
+    // running, so this only ever helps. rebindStream re-enters here on a mic
+    // reconnect and needs the same treatment.
+    await audioContext.resume().catch(() => {})
+    console.log('[demist] attachGraph: AudioContext sampleRate =', audioContext.sampleRate, 'state =', audioContext.state)
+    if (audioContext.state !== 'running') {
+      console.error('[demist] attachGraph: AudioContext is not running (state:', audioContext.state + '). No PCM will be captured.')
+      callbacks.onError?.(`Audio capture could not start (audio context ${audioContext.state}).`)
+    }
     await audioContext.audioWorklet.addModule('/pcm-worklet.js')
     console.log('[demist] attachGraph: pcm-worklet.js module loaded')
     source = audioContext.createMediaStreamSource(mediaStream)
     worklet = new AudioWorkletNode(audioContext, 'pcm-capture')
     const inputRate = audioContext.sampleRate
+
+    // Raw input-rate audio waiting to be downsampled and sent (see BATCH_MS).
+    // One reused buffer with a write offset rather than concatenating a new
+    // array per quantum: concatenation would allocate ~37 progressively larger
+    // arrays per batch (megabytes of garbage per second) to save 375 small
+    // ones, which is the wrong trade. Sized with headroom for one oversized
+    // quantum plus the few samples of remainder carried between batches.
+    const batchTarget = Math.round((inputRate * BATCH_MS) / 1000)
+    const batch = new Float32Array(batchTarget + 4096)
+    let filled = 0
 
     worklet.port.onmessage = (e: MessageEvent<Float32Array>) => {
       try {
@@ -126,12 +175,22 @@ export async function startNativeSession(
           lastLogAt = now
           peakSinceLastLog = 0
         }
-        const pcm16k = downsampleTo16k(e.data, inputRate)
+
+        // Defensive: a quantum larger than the headroom would overflow the
+        // buffer. Drop the backlog rather than throw, so capture continues.
+        if (filled + e.data.length > batch.length) filled = 0
+        batch.set(e.data, filled)
+        filled += e.data.length
+        if (filled < batchTarget) return
+
+        const { out, consumed } = downsampleTo16k(batch.subarray(0, filled), inputRate)
+        batch.copyWithin(0, consumed, filled)
+        filled -= consumed
         // Transfer the underlying buffer: zero-copy across the bridge. Always a
         // plain ArrayBuffer at runtime (freshly allocated by downsampleTo16k, or
         // the worklet's own non-shared Float32Array); the cast just narrows past
         // TypedArray.buffer's overly-wide ArrayBufferLike type.
-        native.sendPcm(pcm16k.buffer as ArrayBuffer)
+        native.sendPcm(out.buffer as ArrayBuffer)
       } catch (err) {
         console.error('[demist] pcm-worklet onmessage error:', err)
         callbacks.onError?.(String((err as Error)?.message ?? err))

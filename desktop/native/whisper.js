@@ -153,14 +153,22 @@ function startSession(onTranscript, emitProgress, onInterim) {
     }),
   )
 
-  activeSession = {
+  const session = {
     feed: (pcm) => segmenter.feed(pcm),
     stop: async () => {
       segmenter.flush()
       await queue // let in-flight segments finish so final words aren't lost
-      activeSession = null
+      // Only clear if this is still the live session. stopSession() is async
+      // and startSession() above calls it WITHOUT awaiting, so a new session
+      // starting while the previous one is still draining its queue used to
+      // be wiped out by that older stop() resolving afterwards: activeSession
+      // went null under a session that had just started, and every feedPcm
+      // call from then on was silently discarded. Starting a second recording
+      // shortly after ending the first is the normal way to hit this.
+      if (activeSession === session) activeSession = null
     },
   }
+  activeSession = session
   return true
 }
 
