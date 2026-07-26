@@ -59,10 +59,12 @@ export async function startNativeSession(
   stream: MediaStream,
   callbacks: NativeSessionCallbacks,
 ): Promise<NativeSessionHandle> {
+  console.log('[demist] startNativeSession: starting')
   const native = getDemistNative()
   if (!native) throw new Error('startNativeSession called outside the desktop app')
 
   const unsubscribe = native.onEvent((msg) => {
+    console.log('[demist] native event:', msg.event, msg.payload)
     if (msg.event === 'transcript') {
       if (msg.payload.text) callbacks.onTranscript(msg.payload.text)
     } else if (msg.event === 'interimTranscript') {
@@ -75,6 +77,7 @@ export async function startNativeSession(
   })
 
   await native.startSession()
+  console.log('[demist] startNativeSession: backend session started, attaching audio graph next')
 
   let audioContext: AudioContext | null = null
   let source: MediaStreamAudioSourceNode | null = null
@@ -91,15 +94,38 @@ export async function startNativeSession(
     await ctx?.close().catch(() => {})
   }
 
+  // Diagnostic only: logs a running frame count and the loudest sample seen
+  // once a second, so DevTools shows whether real audio is actually reaching
+  // the worklet at all, and roughly how loud it is, without needing a
+  // terminal (desktop/native/*.js's own console output goes to the main
+  // process's stdout, invisible unless launched from a terminal - this is
+  // the renderer-side equivalent, visible in the app's own DevTools).
+  let frameCount = 0
+  let peakSinceLastLog = 0
+  let lastLogAt = 0
+
   const attachGraph = async (mediaStream: MediaStream) => {
     audioContext = new AudioContext()
+    console.log('[demist] attachGraph: AudioContext sampleRate =', audioContext.sampleRate)
     await audioContext.audioWorklet.addModule('/pcm-worklet.js')
+    console.log('[demist] attachGraph: pcm-worklet.js module loaded')
     source = audioContext.createMediaStreamSource(mediaStream)
     worklet = new AudioWorkletNode(audioContext, 'pcm-capture')
     const inputRate = audioContext.sampleRate
 
     worklet.port.onmessage = (e: MessageEvent<Float32Array>) => {
       try {
+        frameCount++
+        for (let i = 0; i < e.data.length; i++) {
+          const abs = Math.abs(e.data[i])
+          if (abs > peakSinceLastLog) peakSinceLastLog = abs
+        }
+        const now = Date.now()
+        if (now - lastLogAt >= 1000) {
+          console.log(`[demist] pcm frames: ${frameCount} total, peak level since last log: ${peakSinceLastLog.toFixed(4)} (quiet room/silence is usually < 0.01; speaking should be well above that)`)
+          lastLogAt = now
+          peakSinceLastLog = 0
+        }
         const pcm16k = downsampleTo16k(e.data, inputRate)
         // Transfer the underlying buffer: zero-copy across the bridge. Always a
         // plain ArrayBuffer at runtime (freshly allocated by downsampleTo16k, or
@@ -107,6 +133,7 @@ export async function startNativeSession(
         // TypedArray.buffer's overly-wide ArrayBufferLike type.
         native.sendPcm(pcm16k.buffer as ArrayBuffer)
       } catch (err) {
+        console.error('[demist] pcm-worklet onmessage error:', err)
         callbacks.onError?.(String((err as Error)?.message ?? err))
       }
     }
@@ -121,6 +148,7 @@ export async function startNativeSession(
   }
 
   await attachGraph(stream)
+  console.log('[demist] startNativeSession: audio graph attached, streaming should be live now')
 
   let stopped = false
   return {

@@ -990,6 +990,8 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     const useNativeCapture = isElectronNative() && (mode === 'microphone' || mode === 'tab')
     let recordingMode: 'native' | 'whisper+speech_api' | 'whisper' = 'whisper'
 
+    console.log('[demist] capture path decision: useNativeCapture =', useNativeCapture, '(mode:', mode, ', isElectronNative:', isElectronNative(), ')')
+
     if (useNativeCapture) {
       // Fully on-device: raw PCM streamed to Whisper via an AudioWorklet +
       // native segmenter (desktop/native/whisper.js + pcm-segmenter.js).
@@ -1001,6 +1003,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
         nativeInterimShowingRef.current = false
         nativeSessionRef.current = await startNativeSession(streamRef.current!, {
           onTranscript: (text) => {
+            console.log('[demist] FINAL transcript received:', text)
             const sid = sessionIdRef.current
             if (sid) accumulateAndMaybeDetect(text, sid, nativeInterimShowingRef.current)
             nativeInterimShowingRef.current = false
@@ -1016,6 +1019,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
           // real onTranscript above always follows for the same utterance
           // and replaces this row rather than leaving it in place.
           onInterimTranscript: (text) => {
+            console.log('[demist] interim transcript received:', text)
             if (!nativeInterimShowingRef.current) {
               // Reserve this sentence's index now (matching what
               // appendSentence would do), so the eventual finalizing
