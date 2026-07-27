@@ -247,11 +247,42 @@ ipcMain.handle('demist:setTranscribeTier', (_event, tier) => callWorker('setTran
 // regardless of what audio was actually said. Copying the bytes into a
 // freshly-allocated, genuinely Node-native ArrayBuffer before transferring
 // fixes it; the copy cost is negligible for a PCM frame this small.
+// Counted so the renderer -> main and main -> worker hops can be told apart.
+// A real session had the worklet producing a full 375 frames/sec while the
+// worker received only ~0.36 PCM messages/sec, so ~96% of the audio was being
+// lost somewhere in this path, and nothing on either side could say where.
+let pcmReceived = 0
+let pcmForwarded = 0
+let pcmBytes = 0
+let pcmDropped = 0
+let lastPcmReport = Date.now()
+
 ipcMain.on('demist:pcm', (_event, message) => {
-  const src = new Uint8Array(message.buffer)
-  const copy = new Uint8Array(src.length)
-  copy.set(src)
-  getWorkerState('transcribe').worker.postMessage({ type: 'pcm', buffer: copy.buffer }, [copy.buffer])
+  pcmReceived++
+  try {
+    const src = new Uint8Array(message.buffer)
+    const copy = new Uint8Array(src.length)
+    copy.set(src)
+    getWorkerState('transcribe').worker.postMessage({ type: 'pcm', buffer: copy.buffer }, [copy.buffer])
+    pcmForwarded++
+    pcmBytes += copy.length
+  } catch (err) {
+    // Previously unguarded, and this runs per PCM message: a throw here was
+    // silent and simply lost that audio.
+    pcmDropped++
+    if (pcmDropped <= 3) console.error('[demist] failed to forward a PCM message to the transcribe worker:', err)
+  }
+  const now = Date.now()
+  if (now - lastPcmReport >= 5000) {
+    const secs = (now - lastPcmReport) / 1000
+    console.log(
+      `[demist] pcm bridge: main received ${(pcmReceived / secs).toFixed(1)}/sec, ` +
+      `forwarded ${(pcmForwarded / secs).toFixed(1)}/sec ` +
+      `(${(pcmBytes / 4 / 16000).toFixed(1)}s of audio), ${pcmDropped} dropped`,
+    )
+    pcmReceived = 0; pcmForwarded = 0; pcmBytes = 0; pcmDropped = 0
+    lastPcmReport = now
+  }
 })
 
 // ── Wake lock (powerSaveBlocker; navigator.wakeLock never grants in Electron,

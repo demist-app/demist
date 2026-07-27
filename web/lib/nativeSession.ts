@@ -230,6 +230,12 @@ export async function startNativeSession(
     // is not really producing audio, which previously surfaced only as a
     // transcript that stayed empty forever with everything else reporting
     // success. Reported once per graph, and reset on rebindStream.
+    // Counted so the worklet's frame rate can be compared against what
+    // actually leaves the renderer: 375 frames/sec arriving here but only
+    // ~0.36 messages/sec reaching the native worker means the loss is in the
+    // bridge, not in capture.
+    let batchesSent = 0
+    let samplesSent = 0
     const graphStartedAt = Date.now()
     let peakEver = 0
     let silenceReported = false
@@ -255,8 +261,11 @@ export async function startNativeSession(
           console.log(
             `[demist] audio worklet: ${s.callsPerSecond.toFixed(0)} process calls/sec ` +
             `(expect ~${Math.round(inputRate / 128)}), ${s.postedPerSecond.toFixed(0)} frames/sec delivered, ` +
-            `${s.emptyInputs} with no input`,
+            `${s.emptyInputs} with no input | renderer sent ${batchesSent} batches ` +
+            `(${(samplesSent / TARGET_RATE).toFixed(1)}s of audio) since the last report`,
           )
+          batchesSent = 0
+          samplesSent = 0
           return
         }
         const data = e.data as Float32Array
@@ -295,6 +304,8 @@ export async function startNativeSession(
         // plain ArrayBuffer at runtime (freshly allocated by downsampleTo16k, or
         // the worklet's own non-shared Float32Array); the cast just narrows past
         // TypedArray.buffer's overly-wide ArrayBufferLike type.
+        batchesSent++
+        samplesSent += out.length
         sendOrBuffer(out.buffer as ArrayBuffer)
       } catch (err) {
         console.error('[demist] pcm-worklet onmessage error:', err)
