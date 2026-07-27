@@ -44,6 +44,26 @@ const SUMMARY_SCHEMA = {
   required: ['synopsis'],
 }
 
+// Cap the LLM context window. Left unset, node-llama-cpp allocates the
+// model'''s FULL trained context, and Llama 3.2 3B was trained at 131072
+// tokens - a KV cache measured at +4222MB on top of the 2794MB model load,
+// i.e. ~7GB resident for term detection alone. On a 16GB machine, with
+// Whisper and the translation model also loaded, that pushed the Electron
+// process to 16.6GB committed against only 4.4GB resident: the models were
+// largely paged out, and simply touching the transcribe worker to start a
+// session faulted ~1GB of Whisper weights back in from disk. That is what
+// made startSession take 50-70s in real sessions while the worker itself
+// reported doing its work in 1ms.
+//
+// 8192 measured at +884MB instead - a 3.3GB saving - and is far more than
+// this app needs: detectTerms sees one transcript chunk plus ~300 chars of
+// context, summarize sees a capped term list (see SUMMARY_MAX_TERMS), and
+// resetChatHistory() runs before every prompt so nothing accumulates.
+const CONTEXT_SIZE = 8192
+// Bounds the largest prompt so it cannot outgrow CONTEXT_SIZE on a long
+// lecture; termRows was previously passed through unbounded.
+const SUMMARY_MAX_TERMS = 60
+
 let llama, model, context, session, summaryGrammar, loadedTier, loadingPromise
 
 function getTier() {
@@ -111,21 +131,21 @@ async function ensureLoaded(emitProgress) {
       try {
         llama = await getLlama({ gpu: 'auto' })
         model = await llama.loadModel({ modelPath })
-        context = await model.createContext()
+        context = await model.createContext({ contextSize: CONTEXT_SIZE })
       } catch (e) {
         console.warn('[demist] GPU load for term-detection model failed, falling back to CPU:', e?.message ?? e)
         try { await context?.dispose() } catch { /* best-effort cleanup */ }
         try { await model?.dispose() } catch { /* best-effort cleanup */ }
         llama = await getLlama({ gpu: false })
         model = await llama.loadModel({ modelPath })
-        context = await model.createContext()
+        context = await model.createContext({ contextSize: CONTEXT_SIZE })
       }
     } else {
       // Reused across tier switches: whichever GPU/CPU mode succeeded the
       // first time is kept, rather than re-attempting GPU (and possibly
       // re-failing) on every switch between "small" and "large".
       model = await llama.loadModel({ modelPath })
-      context = await model.createContext()
+      context = await model.createContext({ contextSize: CONTEXT_SIZE })
     }
     session = new LlamaChatSession({ contextSequence: context.getSequence() })
     summaryGrammar = await llama.createGrammarForJsonSchema(SUMMARY_SCHEMA)
@@ -321,7 +341,7 @@ async function summarize(termRows, subject) {
   await ensureLoaded()
 
   const context = subject ? `for a lecture on "${subject}"` : 'from a lecture'
-  const termList = termRows.map((t) => `- ${t.term}: ${t.definition}`).join('\n')
+  const termList = termRows.slice(0, SUMMARY_MAX_TERMS).map((t) => `- ${t.term}: ${t.definition}`).join('\n')
   const prompt = `These terms were extracted ${context}:
 
 ${termList}
