@@ -254,6 +254,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
   // See the warmupHoldoff comment in accumulateAndMaybeDetect.
   const recordingStartedAtRef = useRef(0)
   const firstDetectionDoneRef = useRef(false)
+  const firstTranscriptLoggedRef = useRef(false)
 
   // profileRef is what startRecording/stopRecording/runDetection actually read
   // (refs avoid stale closures in those callbacks); profile state fetched once
@@ -1061,6 +1062,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     chunkPeakRef.current = 0
     recordingStartedAtRef.current = Date.now()
     firstDetectionDoneRef.current = false
+    firstTranscriptLoggedRef.current = false
     webSpeechFinalRef.current = ''
     allSessionTermsRef.current = []
     startingRef.current = false
@@ -1128,6 +1130,10 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
           isStale: () => sessionEpochRef.current !== myEpoch || !isActiveRef.current,
           onReady: () => setRecordingWarning(null),
           onTranscript: (text) => {
+            if (!firstTranscriptLoggedRef.current) {
+              firstTranscriptLoggedRef.current = true
+              console.log(`[demist] first transcript ${Date.now() - recordingStartedAtRef.current} ms after recording started`)
+            }
             dlog('[demist] FINAL transcript received:', text)
             const sid = sessionIdRef.current
             if (sid) accumulateAndMaybeDetect(text, sid, nativeInterimShowingRef.current)
@@ -1310,8 +1316,17 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     // from onTranscript) is already in detectionBufferRef before the flush
     // check below runs.
     if (nativeSessionRef.current) {
-      await nativeSessionRef.current.stop()
-      nativeSessionRef.current = null
+      // Clear the ref even if stop() rejects (its stopSession call can time
+      // out). Leaving a dead handle in place made the next startRecording
+      // believe a session was still attached and try to stop it all over
+      // again, and blocked this session from ever being replaced cleanly.
+      try {
+        await nativeSessionRef.current.stop()
+      } catch (e) {
+        console.error('[demist] stopping the native session failed:', e)
+      } finally {
+        nativeSessionRef.current = null
+      }
     }
 
     // Flush any text waiting for the 10s detect-terms window so terms from the

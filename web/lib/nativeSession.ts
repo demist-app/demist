@@ -122,6 +122,7 @@ export async function startNativeSession(
   // transcript, and lost the opening of their lecture. Now capture begins
   // immediately and PCM is held in `pendingPcm` until the backend is ready,
   // then flushed in order. Nothing is dropped and the transcript catches up.
+  const startedAt = Date.now()
   const sessionStarted = native.startSession()
 
   let sessionReady = false
@@ -309,6 +310,13 @@ export async function startNativeSession(
   // Backend is ready: release everything captured while it was loading, in
   // order, then switch to streaming straight through.
   sessionReady = true
+  // Deliberately NOT behind the debug flag: one line per recording, and it
+  // splits "slow to start" cleanly into two very different causes. A large
+  // number here means the native worker was busy or reloading its model
+  // before it could even accept the session; a small number with a late first
+  // transcript means the delay is downstream, in segmentation or inference.
+  // Guessing between those two has cost several rounds of debugging.
+  console.log(`[demist] on-device session ready in ${Date.now() - startedAt} ms`)
   if (pendingPcm.length) {
     dlog(`[demist] startNativeSession: flushing ${(pendingSamples / TARGET_RATE).toFixed(1)}s of audio buffered while the model loaded`)
     for (const buf of pendingPcm) native.sendPcm(buf)
@@ -323,9 +331,19 @@ export async function startNativeSession(
     stop: async () => {
       if (stopped) return
       stopped = true
-      await teardownGraph()
-      await native.stopSession() // flushes the segmenter; final words arrive via onEvent first
-      unsubscribe()
+      try {
+        await teardownGraph()
+        // Flushes the segmenter; final words arrive via onEvent first, which
+        // is why the unsubscribe below cannot simply be moved above this.
+        await native.stopSession()
+      } finally {
+        // MUST run even if stopSession rejects or times out. It used to sit
+        // after that await unguarded, so a failing stop leaked this listener:
+        // the next recording added a second one and every transcript was
+        // then delivered twice, producing visibly duplicated lines in the
+        // transcript from the second session onwards.
+        unsubscribe()
+      }
     },
     rebindStream: async (newStream: MediaStream) => {
       if (stopped) return
