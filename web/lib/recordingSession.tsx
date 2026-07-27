@@ -458,6 +458,21 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
         // recording into a multi-hundred-MB download in progress and lose
         // the first minute of audio to it.
         native.onEvent((msg) => {
+          if (msg.event === 'modelsUnloaded') {
+            // A native worker died and its models went with it. The preload
+            // that unlocked the record button is no longer true, so relock and
+            // warm the replacement worker. Without this the gate silently
+            // lied: the button stayed enabled, and the model reloaded inside
+            // startSession instead - measured at 50s in a real session, with
+            // the UI insisting everything was ready the whole time.
+            console.error(`[demist] the ${msg.payload.role ?? 'native'} worker restarted; reloading its on-device models`)
+            if (msg.payload.role === 'transcribe' && !isActiveRef.current) {
+              setNativeModelsReady(false)
+              const n = getDemistNative()
+              if (n) runNativePreload(n, profileRef.current?.translate_to)
+            }
+            return
+          }
           if (msg.event !== 'modelProgress') return
           const { label, pct } = msg.payload
           if (label === undefined || pct === undefined) return

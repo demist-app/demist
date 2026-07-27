@@ -10,7 +10,12 @@ export interface NativeEvent {
   // replaced by one with no session, so nothing further would be transcribed
   // (see the 'exit' handler in desktop/main.js). Reported so the UI can say so
   // rather than keep showing a recording that silently captures nothing.
-  event: 'transcript' | 'interimTranscript' | 'modelProgress' | 'sessionLost'
+  // 'modelsUnloaded': a native worker exited, so whatever models it had
+  // loaded are gone. Sent whether or not a session was running, because the
+  // damaging case is an IDLE death: the preload has already resolved, so the
+  // UI still claims everything is ready while the replacement worker has
+  // nothing loaded.
+  event: 'transcript' | 'interimTranscript' | 'modelProgress' | 'sessionLost' | 'modelsUnloaded'
   payload: {
     seq?: number
     text?: string
@@ -18,6 +23,7 @@ export interface NativeEvent {
     pct?: number
     file?: string | null
     message?: string
+    role?: string
   }
 }
 

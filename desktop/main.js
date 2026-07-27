@@ -105,10 +105,22 @@ function getWorkerState(role) {
   // of every future call hanging against a dead worker forever. Scoped to
   // this role only, so e.g. a term-detection crash doesn't touch an
   // in-progress transcription session on the 'transcribe' worker.
-  worker.on('exit', () => {
+  worker.on('exit', (code) => {
+    console.error(`[demist] the ${role} worker exited (code ${code}); every model it had loaded is gone and must be reloaded`)
     for (const entry of state.pending.values()) entry.reject(new Error('Native worker exited unexpectedly'))
     state.pending.clear()
     workerStates[role] = null
+    // Tell the renderer unconditionally, not just mid-session. A worker that
+    // dies while IDLE used to be completely silent: the preload that warmed it
+    // had already resolved, so the record button stayed unlocked and claimed
+    // the models were ready, while the replacement worker spawned on the next
+    // call had nothing loaded at all. The model then reloaded inside
+    // startSession - measured at 50s in a real session, against a UI insisting
+    // everything was prepared. The renderer relocks and re-preloads on this.
+    mainWindow?.webContents.send('demist:event', {
+      event: 'modelsUnloaded',
+      payload: { role },
+    })
     // A replacement transcribe worker starts with no session (activeSession
     // lives in that thread's module state), so feedPcm on it silently
     // discards every frame. Recording would carry on looking healthy while
