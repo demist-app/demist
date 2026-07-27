@@ -155,15 +155,32 @@ async function startSession(onTranscript, emitProgress, onInterim, emitDiag) {
   let lastText = ''
   let queueBusy = false
   let interimBusy = false
+  let skippedInterims = 0
+  // Resolves when any in-flight preview finishes. A final segment must wait
+  // on this: previews and finals share ONE transformers.js pipeline, and the
+  // interim path guards itself against the queue (queueBusy) while the queue
+  // never guarded itself against a running preview. So a segment closing
+  // mid-preview started a second concurrent inference on the same ONNX
+  // session, which is not safe to call re-entrantly and serialises badly
+  // inside the runtime rather than actually overlapping.
+  let interimPromise = Promise.resolve()
+  let samplesFed = 0
+  let lastFeedLog = Date.now()
 
   const segmenter = new PcmSegmenter(
     (segment, meanRms) => {
       const mySeq = ++seq
+      const secs = (segment.length / SAMPLE_RATE).toFixed(1)
+      diag(`segment ${mySeq} closed after ${secs}s of speech (meanRms ${meanRms.toFixed(4)}), queued`)
       queueBusy = true
+      const tQueued = Date.now()
       queue = queue.then(async () => {
         try {
+          await interimPromise.catch(() => {})
+          const tStart = Date.now()
           const transcriber = await getTranscriber(emitProgress)
           const result = await transcriber(segment)
+          diag(`segment ${mySeq} transcribed in ${Date.now() - tStart} ms (waited ${tStart - tQueued} ms)`)
           let text = (result?.text ?? '').trim()
           const normalized = text.toLowerCase()
           if (meanRms < LOW_ENERGY_RMS && HALLUCINATION_BLOCKLIST.has(normalized)) text = ''
@@ -187,12 +204,18 @@ async function startSession(onTranscript, emitProgress, onInterim, emitDiag) {
       // harmless - the next one (or the real final segment) follows shortly
       // regardless - whereas queuing interim calls behind finals would
       // delay the finals for a feature that only exists to feel faster.
-      if (queueBusy || interimBusy) return
+      if (queueBusy || interimBusy) {
+        skippedInterims++
+        return
+      }
       interimBusy = true
-      getTranscriber(emitProgress)
+      const tInterim = Date.now()
+      interimPromise = getTranscriber(emitProgress)
         .then(transcriber => transcriber(segment))
         .then(result => {
           const text = (result?.text ?? '').trim()
+          diag(`preview of ${(segment.length / SAMPLE_RATE).toFixed(1)}s in ${Date.now() - tInterim} ms${skippedInterims ? ` (${skippedInterims} skipped while busy)` : ''}`)
+          skippedInterims = 0
           if (text) onInterim({ seq: seq + 1, text })
         })
         .catch(err => console.error('[demist] interim transcription failed:', err?.message ?? err))
@@ -201,7 +224,17 @@ async function startSession(onTranscript, emitProgress, onInterim, emitDiag) {
   )
 
   const session = {
-    feed: (pcm) => segmenter.feed(pcm),
+    // Audio actually reaching the segmenter, so "no transcript" can be told
+    // apart from "no audio". Once every 10s, so it stays cheap.
+    feed: (pcm) => {
+      samplesFed += pcm.length
+      const now = Date.now()
+      if (now - lastFeedLog >= 10000) {
+        diag(`audio in: ${(samplesFed / SAMPLE_RATE).toFixed(1)}s fed over ${((now - t0) / 1000).toFixed(1)}s wall clock`)
+        lastFeedLog = now
+      }
+      segmenter.feed(pcm)
+    },
     stop: async () => {
       segmenter.flush()
       await queue // let in-flight segments finish so final words aren't lost
