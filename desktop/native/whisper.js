@@ -37,12 +37,40 @@ const MODEL_BY_TIER = {
 }
 const TIER_FILE = path.join(os.homedir(), '.demist', 'whisper-tier.json')
 
+// 8-bit weights. Measured on the same speech, same segment length:
+//   fp32  3018MB resident, 2073ms per 6s segment, 10.1% WER
+//   q8    2332MB resident, 2205ms per 6s segment,  8.7% WER
+// 686MB less memory for no accuracy cost (the small WER difference is noise
+// on a single sample, but it is certainly not worse) and a negligible speed
+// difference. It also downloads less. Memory is the binding constraint on
+// student laptops, so this is close to a free win - see the totalmem note
+// below for why that matters so much.
+const DTYPE = 'q8'
+
+const TOTAL_RAM_GB = os.totalmem() / (1024 ** 3)
+
+// Which model a machine gets by default, on the machine's own terms. The
+// models are big enough that this cannot be one-size-fits-all: with the
+// accurate tier, Whisper + the term-detection LLM + translation come to
+// roughly 5.8GB resident. On a 16GB machine that already forced the OS to
+// page models out, which is what made starting a session take 50-70s. On an
+// 8GB laptop it would be unusable.
+//
+// The fast tier (whisper-base.en q8) is 1027MB instead of 2332MB and runs
+// twice as fast, but measured 26.1% WER against 8.7% - materially worse for
+// lecture vocabulary, so it is a fallback for machines that cannot afford
+// the accurate one, never the default for machines that can. An explicit
+// user choice in Settings still overrides this either way.
+function defaultTier() {
+  return TOTAL_RAM_GB < 10 ? 'fast' : 'accurate'
+}
+
 function getTier() {
   try {
     const tier = JSON.parse(fsSync.readFileSync(TIER_FILE, 'utf8')).tier
-    return MODEL_BY_TIER[tier] ? tier : 'accurate'
+    return MODEL_BY_TIER[tier] ? tier : defaultTier()
   } catch {
-    return 'accurate'
+    return defaultTier()
   }
 }
 
@@ -57,7 +85,9 @@ const transcribersByTier = new Map()
 function getTranscriber(emitProgress) {
   const tier = getTier()
   if (!transcribersByTier.has(tier)) {
+    console.log(`[demist] loading transcription model: tier=${tier} dtype=${DTYPE} (machine has ${TOTAL_RAM_GB.toFixed(1)}GB RAM)`)
     const loadPromise = pipeline('automatic-speech-recognition', MODEL_BY_TIER[tier], {
+      dtype: DTYPE,
       progress_callback: makeProgressLogger(`transcription model (${tier})`, emitProgress),
     }).then(async (transcriber) => {
       // The resolved pipeline has weights loaded but onnxruntime-node hasn't

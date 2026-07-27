@@ -59,7 +59,14 @@ const SUMMARY_SCHEMA = {
 // this app needs: detectTerms sees one transcript chunk plus ~300 chars of
 // context, summarize sees a capped term list (see SUMMARY_MAX_TERMS), and
 // resetChatHistory() runs before every prompt so nothing accumulates.
-const CONTEXT_SIZE = 8192
+// Sized against the machine, and deliberately small. Measured cost of the
+// KV cache alone: 2048 -> +212MB, 4096 -> +436MB, 8192 -> +885MB, and the
+// default (the model'''s full 131072-token trained window) -> +4222MB.
+// 4096 is still several times more than anything this app sends: detectTerms
+// gets one transcript chunk plus ~300 chars of context, summarize gets at
+// most SUMMARY_MAX_TERMS entries, and resetChatHistory() runs before every
+// prompt so nothing accumulates across calls.
+const CONTEXT_SIZE = os.totalmem() / (1024 ** 3) < 10 ? 2048 : 4096
 // Bounds the largest prompt so it cannot outgrow CONTEXT_SIZE on a long
 // lecture; termRows was previously passed through unbounded.
 const SUMMARY_MAX_TERMS = 60
