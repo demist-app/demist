@@ -327,12 +327,26 @@ export async function startNativeSession(
   await attachGraph(stream)
   dlog('[demist] startNativeSession: capturing; waiting for the on-device model to be ready')
 
+  // Say so if the backend is taking an unreasonable time. Without this the
+  // UI shows "preparing... will appear shortly" indefinitely, which is what a
+  // startSession that never resolves looked like for a whole recording.
+  const stillWaiting = setInterval(() => {
+    const waited = Math.round((Date.now() - startedAt) / 1000)
+    console.warn(`[demist] still waiting for the on-device transcription engine after ${waited}s`)
+    callbacks.onError?.(
+      `The on-device transcription engine hasn't responded in ${waited}s. Your audio is still being recorded and will be transcribed if it comes back.`,
+    )
+  }, 10000)
+
   try {
     await sessionStarted
   } catch (err) {
+    clearInterval(stillWaiting)
     await teardownGraph()
     unsubscribe()
     throw err
+  } finally {
+    clearInterval(stillWaiting)
   }
 
   if (callbacks.isStale?.()) {

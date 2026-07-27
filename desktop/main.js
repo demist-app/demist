@@ -172,11 +172,29 @@ const CALL_TIMEOUT_MS = {
 // replies - before a timeout is treated as death rather than slowness.
 const WORKER_SILENT_MS = 60_000
 
+// Heartbeat while any worker call is outstanding. A startSession that never
+// resolves has now been seen twice with no output from either side, leaving
+// no way to tell "the main process is blocked and never posted the message"
+// apart from "the worker has it and is not answering". This prints from the
+// main process's own timer, so it stops if the main process itself is stuck.
+setInterval(() => {
+  const waiting = []
+  for (const [role, state] of Object.entries(workerStates)) {
+    if (state && state.pending.size > 0) {
+      waiting.push(`${role}: ${state.pending.size} pending, last heard from ${Date.now() - state.lastMessageAt}ms ago`)
+    }
+  }
+  if (waiting.length) console.log(`[demist] worker calls outstanding -> ${waiting.join(' | ')}`)
+}, 5000).unref?.()
+
 function callWorker(type, ...args) {
   return new Promise((resolve, reject) => {
     const id = nextRequestId++
     const role = CALL_ROLE[type]
     const state = getWorkerState(role)
+    if (type === 'startSession' || type === 'stopSession') {
+      console.log(`[demist] -> posting '${type}' (id ${id}) to the ${role} worker`)
+    }
     const timeoutMs = CALL_TIMEOUT_MS[type]
     let timer = null
     if (timeoutMs) {
@@ -211,9 +229,17 @@ function callWorker(type, ...args) {
 
 // ── Request/response bridge ────────────────────────────────────────────────
 ipcMain.handle('demist:startSession', async () => {
-  const result = await callWorker('startSession')
-  transcribeSessionActive = true
-  return result
+  console.log('[demist] renderer asked for a transcription session')
+  const t = Date.now()
+  try {
+    const result = await callWorker('startSession')
+    transcribeSessionActive = true
+    console.log(`[demist] transcription session started in ${Date.now() - t} ms`)
+    return result
+  } catch (err) {
+    console.error(`[demist] starting the transcription session FAILED after ${Date.now() - t} ms:`, err?.message ?? err)
+    throw err
+  }
 })
 ipcMain.handle('demist:stopSession', async () => {
   transcribeSessionActive = false
