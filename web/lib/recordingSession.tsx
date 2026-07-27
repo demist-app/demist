@@ -336,61 +336,72 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
   // use, deep into the session - which looks exactly like "it takes minutes
   // to start working" but is really a failed one-time setup masquerading as
   // success. Now only claims readiness if every task genuinely succeeded.
-  const runNativePreload = (native: DemistNative, translateLang?: string | null) => {
+  // translateLang may be a promise: transcription and term detection need
+  // nothing from the user's profile, so they start immediately on mount
+  // rather than waiting on a Supabase auth call plus seven queries first.
+  // Translation joins as soon as the profile resolves.
+  const runNativePreload = (
+    native: DemistNative,
+    translateLang?: string | null | Promise<string | null | undefined>,
+  ) => {
     setNativeModelsError(null)
     const withRetry = <T,>(fn: () => Promise<T>, attemptsLeft = 2): Promise<T> =>
       fn().catch(err => attemptsLeft > 1 ? withRetry(fn, attemptsLeft - 1) : Promise.reject(err))
 
-    // Sequential, and the record button stays locked until EVERY model a
-    // session will use is loaded. Nothing should still be loading once a
-    // lecture is under way: a model that loads mid-session blocks its worker
-    // and competes for the same cores Whisper needs, which is exactly what
-    // made the opening of a recording transcribe slowest.
+    // All three load CONCURRENTLY, and the record button stays locked until
+    // every one of them is resident. Nothing should still be loading once a
+    // lecture is under way.
     //
-    // Sequential is the important part, and is what the original version got
-    // wrong. It fired all three at once - Whisper (~926MB), OPUS-MT (~448MB)
-    // and Llama 3.2 3B (~2GB), so ~3.4GB of concurrent loading - and both
-    // onnxruntime and llama.cpp block their worker's event loop while loading.
-    // Under that contention the transcribe worker could not answer even a
-    // startSession control message for over 30 seconds (confirmed from a real
-    // main-process log), so starting a recording appeared to hang outright.
-    // Loading one at a time removes the contention while still finishing
-    // everything before the first session.
+    // This was briefly sequential, for a real reason that no longer applies.
+    // Loading all three at once used to mean ~3.4GB of models arriving while
+    // the LLM also allocated a 131072-token KV cache, which put the process
+    // at 16.6GB committed against 4.4GB resident: the machine paged, and the
+    // transcribe worker could not answer even a control message for 30-70s.
+    // Serialising it hid that. The actual fix was capping the KV cache and
+    // quantising Whisper (see desktop/native/llm.js and whisper.js), which
+    // took the total to ~4.2GB, and ~2.8GB on a small machine. With the
+    // memory pressure gone, serialising only costs time: measured 3.8s for
+    // transcription, then the LLM until 13.0s, then translation to 14.5s,
+    // when the three could have overlapped and finished with the slowest.
     //
     // Only Whisper is a hard requirement: if term detection or translation
     // genuinely fail after retries, recording is released anyway with a
     // warning, because refusing to record at all over a missing term-detection
     // model is a far worse outcome than a lecture with no term cards.
     const tPre = Date.now()
-    console.log('[demist] preload: starting (transcription first, then term detection, then translation)')
+    console.log('[demist] preload: starting transcription, term detection and translation together')
+    const degraded: string[] = []
+
+    const whisperTask = withRetry(() => native.preloadWhisper()).then(() => {
+      console.log(`[demist] preload: transcription model ready in ${Date.now() - tPre} ms`)
+    })
+    const termsTask = withRetry(() => native.preloadTermDetection()).then(() => {
+      termDetectionReadyRef.current = true
+      console.log(`[demist] preload: term detection model ready at ${Date.now() - tPre} ms`)
+    }).catch((err) => {
+      console.error('[demist] preload failed for term detection model:', err)
+      degraded.push('term detection')
+    })
+    const translationTask = Promise.resolve(translateLang).then((lang) => {
+      if (!lang) return
+      return withRetry(() => native.preloadTranslation(lang)).then(() => {
+        console.log(`[demist] preload: translation model ready at ${Date.now() - tPre} ms`)
+      })
+    }).catch((err) => {
+      console.error('[demist] preload failed for translation model:', err)
+      degraded.push('translation')
+    })
+
     ;(async () => {
       try {
-        await withRetry(() => native.preloadWhisper())
-        console.log(`[demist] preload: transcription model ready in ${Date.now() - tPre} ms`)
+        await whisperTask
       } catch (err) {
         console.error('[demist] preload failed for transcription model:', err)
         setNativeModelsError("Couldn't load the transcription model. Check your connection and try again.")
         setNativeModelProgress(null)
         return
       }
-
-      const degraded: string[] = []
-      try {
-        await withRetry(() => native.preloadTermDetection())
-        termDetectionReadyRef.current = true
-        console.log(`[demist] preload: term detection model ready at ${Date.now() - tPre} ms`)
-      } catch (err) {
-        console.error('[demist] preload failed for term detection model:', err)
-        degraded.push('term detection')
-      }
-      if (translateLang) {
-        try {
-          await withRetry(() => native.preloadTranslation(translateLang))
-        } catch (err) {
-          console.error('[demist] preload failed for translation model:', err)
-          degraded.push('translation')
-        }
-      }
+      await Promise.all([termsTask, translationTask])
 
       // Everything that will be used is now resident: recording can start.
       console.log(`[demist] preload: ALL models ready after ${Date.now() - tPre} ms - record button unlocked`)
@@ -414,10 +425,42 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
 
   useEffect(() => {
     const supabase = createClient()
+    // Kick the on-device models off BEFORE any network work. Whisper and the
+    // term-detection LLM need nothing from the user's profile, and the model
+    // loads are measured in seconds, so waiting on an auth call plus seven
+    // Supabase queries first was dead time added straight to how long the
+    // record button stays locked. The translation model does need the
+    // profile's language, so it is handed a promise resolved further down.
+    let resolveTranslateLang: (v: string | null | undefined) => void = () => {}
+    const translateLangPromise = new Promise<string | null | undefined>((res) => { resolveTranslateLang = res })
+    const nativeAtMount = getDemistNative()
+    if (nativeAtMount) {
+      nativeAtMount.onEvent((msg) => {
+        if (msg.event === 'modelsUnloaded') {
+          console.error(`[demist] the ${msg.payload.role ?? 'native'} worker restarted; reloading its on-device models`)
+          if (msg.payload.role === 'transcribe' && !isActiveRef.current) {
+            setNativeModelsReady(false)
+            const n = getDemistNative()
+            if (n) runNativePreload(n, profileRef.current?.translate_to)
+          }
+          return
+        }
+        if (msg.event !== 'modelProgress') return
+        const { label, pct } = msg.payload
+        if (label === undefined || pct === undefined) return
+        setNativeModelProgress(pct >= 100 ? null : { label, pct })
+      })
+      runNativePreload(nativeAtMount, translateLangPromise)
+    }
     ;(async () => {
       const { data: { session } } = await supabase.auth.getSession()
       const user = session?.user
-      if (!user) return
+      if (!user) {
+        // Nothing else will resolve it, and the preload above waits on it
+        // before it can report every model ready.
+        resolveTranslateLang(null)
+        return
+      }
       userIdRef.current = user.id
       identify(user.id); capture('dashboard_viewed')
 
@@ -455,36 +498,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       // waits on the same in-flight load these calls kick off (see the
       // loadingPromise/translators-map guards in native/llm.js and
       // native/translate.js).
-      const native = getDemistNative()
-      if (native) {
-        // Surfaced on the dashboard (see nativeModelsReady/nativeModelProgress)
-        // as a progress bar that blocks the record button until every
-        // required model is loaded, so first-lecture users can't start
-        // recording into a multi-hundred-MB download in progress and lose
-        // the first minute of audio to it.
-        native.onEvent((msg) => {
-          if (msg.event === 'modelsUnloaded') {
-            // A native worker died and its models went with it. The preload
-            // that unlocked the record button is no longer true, so relock and
-            // warm the replacement worker. Without this the gate silently
-            // lied: the button stayed enabled, and the model reloaded inside
-            // startSession instead - measured at 50s in a real session, with
-            // the UI insisting everything was ready the whole time.
-            console.error(`[demist] the ${msg.payload.role ?? 'native'} worker restarted; reloading its on-device models`)
-            if (msg.payload.role === 'transcribe' && !isActiveRef.current) {
-              setNativeModelsReady(false)
-              const n = getDemistNative()
-              if (n) runNativePreload(n, profileRef.current?.translate_to)
-            }
-            return
-          }
-          if (msg.event !== 'modelProgress') return
-          const { label, pct } = msg.payload
-          if (label === undefined || pct === undefined) return
-          setNativeModelProgress(pct >= 100 ? null : { label, pct })
-        })
-        runNativePreload(native, (prof as Profile)?.translate_to)
-      }
+      resolveTranslateLang((prof as Profile)?.translate_to)
 
       const known = new Set<string>()
       const freq = new Map<string, number>()
