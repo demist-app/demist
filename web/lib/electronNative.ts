@@ -32,7 +32,7 @@ export interface DemistNative {
   startSession: () => Promise<boolean>
   stopSession: () => Promise<void>
   preloadWhisper: () => Promise<'fast' | 'accurate'>
-  preloadTermDetection: () => Promise<'small' | 'large'>
+  preloadTermDetection: () => Promise<'tiny' | 'small' | 'large'>
   preloadTranslation: (lang: string) => Promise<string>
   sendPcm: (arrayBuffer: ArrayBuffer) => void
   onEvent: (callback: (msg: NativeEvent) => void) => () => void
@@ -47,8 +47,8 @@ export interface DemistNative {
     terms: { term: string; definition: string }[],
     subject?: string | null,
   ) => Promise<string | null>
-  getModelTier: () => Promise<'small' | 'large'>
-  setModelTier: (tier: 'small' | 'large') => Promise<'small' | 'large'>
+  getModelTier: () => Promise<'tiny' | 'small' | 'large'>
+  setModelTier: (tier: 'tiny' | 'small' | 'large') => Promise<'tiny' | 'small' | 'large'>
   getTranscribeTier: () => Promise<'fast' | 'accurate'>
   setTranscribeTier: (tier: 'fast' | 'accurate') => Promise<'fast' | 'accurate'>
   startWakeLock: () => Promise<void>

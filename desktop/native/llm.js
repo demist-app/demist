@@ -1,9 +1,11 @@
 // On-device term detection via a local LLM (node-llama-cpp / llama.cpp).
 // Replaces the OpenAI detect-terms edge function for desktop app users.
 //
-// Two model tiers, matching the Profile setting the web app exposes:
-//   small: bundled/auto-downloaded by default, runs on almost any laptop
-//   large: meaningfully more accurate, needs ~8GB+ RAM, opt-in download
+// Three model tiers, matching the Profile setting the web app exposes:
+//   tiny:  Qwen2.5-1.5B, the default under 10GB of RAM. Matches the small
+//          tier's term recall in testing at ~1.1GB less memory.
+//   small: Llama-3.2-3B, the default on larger machines
+//   large: meaningfully more accurate, needs ~8GB+ free RAM, opt-in download
 //
 // Term detection deliberately does NOT use grammar-constrained JSON decoding
 // (unlike summarize() below). Confirmed by direct testing: with a
@@ -31,6 +33,7 @@ const { makeProgressLogger } = require('./progressLog')
 
 const MODEL_DIR = path.join(os.homedir(), '.demist', 'llm-models')
 const MODEL_URI = {
+  tiny: 'hf:bartowski/Qwen2.5-1.5B-Instruct-GGUF:Q4_K_M',
   small: 'hf:bartowski/Llama-3.2-3B-Instruct-GGUF:Q4_K_M',
   large: 'hf:bartowski/Meta-Llama-3.1-8B-Instruct-GGUF:Q4_K_M',
 }
@@ -44,28 +47,23 @@ const SUMMARY_SCHEMA = {
   required: ['synopsis'],
 }
 
-// Cap the LLM context window. Left unset, node-llama-cpp allocates the
-// model'''s FULL trained context, and Llama 3.2 3B was trained at 131072
-// tokens - a KV cache measured at +4222MB on top of the 2794MB model load,
-// i.e. ~7GB resident for term detection alone. On a 16GB machine, with
-// Whisper and the translation model also loaded, that pushed the Electron
-// process to 16.6GB committed against only 4.4GB resident: the models were
-// largely paged out, and simply touching the transcribe worker to start a
-// session faulted ~1GB of Whisper weights back in from disk. That is what
-// made startSession take 50-70s in real sessions while the worker itself
+// Cap the LLM context window, sized against the machine. Left unset,
+// node-llama-cpp allocates the model's FULL trained context - Llama 3.2 is
+// trained at 131072 tokens - and that KV cache measured at +4222MB on top of
+// the model weights, i.e. ~7GB resident for term detection alone. On a 16GB
+// machine with Whisper and the translation model also loaded, that pushed
+// the Electron process to 16.6GB committed against only 4.4GB resident: the
+// models were largely paged out, so merely touching the transcribe worker to
+// start a session faulted ~1GB of Whisper weights back in from disk. That is
+// what made startSession take 50-70s in real sessions while the worker itself
 // reported doing its work in 1ms.
 //
-// 8192 measured at +884MB instead - a 3.3GB saving - and is far more than
-// this app needs: detectTerms sees one transcript chunk plus ~300 chars of
-// context, summarize sees a capped term list (see SUMMARY_MAX_TERMS), and
-// resetChatHistory() runs before every prompt so nothing accumulates.
-// Sized against the machine, and deliberately small. Measured cost of the
-// KV cache alone: 2048 -> +212MB, 4096 -> +436MB, 8192 -> +885MB, and the
-// default (the model'''s full 131072-token trained window) -> +4222MB.
-// 4096 is still several times more than anything this app sends: detectTerms
-// gets one transcript chunk plus ~300 chars of context, summarize gets at
-// most SUMMARY_MAX_TERMS entries, and resetChatHistory() runs before every
-// prompt so nothing accumulates across calls.
+// Measured cost of the KV cache alone: 2048 -> +212MB, 4096 -> +436MB,
+// 8192 -> +885MB, default (131072) -> +4222MB. Even 2048 is several times
+// more than anything this app sends: detectTerms gets one transcript chunk
+// plus ~300 chars of context, summarize gets at most SUMMARY_MAX_TERMS
+// entries, and resetChatHistory() runs before every prompt so nothing
+// accumulates across calls.
 const CONTEXT_SIZE = os.totalmem() / (1024 ** 3) < 10 ? 2048 : 4096
 // Bounds the largest prompt so it cannot outgrow CONTEXT_SIZE on a long
 // lecture; termRows was previously passed through unbounded.
@@ -73,16 +71,39 @@ const SUMMARY_MAX_TERMS = 60
 
 let llama, model, context, session, summaryGrammar, loadedTier, loadingPromise
 
+// Which term-detection model a machine gets by default, decided by its RAM.
+// Measured through the real detectTerms path on the same five excerpts
+// (four jargon-heavy, one deliberately mundane):
+//
+//   tiny  Qwen2.5-1.5B   1413MB   710ms/call   relevant terms on 4/4
+//   small Llama-3.2-3B   2502MB   867ms/call   relevant terms on 4/4
+//
+// Qwen2.5-1.5B matches the 3B's recall for ~1.1GB less, which is what makes
+// term detection viable at all on an 8GB laptop: with the 3B, Whisper plus
+// the LLM plus translation come to ~4.5GB and the machine pages. It is
+// slightly looser about mundane text (it flagged "chapter" and "tutorial"
+// where the 3B returned nothing), which ADMIN_WORDS above exists to catch.
+//
+// Llama-3.2-1B was tested first and rejected on measurement, not instinct:
+// same harness, it found relevant terms on only 1/4 excerpts, returning
+// nothing at all for the clearest biology, ML and economics jargon. Model
+// size matters enormously for this task, so do not swap this for something
+// smaller without re-running that comparison.
+function defaultTier() {
+  return os.totalmem() / (1024 ** 3) < 10 ? 'tiny' : 'small'
+}
+
 function getTier() {
   try {
-    return JSON.parse(fs.readFileSync(TIER_FILE, 'utf8')).tier
+    const tier = JSON.parse(fs.readFileSync(TIER_FILE, 'utf8')).tier
+    return MODEL_URI[tier] ? tier : defaultTier()
   } catch {
-    return 'small'
+    return defaultTier()
   }
 }
 
 function setTier(tier) {
-  if (tier !== 'small' && tier !== 'large') throw new Error(`Unknown model tier "${tier}"`)
+  if (!MODEL_URI[tier]) throw new Error(`Unknown model tier "${tier}"`)
   fs.mkdirSync(MODEL_DIR, { recursive: true })
   fs.writeFileSync(TIER_FILE, JSON.stringify({ tier }))
   // Next detectTerms() call reloads with the new tier: don't reload eagerly
@@ -217,6 +238,21 @@ function normalize(s) {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
 }
 
+// Course-admin vocabulary is not lecture jargon. Smaller models are much
+// looser about this: measured on a deliberately mundane excerpt ("the reading
+// is chapter four and the tutorial is on Thursday"), Llama 3.2 3B correctly
+// returned nothing while Qwen2.5 1.5B flagged "chapter" and "tutorial". Since
+// the tiny tier exists precisely so low-memory machines still get term
+// detection, filter the handful of words that show up in every lecture's
+// housekeeping rather than accept a stream of useless cards.
+const ADMIN_WORDS = new Set([
+  'chapter', 'tutorial', 'lecture', 'seminar', 'lab', 'workshop', 'module',
+  'homework', 'assignment', 'coursework', 'essay', 'exam', 'quiz', 'test',
+  'reading', 'textbook', 'handout', 'slides', 'notes', 'syllabus',
+  'semester', 'term', 'deadline', 'submission', 'revision', 'office hours',
+  'question', 'answer', 'example', 'problem', 'exercise', 'chapter four',
+])
+
 function parseTermLines(response, transcript, recentContext) {
   // Checked against transcript AND recentContext together, not just
   // transcript: the prompt itself explicitly hands the model both (see
@@ -227,6 +263,7 @@ function parseTermLines(response, transcript, recentContext) {
   // adapter" were both genuinely said but dropped here before this fix,
   // because they'd landed in recentContext rather than the current chunk.
   const normalizedHaystack = normalize(`${recentContext ?? ''} ${transcript}`)
+  const isAdmin = (t) => ADMIN_WORDS.has(t.trim().toLowerCase())
   const out = []
   for (const line of response.split('\n')) {
     const m = line.match(TERM_LINE_RE)
@@ -241,6 +278,10 @@ function parseTermLines(response, transcript, recentContext) {
     // context) is a cheap, direct check against both.
     if (!normalizedHaystack.includes(normalize(m[1]))) {
       console.warn('[demist] dropped likely-hallucinated term (not found in transcript or recent context):', m[1])
+      continue
+    }
+    if (isAdmin(m[1])) {
+      console.warn('[demist] dropped course-admin word, not lecture jargon:', m[1])
       continue
     }
     out.push({ term: m[1], definition: m[2], context: m[3] })

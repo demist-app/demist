@@ -1,6 +1,10 @@
 Demist Desktop bundles and redistributes the following third-party models.
 Their license texts are included alongside this file.
 
+Qwen2.5-1.5B-Instruct (Alibaba Cloud) is licensed under the Apache License, Version 2.0.
+See APACHE_2.0_LICENSE.txt. Used for on-device term detection (tiny tier, the default
+on machines with less than 10GB of RAM).
+
 Llama 3.2 is licensed under the Llama 3.2 Community License, Copyright © Meta Platforms, Inc. All Rights Reserved.
 See LLAMA_3.2_LICENSE.txt. Used for on-device term detection (small tier).
 

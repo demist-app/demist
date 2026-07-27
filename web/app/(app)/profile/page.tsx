@@ -83,7 +83,7 @@ export default function Profile() {
   const [micDevices, setMicDevices] = useState<MediaDeviceInfo[]>([])
   const [selectedMicId, setSelectedMicId] = useState<string>('')
   const [micLabelsUnlocked, setMicLabelsUnlocked] = useState(false)
-  const [modelTier, setModelTier] = useState<'small' | 'large'>('small')
+  const [modelTier, setModelTier] = useState<'tiny' | 'small' | 'large'>('small')
   const [tierChanging, setTierChanging] = useState(false)
   const [transcribeTier, setTranscribeTier] = useState<'fast' | 'accurate'>('fast')
   const [transcribeTierChanging, setTranscribeTierChanging] = useState(false)
@@ -155,7 +155,7 @@ export default function Profile() {
     return () => navigator.mediaDevices?.removeEventListener?.('devicechange', listMicDevices)
   }, [])
 
-  const handleModelTierChange = async (tier: 'small' | 'large') => {
+  const handleModelTierChange = async (tier: 'tiny' | 'small' | 'large') => {
     const native = getDemistNative()
     if (!native || tierChanging) return
     setTierChanging(true)
@@ -655,8 +655,8 @@ export default function Profile() {
           {isElectronNative() && (
             <div>
               <label className="text-[12px] text-gray-600 mb-1.5 block">On-device term detection model</label>
-              <div className="grid grid-cols-2 gap-2">
-                {(['small', 'large'] as const).map(tier => (
+              <div className="grid grid-cols-3 gap-2">
+                {(['tiny', 'small', 'large'] as const).map(tier => (
                   <button
                     key={tier}
                     onClick={() => handleModelTierChange(tier)}
@@ -667,19 +667,26 @@ export default function Profile() {
                         : 'dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.08] border-black/[0.13] text-gray-600 hover:bg-white/[0.09]'
                     }`}
                   >
-                    {tier === 'small' ? 'Small (fast)' : 'Large (accurate)'}
+                    {tier === 'tiny' ? 'Tiny' : tier === 'small' ? 'Small' : 'Large'}
                   </button>
                 ))}
               </div>
               <p className="text-[12px] text-gray-500 mt-1.5">
-                Small runs on almost any laptop. Large is closer to cloud-quality term detection but needs 8GB+ RAM free and downloads a bigger model on first use.
+                Tiny (~1.4GB in memory) found the same terms as Small in testing and is the default on machines with under 10GB of RAM. Small (~2.5GB) is the default above that. Large is closer to cloud-quality term detection but needs 8GB+ RAM free and downloads a bigger model on first use. Demist picks a default from your machine&apos;s memory; choosing here overrides it.
               </p>
               {/* Required by the Llama 3.2/3.1 Community License's redistribution
                   terms: "prominently display 'Built with Llama'". This is the
                   desktop app's about/settings surface for the feature that
                   actually uses it, so it belongs here, not on the (also
                   cloud-serving) web app's profile page. */}
-              <p className="text-[11px] text-gray-500 mt-1">Built with Llama.</p>
+              {/* Attribution required by each model's license: the Llama 3.2/3.1
+                  Community License requires "Built with Llama" be displayed
+                  prominently, and Qwen2.5 is Apache-2.0. The tiny tier is Qwen,
+                  the other two are Llama, so which notice applies depends on the
+                  selected tier. See desktop/licenses/NOTICE.txt. */}
+              <p className="text-[11px] text-gray-500 mt-1">
+                {modelTier === 'tiny' ? 'Built with Qwen (Apache 2.0).' : 'Built with Llama.'}
+              </p>
             </div>
           )}
 
