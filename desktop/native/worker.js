@@ -18,6 +18,11 @@ const handlers = {
     (t) => emitEvent('transcript', t),
     emitProgress,
     (t) => emitEvent('interimTranscript', t),
+    // Native-side timing, forwarded to the renderer's console. Everything
+    // this file logs normally goes to the main process's stdout, invisible
+    // unless the app was launched from a terminal, which is why the cause of
+    // a slow startSession has been so hard to pin down from a screenshot.
+    (message) => emitEvent('diag', { message }),
   ),
   stopSession: () => (whisper ??= require('./whisper')).stopSession(),
   preloadWhisper: () => (whisper ??= require('./whisper')).preload(emitProgress),

@@ -101,8 +101,12 @@ const LOW_ENERGY_RMS = 0.004
 
 let activeSession = null
 
-async function startSession(onTranscript, emitProgress, onInterim) {
+async function startSession(onTranscript, emitProgress, onInterim, emitDiag) {
+  const t0 = Date.now()
+  const diag = (m) => { console.log(`[demist] ${m}`); emitDiag?.(m) }
+  diag(`startSession: entered (worker has transcriber cached: ${transcribersByTier.has(getTier())})`)
   stopSession() // safety: a crashed renderer can leave one dangling
+  diag(`startSession: previous session cleared after ${Date.now() - t0} ms`)
   // Load the model HERE, before reporting the session as started, rather than
   // lazily on the first segment. Previously startSession only wired up a
   // segmenter, so it resolved instantly against a worker with no model loaded
@@ -113,7 +117,9 @@ async function startSession(onTranscript, emitProgress, onInterim) {
   // minute or more. Awaiting it here means "session started" genuinely means
   // "ready to transcribe", progress events reach the UI while it happens, and
   // a failure surfaces as a failed start instead of a dead recording.
+  const tModel = Date.now()
   await getTranscriber(emitProgress)
+  diag(`startSession: transcriber ready after ${Date.now() - tModel} ms (total ${Date.now() - t0} ms)`)
   let seq = 0
   let queue = Promise.resolve()
   let lastText = ''

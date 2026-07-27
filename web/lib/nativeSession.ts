@@ -110,6 +110,11 @@ export async function startNativeSession(
       if (msg.payload.label !== undefined && msg.payload.pct !== undefined) {
         callbacks.onModelProgress?.(msg.payload.label, msg.payload.pct)
       }
+    } else if (msg.event === 'diag') {
+      // Native-side timing from the transcribe worker. Always printed: it is
+      // low volume (a few lines per recording) and it is the only view into
+      // why a session takes a long time to start without a terminal.
+      console.log('[demist][native]', msg.payload.message)
     } else if (msg.event === 'sessionLost') {
       callbacks.onError?.(msg.payload.message ?? 'On-device transcription stopped unexpectedly.')
     }

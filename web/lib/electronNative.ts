@@ -15,7 +15,7 @@ export interface NativeEvent {
   // damaging case is an IDLE death: the preload has already resolved, so the
   // UI still claims everything is ready while the replacement worker has
   // nothing loaded.
-  event: 'transcript' | 'interimTranscript' | 'modelProgress' | 'sessionLost' | 'modelsUnloaded'
+  event: 'transcript' | 'interimTranscript' | 'modelProgress' | 'sessionLost' | 'modelsUnloaded' | 'diag'
   payload: {
     seq?: number
     text?: string

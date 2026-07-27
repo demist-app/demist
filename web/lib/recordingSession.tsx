@@ -361,9 +361,12 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     // genuinely fail after retries, recording is released anyway with a
     // warning, because refusing to record at all over a missing term-detection
     // model is a far worse outcome than a lecture with no term cards.
+    const tPre = Date.now()
+    console.log('[demist] preload: starting (transcription first, then term detection, then translation)')
     ;(async () => {
       try {
         await withRetry(() => native.preloadWhisper())
+        console.log(`[demist] preload: transcription model ready in ${Date.now() - tPre} ms`)
       } catch (err) {
         console.error('[demist] preload failed for transcription model:', err)
         setNativeModelsError("Couldn't load the transcription model. Check your connection and try again.")
@@ -375,6 +378,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       try {
         await withRetry(() => native.preloadTermDetection())
         termDetectionReadyRef.current = true
+        console.log(`[demist] preload: term detection model ready at ${Date.now() - tPre} ms`)
       } catch (err) {
         console.error('[demist] preload failed for term detection model:', err)
         degraded.push('term detection')
@@ -389,6 +393,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       }
 
       // Everything that will be used is now resident: recording can start.
+      console.log(`[demist] preload: ALL models ready after ${Date.now() - tPre} ms - record button unlocked`)
       setNativeModelsReady(true)
       setNativeModelProgress(null)
       if (degraded.length) {
