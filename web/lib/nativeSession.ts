@@ -22,6 +22,15 @@ const TARGET_RATE = 16000
 // seconds) and well under the smallest thing it can detect.
 const BATCH_MS = 100
 
+// Health report posted by the worklet itself (see public/pcm-worklet.js),
+// distinguishable from an audio frame because it is a plain object.
+interface PcmWorkletStats {
+  pcmWorkletStats: true
+  callsPerSecond: number
+  postedPerSecond: number
+  emptyInputs: number
+}
+
 // Returns the downsampled audio plus the number of input samples actually
 // consumed. The caller carries the unconsumed tail into the next batch:
 // inputRate/TARGET_RATE is rarely an integer multiple of the buffer length,
@@ -235,11 +244,25 @@ export async function startNativeSession(
     const batch = new Float32Array(batchTarget + 4096)
     let filled = 0
 
-    worklet.port.onmessage = (e: MessageEvent<Float32Array>) => {
+    worklet.port.onmessage = (e: MessageEvent<Float32Array | PcmWorkletStats>) => {
       try {
+        // Periodic health report from the audio thread rather than audio.
+        // Always logged: it is one line every 5 seconds, and it is the only
+        // way to tell a graph that is not being pulled from a source node
+        // that is connected but silent.
+        if (!(e.data instanceof Float32Array) && (e.data as PcmWorkletStats)?.pcmWorkletStats) {
+          const s = e.data as PcmWorkletStats
+          console.log(
+            `[demist] audio worklet: ${s.callsPerSecond.toFixed(0)} process calls/sec ` +
+            `(expect ~${Math.round(inputRate / 128)}), ${s.postedPerSecond.toFixed(0)} frames/sec delivered, ` +
+            `${s.emptyInputs} with no input`,
+          )
+          return
+        }
+        const data = e.data as Float32Array
         frameCount++
-        for (let i = 0; i < e.data.length; i++) {
-          const abs = Math.abs(e.data[i])
+        for (let i = 0; i < data.length; i++) {
+          const abs = Math.abs(data[i])
           if (abs > peakSinceLastLog) peakSinceLastLog = abs
         }
         if (peakSinceLastLog > peakEver) peakEver = peakSinceLastLog
@@ -260,9 +283,9 @@ export async function startNativeSession(
 
         // Defensive: a quantum larger than the headroom would overflow the
         // buffer. Drop the backlog rather than throw, so capture continues.
-        if (filled + e.data.length > batch.length) filled = 0
-        batch.set(e.data, filled)
-        filled += e.data.length
+        if (filled + data.length > batch.length) filled = 0
+        batch.set(data, filled)
+        filled += data.length
         if (filled < batchTarget) return
 
         const { out, consumed } = downsampleTo16k(batch.subarray(0, filled), inputRate)
