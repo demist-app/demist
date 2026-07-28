@@ -77,6 +77,7 @@ const CALL_ROLE = {
 // existing worker by keepWorkersWarm below, never routed to one role.
 
 const workerStates = {} // role -> { worker, pending: Map }
+const workerSpawns = {} // role -> how many times a worker has been created
 let nextRequestId = 1
 // Whether a live transcription session is meant to be running on the
 // 'transcribe' worker, so its death can be reported rather than swallowed.
@@ -84,7 +85,9 @@ let transcribeSessionActive = false
 
 function getWorkerState(role) {
   if (workerStates[role]) return workerStates[role]
+  workerSpawns[role] = (workerSpawns[role] || 0) + 1
   const worker = new Worker(path.join(__dirname, 'native', 'worker.js'))
+  console.warn(`[demist] spawned ${role} worker #${workerSpawns[role]} (threadId will follow); a respawn means every model it had is gone`)
   // lastMessageAt is the liveness signal used by the call timeout below. Model
   // loading emits a steady stream of progress events, so a worker that is
   // merely blocked in a long synchronous native call still looks alive here,
@@ -395,11 +398,15 @@ setInterval(() => {
     `(${(pcmBytes / 4 / 16000).toFixed(1)}s of audio), ${pcmDropped} dropped, over ${secs.toFixed(0)}s [expect ~10/sec]` +
     ` | renderer stamped up to seq ${pcmMaxSeq}, main saw ${pcmReceived} of the ${pcmMaxSeq - pcmSeqBase} it sent in this window` +
     `${pcmMaxSeq - pcmSeqBase > pcmReceived + 2 ? " <- MESSAGES LOST IN TRANSIT between renderer and main" : ''}` +
+    ` | posting to transcribe worker threadId ${workerStates.transcribe ? workerStates.transcribe.worker.threadId : 'NONE'}` +
+    ` (spawned ${workerSpawns.transcribe || 0} time(s) this run)` +
     ` | main event-loop worst stall ${mainLoopWorst}ms` +
     `${mainLoopWorst > 1000 ? " <- MAIN WAS BLOCKED, so it could not dispatch the renderer messages" : ''}`
   if (recvRate < 5) console.warn(`[demist] ${message}`); else dlog(`[demist] ${message}`)
   mainWindow?.webContents.send('demist:event', { event: 'diag', payload: { message } })
   pcmReceived = 0; pcmForwarded = 0; pcmBytes = 0; pcmDropped = 0
+  pcmSeqBase = pcmMaxSeq
+  mainLoopWorst = 0
   lastPcmReport = Date.now()
 }, 5000).unref?.()
 

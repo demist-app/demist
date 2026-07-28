@@ -4,7 +4,7 @@
 // segments, model download progress) alongside the existing request/response
 // calls, and zero-copy PCM feeding via transferList.
 
-const { parentPort } = require('worker_threads')
+const { parentPort, threadId } = require('worker_threads')
 
 function emitEvent(event, payload) {
   parentPort.postMessage({ event, payload })
@@ -87,7 +87,7 @@ parentPort.on('message', async (msg) => {
     if (now - lastPcmLog >= 5000) {
       const secs = (now - lastPcmLog) / 1000
       emitEvent('diag', {
-        message: `worker received ${(pcmMessages / secs).toFixed(1)} pcm msgs/sec `
+        message: `worker[${threadId}] received ${(pcmMessages / secs).toFixed(1)} pcm msgs/sec `
           + `(${(pcmSamples / 16000).toFixed(1)}s of audio) over the last ${secs.toFixed(0)}s`
           + ` | worker event-loop worst stall ${loopWorst}ms`
           + `${loopWorst > 1000 ? ' <- THIS THREAD WAS BLOCKED, which is why it did not drain its queue' : ''}`,

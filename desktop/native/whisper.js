@@ -209,6 +209,7 @@ async function startSession(onTranscript, emitProgress, onInterim, emitDiag) {
   // Forwarded to the renderer's console, where it is gated behind the
   // renderer's own debug flag; only mirrored to stdout when DEMIST_DEBUG=1.
   const diag = (m) => { if (process.env.DEMIST_DEBUG === '1') console.log(`[demist] ${m}`); emitDiag?.(m) }
+  discardEmitter = (m) => emitDiag?.(m)
   diag(`startSession: entered (worker has transcriber cached: ${transcribersByTier.has(getTier())})`)
   stopSession() // safety: a crashed renderer can leave one dangling
   diag(`startSession: previous session cleared after ${Date.now() - t0} ms`)
@@ -498,13 +499,20 @@ async function startSession(onTranscript, emitProgress, onInterim, emitDiag) {
 // what a replacement worker (after a crash) or a stale session looks like.
 let discardedFrames = 0
 let lastDiscardLog = 0
+// Set by startSession so the discard warning can reach the renderer console.
+// It was console.warn only, i.e. main-process stdout, which is invisible
+// without a terminal - the clearest possible explanation for "audio arrives
+// and then vanishes" was being written somewhere nobody was looking.
+let discardEmitter = null
 function feedPcm(pcmFloat32) {
   if (activeSession) { activeSession.feed(pcmFloat32); return }
   discardedFrames++
   const now = Date.now()
   if (now - lastDiscardLog >= 5000) {
     lastDiscardLog = now
-    console.warn(`[demist] ${discardedFrames} PCM frames discarded: audio is arriving at the worker but NO SESSION is active to receive it`)
+    const msg = `${discardedFrames} PCM frames discarded: audio is arriving at this worker but NO SESSION is active on it`
+    console.warn(`[demist] ${msg}`)
+    discardEmitter?.(msg)
     discardedFrames = 0
   }
 }
