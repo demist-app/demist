@@ -200,7 +200,20 @@ async function startSession(onTranscript, emitProgress, onInterim, emitDiag) {
   let seq = 0
   let queue = Promise.resolve()
   let lastText = ''
-  let queueBusy = false
+  // How many segments are queued or in flight. This replaces a `queueBusy`
+  // boolean that did not survive a backlog: it was set true where a segment
+  // was ENQUEUED and set false in each queue item's finally, so as soon as
+  // more than one segment was waiting, item 1 finishing cleared it and items
+  // 2..N ran with it reading false. The preview guard below is the only thing
+  // keeping previews off the shared ONNX session, so from the second queued
+  // segment onwards it stopped guarding anything at all - previews then ran
+  // concurrently with final transcription, which is exactly the re-entrancy
+  // the guard exists to prevent. Seen in a real session: a 1.8s preview took
+  // 22943 ms while 14 segments sat queued behind it, and because an inference
+  // blocks this worker's event loop, incoming PCM stopped being read for the
+  // duration (0.4s of audio accepted across 25s of wall clock, then a 49s
+  // burst once it drained). A counter cannot go stale the way the flag did.
+  let queueDepth = 0
   let interimBusy = false
   let skippedInterims = 0
   // Resolves when any in-flight preview finishes. A final segment must wait
@@ -219,7 +232,7 @@ async function startSession(onTranscript, emitProgress, onInterim, emitDiag) {
       const mySeq = ++seq
       const secs = (segment.length / SAMPLE_RATE).toFixed(1)
       diag(`segment ${mySeq} closed after ${secs}s of speech (meanRms ${meanRms.toFixed(4)}), queued`)
-      queueBusy = true
+      queueDepth++
       const tQueued = Date.now()
       queue = queue.then(async () => {
         try {
@@ -258,19 +271,26 @@ async function startSession(onTranscript, emitProgress, onInterim, emitDiag) {
         } catch (err) {
           console.error('[demist] transcription segment failed:', err?.message ?? err)
         } finally {
-          queueBusy = false
+          queueDepth--
         }
       })
     },
     onInterim && ((segment) => {
       // Best-effort only, never queued: this shares the same underlying
-      // model/session as final-segment transcription above, so it must
-      // never run concurrently with it (queueBusy) or with a previous,
+      // model/session as final-segment transcription above, so it must never
+      // run concurrently with it (queueDepth) or with a previous,
       // still-running interim tick (interimBusy). Skipping a tick is
       // harmless - the next one (or the real final segment) follows shortly
       // regardless - whereas queuing interim calls behind finals would
       // delay the finals for a feature that only exists to feel faster.
-      if (queueBusy || interimBusy) {
+      //
+      // queueDepth, not "is one running": ANY outstanding segment means real
+      // transcript text is already waiting on this pipeline, and a preview
+      // that delays it is strictly harmful. When transcription is running
+      // slower than real time the backlog only grows, so this is exactly when
+      // previews must get out of the way - a real session had 17 segments
+      // queued while previews were still being issued.
+      if (queueDepth > 0 || interimBusy) {
         skippedInterims++
         return
       }

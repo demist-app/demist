@@ -89,8 +89,28 @@ let llama, model, context, session, summaryGrammar, loadedTier, loadingPromise
 // nothing at all for the clearest biology, ML and economics jargon. Model
 // size matters enormously for this task, so do not swap this for something
 // smaller without re-running that comparison.
+// Decided on what the machine can actually SPARE, not just what it has. A
+// 16GB machine with a browser and an editor open has repeatedly been measured
+// with under 3GB free, and total RAM cannot see that: this app was observed at
+// 7458MB committed against 4471MB resident, i.e. Windows had paged ~3GB of it
+// out, which is what turns a 1ms startSession into a 60s one and a 2s
+// inference into a 23s one.
+//
+// The 3B is only worth its extra 1.1GB when that 1.1GB is genuinely spare.
+// Per the measurements above it matches the 1.5B on recall and is merely
+// tighter about mundane text, so trading it away under memory pressure costs
+// very little and buys back the headroom that keeps transcription - the thing
+// a lecture actually depends on - running at real time.
+//
+// freemem() is a snapshot and will fluctuate; that is fine, because this only
+// picks a DEFAULT at load time and an explicit choice in Settings still wins.
+// The threshold is deliberately generous: 'small' needs ~2.5GB resident for
+// itself, on top of Whisper's ~2.3GB and translation's ~0.4GB.
 function defaultTier() {
-  return os.totalmem() / (1024 ** 3) < 10 ? 'tiny' : 'small'
+  const totalGB = os.totalmem() / (1024 ** 3)
+  const freeGB = os.freemem() / (1024 ** 3)
+  if (totalGB < 10) return 'tiny'
+  return freeGB < 6 ? 'tiny' : 'small'
 }
 
 function getTier() {
