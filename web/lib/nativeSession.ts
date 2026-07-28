@@ -101,9 +101,31 @@ export interface NativeSessionHandle {
   rebindStream: (stream: MediaStream) => Promise<void>
 }
 
+// The audio graph the caller has ALREADY built for its visualizer/gain chain.
+// Supplying this makes capture share that one AudioContext and that one
+// MediaStreamAudioSourceNode instead of standing up a second context.
+//
+// A second AudioContext was the original design and it is what broke capture.
+// Two contexts each pulling the same microphone compete, and the loser is
+// starved: measured at the main-process bridge, the renderer was delivering
+// 0.1 PCM frames per second against an expected 10, with nothing dropped
+// anywhere downstream - 1% of the audio ever left the renderer. The worklet's
+// own health report never arrived either, which means its process() was not
+// being called at all: that graph was simply not being rendered.
+//
+// Chrome allows only one MediaStreamAudioSourceNode per stream per context,
+// which is why this takes the caller's existing node and branches off it (the
+// visualizer analyser is already branched off the same node) rather than
+// making another one.
+export interface SharedAudioGraph {
+  context: AudioContext
+  source: MediaStreamAudioSourceNode
+}
+
 export async function startNativeSession(
   stream: MediaStream,
   callbacks: NativeSessionCallbacks,
+  shared?: SharedAudioGraph | null,
 ): Promise<NativeSessionHandle> {
   dlog('[demist] startNativeSession: starting')
   const native = getDemistNative()
@@ -176,15 +198,26 @@ export async function startNativeSession(
   // open after the recording ends.
   let capturedStream: MediaStream | null = null
 
+  // True when the AudioContext belongs to the caller (see SharedAudioGraph):
+  // we must disconnect our own nodes from it but must NOT close it, or the
+  // visualizer and gain chain die with the capture graph.
+  let ownsContext = true
+  // Set once the capture watchdog below exists; teardown may run before then.
+  let stopWatchdogRef: (() => void) | null = null
+
   const teardownGraph = async () => {
+    stopWatchdogRef?.()
     if (worklet) worklet.port.onmessage = null
-    source?.disconnect()
+    // Only disconnect the worklet from the shared source, never the source
+    // itself - the caller's analyser and gain chain are branched off it.
+    if (source && worklet) { try { source.disconnect(worklet) } catch { /* already gone */ } }
+    if (ownsContext) source?.disconnect()
     worklet?.disconnect()
     silent?.disconnect()
     capturedStream?.getTracks().forEach(t => t.stop())
     const ctx = audioContext
     audioContext = null; source = null; worklet = null; silent = null; capturedStream = null
-    await ctx?.close().catch(() => {})
+    if (ownsContext) await ctx?.close().catch(() => {})
   }
 
   // Diagnostic only: logs a running frame count and the loudest sample seen
@@ -197,67 +230,16 @@ export async function startNativeSession(
   let peakSinceLastLog = 0
   let lastLogAt = 0
 
-  const attachGraph = async (mediaStream: MediaStream) => {
-    audioContext = new AudioContext()
-    // This is a SECOND AudioContext, separate from the visualizer/gain one
-    // startRecording creates: that one is created and resumed synchronously
-    // inside the click gesture, but this one is created several awaits later
-    // (recording-limit check, getUserMedia, the sessions insert, wake lock),
-    // by which point the gesture is long consumed. A context created in that
-    // state can start "suspended", and a suspended context never runs its
-    // worklet's process() at all - no PCM is ever emitted, no frames are
-    // logged below, and capture is silently dead end to end while everything
-    // upstream reports success. resume() is a no-op when it is already
-    // running, so this only ever helps. rebindStream re-enters here on a mic
-    // reconnect and needs the same treatment.
-    await audioContext.resume().catch(() => {})
-    dlog('[demist] attachGraph: AudioContext sampleRate =', audioContext.sampleRate, 'state =', audioContext.state)
-    if (audioContext.state !== 'running') {
-      console.error('[demist] attachGraph: AudioContext is not running (state:', audioContext.state + '). No PCM will be captured.')
-      callbacks.onError?.(`Audio capture could not start (audio context ${audioContext.state}).`)
-    }
-    await audioContext.audioWorklet.addModule('/pcm-worklet.js')
-    dlog('[demist] attachGraph: pcm-worklet.js module loaded')
-    // Which device we actually ended up capturing from. getUserMedia happily
-    // returns a live, unmuted track that emits nothing but digital silence
-    // when the selected device is a disconnected mic, a loopback/"Stereo Mix"
-    // input with nothing playing, or one Windows has blocked at the OS
-    // privacy level. Nothing downstream can tell that apart from a quiet
-    // room, so the device identity has to be logged here.
-    const track = mediaStream.getAudioTracks()[0]
-    dlog('[demist] attachGraph: capturing from', JSON.stringify({
-      label: track?.label,
-      enabled: track?.enabled,
-      muted: track?.muted,
-      readyState: track?.readyState,
-      deviceId: track?.getSettings?.().deviceId,
-    }))
+  // Everything that turns a constructed AudioWorkletNode into a working PCM
+  // feed: health reporting, the silence watchdog, batching and downsampling.
+  // Shared by both the private-context and shared-context paths so they can
+  // never drift apart.
+  const wireWorklet = (inputRate: number, track: MediaStreamTrack | undefined) => {
+    const node = worklet
+    if (!node) return
     if (track?.muted) {
       callbacks.onError?.(`Microphone "${track.label || 'unknown'}" is muted at the system level. Unmute it, or pick a different microphone in Profile.`)
     }
-
-    // Capture from our OWN CLONE of the stream, never the caller's.
-    //
-    // recordingSession's attachAudioGraph already builds a
-    // MediaStreamAudioSourceNode from this same MediaStream in its own
-    // (separate) AudioContext for the gain/compressor/visualizer chain. Two
-    // AudioContexts pulling one MediaStream do not each get a full copy of the
-    // audio: they compete, and the loser is starved intermittently. That is
-    // the "~3% of real time" failure this file's own worklet comment records
-    // and it came back - a real session fed only 1.7s of audio to the
-    // transcriber across 38.6 seconds of wall clock, with the worker sitting
-    // idle the whole time and nothing else to blame. Because it is a race, it
-    // also explains why other sessions on the same build ran at a clean
-    // 9.9s fed over 10.1s: sometimes this graph wins.
-    //
-    // clone() gives independent MediaStreamTracks drawing from the same
-    // device, which is the supported way to have two consumers. Tracks are
-    // stopped in teardownGraph, since they outlive the caller's stream.
-    capturedStream = mediaStream.clone()
-    source = audioContext.createMediaStreamSource(capturedStream)
-    worklet = new AudioWorkletNode(audioContext, 'pcm-capture')
-    const inputRate = audioContext.sampleRate
-
     // Silence watchdog. A working microphone always has a noise floor: even a
     // silent room reads ~0.001-0.005. A sustained EXACT zero means the device
     // is not really producing audio, which previously surfaced only as a
@@ -283,7 +265,7 @@ export async function startNativeSession(
     const batch = new Float32Array(batchTarget + 4096)
     let filled = 0
 
-    worklet.port.onmessage = (e: MessageEvent<Float32Array | PcmWorkletStats>) => {
+    node.port.onmessage = (e: MessageEvent<Float32Array | PcmWorkletStats>) => {
       try {
         // Periodic health report from the audio thread rather than audio.
         // Always logged: it is one line every 5 seconds, and it is the only
@@ -359,7 +341,69 @@ export async function startNativeSession(
         callbacks.onError?.(String((err as Error)?.message ?? err))
       }
     }
+  }
 
+  const attachGraph = async (mediaStream: MediaStream, sharedGraph?: SharedAudioGraph | null) => {
+    if (sharedGraph) {
+      ownsContext = false
+      audioContext = sharedGraph.context
+      source = sharedGraph.source
+      await audioContext.resume().catch(() => {})
+      dlog('[demist] attachGraph: sharing the existing AudioContext, sampleRate =', audioContext.sampleRate, 'state =', audioContext.state)
+      await audioContext.audioWorklet.addModule('/pcm-worklet.js')
+      worklet = new AudioWorkletNode(audioContext, 'pcm-capture')
+      wireWorklet(audioContext.sampleRate, mediaStream.getAudioTracks()[0])
+      source.connect(worklet)
+      // No destination hop here: the caller's graph is already being pulled,
+      // which is what keeps process() running.
+      return
+    }
+    ownsContext = true
+    audioContext = new AudioContext()
+    // This is a SECOND AudioContext, separate from the visualizer/gain one
+    // startRecording creates: that one is created and resumed synchronously
+    // inside the click gesture, but this one is created several awaits later
+    // (recording-limit check, getUserMedia, the sessions insert, wake lock),
+    // by which point the gesture is long consumed. A context created in that
+    // state can start "suspended", and a suspended context never runs its
+    // worklet's process() at all - no PCM is ever emitted, no frames are
+    // logged below, and capture is silently dead end to end while everything
+    // upstream reports success. resume() is a no-op when it is already
+    // running, so this only ever helps. rebindStream re-enters here on a mic
+    // reconnect and needs the same treatment.
+    await audioContext.resume().catch(() => {})
+    dlog('[demist] attachGraph: AudioContext sampleRate =', audioContext.sampleRate, 'state =', audioContext.state)
+    if (audioContext.state !== 'running') {
+      console.error('[demist] attachGraph: AudioContext is not running (state:', audioContext.state + '). No PCM will be captured.')
+      callbacks.onError?.(`Audio capture could not start (audio context ${audioContext.state}).`)
+    }
+    await audioContext.audioWorklet.addModule('/pcm-worklet.js')
+    dlog('[demist] attachGraph: pcm-worklet.js module loaded')
+    // Which device we actually ended up capturing from. getUserMedia happily
+    // returns a live, unmuted track that emits nothing but digital silence
+    // when the selected device is a disconnected mic, a loopback/"Stereo Mix"
+    // input with nothing playing, or one Windows has blocked at the OS
+    // privacy level. Nothing downstream can tell that apart from a quiet
+    // room, so the device identity has to be logged here.
+    const track = mediaStream.getAudioTracks()[0]
+    dlog('[demist] attachGraph: capturing from', JSON.stringify({
+      label: track?.label,
+      enabled: track?.enabled,
+      muted: track?.muted,
+      readyState: track?.readyState,
+      deviceId: track?.getSettings?.().deviceId,
+    }))
+    if (track?.muted) {
+      callbacks.onError?.(`Microphone "${track.label || 'unknown'}" is muted at the system level. Unmute it, or pick a different microphone in Profile.`)
+    }
+
+    // Capture from our OWN CLONE of the stream, never the caller's, when we
+    // are running a private context (the shared path branches off the caller's
+    // existing source node instead).
+    capturedStream = mediaStream.clone()
+    source = audioContext.createMediaStreamSource(capturedStream)
+    worklet = new AudioWorkletNode(audioContext, 'pcm-capture')
+    wireWorklet(audioContext.sampleRate, mediaStream.getAudioTracks()[0])
     source.connect(worklet)
     // Worklets need a destination connection in some Chrome versions to keep
     // processing; route through a zero-gain node so nothing is audible.
@@ -371,7 +415,27 @@ export async function startNativeSession(
 
   // Capture first, THEN wait for the backend. Audio recorded in between is
   // buffered by sendOrBuffer and flushed below.
-  await attachGraph(stream)
+  await attachGraph(stream, shared)
+
+  // Capture watchdog, driven by a plain timer rather than by the worklet.
+  //
+  // Every other capture check lives inside worklet.port.onmessage, so all of
+  // them go silent in the one case that matters most: process() not being
+  // called at all. That is exactly what happened - the renderer delivered 0.1
+  // PCM frames/sec against an expected 10, and not one warning fired anywhere,
+  // because the code that would have warned only runs when a frame arrives.
+  // A timer cannot be starved by the audio graph and so cannot miss it.
+  const framesAtStart = frameCount
+  const captureWatchdog = setInterval(() => {
+    const delivered = frameCount - framesAtStart
+    if (delivered > 0) { clearInterval(captureWatchdog); return }
+    console.error(
+      '[demist] the audio worklet has not delivered a single frame since recording started. ' +
+      'Capture is dead: the audio graph is not being rendered, so nothing can be transcribed.',
+    )
+    callbacks.onError?.('Audio capture is not running. Stop and start the recording; if it persists, restart Demist.')
+  }, 4000)
+  stopWatchdogRef = () => clearInterval(captureWatchdog)
   dlog('[demist] startNativeSession: capturing; waiting for the on-device model to be ready')
 
   // Say so if the backend is taking an unreasonable time. Without this the

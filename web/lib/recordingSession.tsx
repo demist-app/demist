@@ -242,6 +242,10 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
   const audioProcessingCtxRef = useRef<AudioContext | null>(null)
   const vizAnalyserRef = useRef<AnalyserNode | null>(null)
   const processedStreamRef = useRef<MediaStream | null>(null)
+  // The one MediaStreamAudioSourceNode for the mic, owned by attachAudioGraph.
+  // The on-device capture worklet branches off THIS node rather than building
+  // its own AudioContext - see the comment at its connect site below.
+  const micSourceRef = useRef<MediaStreamAudioSourceNode | null>(null)
   const webLockReleaseRef = useRef<(() => void) | null>(null)
   const nativeSessionRef = useRef<NativeSessionHandle | null>(null)
   // Bumped on every start and every stop. startNativeSession can be pending
@@ -920,6 +924,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
   // graph on a replacement stream without duplicating the wiring.
   const attachAudioGraph = (ctx: AudioContext, rawStream: MediaStream) => {
     const src = ctx.createMediaStreamSource(rawStream)
+    micSourceRef.current = src
     const gain = ctx.createGain()
     gain.gain.value = 2.5
     const compressor = ctx.createDynamicsCompressor()
@@ -1175,6 +1180,13 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
         // Audio is captured from this moment, but the native model may still
         // be loading; say so rather than showing an empty transcript.
         setRecordingWarning('Preparing on-device transcription… your audio is being recorded and will appear shortly.')
+        // Share the audio graph attachAudioGraph already built rather than
+        // letting nativeSession stand up a second AudioContext. Two contexts
+        // pulling one microphone compete, and the measured result was the
+        // renderer delivering 0.1 PCM frames/sec against an expected 10.
+        const sharedGraph = audioProcessingCtxRef.current && micSourceRef.current
+          ? { context: audioProcessingCtxRef.current, source: micSourceRef.current }
+          : null
         const handle = await startNativeSession(streamRef.current!, {
           isStale: () => sessionEpochRef.current !== myEpoch || !isActiveRef.current,
           onReady: () => setRecordingWarning(null),
@@ -1225,7 +1237,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
             console.error('[demist] native session error:', message)
             setRecordingWarning(message)
           },
-        })
+        }, sharedGraph)
         // One last check: the recording may have been stopped or restarted
         // during attachGraph itself, after isStale was consulted.
         if (sessionEpochRef.current !== myEpoch || !isActiveRef.current) {
@@ -1404,6 +1416,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     audioProcessingCtxRef.current = null
     vizAnalyserRef.current = null
     processedStreamRef.current = null
+    micSourceRef.current = null
     streamRef.current?.getTracks().forEach(t => t.stop())
     const sid = sessionIdRef.current
     if (sid) {
