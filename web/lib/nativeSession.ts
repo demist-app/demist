@@ -204,6 +204,8 @@ export async function startNativeSession(
   let ownsContext = true
   // Set once the capture watchdog below exists; teardown may run before then.
   let stopWatchdogRef: (() => void) | null = null
+  // Set by wireWorklet once the context's real sample rate is known.
+  let expectedFramesPerSec = 0
 
   const teardownGraph = async () => {
     stopWatchdogRef?.()
@@ -237,6 +239,7 @@ export async function startNativeSession(
   const wireWorklet = (inputRate: number, track: MediaStreamTrack | undefined) => {
     const node = worklet
     if (!node) return
+    expectedFramesPerSec = inputRate / 128
     if (track?.muted) {
       callbacks.onError?.(`Microphone "${track.label || 'unknown'}" is muted at the system level. Unmute it, or pick a different microphone in Profile.`)
     }
@@ -291,7 +294,7 @@ export async function startNativeSession(
               `audio is being lost before it reaches transcription.`,
             )
           } else {
-            dlog(line)
+            console.info(line)
           }
           batchesSent = 0
           samplesSent = 0
@@ -354,8 +357,17 @@ export async function startNativeSession(
       worklet = new AudioWorkletNode(audioContext, 'pcm-capture')
       wireWorklet(audioContext.sampleRate, mediaStream.getAudioTracks()[0])
       source.connect(worklet)
-      // No destination hop here: the caller's graph is already being pulled,
-      // which is what keeps process() running.
+      // The worklet STILL needs its own path to a destination, even though the
+      // context is already rendering for the caller's chain. A branch that
+      // terminates nowhere is not guaranteed to be pulled, and the private
+      // path below has always carried this hop for exactly that reason. The
+      // first version of this shared path omitted it on the reasoning that the
+      // caller's graph was already being pulled - that was wrong, and capture
+      // stayed at 0.1 frames/sec. Zero gain, so nothing is audible.
+      silent = audioContext.createGain()
+      silent.gain.value = 0
+      worklet.connect(silent)
+      silent.connect(audioContext.destination)
       return
     }
     ownsContext = true
@@ -425,16 +437,30 @@ export async function startNativeSession(
   // PCM frames/sec against an expected 10, and not one warning fired anywhere,
   // because the code that would have warned only runs when a frame arrives.
   // A timer cannot be starved by the audio graph and so cannot miss it.
-  const framesAtStart = frameCount
+  //
+  // Checks the RATE, not merely whether anything arrived. The first version
+  // only tripped on zero frames, and the real failure delivers a trickle -
+  // enough to keep the watchdog quiet while the renderer sent 1% of the audio.
+  // A check that only catches total silence misses the bug it was written for.
+  let lastWatchdogFrames = frameCount
+  let lastWatchdogAt = Date.now()
+  let starvedReports = 0
   const captureWatchdog = setInterval(() => {
-    const delivered = frameCount - framesAtStart
-    if (delivered > 0) { clearInterval(captureWatchdog); return }
+    const now = Date.now()
+    const secs = Math.max(0.001, (now - lastWatchdogAt) / 1000)
+    const perSec = (frameCount - lastWatchdogFrames) / secs
+    lastWatchdogFrames = frameCount
+    lastWatchdogAt = now
+    const expected = expectedFramesPerSec || 375
+    if (perSec >= expected * 0.1) return
+    if (++starvedReports > 3) return // said it enough; keep the log readable
     console.error(
-      '[demist] the audio worklet has not delivered a single frame since recording started. ' +
-      'Capture is dead: the audio graph is not being rendered, so nothing can be transcribed.',
+      `[demist] audio capture is starved: the worklet delivered ${perSec.toFixed(1)} frames/sec, ` +
+      `expected ~${Math.round(expected)}. The audio graph is barely being rendered, so almost no ` +
+      'audio is reaching transcription.',
     )
-    callbacks.onError?.('Audio capture is not running. Stop and start the recording; if it persists, restart Demist.')
-  }, 4000)
+    callbacks.onError?.('Audio capture is barely running, so transcription will lag badly. Stop and restart the recording; if it persists, restart Demist.')
+  }, 5000)
   stopWatchdogRef = () => clearInterval(captureWatchdog)
   dlog('[demist] startNativeSession: capturing; waiting for the on-device model to be ready')
 
