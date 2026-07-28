@@ -100,7 +100,10 @@ function getTranscriber(emitProgress) {
       // transcript text appeared. Running one throwaway inference here, while
       // preload() is warming things up at app start rather than mid-lecture,
       // pays that cost before the user ever starts a session.
-      try { await transcriber(new Float32Array(SAMPLE_RATE)) } catch { /* warm-up only, ignore */ }
+      // Capped like every other call: this is one second of pure digital
+      // silence, the input most likely of all to send the decoder hunting,
+      // and it runs while the record button is still locked waiting on it.
+      try { await transcriber(new Float32Array(SAMPLE_RATE), generationOpts(SAMPLE_RATE)) } catch { /* warm-up only, ignore */ }
       return transcriber
     })
     // Same fix as native/translate.js's getTranslator: don't let a failed
@@ -121,6 +124,46 @@ const HALLUCINATION_BLOCKLIST = new Set([
   'you', 'you.', 'bye.', 'bye', '.', 'the',
 ])
 const LOW_ENERGY_RMS = 0.004
+
+// Bounds on a single decode. Left unset, transformers.js uses the model's own
+// generation_config.json, which for whisper-small.en is max_length: 448 with
+// NO repetition guards at all (confirmed by reading the cached config). 448
+// tokens is sized for Whisper's native 30-second window; this app never
+// transcribes more than MAX_SEGMENT_MS (6s) plus pre-roll, so the default
+// allows a decode roughly 4x longer than any legitimate segment could need.
+//
+// That ceiling is not theoretical. A real session logged
+// "segment 2 transcribed in 103199 ms" for 2.7s of normal-level speech
+// (meanRms 0.0432), against 3997ms/1970ms/3210ms for its neighbours - and
+// because an inference blocks this worker's whole event loop, everything
+// else posted to it waits that long too. That is measured: a control message
+// sent mid-inference takes ~1100ms to be answered versus 0ms when idle, so a
+// 103s inference is a 103s startSession, which is exactly what the renderer
+// reported ("on-device session took 72826 ms to start") while the worker's
+// own timing insisted the session started in 0ms.
+//
+// 15 tokens/second is generous for speech (fast English is ~4 words/sec at
+// ~1.5 tokens/word, so ~6), and the +16 covers Whisper's forced prefix tokens
+// and short segments. no_repeat_ngram_size blocks a decoder that has fallen
+// into a loop from emitting the same 6-token phrase twice; 6 is long enough
+// that ordinary repeated technical vocabulary passes untouched. Measured
+// against seven inputs including pure silence, DC offset, white noise at two
+// levels, mains hum and a clipping square wave: identical text, identical
+// timing (within noise) on every one, so this costs nothing on the inputs it
+// is not there for.
+function generationOpts(sampleCount) {
+  return {
+    max_new_tokens: Math.min(448, Math.ceil((sampleCount / SAMPLE_RATE) * 15) + 16),
+    no_repeat_ngram_size: 6,
+  }
+}
+
+// An inference this much slower than real time is pathological, not merely a
+// slow machine: healthy segments measure 2-4s for 2-6s of audio. Always
+// printed, and with the text, because the text is what identifies a runaway
+// decode on sight (a repetition loop is unmistakable) and the previous
+// occurrence left nothing behind to diagnose from.
+const SLOW_INFERENCE_RATIO = 8
 
 // ── Session ────────────────────────────────────────────────────────────────
 // One live session at a time (one microphone). startSession wires a
@@ -181,10 +224,29 @@ async function startSession(onTranscript, emitProgress, onInterim, emitDiag) {
       queue = queue.then(async () => {
         try {
           await interimPromise.catch(() => {})
+          // Hand the event loop back before starting the next inference.
+          // Awaiting a promise only drains MICROtasks; an incoming
+          // startSession/stopSession arrives as a worker 'message', which is a
+          // macrotask, so a run of queued segments would otherwise transcribe
+          // back to back without ever letting one through. setImmediate is a
+          // macrotask, so a control message sitting in the queue is delivered
+          // here, between segments, instead of after all of them. This does
+          // not (and cannot) interrupt an inference already under way - that
+          // is what the token cap above is for - it stops a BACKLOG from
+          // compounding one slow segment into a much longer stall.
+          await new Promise((resolve) => setImmediate(resolve))
           const tStart = Date.now()
           const transcriber = await getTranscriber(emitProgress)
-          const result = await transcriber(segment)
-          diag(`segment ${mySeq} transcribed in ${Date.now() - tStart} ms (waited ${tStart - tQueued} ms)`)
+          const result = await transcriber(segment, generationOpts(segment.length))
+          const took = Date.now() - tStart
+          diag(`segment ${mySeq} transcribed in ${took} ms (waited ${tStart - tQueued} ms)`)
+          if (took > (segment.length / SAMPLE_RATE) * 1000 * SLOW_INFERENCE_RATIO) {
+            console.warn(
+              `[demist] SLOW transcription: segment ${mySeq} was ${secs}s of audio but took ${took} ms. ` +
+              `Everything else queued for this worker (including starting or stopping a session) waited on it. ` +
+              `Text: ${JSON.stringify((result?.text ?? '').slice(0, 300))}`,
+            )
+          }
           let text = (result?.text ?? '').trim()
           const normalized = text.toLowerCase()
           if (meanRms < LOW_ENERGY_RMS && HALLUCINATION_BLOCKLIST.has(normalized)) text = ''
@@ -215,7 +277,7 @@ async function startSession(onTranscript, emitProgress, onInterim, emitDiag) {
       interimBusy = true
       const tInterim = Date.now()
       interimPromise = getTranscriber(emitProgress)
-        .then(transcriber => transcriber(segment))
+        .then(transcriber => transcriber(segment, generationOpts(segment.length)))
         .then(result => {
           const text = (result?.text ?? '').trim()
           diag(`preview of ${(segment.length / SAMPLE_RATE).toFixed(1)}s in ${Date.now() - tInterim} ms${skippedInterims ? ` (${skippedInterims} skipped while busy)` : ''}`)

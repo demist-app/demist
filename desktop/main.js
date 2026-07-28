@@ -298,9 +298,20 @@ ipcMain.on('demist:pcm', (_event, message) => {
     const src = new Uint8Array(message.buffer)
     const copy = new Uint8Array(src.length)
     copy.set(src)
+    // Read the length BEFORE transferring. postMessage's transferList detaches
+    // copy.buffer, and a detached view reports length 0 - so reading it after
+    // the transfer added exactly nothing to pcmBytes on every single frame,
+    // and this line always printed "(0.0s of audio)" no matter how much audio
+    // was really flowing. Verified directly: copy.length is 6400 before the
+    // postMessage and 0 after it. That is a dangerous thing for this counter
+    // in particular to get wrong, because "forwarded 9.9/sec (0.0s of audio)"
+    // reads as total audio loss in the bridge, which is precisely the bug this
+    // instrumentation was added to hunt - while the worker on the other side
+    // was reporting "audio in: 9.9s fed over 10.1s wall clock", i.e. perfect.
+    const byteLength = copy.length
     getWorkerState('transcribe').worker.postMessage({ type: 'pcm', buffer: copy.buffer }, [copy.buffer])
     pcmForwarded++
-    pcmBytes += copy.length
+    pcmBytes += byteLength
   } catch (err) {
     // Previously unguarded, and this runs per PCM message: a throw here was
     // silent and simply lost that audio.

@@ -123,7 +123,16 @@ export async function startNativeSession(
       // Native-side timing from the transcribe worker. Always printed: it is
       // low volume (a few lines per recording) and it is the only view into
       // why a session takes a long time to start without a terminal.
-      dlog('[demist][native]', msg.payload.message)
+      //
+      // This used to go through dlog, which contradicted the comment above and
+      // silenced the one channel built specifically to answer "why did this
+      // take 70 seconds" from DevTools alone. A real report of a 72826 ms
+      // session start arrived with no native timing whatsoever, because these
+      // lines - "startSession: entered (worker has transcriber cached: true)",
+      // "transcriber ready after 0 ms" - were being dropped here. They are the
+      // difference between "the model was not loaded" and "the worker was
+      // busy", which are opposite problems with opposite fixes.
+      console.info('[demist][native]', msg.payload.message)
     } else if (msg.event === 'sessionLost') {
       callbacks.onError?.(msg.payload.message ?? 'On-device transcription stopped unexpectedly.')
     }
