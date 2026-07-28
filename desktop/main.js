@@ -308,6 +308,7 @@ ipcMain.handle('demist:startSession', async () => {
     // LAUNCH - it reported "0.1/sec" for a bridge that was actually carrying
     // ~10/sec, and sent a whole investigation after a hop that was fine.
     pcmReceived = 0; pcmForwarded = 0; pcmBytes = 0; pcmDropped = 0
+    pcmMaxSeq = 0; pcmSeqBase = 0
     lastPcmReport = Date.now()
     // Only worth a line when it was slow enough for a user to notice.
     if (Date.now() - t > 3000) console.warn(`[demist] transcription session took ${Date.now() - t} ms to start`)
@@ -355,6 +356,8 @@ ipcMain.handle('demist:setTranscribeTier', (_event, tier) => callWorker('setTran
 // worker received only ~0.36 PCM messages/sec, so ~96% of the audio was being
 // lost somewhere in this path, and nothing on either side could say where.
 let pcmReceived = 0
+let pcmMaxSeq = 0
+let pcmSeqBase = 0
 let pcmForwarded = 0
 let pcmBytes = 0
 let pcmDropped = 0
@@ -390,6 +393,8 @@ setInterval(() => {
   const message =
     `main bridge: received ${recvRate.toFixed(1)}/sec, forwarded ${(pcmForwarded / secs).toFixed(1)}/sec ` +
     `(${(pcmBytes / 4 / 16000).toFixed(1)}s of audio), ${pcmDropped} dropped, over ${secs.toFixed(0)}s [expect ~10/sec]` +
+    ` | renderer stamped up to seq ${pcmMaxSeq}, main saw ${pcmReceived} of the ${pcmMaxSeq - pcmSeqBase} it sent in this window` +
+    `${pcmMaxSeq - pcmSeqBase > pcmReceived + 2 ? " <- MESSAGES LOST IN TRANSIT between renderer and main" : ''}` +
     ` | main event-loop worst stall ${mainLoopWorst}ms` +
     `${mainLoopWorst > 1000 ? " <- MAIN WAS BLOCKED, so it could not dispatch the renderer messages" : ''}`
   if (recvRate < 5) console.warn(`[demist] ${message}`); else dlog(`[demist] ${message}`)
@@ -400,6 +405,11 @@ setInterval(() => {
 
 ipcMain.on('demist:pcm', (_event, message) => {
   pcmReceived++
+  // Gap detection. The renderer stamps a monotonic seq on every message, so
+  // the highest seq seen minus how many actually arrived is exactly how many
+  // were lost in transit - which separates "the renderer never sent them"
+  // from "they were sent and dropped between the two processes".
+  if (typeof message.seq === 'number') pcmMaxSeq = Math.max(pcmMaxSeq, message.seq)
   try {
     const src = new Uint8Array(message.buffer)
     const copy = new Uint8Array(src.length)
@@ -424,28 +434,12 @@ ipcMain.on('demist:pcm', (_event, message) => {
     pcmDropped++
     if (pcmDropped <= 3) console.error('[demist] failed to forward a PCM message to the transcribe worker:', err)
   }
-  const now = Date.now()
-  if (now - lastPcmReport >= 5000) {
-    const secs = (now - lastPcmReport) / 1000
-    const recvRate = pcmReceived / secs
-    const fwdRate = pcmForwarded / secs
-    const line =
-      `[demist] pcm bridge: main received ${recvRate.toFixed(1)}/sec, ` +
-      `forwarded ${fwdRate.toFixed(1)}/sec ` +
-      `(${(pcmBytes / 4 / 16000).toFixed(1)}s of audio), ${pcmDropped} dropped`
-    // The renderer posts a frame every BATCH_MS (100ms), so ~10/sec is
-    // healthy. Anything well below that is reported unconditionally, because
-    // this single line is what splits "the renderer is not sending" from "the
-    // worker is not reading" - and the worker-side counter cannot tell them
-    // apart: "audio in" only advances when the worker processes a message, so
-    // it reads low in BOTH cases. Not having this number is what made the
-    // same symptom get misdiagnosed repeatedly.
-    // Reported by the timer above, which is the single owner of these
-    // counters. Two reporters sharing them reset each other's windows.
-    dlog(line)
-    pcmReceived = 0; pcmForwarded = 0; pcmBytes = 0; pcmDropped = 0
-    lastPcmReport = now
-  }
+  // This handler ONLY counts. The timer above owns the counters and the
+  // window. It used to also report and reset here, and because a reset ran on
+  // every message the timer's window never reached its 5s threshold - so main's
+  // number, the one measurement the whole investigation had narrowed down to,
+  // was never emitted at all. Third time a counter window has hidden the
+  // answer; there is now exactly one writer.
 })
 
 // ── Wake lock (powerSaveBlocker; navigator.wakeLock never grants in Electron,

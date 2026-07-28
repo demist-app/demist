@@ -42,7 +42,7 @@ contextBridge.exposeInMainWorld('demistNative', {
   // send() is the ordinary high-frequency IPC channel and is received by the
   // same ipcMain.on handler with the same payload shape, so nothing on the
   // main side changes.
-  sendPcm: (arrayBuffer) => ipcRenderer.send('demist:pcm', { buffer: arrayBuffer }),
+  sendPcm: (arrayBuffer, seq) => ipcRenderer.send('demist:pcm', { buffer: arrayBuffer, seq }),
   // Push events from native: { event: 'transcript', payload: { seq, text } }
   // and { event: 'modelProgress', payload: { label, pct, file } }.
   // Returns an unsubscribe function.

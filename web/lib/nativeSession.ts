@@ -185,6 +185,12 @@ export async function startNativeSession(
   // that let a 1% delivery rate sit unexplained: capture measured perfect at
   // 375/375 frames while main received 0.1/sec, with nothing in between
   // reporting which of the two it was.
+  // Sequence number on every PCM message. Counters at each end can only say
+  // how many arrived; they cannot say whether the missing ones were never
+  // sent or were sent and lost. A monotonic seq lets main compare what it
+  // received against the highest number it has seen, which answers that
+  // outright - and that distinction is the entire remaining question.
+  let pcmSeq = 0
   let batchesDelivered = 0
   let batchesBuffered = 0
   let batchesFlushed = 0
@@ -193,7 +199,7 @@ export async function startNativeSession(
 
   const sendOrBuffer = (buf: ArrayBuffer) => {
     if (sessionReady) {
-      try { native.sendPcm(buf); batchesDelivered++ } catch (err) {
+      try { native.sendPcm(buf, ++pcmSeq); batchesDelivered++ } catch (err) {
         sendFailures++
         lastSendError = String((err as Error)?.message ?? err)
         if (sendFailures <= 3) console.error('[demist] sendPcm threw, this audio is lost:', err)
@@ -556,7 +562,7 @@ export async function startNativeSession(
   if (pendingPcm.length) {
     dlog(`[demist] startNativeSession: flushing ${(pendingSamples / TARGET_RATE).toFixed(1)}s of audio buffered while the model loaded`)
     for (const buf of pendingPcm) {
-      try { native.sendPcm(buf); batchesFlushed++ } catch (err) {
+      try { native.sendPcm(buf, ++pcmSeq); batchesFlushed++ } catch (err) {
         sendFailures++
         lastSendError = String((err as Error)?.message ?? err)
       }

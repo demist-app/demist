@@ -34,7 +34,7 @@ export interface DemistNative {
   preloadWhisper: () => Promise<'fast' | 'accurate'>
   preloadTermDetection: () => Promise<'tiny' | 'small' | 'large'>
   preloadTranslation: (lang: string) => Promise<string>
-  sendPcm: (arrayBuffer: ArrayBuffer) => void
+  sendPcm: (arrayBuffer: ArrayBuffer, seq?: number) => void
   onEvent: (callback: (msg: NativeEvent) => void) => () => void
   translate: (text: string, targetLang: string) => Promise<string>
   detectTerms: (
