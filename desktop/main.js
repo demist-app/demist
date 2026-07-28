@@ -360,6 +360,11 @@ ipcMain.handle('demist:setTranscribeTier', (_event, tier) => callWorker('setTran
 // lost somewhere in this path, and nothing on either side could say where.
 let pcmReceived = 0
 let pcmMaxSeq = 0
+// main's own monotonic stamp, so the worker can report WHICH messages it saw.
+// Counts alone give the size of the loss; the pattern gives its shape - every
+// Nth message means throttling, a clean cut at message K means the receiver
+// changed underneath us.
+let pcmMainSeq = 0
 let pcmSeqBase = 0
 let pcmForwarded = 0
 let pcmBytes = 0
@@ -398,7 +403,7 @@ setInterval(() => {
     `(${(pcmBytes / 4 / 16000).toFixed(1)}s of audio), ${pcmDropped} dropped, over ${secs.toFixed(0)}s [expect ~10/sec]` +
     ` | renderer stamped up to seq ${pcmMaxSeq}, main saw ${pcmReceived} of the ${pcmMaxSeq - pcmSeqBase} it sent in this window` +
     `${pcmMaxSeq - pcmSeqBase > pcmReceived + 2 ? " <- MESSAGES LOST IN TRANSIT between renderer and main" : ''}` +
-    ` | posting to transcribe worker threadId ${workerStates.transcribe ? workerStates.transcribe.worker.threadId : 'NONE'}` +
+    ` | main stamped up to mseq ${pcmMainSeq}, posting to transcribe worker threadId ${workerStates.transcribe ? workerStates.transcribe.worker.threadId : 'NONE'}` +
     ` (spawned ${workerSpawns.transcribe || 0} time(s) this run)` +
     ` | main event-loop worst stall ${mainLoopWorst}ms` +
     `${mainLoopWorst > 1000 ? " <- MAIN WAS BLOCKED, so it could not dispatch the renderer messages" : ''}`
@@ -432,7 +437,7 @@ ipcMain.on('demist:pcm', (_event, message) => {
     // instrumentation was added to hunt - while the worker on the other side
     // was reporting "audio in: 9.9s fed over 10.1s wall clock", i.e. perfect.
     const byteLength = copy.length
-    getWorkerState('transcribe').worker.postMessage({ type: 'pcm', buffer: copy.buffer }, [copy.buffer])
+    getWorkerState('transcribe').worker.postMessage({ type: 'pcm', buffer: copy.buffer, mseq: ++pcmMainSeq }, [copy.buffer])
     pcmForwarded++
     pcmBytes += byteLength
   } catch (err) {
