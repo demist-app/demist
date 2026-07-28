@@ -30,6 +30,7 @@ const path = require('path')
 const os = require('os')
 const fs = require('fs')
 const { makeProgressLogger } = require('./progressLog')
+const { isEverydayWord } = require('./common-words')
 
 const MODEL_DIR = path.join(os.homedir(), '.demist', 'llm-models')
 const MODEL_URI = {
@@ -119,7 +120,21 @@ function downloadedTiers() {
   return found
 }
 
+// Resolved ONCE per process. freemem() moves constantly, so re-deriving the
+// default on every getTier() call let a single run answer 'small' at preload
+// and 'tiny' minutes later - and each answer loads its own multi-GB model, so
+// the process ended up holding BOTH (3.0GB of models where one was wanted).
+// Observed directly in a test run: "term-detection model (small): model ready"
+// followed moments later by "term-detection model (tiny): downloading".
+let resolvedDefaultTier = null
+
 function defaultTier() {
+  if (resolvedDefaultTier) return resolvedDefaultTier
+  resolvedDefaultTier = pickDefaultTier()
+  return resolvedDefaultTier
+}
+
+function pickDefaultTier() {
   const totalGB = os.totalmem() / (1024 ** 3)
   const freeGB = os.freemem() / (1024 ** 3)
   const wanted = (totalGB >= 10 && freeGB >= 6) ? 'small' : 'tiny'
@@ -330,6 +345,17 @@ function parseTermLines(response, transcript, recentContext) {
     }
     if (isAdmin(m[1])) {
       console.warn('[demist] dropped course-admin word, not lecture jargon:', m[1])
+      continue
+    }
+    // The small models find jargon reliably but are poor at DECLINING
+    // ordinary speech: measured 5/5 mundane excerpts producing cards,
+    // including "raspberry" from "did you put the raspberry ones in the bag"
+    // and "bye" from a goodbye. Prompt wording alone did not fix it. Applies
+    // to single everyday words only, so multi-word jargon and genuine
+    // one-word jargon (chemiosmosis, datagram, enthalpy) are untouched - see
+    // common-words.js for why frequency-ranked lists are the wrong tool here.
+    if (isEverydayWord(m[1])) {
+      console.warn('[demist] dropped everyday word, not lecture jargon:', m[1])
       continue
     }
     out.push({ term: m[1], definition: m[2], context: m[3] })

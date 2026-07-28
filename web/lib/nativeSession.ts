@@ -170,14 +170,20 @@ export async function startNativeSession(
   let source: MediaStreamAudioSourceNode | null = null
   let worklet: AudioWorkletNode | null = null
   let silent: GainNode | null = null
+  // Our own clone of the mic stream (see attachGraph). Must be stopped
+  // explicitly: clone() produces INDEPENDENT tracks, so stopping the caller's
+  // stream does not stop these, and leaving them live holds the microphone
+  // open after the recording ends.
+  let capturedStream: MediaStream | null = null
 
   const teardownGraph = async () => {
     if (worklet) worklet.port.onmessage = null
     source?.disconnect()
     worklet?.disconnect()
     silent?.disconnect()
+    capturedStream?.getTracks().forEach(t => t.stop())
     const ctx = audioContext
-    audioContext = null; source = null; worklet = null; silent = null
+    audioContext = null; source = null; worklet = null; silent = null; capturedStream = null
     await ctx?.close().catch(() => {})
   }
 
@@ -230,7 +236,25 @@ export async function startNativeSession(
       callbacks.onError?.(`Microphone "${track.label || 'unknown'}" is muted at the system level. Unmute it, or pick a different microphone in Profile.`)
     }
 
-    source = audioContext.createMediaStreamSource(mediaStream)
+    // Capture from our OWN CLONE of the stream, never the caller's.
+    //
+    // recordingSession's attachAudioGraph already builds a
+    // MediaStreamAudioSourceNode from this same MediaStream in its own
+    // (separate) AudioContext for the gain/compressor/visualizer chain. Two
+    // AudioContexts pulling one MediaStream do not each get a full copy of the
+    // audio: they compete, and the loser is starved intermittently. That is
+    // the "~3% of real time" failure this file's own worklet comment records
+    // and it came back - a real session fed only 1.7s of audio to the
+    // transcriber across 38.6 seconds of wall clock, with the worker sitting
+    // idle the whole time and nothing else to blame. Because it is a race, it
+    // also explains why other sessions on the same build ran at a clean
+    // 9.9s fed over 10.1s: sometimes this graph wins.
+    //
+    // clone() gives independent MediaStreamTracks drawing from the same
+    // device, which is the supported way to have two consumers. Tracks are
+    // stopped in teardownGraph, since they outlive the caller's stream.
+    capturedStream = mediaStream.clone()
+    source = audioContext.createMediaStreamSource(capturedStream)
     worklet = new AudioWorkletNode(audioContext, 'pcm-capture')
     const inputRate = audioContext.sampleRate
 
@@ -267,12 +291,26 @@ export async function startNativeSession(
         // that is connected but silent.
         if (!(e.data instanceof Float32Array) && (e.data as PcmWorkletStats)?.pcmWorkletStats) {
           const s = e.data as PcmWorkletStats
-          dlog(
+          const expected = Math.round(inputRate / 128)
+          const line =
             `[demist] audio worklet: ${s.callsPerSecond.toFixed(0)} process calls/sec ` +
-            `(expect ~${Math.round(inputRate / 128)}), ${s.postedPerSecond.toFixed(0)} frames/sec delivered, ` +
+            `(expect ~${expected}), ${s.postedPerSecond.toFixed(0)} frames/sec delivered, ` +
             `${s.emptyInputs} with no input | renderer sent ${batchesSent} batches ` +
-            `(${(samplesSent / TARGET_RATE).toFixed(1)}s of audio) since the last report`,
-          )
+            `(${(samplesSent / TARGET_RATE).toFixed(1)}s of audio) since the last report`
+          // Always reported when capture is running below half rate, gated
+          // otherwise. This exact signature - the worklet delivering a small
+          // fraction of the expected frames while everything else reports
+          // success - has now gone undiagnosed twice, because the one line
+          // that identifies it was behind a debug flag nobody had set. It is
+          // one line per five seconds; a broken capture pipeline is worth it.
+          if (s.postedPerSecond < expected * 0.5) {
+            console.warn(
+              `${line}\n[demist] capture is running at ${(100 * s.postedPerSecond / expected).toFixed(0)}% of the expected frame rate - ` +
+              `audio is being lost before it reaches transcription.`,
+            )
+          } else {
+            dlog(line)
+          }
           batchesSent = 0
           samplesSent = 0
           return
