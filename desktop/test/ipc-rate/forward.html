@@ -1,0 +1,10 @@
+<!doctype html><meta charset="utf-8"><body><script>
+(async () => {
+  const sleep = ms => new Promise(r => setTimeout(r, ms))
+  for (let i = 0; i < 150; i++) { window.rate.send(new Float32Array(1600).buffer); await sleep(100) }
+  await sleep(1000); window.rate.phase('inline-done')
+  await sleep(500)
+  for (let i = 0; i < 150; i++) { window.rate.send(new Float32Array(1600).buffer); await sleep(100) }
+  await sleep(1000); window.rate.phase('timer-done')
+})()
+</script></body>

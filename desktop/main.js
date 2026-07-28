@@ -365,6 +365,33 @@ let pcmMaxSeq = 0
 // Nth message means throttling, a clean cut at message K means the receiver
 // changed underneath us.
 let pcmMainSeq = 0
+// PCM waiting to be handed to the worker, drained by the flush timer below.
+const pcmQueue = []
+// ~20 seconds of audio at 10 frames/sec. A bound is needed because this grows
+// if the worker ever stops consuming; past it the OLDEST frame goes, since the
+// recent speech is the salvageable part.
+const PCM_QUEUE_MAX = 200
+// Short enough to be invisible next to the renderer's own 100ms batching.
+const PCM_FLUSH_MS = 50
+
+setInterval(() => {
+  if (!pcmQueue.length) return
+  const state = getWorkerState('transcribe')
+  while (pcmQueue.length) {
+    const copy = pcmQueue.shift()
+    // Read the length BEFORE transferring: postMessage detaches the buffer and
+    // a detached view reports 0.
+    const byteLength = copy.length
+    try {
+      state.worker.postMessage({ type: 'pcm', buffer: copy.buffer, mseq: ++pcmMainSeq }, [copy.buffer])
+      pcmForwarded++
+      pcmBytes += byteLength
+    } catch (err) {
+      pcmDropped++
+      if (pcmDropped <= 3) console.error('[demist] failed to forward a PCM message to the transcribe worker:', err)
+    }
+  }
+}, PCM_FLUSH_MS).unref?.()
 let pcmSeqBase = 0
 let pcmForwarded = 0
 let pcmBytes = 0
@@ -426,6 +453,28 @@ ipcMain.on('demist:pcm', (_event, message) => {
     const src = new Uint8Array(message.buffer)
     const copy = new Uint8Array(src.length)
     copy.set(src)
+    // QUEUE it. Do NOT post to the worker from inside this callback.
+    //
+    // Posting from within Chromium's IPC dispatch does not get the worker's
+    // message port drained promptly: the worker sits idle, its own event-loop
+    // probe reports a 0ms stall, and it consumes roughly 1-2 messages a second
+    // while main happily posts 10. Nothing is lost - the worker sees a
+    // contiguous, gap-free run of sequence numbers - it just falls further
+    // behind for the entire recording, which is what put transcription 45
+    // seconds adrift.
+    //
+    // Measured on the exact real topology (a BrowserWindow renderer sending at
+    // 10/sec, the real native/worker.js with whisper loaded, forwarding from
+    // inside this handler):
+    //
+    //   from the ipcMain callback: worker got 2.0/sec, audio in 5.2s over 20.6s
+    //   from a libuv timer:        worker got 9.5/sec, audio in 18.6s over 20.0s
+    //
+    // Neither ingredient alone reproduces it, which is why it survived so long:
+    // a window with a trivial worker forwards 150 of 150, and an ORT-loaded
+    // worker with no window forwards 9.5/sec. It needs both.
+    pcmQueue.push(copy)
+    if (pcmQueue.length > PCM_QUEUE_MAX) { pcmQueue.shift(); pcmDropped++ }
     // Read the length BEFORE transferring. postMessage's transferList detaches
     // copy.buffer, and a detached view reports length 0 - so reading it after
     // the transfer added exactly nothing to pcmBytes on every single frame,
@@ -436,10 +485,6 @@ ipcMain.on('demist:pcm', (_event, message) => {
     // reads as total audio loss in the bridge, which is precisely the bug this
     // instrumentation was added to hunt - while the worker on the other side
     // was reporting "audio in: 9.9s fed over 10.1s wall clock", i.e. perfect.
-    const byteLength = copy.length
-    getWorkerState('transcribe').worker.postMessage({ type: 'pcm', buffer: copy.buffer, mseq: ++pcmMainSeq }, [copy.buffer])
-    pcmForwarded++
-    pcmBytes += byteLength
   } catch (err) {
     // Previously unguarded, and this runs per PCM message: a throw here was
     // silent and simply lost that audio.

@@ -1,0 +1,7 @@
+<!doctype html><meta charset="utf-8"><body><script>
+(async () => {
+  const sleep = ms => new Promise(r => setTimeout(r, ms))
+  for (let i = 0; i < 250; i++) { window.rate.send(new Float32Array(1600).buffer); await sleep(100) }
+  await sleep(1500); window.rate.phase('done')
+})()
+</script></body>
