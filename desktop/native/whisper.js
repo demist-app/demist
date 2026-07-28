@@ -226,7 +226,6 @@ async function startSession(onTranscript, emitProgress, onInterim, emitDiag) {
   await getTranscriber(emitProgress)
   diag(`startSession: transcriber ready after ${Date.now() - tModel} ms (total ${Date.now() - t0} ms)`)
   let seq = 0
-  let queue = Promise.resolve()
   let lastText = ''
   // How many segments are queued or in flight. This replaces a `queueBusy`
   // boolean that did not survive a backlog: it was set true where a segment
@@ -255,6 +254,121 @@ async function startSession(onTranscript, emitProgress, onInterim, emitDiag) {
   let samplesFed = 0
   let lastFeedLog = Date.now()
 
+  // Segments waiting to be transcribed, and the drain loop that transcribes
+  // them - coalescing whatever has piled up into ONE inference.
+  //
+  // This exists because Whisper's cost does not scale with how much audio you
+  // hand it. It pads every input to its 30-second window, so the encoder does
+  // the same work either way. Measured on this exact model and dtype, best of
+  // three runs each:
+  //
+  //     1.2s of audio -> 1600 ms    (1333 ms per second of audio)
+  //       6s of audio -> 1531 ms     (255 ms per second of audio)
+  //      25s of audio -> 1579 ms      (63 ms per second of audio)
+  //
+  // Flat. So transcribing seven short segments separately costs seven full
+  // inferences, while the same audio in one call costs one. A real session
+  // did exactly that: seven segments totalling 19.5s of speech, ~3.4s of
+  // inference each, ~24s of work for 19.5s of audio - permanently slower than
+  // real time, so the backlog could only grow, and it reached 45 seconds. The
+  // same audio coalesced is a single ~1.6s inference.
+  //
+  // Latency is not traded away for this. When nothing is waiting - the normal
+  // live case - a segment is transcribed alone the instant it closes, exactly
+  // as before. Coalescing only engages once there IS a backlog, which is
+  // precisely when throughput matters more than the granularity of one row.
+  const backlog = []
+  let draining = false
+  let drainPromise = Promise.resolve()
+  // Whisper's window is 30s. Cap the merged audio below that with room for
+  // the joining gaps, so a batch can never be silently truncated.
+  const COALESCE_MAX_SAMPLES = SAMPLE_RATE * 25
+  // A short silence between merged segments. They were cut at natural pauses,
+  // so butting them together would run the last word of one into the first of
+  // the next; this restores a pause Whisper can hear.
+  const JOIN_GAP_SAMPLES = Math.round(SAMPLE_RATE * 0.25)
+
+  function takeBatch() {
+    const batch = [backlog.shift()]
+    let total = batch[0].segment.length
+    while (backlog.length && total + JOIN_GAP_SAMPLES + backlog[0].segment.length <= COALESCE_MAX_SAMPLES) {
+      total += JOIN_GAP_SAMPLES + backlog[0].segment.length
+      batch.push(backlog.shift())
+    }
+    if (batch.length === 1) return { batch, audio: batch[0].segment }
+    const audio = new Float32Array(total)
+    let off = 0
+    for (let i = 0; i < batch.length; i++) {
+      if (i > 0) off += JOIN_GAP_SAMPLES // leave zeros: that IS the gap
+      audio.set(batch[i].segment, off)
+      off += batch[i].segment.length
+    }
+    return { batch, audio }
+  }
+
+  // drain() must be awaitable by stop() even when a drain is ALREADY running,
+  // so it hands back the in-flight run rather than returning immediately -
+  // otherwise stopping mid-batch would resolve straight away and the last
+  // words of a recording would be lost.
+  function drain() {
+    if (!draining) drainPromise = runDrain()
+    return drainPromise
+  }
+
+  async function runDrain() {
+    draining = true
+    try {
+      while (backlog.length) {
+        // A preview shares this one ONNX session and must never overlap.
+        await interimPromise.catch(() => {})
+        // Hand the event loop back before starting the next inference.
+        // Awaiting a promise only drains MICROtasks; an incoming
+        // startSession/stopSession arrives as a worker 'message', which is a
+        // macrotask, so a run of segments would otherwise transcribe back to
+        // back without ever letting one through. setImmediate is a macrotask,
+        // so a control message sitting in the queue is delivered here, between
+        // batches, instead of after all of them.
+        await new Promise((resolve) => setImmediate(resolve))
+        const { batch, audio } = takeBatch()
+        const label = batch.length === 1
+          ? `segment ${batch[0].seq}`
+          : `segments ${batch[0].seq}-${batch[batch.length - 1].seq} coalesced`
+        const tStart = Date.now()
+        try {
+          const transcriber = await getTranscriber(emitProgress)
+          const result = await transcriber(audio, generationOpts(audio.length))
+          const took = Date.now() - tStart
+          const audioSecs = audio.length / SAMPLE_RATE
+          diag(`${label} (${audioSecs.toFixed(1)}s) transcribed in ${took} ms (waited ${tStart - batch[0].tQueued} ms)`)
+          if (took > audioSecs * 1000 * SLOW_INFERENCE_RATIO) {
+            console.warn(
+              `[demist] SLOW transcription: ${label} was ${audioSecs.toFixed(1)}s of audio but took ${took} ms. ` +
+              `Everything else queued for this worker (including starting or stopping a session) waited on it. ` +
+              `Text: ${JSON.stringify((result?.text ?? '').slice(0, 300))}`,
+            )
+          }
+          let text = (result?.text ?? '').trim()
+          const normalized = text.toLowerCase()
+          // The blocklist is an energy judgement about ONE utterance, so it
+          // only applies when the batch is one segment; a merged batch is
+          // loud by construction (every member cleared SILENT_SEGMENT_RMS).
+          if (batch.length === 1 && batch[0].meanRms < LOW_ENERGY_RMS && HALLUCINATION_BLOCKLIST.has(normalized)) text = ''
+          if (text && normalized === lastText.toLowerCase()) text = '' // collapse repeats
+          if (text) {
+            lastText = text
+            onTranscript({ seq: batch[batch.length - 1].seq, text })
+          }
+        } catch (err) {
+          console.error('[demist] transcription segment failed:', err?.message ?? err)
+        } finally {
+          queueDepth -= batch.length
+        }
+      }
+    } finally {
+      draining = false
+    }
+  }
+
   const segmenter = new PcmSegmenter(
     (segment, meanRms) => {
       const secs = (segment.length / SAMPLE_RATE).toFixed(1)
@@ -266,48 +380,9 @@ async function startSession(onTranscript, emitProgress, onInterim, emitDiag) {
       }
       const mySeq = ++seq
       diag(`segment ${mySeq} closed after ${secs}s of speech (meanRms ${meanRms.toFixed(4)}), queued`)
+      backlog.push({ seq: mySeq, segment, meanRms, secs, tQueued: Date.now() })
       queueDepth++
-      const tQueued = Date.now()
-      queue = queue.then(async () => {
-        try {
-          await interimPromise.catch(() => {})
-          // Hand the event loop back before starting the next inference.
-          // Awaiting a promise only drains MICROtasks; an incoming
-          // startSession/stopSession arrives as a worker 'message', which is a
-          // macrotask, so a run of queued segments would otherwise transcribe
-          // back to back without ever letting one through. setImmediate is a
-          // macrotask, so a control message sitting in the queue is delivered
-          // here, between segments, instead of after all of them. This does
-          // not (and cannot) interrupt an inference already under way - that
-          // is what the token cap above is for - it stops a BACKLOG from
-          // compounding one slow segment into a much longer stall.
-          await new Promise((resolve) => setImmediate(resolve))
-          const tStart = Date.now()
-          const transcriber = await getTranscriber(emitProgress)
-          const result = await transcriber(segment, generationOpts(segment.length))
-          const took = Date.now() - tStart
-          diag(`segment ${mySeq} transcribed in ${took} ms (waited ${tStart - tQueued} ms)`)
-          if (took > (segment.length / SAMPLE_RATE) * 1000 * SLOW_INFERENCE_RATIO) {
-            console.warn(
-              `[demist] SLOW transcription: segment ${mySeq} was ${secs}s of audio but took ${took} ms. ` +
-              `Everything else queued for this worker (including starting or stopping a session) waited on it. ` +
-              `Text: ${JSON.stringify((result?.text ?? '').slice(0, 300))}`,
-            )
-          }
-          let text = (result?.text ?? '').trim()
-          const normalized = text.toLowerCase()
-          if (meanRms < LOW_ENERGY_RMS && HALLUCINATION_BLOCKLIST.has(normalized)) text = ''
-          if (text && normalized === lastText.toLowerCase()) text = '' // collapse repeats
-          if (text) {
-            lastText = text
-            onTranscript({ seq: mySeq, text })
-          }
-        } catch (err) {
-          console.error('[demist] transcription segment failed:', err?.message ?? err)
-        } finally {
-          queueDepth--
-        }
-      })
+      drain()
     },
     onInterim && ((segment) => {
       // Best-effort only, never queued: this shares the same underlying
@@ -357,7 +432,12 @@ async function startSession(onTranscript, emitProgress, onInterim, emitDiag) {
     },
     stop: async () => {
       segmenter.flush()
-      await queue // let in-flight segments finish so final words aren't lost
+      // Let everything still queued finish so final words aren't lost. flush()
+      // above can itself close one last segment, which drain() picks up, so
+      // this waits for the loop to actually run dry rather than for a single
+      // promise captured at one instant.
+      await drain()
+      await interimPromise.catch(() => {})
       // Only clear if this is still the live session. stopSession() is async
       // and startSession() above calls it WITHOUT awaiting, so a new session
       // starting while the previous one is still draining its queue used to

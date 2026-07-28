@@ -106,11 +106,39 @@ let llama, model, context, session, summaryGrammar, loadedTier, loadingPromise
 // picks a DEFAULT at load time and an explicit choice in Settings still wins.
 // The threshold is deliberately generous: 'small' needs ~2.5GB resident for
 // itself, on top of Whisper's ~2.3GB and translation's ~0.4GB.
+// Which tiers are already on disk. node-llama-cpp names its downloads after
+// the model URI, so an existing file means that tier costs nothing to select.
+function downloadedTiers() {
+  let files
+  try { files = fs.readdirSync(MODEL_DIR) } catch { return new Set() }
+  const found = new Set()
+  for (const [tier, uri] of Object.entries(MODEL_URI)) {
+    const stem = uri.split(':')[1]?.split('/').pop()?.replace(/-GGUF$/, '')
+    if (stem && files.some(f => f.includes(stem) && f.endsWith('.gguf'))) found.add(tier)
+  }
+  return found
+}
+
 function defaultTier() {
   const totalGB = os.totalmem() / (1024 ** 3)
   const freeGB = os.freemem() / (1024 ** 3)
-  if (totalGB < 10) return 'tiny'
-  return freeGB < 6 ? 'tiny' : 'small'
+  const wanted = (totalGB >= 10 && freeGB >= 6) ? 'small' : 'tiny'
+  const have = downloadedTiers()
+  if (have.has(wanted) || have.size === 0) return wanted
+  // The memory-preferred tier is not downloaded but another one is. Use what
+  // is already here rather than starting a surprise multi-hundred-MB download
+  // the user did not ask for and cannot see the reason for.
+  //
+  // This matters because freemem() moves. The same machine measured 2.8GB free
+  // with a browser open and 8.8GB free minutes later, so a purely
+  // memory-derived default FLAPS between tiers - and each flip means
+  // downloading and then loading a different multi-GB model. That happened
+  // for real: a machine that already had the 3B silently began fetching the
+  // 1.5B mid-session because free memory had dipped below the threshold.
+  // Preferring what is on disk makes the choice stable, and 'tiny' is only
+  // 1.1GB lighter, which is not worth a download stall mid-lecture.
+  if (wanted === 'tiny' && have.has('small')) return 'small'
+  return have.has('tiny') ? 'tiny' : wanted
 }
 
 function getTier() {
