@@ -178,8 +178,29 @@ export async function startNativeSession(
   // since if we are this far behind the recent speech is the salvageable part.
   const MAX_PENDING_SAMPLES = TARGET_RATE * 120
 
+  // Per-hop counters. "renderer sent N batches" used to be incremented before
+  // this function ran, so it counted batches PRODUCED and said nothing about
+  // whether any of them left the renderer - a batch that was buffered, or that
+  // threw on the way out, looked identical to one delivered. That is the gap
+  // that let a 1% delivery rate sit unexplained: capture measured perfect at
+  // 375/375 frames while main received 0.1/sec, with nothing in between
+  // reporting which of the two it was.
+  let batchesDelivered = 0
+  let batchesBuffered = 0
+  let batchesFlushed = 0
+  let sendFailures = 0
+  let lastSendError = ''
+
   const sendOrBuffer = (buf: ArrayBuffer) => {
-    if (sessionReady) { native.sendPcm(buf); return }
+    if (sessionReady) {
+      try { native.sendPcm(buf); batchesDelivered++ } catch (err) {
+        sendFailures++
+        lastSendError = String((err as Error)?.message ?? err)
+        if (sendFailures <= 3) console.error('[demist] sendPcm threw, this audio is lost:', err)
+      }
+      return
+    }
+    batchesBuffered++
     pendingPcm.push(buf)
     pendingSamples += buf.byteLength / 4
     while (pendingSamples > MAX_PENDING_SAMPLES && pendingPcm.length > 1) {
@@ -280,8 +301,13 @@ export async function startNativeSession(
           const line =
             `[demist] audio worklet: ${s.callsPerSecond.toFixed(0)} process calls/sec ` +
             `(expect ~${expected}), ${s.postedPerSecond.toFixed(0)} frames/sec delivered, ` +
-            `${s.emptyInputs} with no input | renderer sent ${batchesSent} batches ` +
-            `(${(samplesSent / TARGET_RATE).toFixed(1)}s of audio) since the last report`
+            `${s.emptyInputs} with no input | renderer produced ${batchesSent} batches ` +
+            `(${(samplesSent / TARGET_RATE).toFixed(1)}s of audio): ` +
+            `${batchesDelivered} DELIVERED to main, ${batchesBuffered} buffered (session ` +
+            `${sessionReady ? 'ready' : 'NOT ready'}), ${sendFailures} failed` +
+            `${lastSendError ? ` [${lastSendError}]` : ''}` +
+            `${batchesFlushed ? `, ${batchesFlushed} flushed from the backlog` : ''}` +
+            `, ${pendingPcm.length} still queued`
           // Always reported when capture is running below half rate, gated
           // otherwise. This exact signature - the worklet delivering a small
           // fraction of the expected frames while everything else reports
@@ -298,6 +324,9 @@ export async function startNativeSession(
           }
           batchesSent = 0
           samplesSent = 0
+          batchesDelivered = 0
+          batchesBuffered = 0
+          batchesFlushed = 0
           return
         }
         const data = e.data as Float32Array
@@ -491,7 +520,7 @@ export async function startNativeSession(
     // call attached and stop delivering transcript events, so an abandoned
     // attempt can never become a second live capture pipeline feeding the
     // same native session (which shredded the audio when it happened).
-    console.warn('[demist] startNativeSession: recording moved on while startSession was pending; abandoning this attempt')
+    console.warn('[demist] startNativeSession: recording moved on while startSession was pending; abandoning this attempt. Its capture graph is being torn down; if audio keeps flowing after this line, TWO graphs are running.')
     await teardownGraph()
     unsubscribe()
     throw new Error('Recording was restarted before on-device transcription finished starting.')
@@ -500,6 +529,7 @@ export async function startNativeSession(
   // Backend is ready: release everything captured while it was loading, in
   // order, then switch to streaming straight through.
   sessionReady = true
+  console.info(`[demist] native session READY after ${Date.now() - startedAt} ms; PCM now streams straight through (${pendingPcm.length} batches were buffered while waiting)`)
   // Kept always-on but only when it is actually slow. A fast start is not
   // worth a line; a slow one is the single most useful number for diagnosing
   // "nothing is happening", and it splits that into "the worker could not
@@ -509,7 +539,12 @@ export async function startNativeSession(
   else dlog(`[demist] on-device session ready in ${readyMs} ms`)
   if (pendingPcm.length) {
     dlog(`[demist] startNativeSession: flushing ${(pendingSamples / TARGET_RATE).toFixed(1)}s of audio buffered while the model loaded`)
-    for (const buf of pendingPcm) native.sendPcm(buf)
+    for (const buf of pendingPcm) {
+      try { native.sendPcm(buf); batchesFlushed++ } catch (err) {
+        sendFailures++
+        lastSendError = String((err as Error)?.message ?? err)
+      }
+    }
   }
   pendingPcm = []
   pendingSamples = 0

@@ -354,6 +354,26 @@ let pcmBytes = 0
 let pcmDropped = 0
 let lastPcmReport = Date.now()
 
+// The report below only runs when a PCM message ARRIVES, so the worse the
+// problem the less often it is reported: at 0.1 messages/sec it printed about
+// once a minute. A timer reports regardless, which is what a near-zero rate
+// needs, and says explicitly when nothing at all arrived.
+setInterval(() => {
+  if (!transcribeSessionActive) return
+  const secs = (Date.now() - lastPcmReport) / 1000
+  if (secs < 5) return
+  const recvRate = pcmReceived / secs
+  if (recvRate >= 5) return
+  const message =
+    `pcm bridge: main received ${recvRate.toFixed(1)}/sec over the last ${secs.toFixed(0)}s ` +
+    `(expected ~10/sec), forwarded ${(pcmForwarded / secs).toFixed(1)}/sec, ${pcmDropped} dropped. ` +
+    `${pcmReceived === 0 ? 'NOTHING is arriving from the renderer.' : 'The renderer is barely sending.'}`
+  console.warn(`[demist] ${message}`)
+  mainWindow?.webContents.send('demist:event', { event: 'diag', payload: { message } })
+  pcmReceived = 0; pcmForwarded = 0; pcmBytes = 0; pcmDropped = 0
+  lastPcmReport = Date.now()
+}, 5000).unref?.()
+
 ipcMain.on('demist:pcm', (_event, message) => {
   pcmReceived++
   try {
