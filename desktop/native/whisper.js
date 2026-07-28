@@ -243,6 +243,33 @@ async function startSession(onTranscript, emitProgress, onInterim, emitDiag) {
   let queueDepth = 0
   let interimBusy = false
   let skippedInterims = 0
+  // Previews are a nice-to-have that costs a FULL inference, on the same
+  // worker and the same ONNX session that real transcription needs. They are
+  // only worth running while this machine is comfortably faster than real
+  // time. Measured in a shipped session: "preview of 1.8s in 26154 ms" and
+  // "preview of 1.5s in 13289 ms" - each one blocking the worker for that
+  // whole time, so no PCM was read, no segment could close, and the recording
+  // fell tens of seconds behind. The feature exists to make text appear
+  // SOONER and was doing the exact opposite.
+  //
+  // So: measure, and switch them off for the rest of the session the moment
+  // this machine proves it cannot afford them. Turned off permanently rather
+  // than per-call because a machine that was slow once is slow, and flapping
+  // would just re-block the worker every few seconds.
+  let previewsEnabled = true
+  const disablePreviews = (why) => {
+    if (!previewsEnabled) return
+    previewsEnabled = false
+    console.warn(`[demist] live preview disabled for this recording: ${why}. Final transcription is unaffected and will now get the whole machine.`)
+    diag(`previews disabled: ${why}`)
+  }
+  // An inference slower than this multiple of the audio it covers means the
+  // machine cannot keep up with previews on top of real work. 1.5x leaves
+  // room for an ordinary slow segment without tripping.
+  // Overridable so the behaviour can be tested on a machine that is fast
+  // enough never to trip it naturally - which is most development machines,
+  // and is why a test written without this hook passed vacuously.
+  const PREVIEW_BUDGET_RATIO = Number(process.env.DEMIST_PREVIEW_BUDGET_RATIO) || 1.5
   // Resolves when any in-flight preview finishes. A final segment must wait
   // on this: previews and finals share ONE transformers.js pipeline, and the
   // interim path guards itself against the queue (queueBusy) while the queue
@@ -340,6 +367,10 @@ async function startSession(onTranscript, emitProgress, onInterim, emitDiag) {
           const took = Date.now() - tStart
           const audioSecs = audio.length / SAMPLE_RATE
           diag(`${label} (${audioSecs.toFixed(1)}s) transcribed in ${took} ms (waited ${tStart - batch[0].tQueued} ms)`)
+          // The honest measure of whether this machine can afford previews.
+          if (took > audioSecs * 1000 * PREVIEW_BUDGET_RATIO) {
+            disablePreviews(`transcribing ${audioSecs.toFixed(1)}s took ${took} ms, slower than real time`)
+          }
           if (took > audioSecs * 1000 * SLOW_INFERENCE_RATIO) {
             console.warn(
               `[demist] SLOW transcription: ${label} was ${audioSecs.toFixed(1)}s of audio but took ${took} ms. ` +
@@ -399,6 +430,7 @@ async function startSession(onTranscript, emitProgress, onInterim, emitDiag) {
       // slower than real time the backlog only grows, so this is exactly when
       // previews must get out of the way - a real session had 17 segments
       // queued while previews were still being issued.
+      if (!previewsEnabled) return
       if (queueDepth > 0 || interimBusy) {
         skippedInterims++
         return
@@ -409,8 +441,16 @@ async function startSession(onTranscript, emitProgress, onInterim, emitDiag) {
         .then(transcriber => transcriber(segment, generationOpts(segment.length)))
         .then(result => {
           const text = (result?.text ?? '').trim()
-          diag(`preview of ${(segment.length / SAMPLE_RATE).toFixed(1)}s in ${Date.now() - tInterim} ms${skippedInterims ? ` (${skippedInterims} skipped while busy)` : ''}`)
+          const previewMs = Date.now() - tInterim
+          diag(`preview of ${(segment.length / SAMPLE_RATE).toFixed(1)}s in ${previewMs} ms${skippedInterims ? ` (${skippedInterims} skipped while busy)` : ''}`)
           skippedInterims = 0
+          // A preview that took longer than the audio it covers has already
+          // cost more than it is worth, and it blocked the worker for that
+          // whole time. One is enough to know.
+          const previewSecs = segment.length / SAMPLE_RATE
+          if (previewMs > previewSecs * 1000 * PREVIEW_BUDGET_RATIO) {
+            disablePreviews(`a ${previewSecs.toFixed(1)}s preview took ${previewMs} ms`)
+          }
           if (text) onInterim({ seq: seq + 1, text })
         })
         .catch(err => console.error('[demist] interim transcription failed:', err?.message ?? err))
