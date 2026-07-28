@@ -303,6 +303,12 @@ ipcMain.handle('demist:startSession', async () => {
   try {
     const result = await callWorker('startSession')
     transcribeSessionActive = true
+    // Reset the PCM window. lastPcmReport was initialised at module load, so
+    // the first report after a session started divided by the time since APP
+    // LAUNCH - it reported "0.1/sec" for a bridge that was actually carrying
+    // ~10/sec, and sent a whole investigation after a hop that was fine.
+    pcmReceived = 0; pcmForwarded = 0; pcmBytes = 0; pcmDropped = 0
+    lastPcmReport = Date.now()
     // Only worth a line when it was slow enough for a user to notice.
     if (Date.now() - t > 3000) console.warn(`[demist] transcription session took ${Date.now() - t} ms to start`)
     else dlog(`[demist] transcription session started in ${Date.now() - t} ms`)

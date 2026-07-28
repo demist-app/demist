@@ -49,10 +49,35 @@ const handlers = {
   setTranscribeTier: (tier) => (whisper ??= require('./whisper')).setTier(tier),
 }
 
+// Counted at the very edge of the worker, before anything can discard them.
+// Every other counter in the chain sits further in, so a message that reached
+// this thread and was then dropped looked identical to one that never arrived.
+let pcmMessages = 0
+let pcmSamples = 0
+let lastPcmLog = Date.now()
+
 parentPort.on('message', async (msg) => {
   // PCM frames are fire-and-forget and high-frequency: no id, no reply.
   if (msg.type === 'pcm') {
-    ;(whisper ??= require('./whisper')).feedPcm(new Float32Array(msg.buffer))
+    const frame = new Float32Array(msg.buffer)
+    // Start the window at the FIRST frame, not at module load. Initialising it
+    // at load meant the first report divided by however long the app had been
+    // idle - the same mistake main.js's bridge counter made, where it reported
+    // 0.1/sec for a hop genuinely carrying 10/sec and sent the investigation
+    // after the wrong component entirely.
+    if (pcmMessages === 0) lastPcmLog = Date.now()
+    pcmMessages++
+    pcmSamples += frame.length
+    const now = Date.now()
+    if (now - lastPcmLog >= 5000) {
+      const secs = (now - lastPcmLog) / 1000
+      emitEvent('diag', {
+        message: `worker received ${(pcmMessages / secs).toFixed(1)} pcm msgs/sec `
+          + `(${(pcmSamples / 16000).toFixed(1)}s of audio) over the last ${secs.toFixed(0)}s`,
+      })
+      pcmMessages = 0; pcmSamples = 0; lastPcmLog = now
+    }
+    ;(whisper ??= require('./whisper')).feedPcm(frame)
     return
   }
   const { id, type, args } = msg

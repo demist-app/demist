@@ -492,8 +492,21 @@ async function startSession(onTranscript, emitProgress, onInterim, emitDiag) {
   return true
 }
 
+// Frames arriving with no live session are DISCARDED, and used to be
+// discarded in complete silence - indistinguishable downstream from audio
+// that was never captured. That silence is worth a counter: it is exactly
+// what a replacement worker (after a crash) or a stale session looks like.
+let discardedFrames = 0
+let lastDiscardLog = 0
 function feedPcm(pcmFloat32) {
-  if (activeSession) activeSession.feed(pcmFloat32)
+  if (activeSession) { activeSession.feed(pcmFloat32); return }
+  discardedFrames++
+  const now = Date.now()
+  if (now - lastDiscardLog >= 5000) {
+    lastDiscardLog = now
+    console.warn(`[demist] ${discardedFrames} PCM frames discarded: audio is arriving at the worker but NO SESSION is active to receive it`)
+    discardedFrames = 0
+  }
 }
 
 async function stopSession() {
