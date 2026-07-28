@@ -72,6 +72,9 @@ const CALL_ROLE = {
   translate: 'translate',
 }
 
+// 'ping' is deliberately absent from CALL_ROLE: it is posted directly to every
+// existing worker by keepWorkersWarm below, never routed to one role.
+
 const workerStates = {} // role -> { worker, pending: Map }
 let nextRequestId = 1
 // Whether a live transcription session is meant to be running on the
@@ -193,6 +196,43 @@ setInterval(() => {
   }
   if (waiting.length) dlog(`[demist] worker calls outstanding -> ${waiting.join(' | ')}`)
 }, 5000).unref?.()
+
+// Keep idle workers from being paged out from under us.
+//
+// Measured on a real session: the Electron process sat at 7458MB committed
+// against 4471MB resident (peak 7278MB) on a 15.9GB machine with 2.8GB free -
+// Windows had trimmed ~3GB of it to disk. The transcribe worker then went 63
+// SECONDS without answering a startSession, and answered it in 1ms once it
+// did, because nothing was computing: the thread's own stack and heap had to
+// be faulted back off disk before it could read a single message. From the
+// renderer that is indistinguishable from a hung engine, and it is exactly
+// what "the on-device transcription engine hasn't responded in Ns" was
+// reporting.
+//
+// A no-op message every few seconds keeps each worker's stack and heap in the
+// working set and the thread recently scheduled, which is what the paging
+// heuristics key on. This is cheap on purpose - the handler does literally
+// nothing, so the cost is one message round trip per worker per interval, not
+// inference - and it is not a substitute for the process simply being smaller
+// (see the q8 changes in native/translate.js and the KV cache cap in
+// native/llm.js). It also does NOT keep the model WEIGHTS resident: those
+// pages are only touched during inference, which is a separate and slower
+// symptom (one segment measured 103199 ms for 2.7s of audio, against 2-4s for
+// its neighbours, on the first inference after a trim).
+//
+// Only pings workers that already exist - it must never be the thing that
+// spawns one, or it would load models nobody asked for.
+const KEEP_WARM_MS = 5000
+setInterval(() => {
+  for (const [role, state] of Object.entries(workerStates)) {
+    if (!state) continue
+    const id = nextRequestId++
+    // No pending entry and no timeout: the reply is only wanted for its side
+    // effect of updating lastMessageAt, and an unmatched id is already
+    // ignored by the message handler above.
+    try { state.worker.postMessage({ id, type: 'ping' }) } catch { /* worker is going away; its exit handler will clean up */ }
+  }
+}, KEEP_WARM_MS).unref?.()
 
 function callWorker(type, ...args) {
   return new Promise((resolve, reject) => {
@@ -375,6 +415,29 @@ app.whenReady().then(() => {
     })
   }
   createWindow()
+
+  // Start loading the models NOW, not when the renderer gets around to asking.
+  // The renderer's preload (runNativePreload in web/lib/recordingSession.tsx)
+  // cannot run until the remote app URL has been fetched over the network,
+  // parsed, hydrated, and the provider mounted - seconds of dead time during
+  // which these worker threads sit idle with nothing loaded, and after which
+  // the user still waits out the whole load. Kicking it off here overlaps the
+  // load with window creation and page load instead of queueing behind them.
+  //
+  // This is not a duplicate load. getTranscriber/getTranslator/llm's loader
+  // each cache by tier and hand back the SAME in-flight promise, so the
+  // renderer's call resolves when this one does. Failures are swallowed: the
+  // renderer's own preload is the one that reports to the user and retries,
+  // and an unhandled rejection here would be noise at best.
+  //
+  // Deliberately not preloading translation: it needs the user's language
+  // from their profile, which only the renderer knows.
+  for (const call of ['preloadWhisper', 'preloadTermDetection']) {
+    callWorker(call).catch((err) => {
+      console.error(`[demist] eager ${call} at startup failed (the renderer will retry):`, err?.message ?? err)
+    })
+  }
+
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow() })
 })
 

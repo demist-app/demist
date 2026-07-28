@@ -401,11 +401,26 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
         setNativeModelProgress(null)
         return
       }
-      await Promise.all([termsTask, translationTask])
-
-      // Everything that will be used is now resident: recording can start.
-      dlog(`[demist] preload: ALL models ready after ${Date.now() - tPre} ms - record button unlocked`)
+      // Unlock the moment TRANSCRIPTION is resident, and let term detection
+      // and translation keep loading in the background. The comment above
+      // already says only Whisper is a hard requirement, but the code then
+      // waited on all three anyway, so the record button stayed locked behind
+      // the slowest of them - and the slowest is term detection, a ~2GB llama
+      // model that measured 14 SECONDS after Whisper was already ready
+      // (whisper ready at 30s from app launch, terms at 44s). That is 14
+      // seconds of a user staring at "Preparing on-device models…" for two
+      // models that are not needed to start a recording: term detection runs
+      // against transcript chunks and translation against finished sentences,
+      // both of which arrive seconds into a session at the earliest, by which
+      // point these have long since finished.
+      dlog(`[demist] preload: transcription ready after ${Date.now() - tPre} ms - record button unlocked`)
       setNativeModelsReady(true)
+      setNativeModelProgress(null)
+
+      // Still awaited, just not blocking the button: the degraded warning and
+      // termDetectionReadyRef both depend on how these land.
+      await Promise.all([termsTask, translationTask])
+      dlog(`[demist] preload: ALL models ready after ${Date.now() - tPre} ms`)
       setNativeModelProgress(null)
       if (degraded.length) {
         setRecordingWarning(`Couldn't load the ${degraded.join(' and ')} model${degraded.length > 1 ? 's' : ''}. Recording and transcription still work normally.`)

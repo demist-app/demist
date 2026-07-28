@@ -13,6 +13,11 @@ const emitProgress = (label, pct, file) => emitEvent('modelProgress', { label, p
 
 let whisper, translate, llm
 const handlers = {
+  // Keep-alive (see the keepWorkersWarm comment in main.js). Deliberately
+  // does nothing at all: touching this thread's stack and heap on a timer is
+  // the entire point, so it must not read a file, allocate, or run inference.
+  ping: () => true,
+
   // Live transcription session (new)
   startSession: () => (whisper ??= require('./whisper')).startSession(
     (t) => emitEvent('transcript', t),

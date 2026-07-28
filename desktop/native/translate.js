@@ -54,7 +54,27 @@ async function getTranslator(lang, emitProgress) {
     // two live-transcript sentences translated back to back, same failure
     // mode confirmed for real in native/llm.js's model loading) would both
     // see nothing cached yet and each load their own duplicate pipeline.
+    // 8-bit weights, matching native/whisper.js's DTYPE. This was the only
+    // model still loading at full fp32, and it is the cheapest memory to give
+    // back: measured on the same five sentences, 820MB resident at fp32
+    // versus 443MB at q8, for translations of comparable quality (both render
+    // ordinary sentences the same way and both fumble the same technical
+    // terms - that is opus-mt's own limit, not the quantization's).
+    //
+    // Memory is the binding constraint here, not speed. A real session
+    // measured the Electron process at 7458MB committed against 4471MB
+    // resident on a 15.9GB machine with 2.8GB free: Windows had trimmed ~3GB
+    // of it to disk, and faulting the idle transcribe worker back in made a
+    // startSession that does 1ms of actual work take 63 SECONDS. Every model
+    // that stays smaller keeps the whole process further from that cliff.
+    //
+    // The cost is real and accepted: q8 measured 269-452ms per sentence
+    // against 126-233ms at fp32, roughly 2x. Translation runs per finished
+    // sentence in the background, well off the critical path, so a few
+    // hundred milliseconds there is not something a user can perceive - and
+    // it is a far better trade than the multi-second stalls paging causes.
     const loadPromise = importTransformers().then(({ pipeline }) => pipeline('translation', modelId, {
+      dtype: 'q8',
       progress_callback: makeProgressLogger(`translation model (${lang})`, emitProgress),
     }))
     // A failed load must not stay cached: confirmed in practice that a
