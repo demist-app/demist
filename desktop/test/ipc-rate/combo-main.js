@@ -24,9 +24,30 @@ const call = (type, ...args) => new Promise((res, rej) => {
 })
 
 let forwarded = 0
-const INLINE = !process.argv.includes('--timer')
+const COALESCE = process.argv.includes('--coalesce')
+const INLINE = !process.argv.includes('--timer') && !COALESCE
+// Coalescing: keep the SLOW inline-ish path but merge everything queued into
+// ONE message per tick. If the worker's drain rate is a fixed messages/sec
+// regardless of payload size, this delivers all the audio anyway.
+let coalesceQueue = []
+if (COALESCE) {
+  setInterval(() => {
+    if (!coalesceQueue.length) return
+    let total = 0
+    for (const c of coalesceQueue) total += c.length
+    const merged = new Uint8Array(total)
+    let o = 0
+    for (const c of coalesceQueue) { merged.set(c, o); o += c.length }
+    coalesceQueue = []
+    worker.postMessage({ type: 'pcm', buffer: merged.buffer, mseq: ++forwarded }, [merged.buffer])
+  }, 500)
+}
 let pending2 = []
 ipcMain.on('rate:send', (_e, msg) => {
+  if (COALESCE) {
+    coalesceQueue.push(new Uint8Array(new Uint8Array(msg.buffer).length))
+    return
+  }
   if (INLINE) {
     const copy = new Uint8Array(new Uint8Array(msg.buffer).length)
     worker.postMessage({ type: 'pcm', buffer: copy.buffer, mseq: ++forwarded }, [copy.buffer])

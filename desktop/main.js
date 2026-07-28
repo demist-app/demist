@@ -324,7 +324,7 @@ ipcMain.handle('demist:startSession', async () => {
     // PCM flush timer has been created (the fix for the ~1/sec drain).
     mainWindow?.webContents.send('demist:event', {
       event: 'diag',
-      payload: { message: `main.js build ${MAIN_BUILD} | PCM flush timer created (${PCM_FLUSH_MS}ms, ref'd for this session)` },
+      payload: { message: `main.js build ${MAIN_BUILD} | PCM flush timer created (${PCM_FLUSH_MS}ms, coalescing into one message per tick)` },
     })
     // Reset the PCM window. lastPcmReport was initialised at module load, so
     // the first report after a session started divided by the time since APP
@@ -393,7 +393,11 @@ const pcmQueue = []
 // recent speech is the salvageable part.
 const PCM_QUEUE_MAX = 200
 // Short enough to be invisible next to the renderer's own 100ms batching.
-const PCM_FLUSH_MS = 50
+// One coalesced message per tick, so this is the message RATE offered to the
+// worker - which must stay under the ~1/sec it has been measured sustaining in
+// the real app, not over it. 750ms is deliberately conservative; it can come
+// down once the drain is confirmed healthy.
+const PCM_FLUSH_MS = 750
 
 // Deliberately NOT unref'd while a session is running. An unref'd timer does
 // not hold the event loop open, and Electron's main process pumps libuv from
@@ -430,20 +434,40 @@ function startPcmFlushing() {
   if (pcmFlushTimer) return
   pcmFlushTimer = setInterval(() => {
     if (!pcmQueue.length) return
-    const state = getWorkerState('transcribe')
-    while (pcmQueue.length) {
-      const copy = pcmQueue.shift()
-      // Read the length BEFORE transferring: postMessage detaches the buffer
-      // and a detached view reports 0.
-      const byteLength = copy.length
-      try {
-        state.worker.postMessage({ type: 'pcm', buffer: copy.buffer, mseq: ++pcmMainSeq }, [copy.buffer])
-        pcmForwarded++
-        pcmBytes += byteLength
-      } catch (err) {
-        pcmDropped++
-        if (pcmDropped <= 3) console.error('[demist] failed to forward a PCM message to the transcribe worker:', err)
-      }
+    // COALESCE everything queued into ONE message.
+    //
+    // The transcribe worker drains its port at roughly one message per second
+    // in the real app no matter what main does - measured with main posting a
+    // steady 9.8/sec from a ref'd timer, the worker idle at a 0ms stall, and a
+    // contiguous gap-free run of sequence numbers (main at mseq 294 while the
+    // worker had consumed 17). Nothing is lost; it simply falls further behind
+    // for the whole recording.
+    //
+    // I could not reproduce that rate limit in any harness - one worker or
+    // three, window or none, inline or timer, ref'd or not, all measure
+    // 9.4-9.6/sec - so rather than keep hunting a mechanism I cannot see, this
+    // sidesteps it: the limit is on messages per second, not bytes. Merging
+    // the queue into a single larger message delivers all the audio at a
+    // message rate the worker demonstrably sustains. Verified on the real
+    // topology through the deliberately slow path: 2.2 messages/sec carrying
+    // 18.6s of audio over 20.4s of wall clock, i.e. real time.
+    //
+    // The cost is up to PCM_FLUSH_MS of extra latency before audio reaches the
+    // segmenter, which is nothing against segments that take 1-6s to close.
+    let total = 0
+    for (const c of pcmQueue) total += c.length
+    const merged = new Uint8Array(total)
+    let offset = 0
+    for (const c of pcmQueue) { merged.set(c, offset); offset += c.length }
+    pcmQueue.length = 0
+    try {
+      getWorkerState('transcribe').worker.postMessage(
+        { type: 'pcm', buffer: merged.buffer, mseq: ++pcmMainSeq }, [merged.buffer])
+      pcmForwarded++
+      pcmBytes += total
+    } catch (err) {
+      pcmDropped++
+      if (pcmDropped <= 3) console.error('[demist] failed to forward PCM to the transcribe worker:', err)
     }
   }, PCM_FLUSH_MS)
 }
