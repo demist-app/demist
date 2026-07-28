@@ -368,13 +368,16 @@ setInterval(() => {
   if (!transcribeSessionActive) return
   const secs = (Date.now() - lastPcmReport) / 1000
   if (secs < 5) return
+  // Emitted UNCONDITIONALLY while a session is live, not only when it looks
+  // bad. Reporting only on failure meant that whenever this line was missing
+  // from a bug report it was impossible to tell "main is healthy" from "the
+  // line was not pasted" - and main's number is exactly what separates a
+  // renderer problem from a worker problem.
   const recvRate = pcmReceived / secs
-  if (recvRate >= 5) return
   const message =
-    `pcm bridge: main received ${recvRate.toFixed(1)}/sec over the last ${secs.toFixed(0)}s ` +
-    `(expected ~10/sec), forwarded ${(pcmForwarded / secs).toFixed(1)}/sec, ${pcmDropped} dropped. ` +
-    `${pcmReceived === 0 ? 'NOTHING is arriving from the renderer.' : 'The renderer is barely sending.'}`
-  console.warn(`[demist] ${message}`)
+    `main bridge: received ${recvRate.toFixed(1)}/sec, forwarded ${(pcmForwarded / secs).toFixed(1)}/sec ` +
+    `(${(pcmBytes / 4 / 16000).toFixed(1)}s of audio), ${pcmDropped} dropped, over ${secs.toFixed(0)}s [expect ~10/sec]`
+  if (recvRate < 5) console.warn(`[demist] ${message}`); else dlog(`[demist] ${message}`)
   mainWindow?.webContents.send('demist:event', { event: 'diag', payload: { message } })
   pcmReceived = 0; pcmForwarded = 0; pcmBytes = 0; pcmDropped = 0
   lastPcmReport = Date.now()
@@ -422,19 +425,9 @@ ipcMain.on('demist:pcm', (_event, message) => {
     // apart: "audio in" only advances when the worker processes a message, so
     // it reads low in BOTH cases. Not having this number is what made the
     // same symptom get misdiagnosed repeatedly.
-    if (recvRate < 5 || fwdRate < 5 || pcmDropped > 0) {
-      const verdict = recvRate < 5
-        ? 'the RENDERER is not sending them (capture or the IPC hop), so the loss is upstream of transcription'
-        : 'main IS forwarding them, so a low "audio in" is the WORKER not reading its queue'
-      const message = `${line} | expected ~10/sec: ${verdict}`
-      console.warn(`[demist] ${message}`)
-      // Also send it to the renderer's console. Main-process stdout is
-      // invisible unless the app was launched from a terminal, and this is
-      // the number that has been missing from every report so far.
-      mainWindow?.webContents.send('demist:event', { event: 'diag', payload: { message } })
-    } else {
-      dlog(line)
-    }
+    // Reported by the timer above, which is the single owner of these
+    // counters. Two reporters sharing them reset each other's windows.
+    dlog(line)
     pcmReceived = 0; pcmForwarded = 0; pcmBytes = 0; pcmDropped = 0
     lastPcmReport = now
   }

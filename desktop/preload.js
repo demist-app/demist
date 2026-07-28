@@ -26,7 +26,23 @@ contextBridge.exposeInMainWorld('demistNative', {
   // structured clone still copies the ArrayBuffer correctly here, it's just
   // a real copy rather than a transfer, negligible for PCM frames this
   // small, and correct beats a broken optimization.
-  sendPcm: (arrayBuffer) => ipcRenderer.postMessage('demist:pcm', { buffer: arrayBuffer }),
+  // ipcRenderer.send, NOT ipcRenderer.postMessage.
+  //
+  // postMessage was chosen for a zero-copy transfer that Electron does not
+  // actually support (see the note below): the transfer list only accepts
+  // MessagePort, so the ArrayBuffer was being structured-cloned either way.
+  // That left the audio going down the MessagePort path for no benefit, and
+  // measurement says that path does not keep up. In a real session the
+  // renderer reported "50 DELIVERED to main" every 5 seconds - postMessage
+  // returning without throwing, 10 times a second - while the worker's own
+  // edge counter saw 0.9 messages/sec. The hop AFTER main was proven healthy
+  // in isolation (posted 9.0/sec, worker received 9.5/sec) and again under
+  // Electron (9.5/sec), so the loss sits between this call and ipcMain.
+  //
+  // send() is the ordinary high-frequency IPC channel and is received by the
+  // same ipcMain.on handler with the same payload shape, so nothing on the
+  // main side changes.
+  sendPcm: (arrayBuffer) => ipcRenderer.send('demist:pcm', { buffer: arrayBuffer }),
   // Push events from native: { event: 'transcript', payload: { seq, text } }
   // and { event: 'modelProgress', payload: { label, pct, file } }.
   // Returns an unsubscribe function.

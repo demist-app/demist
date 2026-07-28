@@ -1,0 +1,14 @@
+<!doctype html><meta charset="utf-8"><body><script>
+(async () => {
+  const sleep = ms => new Promise(r => setTimeout(r, ms))
+  const N = 150            // 15 seconds at 10/sec, the real PCM cadence
+  for (let i = 0; i < N; i++) {
+    // Fresh 6400-byte buffers, the real PCM batch size (1600 float32 samples).
+    window.rate.post(new Float32Array(1600).buffer)
+    window.rate.send(new Float32Array(1600).buffer)
+    await sleep(100)
+  }
+  await sleep(1500)        // let anything in flight land
+  window.rate.done(N)
+})()
+</script></body>
