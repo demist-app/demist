@@ -35,13 +35,38 @@ ipcMain.on('rate:send', (_e, msg) => {
   }
 })
 // Flush from a libuv timer instead of from inside Chromium's IPC dispatch.
-setInterval(() => {
+let lateTimer = null
+const flushTimer = setInterval(() => {
   if (INLINE || !pending2.length) return
   for (const copy of pending2) {
     worker.postMessage({ type: 'pcm', buffer: copy.buffer, mseq: ++forwarded }, [copy.buffer])
   }
   pending2 = []
 }, 100)
+if (process.argv.includes('--create-late')) {
+  // What main.js should do: no timer at all until a session starts, then a
+  // FRESH ref'd interval, cleared when the session ends.
+  flushTimer.unref?.(); clearInterval(flushTimer)
+  setTimeout(() => {
+    console.log('   (creating a fresh ref-ed flush timer now)')
+    lateTimer = setInterval(() => {
+      if (INLINE || !pending2.length) return
+      for (const copy of pending2) {
+        worker.postMessage({ type: 'pcm', buffer: copy.buffer, mseq: ++forwarded }, [copy.buffer])
+      }
+      pending2 = []
+    }, 100)
+  }, 1000)
+} else if (process.argv.includes('--unref-then-ref')) {
+  // What main.js now does: idle-unref'd, then ref'd when a session starts.
+  flushTimer.unref?.()
+  setTimeout(() => { console.log('   (ref-ing the flush timer now)'); flushTimer.ref?.() }, 1000)
+} else if (process.argv.includes('--unref')) {
+  // The real app had .unref?.() here. An unref'd timer does not hold the loop
+  // open, and Electron's main process pumps libuv from Chromium's message
+  // pump - so it may be serviced far less often than its interval implies.
+  flushTimer.unref?.()
+}
 // the same 5s keep-alive ping the app sends
 setInterval(() => worker.postMessage({ id: nextId++, type: 'ping' }), 5000).unref?.()
 

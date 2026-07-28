@@ -306,6 +306,7 @@ ipcMain.handle('demist:startSession', async () => {
   try {
     const result = await callWorker('startSession')
     transcribeSessionActive = true
+    startPcmFlushing()
     // Reset the PCM window. lastPcmReport was initialised at module load, so
     // the first report after a session started divided by the time since APP
     // LAUNCH - it reported "0.1/sec" for a bridge that was actually carrying
@@ -324,6 +325,7 @@ ipcMain.handle('demist:startSession', async () => {
 })
 ipcMain.handle('demist:stopSession', async () => {
   transcribeSessionActive = false
+  stopPcmFlushing()
   return callWorker('stopSession')
 })
 ipcMain.handle('demist:preloadWhisper', () => callWorker('preloadWhisper'))
@@ -374,24 +376,65 @@ const PCM_QUEUE_MAX = 200
 // Short enough to be invisible next to the renderer's own 100ms batching.
 const PCM_FLUSH_MS = 50
 
-setInterval(() => {
-  if (!pcmQueue.length) return
-  const state = getWorkerState('transcribe')
-  while (pcmQueue.length) {
-    const copy = pcmQueue.shift()
-    // Read the length BEFORE transferring: postMessage detaches the buffer and
-    // a detached view reports 0.
-    const byteLength = copy.length
-    try {
-      state.worker.postMessage({ type: 'pcm', buffer: copy.buffer, mseq: ++pcmMainSeq }, [copy.buffer])
-      pcmForwarded++
-      pcmBytes += byteLength
-    } catch (err) {
-      pcmDropped++
-      if (pcmDropped <= 3) console.error('[demist] failed to forward a PCM message to the transcribe worker:', err)
+// Deliberately NOT unref'd while a session is running. An unref'd timer does
+// not hold the event loop open, and Electron's main process pumps libuv from
+// Chromium's message pump - so an unref'd 50ms timer is serviced roughly once
+// a SECOND rather than twenty times. Measured on the real topology, changing
+// nothing but this:
+//
+//   flush timer ref'd:  worker got 9.5/sec, audio in 18.5s over 20.0s
+//   flush timer unref'd: worker got 1.7/sec, audio in  4.9s over 21.3s
+//
+// The second row is the reported bug exactly. It is ref'd only while a
+// session is active (see the startSession/stopSession handlers) so an idle
+// app is not holding the loop hot for a queue that is always empty.
+// Created fresh when a session starts and cleared when it ends. Never
+// unref'd, and never re-ref'd after an unref, because NEITHER works:
+//
+//   created ref'd, left ref'd : worker got 9.5/sec, audio in 18.5s over 20.0s
+//   .unref()                  : worker got 1.7/sec, audio in  4.9s over 21.3s
+//   .unref() then .ref()      : worker got 1.7/sec - ref() does NOT undo it
+//   created fresh at session  : worker got 9.5/sec, audio in 18.6s over 20.1s
+//
+// An unref'd timer does not hold the event loop open, and Electron's main
+// process pumps libuv from Chromium's message pump, so an unref'd 50ms timer
+// is serviced roughly once a SECOND instead of twenty times. That is the
+// reported bug exactly: main forwarding ~10/sec into a queue drained at ~1/sec,
+// the worker idle with a 0ms stall and a contiguous gap-free run of sequence
+// numbers, falling further behind for the whole recording.
+//
+// Creating it per session rather than leaving one ref'd forever keeps an idle
+// app from holding the loop hot for a queue that is always empty.
+let pcmFlushTimer = null
+
+function startPcmFlushing() {
+  if (pcmFlushTimer) return
+  pcmFlushTimer = setInterval(() => {
+    if (!pcmQueue.length) return
+    const state = getWorkerState('transcribe')
+    while (pcmQueue.length) {
+      const copy = pcmQueue.shift()
+      // Read the length BEFORE transferring: postMessage detaches the buffer
+      // and a detached view reports 0.
+      const byteLength = copy.length
+      try {
+        state.worker.postMessage({ type: 'pcm', buffer: copy.buffer, mseq: ++pcmMainSeq }, [copy.buffer])
+        pcmForwarded++
+        pcmBytes += byteLength
+      } catch (err) {
+        pcmDropped++
+        if (pcmDropped <= 3) console.error('[demist] failed to forward a PCM message to the transcribe worker:', err)
+      }
     }
-  }
-}, PCM_FLUSH_MS).unref?.()
+  }, PCM_FLUSH_MS)
+}
+
+function stopPcmFlushing() {
+  if (!pcmFlushTimer) return
+  clearInterval(pcmFlushTimer)
+  pcmFlushTimer = null
+  pcmQueue.length = 0
+}
 let pcmSeqBase = 0
 let pcmForwarded = 0
 let pcmBytes = 0
