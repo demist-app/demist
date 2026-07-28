@@ -52,6 +52,21 @@ const handlers = {
 // Counted at the very edge of the worker, before anything can discard them.
 // Every other counter in the chain sits further in, so a message that reached
 // this thread and was then dropped looked identical to one that never arrived.
+// Event-loop lag for THIS thread. "the worker is too busy to drain its queue"
+// has been the working hypothesis for several rounds and has never once been
+// measured in the real app - only inferred from a low receive rate, which is
+// also what a hop that never delivered would look like. A 100ms timer that
+// fires 20 seconds late says outright that this thread was blocked for 20
+// seconds, and by how much, with no inference required.
+let loopWorst = 0
+let loopLast = Date.now()
+setInterval(() => {
+  const now = Date.now()
+  const late = now - loopLast - 100
+  if (late > loopWorst) loopWorst = late
+  loopLast = now
+}, 100).unref?.()
+
 let pcmMessages = 0
 let pcmSamples = 0
 let lastPcmLog = Date.now()
@@ -73,9 +88,11 @@ parentPort.on('message', async (msg) => {
       const secs = (now - lastPcmLog) / 1000
       emitEvent('diag', {
         message: `worker received ${(pcmMessages / secs).toFixed(1)} pcm msgs/sec `
-          + `(${(pcmSamples / 16000).toFixed(1)}s of audio) over the last ${secs.toFixed(0)}s`,
+          + `(${(pcmSamples / 16000).toFixed(1)}s of audio) over the last ${secs.toFixed(0)}s`
+          + ` | worker event-loop worst stall ${loopWorst}ms`
+          + `${loopWorst > 1000 ? ' <- THIS THREAD WAS BLOCKED, which is why it did not drain its queue' : ''}`,
       })
-      pcmMessages = 0; pcmSamples = 0; lastPcmLog = now
+      pcmMessages = 0; pcmSamples = 0; lastPcmLog = now; loopWorst = 0
     }
     ;(whisper ??= require('./whisper')).feedPcm(frame)
     return

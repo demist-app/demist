@@ -360,6 +360,19 @@ let pcmBytes = 0
 let pcmDropped = 0
 let lastPcmReport = Date.now()
 
+// Event-loop lag for the MAIN process. If main is stalled it cannot dispatch
+// ipcMain.on('demist:pcm') at 10/sec no matter how fast the renderer sends,
+// and that is indistinguishable, from either end, from the renderer not
+// sending or the worker not reading.
+let mainLoopWorst = 0
+let mainLoopLast = Date.now()
+setInterval(() => {
+  const now = Date.now()
+  const late = now - mainLoopLast - 100
+  if (late > mainLoopWorst) mainLoopWorst = late
+  mainLoopLast = now
+}, 100).unref?.()
+
 // The report below only runs when a PCM message ARRIVES, so the worse the
 // problem the less often it is reported: at 0.1 messages/sec it printed about
 // once a minute. A timer reports regardless, which is what a near-zero rate
@@ -376,7 +389,9 @@ setInterval(() => {
   const recvRate = pcmReceived / secs
   const message =
     `main bridge: received ${recvRate.toFixed(1)}/sec, forwarded ${(pcmForwarded / secs).toFixed(1)}/sec ` +
-    `(${(pcmBytes / 4 / 16000).toFixed(1)}s of audio), ${pcmDropped} dropped, over ${secs.toFixed(0)}s [expect ~10/sec]`
+    `(${(pcmBytes / 4 / 16000).toFixed(1)}s of audio), ${pcmDropped} dropped, over ${secs.toFixed(0)}s [expect ~10/sec]` +
+    ` | main event-loop worst stall ${mainLoopWorst}ms` +
+    `${mainLoopWorst > 1000 ? " <- MAIN WAS BLOCKED, so it could not dispatch the renderer messages" : ''}`
   if (recvRate < 5) console.warn(`[demist] ${message}`); else dlog(`[demist] ${message}`)
   mainWindow?.webContents.send('demist:event', { event: 'diag', payload: { message } })
   pcmReceived = 0; pcmForwarded = 0; pcmBytes = 0; pcmDropped = 0

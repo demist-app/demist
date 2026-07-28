@@ -229,6 +229,7 @@ export async function startNativeSession(
   let expectedFramesPerSec = 0
 
   const teardownGraph = async () => {
+    clearInterval(rendererLoopProbe)
     stopWatchdogRef?.()
     if (worklet) worklet.port.onmessage = null
     // Only disconnect the worklet from the shared source, never the source
@@ -252,6 +253,18 @@ export async function startNativeSession(
   let frameCount = 0
   let peakSinceLastLog = 0
   let lastLogAt = 0
+  // Event-loop lag for the renderer's JS thread. The worklet runs on the audio
+  // thread and reports its own health, so capture can measure 375/375 while
+  // the thread that must batch and forward those frames is stalled. sendPcm is
+  // called from THIS thread, so its lag is part of the delivery path.
+  let rendererLoopWorst = 0
+  let rendererLoopLast = Date.now()
+  const rendererLoopProbe = setInterval(() => {
+    const now = Date.now()
+    const late = now - rendererLoopLast - 100
+    if (late > rendererLoopWorst) rendererLoopWorst = late
+    rendererLoopLast = now
+  }, 100)
 
   // Everything that turns a constructed AudioWorkletNode into a working PCM
   // feed: health reporting, the silence watchdog, batching and downsampling.
@@ -307,7 +320,9 @@ export async function startNativeSession(
             `${sessionReady ? 'ready' : 'NOT ready'}), ${sendFailures} failed` +
             `${lastSendError ? ` [${lastSendError}]` : ''}` +
             `${batchesFlushed ? `, ${batchesFlushed} flushed from the backlog` : ''}` +
-            `, ${pendingPcm.length} still queued`
+            `, ${pendingPcm.length} still queued` +
+            ` | renderer event-loop worst stall ${rendererLoopWorst}ms` +
+            `${rendererLoopWorst > 1000 ? ' <- THE RENDERER JS THREAD WAS BLOCKED' : ''}`
           // Always reported when capture is running below half rate, gated
           // otherwise. This exact signature - the worklet delivering a small
           // fraction of the expected frames while everything else reports
@@ -327,6 +342,7 @@ export async function startNativeSession(
           batchesDelivered = 0
           batchesBuffered = 0
           batchesFlushed = 0
+          rendererLoopWorst = 0
           return
         }
         const data = e.data as Float32Array
@@ -381,7 +397,7 @@ export async function startNativeSession(
       audioContext = sharedGraph.context
       source = sharedGraph.source
       await audioContext.resume().catch(() => {})
-      dlog('[demist] attachGraph: sharing the existing AudioContext, sampleRate =', audioContext.sampleRate, 'state =', audioContext.state)
+      console.info('[demist] capture graph: SHARING the caller AudioContext, sampleRate =', audioContext.sampleRate, 'state =', audioContext.state)
       await audioContext.audioWorklet.addModule('/pcm-worklet.js')
       worklet = new AudioWorkletNode(audioContext, 'pcm-capture')
       wireWorklet(audioContext.sampleRate, mediaStream.getAudioTracks()[0])
@@ -413,7 +429,7 @@ export async function startNativeSession(
     // running, so this only ever helps. rebindStream re-enters here on a mic
     // reconnect and needs the same treatment.
     await audioContext.resume().catch(() => {})
-    dlog('[demist] attachGraph: AudioContext sampleRate =', audioContext.sampleRate, 'state =', audioContext.state)
+    console.info('[demist] capture graph: OWN AudioContext, sampleRate =', audioContext.sampleRate, 'state =', audioContext.state)
     if (audioContext.state !== 'running') {
       console.error('[demist] attachGraph: AudioContext is not running (state:', audioContext.state + '). No PCM will be captured.')
       callbacks.onError?.(`Audio capture could not start (audio context ${audioContext.state}).`)
@@ -427,7 +443,7 @@ export async function startNativeSession(
     // privacy level. Nothing downstream can tell that apart from a quiet
     // room, so the device identity has to be logged here.
     const track = mediaStream.getAudioTracks()[0]
-    dlog('[demist] attachGraph: capturing from', JSON.stringify({
+    console.info('[demist] capturing from', JSON.stringify({
       label: track?.label,
       enabled: track?.enabled,
       muted: track?.muted,
