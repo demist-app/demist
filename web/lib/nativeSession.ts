@@ -123,7 +123,7 @@ export async function startNativeSession(
       // Native-side timing from the transcribe worker. Always printed: it is
       // low volume (a few lines per recording) and it is the only view into
       // why a session takes a long time to start without a terminal.
-      console.log('[demist][native]', msg.payload.message)
+      dlog('[demist][native]', msg.payload.message)
     } else if (msg.event === 'sessionLost') {
       callbacks.onError?.(msg.payload.message ?? 'On-device transcription stopped unexpectedly.')
     }
@@ -258,7 +258,7 @@ export async function startNativeSession(
         // that is connected but silent.
         if (!(e.data instanceof Float32Array) && (e.data as PcmWorkletStats)?.pcmWorkletStats) {
           const s = e.data as PcmWorkletStats
-          console.log(
+          dlog(
             `[demist] audio worklet: ${s.callsPerSecond.toFixed(0)} process calls/sec ` +
             `(expect ~${Math.round(inputRate / 128)}), ${s.postedPerSecond.toFixed(0)} frames/sec delivered, ` +
             `${s.emptyInputs} with no input | renderer sent ${batchesSent} batches ` +
@@ -363,13 +363,13 @@ export async function startNativeSession(
   // Backend is ready: release everything captured while it was loading, in
   // order, then switch to streaming straight through.
   sessionReady = true
-  // Deliberately NOT behind the debug flag: one line per recording, and it
-  // splits "slow to start" cleanly into two very different causes. A large
-  // number here means the native worker was busy or reloading its model
-  // before it could even accept the session; a small number with a late first
-  // transcript means the delay is downstream, in segmentation or inference.
-  // Guessing between those two has cost several rounds of debugging.
-  console.log(`[demist] on-device session ready in ${Date.now() - startedAt} ms`)
+  // Kept always-on but only when it is actually slow. A fast start is not
+  // worth a line; a slow one is the single most useful number for diagnosing
+  // "nothing is happening", and it splits that into "the worker could not
+  // accept the session" versus "the delay is downstream".
+  const readyMs = Date.now() - startedAt
+  if (readyMs > 3000) console.warn(`[demist] on-device session took ${readyMs} ms to start`)
+  else dlog(`[demist] on-device session ready in ${readyMs} ms`)
   if (pendingPcm.length) {
     dlog(`[demist] startNativeSession: flushing ${(pendingSamples / TARGET_RATE).toFixed(1)}s of audio buffered while the model loaded`)
     for (const buf of pendingPcm) native.sendPcm(buf)

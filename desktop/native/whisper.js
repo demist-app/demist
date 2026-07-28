@@ -85,6 +85,8 @@ const transcribersByTier = new Map()
 function getTranscriber(emitProgress) {
   const tier = getTier()
   if (!transcribersByTier.has(tier)) {
+    // Kept: one line per app launch, and it records which model a machine
+    // actually chose, which is the first thing to check on any quality report.
     console.log(`[demist] loading transcription model: tier=${tier} dtype=${DTYPE} (machine has ${TOTAL_RAM_GB.toFixed(1)}GB RAM)`)
     const loadPromise = pipeline('automatic-speech-recognition', MODEL_BY_TIER[tier], {
       dtype: DTYPE,
@@ -133,7 +135,9 @@ let activeSession = null
 
 async function startSession(onTranscript, emitProgress, onInterim, emitDiag) {
   const t0 = Date.now()
-  const diag = (m) => { console.log(`[demist] ${m}`); emitDiag?.(m) }
+  // Forwarded to the renderer's console, where it is gated behind the
+  // renderer's own debug flag; only mirrored to stdout when DEMIST_DEBUG=1.
+  const diag = (m) => { if (process.env.DEMIST_DEBUG === '1') console.log(`[demist] ${m}`); emitDiag?.(m) }
   diag(`startSession: entered (worker has transcriber cached: ${transcribersByTier.has(getTier())})`)
   stopSession() // safety: a crashed renderer can leave one dangling
   diag(`startSession: previous session cleared after ${Date.now() - t0} ms`)

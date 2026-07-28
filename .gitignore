@@ -13,6 +13,16 @@ node_modules
 dist
 build
 
+# ...but desktop/build/appx holds the Microsoft Store tile assets, which are
+# SOURCE, not build output: electron-builder reads them from there at package
+# time and the AppX fails certification without them. The bare `build` rule
+# above matches any directory of that name at any depth, and git cannot
+# re-include files whose parent directory is excluded, so the directory
+# itself has to be un-ignored before its contents can be.
+!desktop/build/
+!desktop/build/appx/
+!desktop/build/appx/**
+
 # Supabase
 .supabase
 

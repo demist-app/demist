@@ -369,15 +369,15 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     // warning, because refusing to record at all over a missing term-detection
     // model is a far worse outcome than a lecture with no term cards.
     const tPre = Date.now()
-    console.log('[demist] preload: starting transcription, term detection and translation together')
+    dlog('[demist] preload: starting transcription, term detection and translation together')
     const degraded: string[] = []
 
     const whisperTask = withRetry(() => native.preloadWhisper()).then(() => {
-      console.log(`[demist] preload: transcription model ready in ${Date.now() - tPre} ms`)
+      dlog(`[demist] preload: transcription model ready in ${Date.now() - tPre} ms`)
     })
     const termsTask = withRetry(() => native.preloadTermDetection()).then(() => {
       termDetectionReadyRef.current = true
-      console.log(`[demist] preload: term detection model ready at ${Date.now() - tPre} ms`)
+      dlog(`[demist] preload: term detection model ready at ${Date.now() - tPre} ms`)
     }).catch((err) => {
       console.error('[demist] preload failed for term detection model:', err)
       degraded.push('term detection')
@@ -385,7 +385,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     const translationTask = Promise.resolve(translateLang).then((lang) => {
       if (!lang) return
       return withRetry(() => native.preloadTranslation(lang)).then(() => {
-        console.log(`[demist] preload: translation model ready at ${Date.now() - tPre} ms`)
+        dlog(`[demist] preload: translation model ready at ${Date.now() - tPre} ms`)
       })
     }).catch((err) => {
       console.error('[demist] preload failed for translation model:', err)
@@ -404,7 +404,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       await Promise.all([termsTask, translationTask])
 
       // Everything that will be used is now resident: recording can start.
-      console.log(`[demist] preload: ALL models ready after ${Date.now() - tPre} ms - record button unlocked`)
+      dlog(`[demist] preload: ALL models ready after ${Date.now() - tPre} ms - record button unlocked`)
       setNativeModelsReady(true)
       setNativeModelProgress(null)
       if (degraded.length) {
@@ -622,12 +622,12 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       zeroTermChunksRef.current++
       if (zeroTermChunksRef.current >= 3 && chunkIntervalRef.current !== 10_000) {
         chunkIntervalRef.current = 10_000
-        console.log('[demist] 3 empty detections: chunk interval expanded to 10s')
+        dlog('[demist] 3 empty detections: chunk interval expanded to 10s')
       }
       return
     }
     if (chunkIntervalRef.current !== 5_000) {
-      console.log('[demist] terms detected: chunk interval reset to 5s')
+      dlog('[demist] terms detected: chunk interval reset to 5s')
     }
     zeroTermChunksRef.current = 0
     chunkIntervalRef.current = 5_000
@@ -854,7 +854,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     const peak = chunkPeakRef.current
     chunkPeakRef.current = 0
     if (peak < 0.015) {
-      console.log('[demist] silent chunk skipped (peak', peak.toFixed(3) + ')')
+      dlog('[demist] silent chunk skipped (peak', peak.toFixed(3) + ')')
       return
     }
     if (blob.size < 500) return
@@ -1166,7 +1166,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
           onTranscript: (text) => {
             if (!firstTranscriptLoggedRef.current) {
               firstTranscriptLoggedRef.current = true
-              console.log(`[demist] first transcript ${Date.now() - recordingStartedAtRef.current} ms after recording started`)
+              dlog(`[demist] first transcript ${Date.now() - recordingStartedAtRef.current} ms after recording started`)
             }
             dlog('[demist] FINAL transcript received:', text)
             const sid = sessionIdRef.current

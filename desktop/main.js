@@ -12,6 +12,13 @@ const { Worker } = require('worker_threads')
 
 const APP_URL = process.env.DEMIST_DESKTOP_URL || 'https://www.demist.app'
 
+// Verbose tracing, off unless DEMIST_DEBUG=1. These lines were invaluable
+// while diagnosing a session that would not start, but they are per-recording
+// or per-5-seconds noise in a shipping build, and they bury the errors that
+// actually matter. Errors and warnings are never routed through this.
+const DEBUG = process.env.DEMIST_DEBUG === '1'
+const dlog = (...args) => { if (DEBUG) console.log(...args) }
+
 function sameSite(urlA, urlB) {
   const strip = (h) => h.replace(/^www\./, '')
   return strip(new URL(urlA).hostname) === strip(new URL(urlB).hostname)
@@ -184,7 +191,7 @@ setInterval(() => {
       waiting.push(`${role}: ${state.pending.size} pending, last heard from ${Date.now() - state.lastMessageAt}ms ago`)
     }
   }
-  if (waiting.length) console.log(`[demist] worker calls outstanding -> ${waiting.join(' | ')}`)
+  if (waiting.length) dlog(`[demist] worker calls outstanding -> ${waiting.join(' | ')}`)
 }, 5000).unref?.()
 
 function callWorker(type, ...args) {
@@ -193,7 +200,7 @@ function callWorker(type, ...args) {
     const role = CALL_ROLE[type]
     const state = getWorkerState(role)
     if (type === 'startSession' || type === 'stopSession') {
-      console.log(`[demist] -> posting '${type}' (id ${id}) to the ${role} worker`)
+      dlog(`[demist] -> posting '${type}' (id ${id}) to the ${role} worker`)
     }
     const timeoutMs = CALL_TIMEOUT_MS[type]
     let timer = null
@@ -229,12 +236,14 @@ function callWorker(type, ...args) {
 
 // ── Request/response bridge ────────────────────────────────────────────────
 ipcMain.handle('demist:startSession', async () => {
-  console.log('[demist] renderer asked for a transcription session')
+  dlog('[demist] renderer asked for a transcription session')
   const t = Date.now()
   try {
     const result = await callWorker('startSession')
     transcribeSessionActive = true
-    console.log(`[demist] transcription session started in ${Date.now() - t} ms`)
+    // Only worth a line when it was slow enough for a user to notice.
+    if (Date.now() - t > 3000) console.warn(`[demist] transcription session took ${Date.now() - t} ms to start`)
+    else dlog(`[demist] transcription session started in ${Date.now() - t} ms`)
     return result
   } catch (err) {
     console.error(`[demist] starting the transcription session FAILED after ${Date.now() - t} ms:`, err?.message ?? err)
@@ -301,7 +310,7 @@ ipcMain.on('demist:pcm', (_event, message) => {
   const now = Date.now()
   if (now - lastPcmReport >= 5000) {
     const secs = (now - lastPcmReport) / 1000
-    console.log(
+    dlog(
       `[demist] pcm bridge: main received ${(pcmReceived / secs).toFixed(1)}/sec, ` +
       `forwarded ${(pcmForwarded / secs).toFixed(1)}/sec ` +
       `(${(pcmBytes / 4 / 16000).toFixed(1)}s of audio), ${pcmDropped} dropped`,

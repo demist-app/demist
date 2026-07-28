@@ -713,8 +713,16 @@ export default function Profile() {
                 <p className="text-[14px] dark:text-white/80 text-gray-800 font-medium">Public profile</p>
                 <p className="text-[12px] text-gray-600 mt-0.5">Anyone with the link can see your stats</p>
               </div>
+              {/* A switch with no text of its own: without role/aria-checked
+                  and a label, a screen reader announces only "button" and
+                  gives no way to tell whether the profile is currently
+                  public. This is the one genuinely unlabelled control in the
+                  app; every other button carries visible text. */}
               <button
                 onClick={togglePublic}
+                role="switch"
+                aria-checked={isPublic}
+                aria-label="Public profile"
                 className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${isPublic ? 'bg-yellow-600' : 'bg-white/[0.1]'}`}
               >
                 <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 ${isPublic ? 'translate-x-5' : 'translate-x-0'}`} />

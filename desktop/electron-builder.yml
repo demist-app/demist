@@ -5,6 +5,34 @@ files:
   - preload.js
   - native/**/*
   - licenses/**/*
+  # onnxruntime-node ships prebuilt binaries for every platform it supports,
+  # and two copies of the package end up installed (a top-level one and one
+  # nested under @huggingface/transformers). In a Windows-only AppX the macOS
+  # and Linux binaries are pure dead weight: measured at 75MB + 57MB per copy,
+  # ~260MB across both, on a package where size is a real Store concern. The
+  # win32 binaries this app actually loads are untouched.
+  - "!node_modules/onnxruntime-node/bin/napi-v6/darwin${/*}"
+  - "!node_modules/onnxruntime-node/bin/napi-v6/linux${/*}"
+  - "!node_modules/@huggingface/transformers/node_modules/onnxruntime-node/bin/napi-v6/darwin${/*}"
+  - "!node_modules/@huggingface/transformers/node_modules/onnxruntime-node/bin/napi-v6/linux${/*}"
+  # node-llama-cpp's own bins/ directory only holds .moved.txt pointers on an
+  # installed tree (the real binaries live in @node-llama-cpp/*), but exclude
+  # the non-Windows ones anyway so a different install layout cannot smuggle
+  # them in. The @node-llama-cpp CUDA and Vulkan packages are deliberately
+  # KEPT: they are ~630MB, but GPU offload was measured at roughly 4x faster
+  # term detection (12s vs 40-60s per call), which is the difference between
+  # term cards arriving during a lecture and arriving after it.
+  - "!node_modules/node-llama-cpp/bins/mac-${/*}"
+  - "!node_modules/node-llama-cpp/bins/linux-${/*}"
+  # transformers.js defaults its model cache to a .cache directory INSIDE its
+  # own package (native/whisper.js overrides env.cacheDir to ~/.demist for
+  # exactly this reason). Anything downloaded before that override, or by any
+  # stray script that forgets it, lands here and gets packaged: this was
+  # measured at 1.6GB in a real build, more than half the package, and is the
+  # actual reason the .appx was ~2GB. Excluded so it can never happen again
+  # even if the directory reappears. Models are downloaded at runtime to
+  # ~/.demist and must never be bundled.
+  - "!node_modules/@huggingface/transformers/.cache${/*}"
 asarUnpack:
   - native/**/*
   - node_modules/onnxruntime-node/**/*
@@ -25,8 +53,15 @@ appx:
   # Both of these are assigned by Microsoft when you reserve the app name in
   # Partner Center (Microsoft Store account): placeholders until then.
   # https://partner.microsoft.com
-  identityName: REPLACE_WITH_PARTNER_CENTER_IDENTITY_NAME
-  publisher: REPLACE_WITH_PARTNER_CENTER_PUBLISHER_ID
+  # PLACEHOLDERS - BOTH MUST BE REPLACED WITH THE REAL VALUES FROM PARTNER
+  # CENTER BEFORE SUBMISSION. They are in a syntactically valid form only so
+  # the build can complete and be size-checked and installed locally; the
+  # previous REPLACE_WITH_... strings failed packaging outright because
+  # identityName rejects underscores. A package built with these will be
+  # refused at submission, since the publisher must match the account's own
+  # certificate, so this cannot be shipped by accident.
+  identityName: Demist.PlaceholderReplaceBeforeSubmission
+  publisher: CN=00000000-0000-0000-0000-000000000000
   publisherDisplayName: Demist
   displayName: Demist
   # microphone: mic recording is the app's core feature. runFullTrust is
