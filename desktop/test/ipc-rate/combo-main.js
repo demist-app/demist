@@ -75,7 +75,23 @@ ipcMain.on('rate:phase', () => {
   app.exit(0)
 })
 
+// The real app runs THREE workers with models loaded, not one. Every harness
+// so far had only the transcribe worker.
+const extraWorkers = []
+function spawnExtra(type, arg) {
+  const w = new Worker(path.join(__dirname, '..', '..', 'native', 'worker.js'))
+  extraWorkers.push(w)
+  w.on('message', () => {})
+  w.postMessage({ id: 1, type, args: arg ? [arg] : [] })
+  return w
+}
+
 app.whenReady().then(async () => {
+  if (process.argv.includes('--three-workers')) {
+    console.log('spawning terms + translate workers with their models, as the app does...')
+    spawnExtra('preloadTermDetection')
+    spawnExtra('preloadTranslation', 'hi')
+  }
   console.log('loading whisper into the real worker (as the app does)...')
   await call('preloadWhisper')
   await call('startSession')

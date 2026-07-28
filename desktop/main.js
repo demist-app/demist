@@ -12,6 +12,19 @@ const { Worker } = require('worker_threads')
 
 const APP_URL = process.env.DEMIST_DESKTOP_URL || 'https://www.demist.app'
 
+// A fingerprint of THIS file, computed from its own bytes at startup. Reported
+// with every session so a log can never again be ambiguous about which build
+// produced it - "did the app get restarted with the fix" has cost a full round
+// of debugging at least once, because nothing in the output identified the
+// desktop-side code. Changes automatically whenever main.js changes; there is
+// no version constant to forget to bump.
+const MAIN_BUILD = (() => {
+  try {
+    return require('crypto').createHash('sha1')
+      .update(require('fs').readFileSync(__filename)).digest('hex').slice(0, 8)
+  } catch { return 'unknown' }
+})()
+
 // Verbose tracing, off unless DEMIST_DEBUG=1. These lines were invaluable
 // while diagnosing a session that would not start, but they are per-recording
 // or per-5-seconds noise in a shipping build, and they bury the errors that
@@ -307,6 +320,12 @@ ipcMain.handle('demist:startSession', async () => {
     const result = await callWorker('startSession')
     transcribeSessionActive = true
     startPcmFlushing()
+    // Says outright which desktop build is running and that the per-session
+    // PCM flush timer has been created (the fix for the ~1/sec drain).
+    mainWindow?.webContents.send('demist:event', {
+      event: 'diag',
+      payload: { message: `main.js build ${MAIN_BUILD} | PCM flush timer created (${PCM_FLUSH_MS}ms, ref'd for this session)` },
+    })
     // Reset the PCM window. lastPcmReport was initialised at module load, so
     // the first report after a session started divided by the time since APP
     // LAUNCH - it reported "0.1/sec" for a bridge that was actually carrying
@@ -469,7 +488,7 @@ setInterval(() => {
   // renderer problem from a worker problem.
   const recvRate = pcmReceived / secs
   const message =
-    `main bridge: received ${recvRate.toFixed(1)}/sec, forwarded ${(pcmForwarded / secs).toFixed(1)}/sec ` +
+    `main[${MAIN_BUILD}] bridge: received ${recvRate.toFixed(1)}/sec, forwarded ${(pcmForwarded / secs).toFixed(1)}/sec ` +
     `(${(pcmBytes / 4 / 16000).toFixed(1)}s of audio), ${pcmDropped} dropped, over ${secs.toFixed(0)}s [expect ~10/sec]` +
     ` | renderer stamped up to seq ${pcmMaxSeq}, main saw ${pcmReceived} of the ${pcmMaxSeq - pcmSeqBase} it sent in this window` +
     `${pcmMaxSeq - pcmSeqBase > pcmReceived + 2 ? " <- MESSAGES LOST IN TRANSIT between renderer and main" : ''}` +
