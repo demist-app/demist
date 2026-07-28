@@ -383,11 +383,32 @@ ipcMain.on('demist:pcm', (_event, message) => {
   const now = Date.now()
   if (now - lastPcmReport >= 5000) {
     const secs = (now - lastPcmReport) / 1000
-    dlog(
-      `[demist] pcm bridge: main received ${(pcmReceived / secs).toFixed(1)}/sec, ` +
-      `forwarded ${(pcmForwarded / secs).toFixed(1)}/sec ` +
-      `(${(pcmBytes / 4 / 16000).toFixed(1)}s of audio), ${pcmDropped} dropped`,
-    )
+    const recvRate = pcmReceived / secs
+    const fwdRate = pcmForwarded / secs
+    const line =
+      `[demist] pcm bridge: main received ${recvRate.toFixed(1)}/sec, ` +
+      `forwarded ${fwdRate.toFixed(1)}/sec ` +
+      `(${(pcmBytes / 4 / 16000).toFixed(1)}s of audio), ${pcmDropped} dropped`
+    // The renderer posts a frame every BATCH_MS (100ms), so ~10/sec is
+    // healthy. Anything well below that is reported unconditionally, because
+    // this single line is what splits "the renderer is not sending" from "the
+    // worker is not reading" - and the worker-side counter cannot tell them
+    // apart: "audio in" only advances when the worker processes a message, so
+    // it reads low in BOTH cases. Not having this number is what made the
+    // same symptom get misdiagnosed repeatedly.
+    if (recvRate < 5 || fwdRate < 5 || pcmDropped > 0) {
+      const verdict = recvRate < 5
+        ? 'the RENDERER is not sending them (capture or the IPC hop), so the loss is upstream of transcription'
+        : 'main IS forwarding them, so a low "audio in" is the WORKER not reading its queue'
+      const message = `${line} | expected ~10/sec: ${verdict}`
+      console.warn(`[demist] ${message}`)
+      // Also send it to the renderer's console. Main-process stdout is
+      // invisible unless the app was launched from a terminal, and this is
+      // the number that has been missing from every report so far.
+      mainWindow?.webContents.send('demist:event', { event: 'diag', payload: { message } })
+    } else {
+      dlog(line)
+    }
     pcmReceived = 0; pcmForwarded = 0; pcmBytes = 0; pcmDropped = 0
     lastPcmReport = now
   }
