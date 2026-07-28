@@ -8,7 +8,13 @@
 
 const { app, BrowserWindow, ipcMain, session, powerSaveBlocker } = require('electron')
 const path = require('path')
-const { Worker } = require('worker_threads')
+const { fork } = require('child_process')
+
+// native/worker.js is asarUnpack'd (see electron-builder.yml), because a child
+// process cannot execute a script from inside an asar archive. In a packaged
+// build __dirname points at app.asar, so the unpacked twin has to be named
+// explicitly; in development the replace is a no-op.
+const NATIVE_DIR = path.join(__dirname.replace('app.asar', 'app.asar.unpacked'), 'native')
 
 const APP_URL = process.env.DEMIST_DESKTOP_URL || 'https://www.demist.app'
 
@@ -54,10 +60,39 @@ function createWindow() {
 }
 
 // ── Worker plumbing (lazy spawn per role, crash recovery, request/response + events) ─
-// Three separate worker threads, not one shared thread, all running the same
+// Three separate worker PROCESSES, not worker threads, all running the same
 // native/worker.js source. Each lazily requires only the module(s) main.js
 // actually routes to it (whisper.js / llm.js / translate.js are all
 // `x ??= require(...)`'d in worker.js), so this doesn't load anything extra.
+//
+// They were worker threads until transcription was measured landing 45-50
+// seconds behind the speaker. A worker thread inside Electron's main process
+// running onnxruntime does not get scheduled: measured on the shipping
+// topology with real speech at real time (test/realtime-in-electron.js), one
+// core spins for 20-30 seconds after the model loads while the transcribe
+// thread's own event loop ticks 0 times out of an expected 60 per five
+// seconds, a no-op 'ping' takes 20s to come back, and PCM sits undelivered in
+// its port queue for 15+ seconds before arriving in a flood. It is not a
+// message-bridge problem - the messages are posted on time and nothing is
+// lost - the thread simply is not running, which is why several rounds of
+// fixes aimed at the bridge (coalescing, flush timers, ref/unref) all failed
+// to move it.
+//
+// The identical code in a plain Node process does not do this. Measured side
+// by side on the same machine, same speech, same models
+// (test/child-process-host.js):
+//
+//   worker thread in Electron main : first text 38s in, 10.6s behind and
+//                                    growing, 8 segments backlogged,
+//                                    inferences 3.3-11.3s
+//   forked Node child process      : first text 10.7s in, then steady at
+//                                    1.8-2.3s behind, no backlog at all,
+//                                    inferences 1.7-2.2s
+//
+// fork() with ELECTRON_RUN_AS_NODE runs the Electron binary as plain Node, so
+// this is the same runtime and the same native modules, just not sharing a
+// process with Chromium. It also means a native crash in llama.cpp or
+// onnxruntime can no longer take the whole app down with it.
 // The reason for splitting: node-llama-cpp's session.prompt() and
 // onnxruntime-node's pipeline() calls block the calling thread's event loop
 // for the duration of inference, confirmed by real testing to make
@@ -99,8 +134,21 @@ let transcribeSessionActive = false
 function getWorkerState(role) {
   if (workerStates[role]) return workerStates[role]
   workerSpawns[role] = (workerSpawns[role] || 0) + 1
-  const worker = new Worker(path.join(__dirname, 'native', 'worker.js'))
-  console.warn(`[demist] spawned ${role} worker #${workerSpawns[role]} (threadId will follow); a respawn means every model it had is gone`)
+  const worker = fork(path.join(NATIVE_DIR, 'worker.js'), [], {
+    // Runs the Electron binary as plain Node: same runtime, same prebuilt
+    // native modules, none of Chromium's process.
+    env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+    // Structured clone rather than JSON. PCM is an ArrayBuffer, and the
+    // default 'json' serializer would turn a 12000-sample Float32Array into a
+    // JSON object of 12000 numbered keys - many times the bytes, and it does
+    // not survive the round trip as a buffer at all.
+    serialization: 'advanced',
+    // The child's stdout/stderr join the main process's, so everything
+    // native/*.js logs still reaches a terminal exactly as it did from a
+    // thread. 'ipc' is required for send()/on('message').
+    stdio: ['ignore', 'inherit', 'inherit', 'ipc'],
+  })
+  console.warn(`[demist] spawned ${role} worker #${workerSpawns[role]} (pid ${worker.pid}); a respawn means every model it had is gone`)
   // lastMessageAt is the liveness signal used by the call timeout below. Model
   // loading emits a steady stream of progress events, so a worker that is
   // merely blocked in a long synchronous native call still looks alive here,
@@ -247,7 +295,7 @@ setInterval(() => {
     // No pending entry and no timeout: the reply is only wanted for its side
     // effect of updating lastMessageAt, and an unmatched id is already
     // ignored by the message handler above.
-    try { state.worker.postMessage({ id, type: 'ping' }) } catch { /* worker is going away; its exit handler will clean up */ }
+    try { state.worker.send({ id, type: 'ping' }) } catch { /* worker is going away; its exit handler will clean up */ }
   }
 }, KEEP_WARM_MS).unref?.()
 
@@ -295,7 +343,7 @@ function callWorker(type, ...args) {
         const quietFor = Date.now() - state.lastMessageAt
         if (quietFor >= WORKER_SILENT_MS) {
           console.error(`[demist] '${type}' got no reply from the ${role} worker in ${timeoutMs}ms and it has been silent for ${quietFor}ms; restarting it`)
-          try { state.worker.terminate() } catch { /* already gone */ }
+          try { state.worker.kill() } catch { /* already gone */ }
           if (workerStates[role] === state) workerStates[role] = null
           reject(new Error(`On-device ${role} engine stopped responding. Try starting the recording again.`))
         } else {
@@ -308,7 +356,7 @@ function callWorker(type, ...args) {
       resolve: (v) => { if (timer) clearTimeout(timer); resolve(v) },
       reject: (e) => { if (timer) clearTimeout(timer); reject(e) },
     })
-    state.worker.postMessage({ id, type, args })
+    state.worker.send({ id, type, args })
   })
 }
 
@@ -361,20 +409,14 @@ ipcMain.handle('demist:setTranscribeTier', (_event, tier) => callWorker('setTran
 
 // ── PCM stream: high-frequency, fire-and-forget ─────────────────────────────
 // The renderer->main hop is a structured-clone copy (see preload.js: Electron's
-// ipcRenderer.postMessage can't transfer a raw ArrayBuffer). This hop, main
-// process -> worker thread, is meant to be a real zero-copy transfer: worker_threads'
-// postMessage is Node's own implementation and does support it.
-//
-// message.buffer as it arrives here is reconstructed by Electron's own IPC
-// internals, not Node's - confirmed by real testing that passing it straight
-// into worker.postMessage's transferList crashes the main process outright
-// with "DataCloneError: Found invalid value in transferList" on every single
-// PCM frame (Node's worker_threads transfer check doesn't recognize it as a
-// genuine transferable ArrayBuffer, even though it behaves like one). That
-// crash silently killed transcription entirely, on every capture mode,
-// regardless of what audio was actually said. Copying the bytes into a
-// freshly-allocated, genuinely Node-native ArrayBuffer before transferring
-// fixes it; the copy cost is negligible for a PCM frame this small.
+// ipcRenderer.postMessage can't transfer a raw ArrayBuffer). This hop,
+// main process -> worker process, is a structured-clone copy too, over the
+// fork() IPC channel with serialization: 'advanced'. There is no transferList
+// any more, and nothing to get wrong about one: transferring was only ever an
+// optimisation, it needed a defensive re-copy to avoid crashing the main
+// process outright with "DataCloneError: Found invalid value in transferList"
+// (Electron reconstructs the incoming ArrayBuffer with its own IPC internals,
+// and Node's transfer check refuses it), and a PCM frame is a few kilobytes.
 // Counted so the renderer -> main and main -> worker hops can be told apart.
 // A real session had the worklet producing a full 375 frames/sec while the
 // worker received only ~0.36 PCM messages/sec, so ~96% of the audio was being
@@ -392,12 +434,15 @@ const pcmQueue = []
 // if the worker ever stops consuming; past it the OLDEST frame goes, since the
 // recent speech is the salvageable part.
 const PCM_QUEUE_MAX = 200
-// Short enough to be invisible next to the renderer's own 100ms batching.
-// One coalesced message per tick, so this is the message RATE offered to the
-// worker - which must stay under the ~1/sec it has been measured sustaining in
-// the real app, not over it. 750ms is deliberately conservative; it can come
-// down once the drain is confirmed healthy.
-const PCM_FLUSH_MS = 750
+// One coalesced message per tick, so this is also the message rate offered to
+// the transcribe worker. It was 750ms to stay under a drain rate the old
+// worker THREAD could sustain (~1/sec); the worker is a process now and keeps
+// up with everything main can send, so this is back to being purely about
+// batching. It is straight latency - audio sits here for up to this long
+// before the segmenter ever sees it - so it wants to be small, and 250ms is
+// small against a ~2s end-to-end lag while still batching two or three
+// renderer frames into each hop.
+const PCM_FLUSH_MS = 250
 
 // Deliberately NOT unref'd while a session is running. An unref'd timer does
 // not hold the event loop open, and Electron's main process pumps libuv from
@@ -408,52 +453,18 @@ const PCM_FLUSH_MS = 750
 //   flush timer ref'd:  worker got 9.5/sec, audio in 18.5s over 20.0s
 //   flush timer unref'd: worker got 1.7/sec, audio in  4.9s over 21.3s
 //
-// The second row is the reported bug exactly. It is ref'd only while a
-// session is active (see the startSession/stopSession handlers) so an idle
-// app is not holding the loop hot for a queue that is always empty.
-// Created fresh when a session starts and cleared when it ends. Never
-// unref'd, and never re-ref'd after an unref, because NEITHER works:
-//
-//   created ref'd, left ref'd : worker got 9.5/sec, audio in 18.5s over 20.0s
-//   .unref()                  : worker got 1.7/sec, audio in  4.9s over 21.3s
-//   .unref() then .ref()      : worker got 1.7/sec - ref() does NOT undo it
-//   created fresh at session  : worker got 9.5/sec, audio in 18.6s over 20.1s
-//
-// An unref'd timer does not hold the event loop open, and Electron's main
-// process pumps libuv from Chromium's message pump, so an unref'd 50ms timer
-// is serviced roughly once a SECOND instead of twenty times. That is the
-// reported bug exactly: main forwarding ~10/sec into a queue drained at ~1/sec,
-// the worker idle with a 0ms stall and a contiguous gap-free run of sequence
-// numbers, falling further behind for the whole recording.
-//
-// Creating it per session rather than leaving one ref'd forever keeps an idle
-// app from holding the loop hot for a queue that is always empty.
+// Never unref'd, and never re-ref'd after an unref, because ref() does NOT
+// undo an unref() here - that was measured directly. It is created fresh when
+// a session starts and cleared when it ends, so an idle app is not holding the
+// loop hot for a queue that is always empty.
 let pcmFlushTimer = null
 
 function startPcmFlushing() {
   if (pcmFlushTimer) return
   pcmFlushTimer = setInterval(() => {
     if (!pcmQueue.length) return
-    // COALESCE everything queued into ONE message.
-    //
-    // The transcribe worker drains its port at roughly one message per second
-    // in the real app no matter what main does - measured with main posting a
-    // steady 9.8/sec from a ref'd timer, the worker idle at a 0ms stall, and a
-    // contiguous gap-free run of sequence numbers (main at mseq 294 while the
-    // worker had consumed 17). Nothing is lost; it simply falls further behind
-    // for the whole recording.
-    //
-    // I could not reproduce that rate limit in any harness - one worker or
-    // three, window or none, inline or timer, ref'd or not, all measure
-    // 9.4-9.6/sec - so rather than keep hunting a mechanism I cannot see, this
-    // sidesteps it: the limit is on messages per second, not bytes. Merging
-    // the queue into a single larger message delivers all the audio at a
-    // message rate the worker demonstrably sustains. Verified on the real
-    // topology through the deliberately slow path: 2.2 messages/sec carrying
-    // 18.6s of audio over 20.4s of wall clock, i.e. real time.
-    //
-    // The cost is up to PCM_FLUSH_MS of extra latency before audio reaches the
-    // segmenter, which is nothing against segments that take 1-6s to close.
+    // COALESCE everything queued into ONE message: one IPC hop per tick
+    // instead of one per renderer frame, for identical audio.
     let total = 0
     for (const c of pcmQueue) total += c.length
     const merged = new Uint8Array(total)
@@ -461,8 +472,12 @@ function startPcmFlushing() {
     for (const c of pcmQueue) { merged.set(c, offset); offset += c.length }
     pcmQueue.length = 0
     try {
-      getWorkerState('transcribe').worker.postMessage(
-        { type: 'pcm', buffer: merged.buffer, mseq: ++pcmMainSeq }, [merged.buffer])
+      // postedAt lets the worker report how LATE each message was, not just
+      // how many arrived. Those two look identical in a rate and have opposite
+      // causes (main never posted vs. the worker never read), and confusing
+      // them is what sent this investigation after the wrong component twice.
+      getWorkerState('transcribe').worker.send(
+        { type: 'pcm', buffer: merged.buffer, mseq: ++pcmMainSeq, postedAt: Date.now() })
       pcmForwarded++
       pcmBytes += total
     } catch (err) {
@@ -516,7 +531,7 @@ setInterval(() => {
     `(${(pcmBytes / 4 / 16000).toFixed(1)}s of audio), ${pcmDropped} dropped, over ${secs.toFixed(0)}s [expect ~10/sec]` +
     ` | renderer stamped up to seq ${pcmMaxSeq}, main saw ${pcmReceived} of the ${pcmMaxSeq - pcmSeqBase} it sent in this window` +
     `${pcmMaxSeq - pcmSeqBase > pcmReceived + 2 ? " <- MESSAGES LOST IN TRANSIT between renderer and main" : ''}` +
-    ` | main stamped up to mseq ${pcmMainSeq}, posting to transcribe worker threadId ${workerStates.transcribe ? workerStates.transcribe.worker.threadId : 'NONE'}` +
+    ` | main stamped up to mseq ${pcmMainSeq}, posting to transcribe worker pid ${workerStates.transcribe ? workerStates.transcribe.worker.pid : 'NONE'}` +
     ` (spawned ${workerSpawns.transcribe || 0} time(s) this run)` +
     ` | main event-loop worst stall ${mainLoopWorst}ms` +
     `${mainLoopWorst > 1000 ? " <- MAIN WAS BLOCKED, so it could not dispatch the renderer messages" : ''}`
@@ -539,38 +554,13 @@ ipcMain.on('demist:pcm', (_event, message) => {
     const src = new Uint8Array(message.buffer)
     const copy = new Uint8Array(src.length)
     copy.set(src)
-    // QUEUE it. Do NOT post to the worker from inside this callback.
-    //
-    // Posting from within Chromium's IPC dispatch does not get the worker's
-    // message port drained promptly: the worker sits idle, its own event-loop
-    // probe reports a 0ms stall, and it consumes roughly 1-2 messages a second
-    // while main happily posts 10. Nothing is lost - the worker sees a
-    // contiguous, gap-free run of sequence numbers - it just falls further
-    // behind for the entire recording, which is what put transcription 45
-    // seconds adrift.
-    //
-    // Measured on the exact real topology (a BrowserWindow renderer sending at
-    // 10/sec, the real native/worker.js with whisper loaded, forwarding from
-    // inside this handler):
-    //
-    //   from the ipcMain callback: worker got 2.0/sec, audio in 5.2s over 20.6s
-    //   from a libuv timer:        worker got 9.5/sec, audio in 18.6s over 20.0s
-    //
-    // Neither ingredient alone reproduces it, which is why it survived so long:
-    // a window with a trivial worker forwards 150 of 150, and an ORT-loaded
-    // worker with no window forwards 9.5/sec. It needs both.
+    // QUEUE it; the flush timer owns the hop to the worker. Forwarding from
+    // inside this callback was measured delivering 2.0/sec against a timer's
+    // 9.5/sec back when the worker was a thread in this process, and while the
+    // worker being a separate process is what actually fixed the starvation,
+    // there is no reason to hand Chromium's IPC dispatch extra work per frame.
     pcmQueue.push(copy)
     if (pcmQueue.length > PCM_QUEUE_MAX) { pcmQueue.shift(); pcmDropped++ }
-    // Read the length BEFORE transferring. postMessage's transferList detaches
-    // copy.buffer, and a detached view reports length 0 - so reading it after
-    // the transfer added exactly nothing to pcmBytes on every single frame,
-    // and this line always printed "(0.0s of audio)" no matter how much audio
-    // was really flowing. Verified directly: copy.length is 6400 before the
-    // postMessage and 0 after it. That is a dangerous thing for this counter
-    // in particular to get wrong, because "forwarded 9.9/sec (0.0s of audio)"
-    // reads as total audio loss in the bridge, which is precisely the bug this
-    // instrumentation was added to hunt - while the worker on the other side
-    // was reporting "audio in: 9.9s fed over 10.1s wall clock", i.e. perfect.
   } catch (err) {
     // Previously unguarded, and this runs per PCM message: a throw here was
     // silent and simply lost that audio.
@@ -657,4 +647,16 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
+})
+
+// Worker threads died with this process; child processes do not. Each holds
+// hundreds of megabytes to a couple of gigabytes of model weights, so an
+// orphan per launch is not a small leak. worker.js also exits on its own when
+// the IPC channel closes, which covers this process being killed outright
+// rather than quitting; this is the tidy path.
+app.on('before-quit', () => {
+  for (const state of Object.values(workerStates)) {
+    if (!state) continue
+    try { state.worker.kill() } catch { /* already gone */ }
+  }
 })

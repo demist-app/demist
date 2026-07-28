@@ -100,10 +100,30 @@ function getTranscriber(emitProgress) {
       // transcript text appeared. Running one throwaway inference here, while
       // preload() is warming things up at app start rather than mid-lecture,
       // pays that cost before the user ever starts a session.
-      // Capped like every other call: this is one second of pure digital
-      // silence, the input most likely of all to send the decoder hunting,
-      // and it runs while the record button is still locked waiting on it.
-      try { await transcriber(new Float32Array(SAMPLE_RATE), generationOpts(SAMPLE_RATE)) } catch { /* warm-up only, ignore */ }
+      // It runs while the record button is still locked waiting on it.
+      //
+      // NOT on digital silence, which is what this used to do. Whisper stops
+      // as soon as it predicts end-of-text, and on silence that is almost
+      // immediately - so the decoder ran for ~zero steps and the
+      // decoder-with-past graph, the one every real utterance spends all its
+      // time in, was never built. The cost simply moved to the first real
+      // segment of the first recording: measured at 6954 ms against 1742-2222
+      // ms for every segment after it, landing precisely on the words a user
+      // is waiting to see appear.
+      //
+      // min_new_tokens forces the decode loop to actually run, so the warm-up
+      // pays for the graph build instead. The input is a cheap synthetic
+      // formant-ish buzz rather than silence: what it transcribes to is
+      // irrelevant and thrown away, it only has to be something the model
+      // does not immediately give up on.
+      try {
+        const probe = new Float32Array(SAMPLE_RATE)
+        for (let i = 0; i < probe.length; i++) {
+          const t = i / SAMPLE_RATE
+          probe[i] = 0.1 * (Math.sin(2 * Math.PI * 130 * t) + 0.5 * Math.sin(2 * Math.PI * 700 * t))
+        }
+        await transcriber(probe, { ...generationOpts(SAMPLE_RATE), min_new_tokens: 12 })
+      } catch { /* warm-up only, ignore */ }
       return transcriber
     })
     // Same fix as native/translate.js's getTranslator: don't let a failed
@@ -224,8 +244,37 @@ async function startSession(onTranscript, emitProgress, onInterim, emitDiag) {
   // "ready to transcribe", progress events reach the UI while it happens, and
   // a failure surfaces as a failed start instead of a dead recording.
   const tModel = Date.now()
-  await getTranscriber(emitProgress)
+  const warmTranscriber = await getTranscriber(emitProgress)
   diag(`startSession: transcriber ready after ${Date.now() - tModel} ms (total ${Date.now() - t0} ms)`)
+
+  // Pay the first-inference cost HERE, before reporting the session started.
+  //
+  // The first inference of a recording costs several times what every later
+  // one does, even when the model has been resident for minutes: measured in
+  // the child-process host, 6989 ms and 10317 ms for a 3.0s segment against
+  // 1.7-2.2s for its neighbours in the same session. The weights are only
+  // touched during inference, so Windows trims them out from under an idle
+  // app and the next inference faults them back off disk - and left alone,
+  // the inference that pays for that is the user's first sentence.
+  //
+  // Waiting a further 15s before starting the session did NOT avoid it (the
+  // trimming has already happened by then), so there is nowhere to move this
+  // cost except in front of the session. That is safe and nearly free in UX
+  // terms: the renderer buffers PCM while startSession is outstanding and
+  // flushes it the moment this resolves (see lib/nativeSession.ts), so
+  // nothing said during it is lost - whereas the same seconds spent AFTER the
+  // session is live are seconds of a lecture arriving late.
+  const tWarm = Date.now()
+  try {
+    const n = SAMPLE_RATE
+    const probe = new Float32Array(n)
+    for (let i = 0; i < n; i++) {
+      const t = i / SAMPLE_RATE
+      probe[i] = 0.1 * (Math.sin(2 * Math.PI * 130 * t) + 0.5 * Math.sin(2 * Math.PI * 700 * t))
+    }
+    await warmTranscriber(probe, { ...generationOpts(n), min_new_tokens: 12 })
+  } catch { /* warm-up only: a failure here must not stop a recording */ }
+  diag(`startSession: weights warmed in ${Date.now() - tWarm} ms (total ${Date.now() - t0} ms)`)
   let seq = 0
   let lastText = ''
   // How many segments are queued or in flight. This replaces a `queueBusy`
@@ -244,6 +293,16 @@ async function startSession(onTranscript, emitProgress, onInterim, emitDiag) {
   let queueDepth = 0
   let interimBusy = false
   let skippedInterims = 0
+  // Median-ish estimate of what ONE inference costs on this machine, used to
+  // tune the forced cut and to decide whether previews are affordable. Seeded
+  // pessimistically so nothing expensive is attempted before there is a
+  // measurement: the first real final replaces it.
+  const inferenceMs = []
+  const typicalInferenceMs = () => {
+    if (!inferenceMs.length) return null
+    const sorted = [...inferenceMs].sort((a, b) => a - b)
+    return sorted[Math.floor(sorted.length / 2)]
+  }
   // Previews are a nice-to-have that costs a FULL inference, on the same
   // worker and the same ONNX session that real transcription needs. They are
   // only worth running while this machine is comfortably faster than real
@@ -257,8 +316,43 @@ async function startSession(onTranscript, emitProgress, onInterim, emitDiag) {
   // this machine proves it cannot afford them. Turned off permanently rather
   // than per-call because a machine that was slow once is slow, and flapping
   // would just re-block the worker every few seconds.
-  let previewsEnabled = true
+  // Previews now start OFF and have to be EARNED. This is the single change
+  // that fixes the reported "transcription appears after 45-50 seconds", and
+  // the old default of `true` is precisely what caused it.
+  //
+  // Measured on the shipping topology (test/realtime-in-electron.js, real
+  // speech at real time through a real Electron main process):
+  //
+  //   the FIRST preview of a session took 11322 ms
+  //   and blocked this worker's event loop for 10652 ms of that
+  //
+  // Nothing else can run on this thread while that happens, so no PCM is read
+  // for ten seconds. By the time it finished, two whole segments' worth of
+  // audio had piled up unread, and the recording started ten seconds in debt
+  // before it had transcribed a single word. The session never catches that
+  // up, because previews keep firing whenever the queue happens to be empty.
+  // The renderer log in the bug report shows exactly this signature:
+  // "audio in: 2.8s fed over 14.2s wall clock".
+  //
+  // The old code did have a budget check - but it only ran AFTER a preview
+  // completed, so the machine was judged by the very inference that had
+  // already done the damage. A guard that can only fire once the harm is done
+  // is not a guard. Now the machine has to prove it is comfortably faster than
+  // real time on REAL segments first, and previews are still abandoned
+  // permanently the moment it stops being true.
+  //
+  // The bar is deliberately high. One inference costs the same whatever length
+  // of audio it is given (Whisper pads to 30s), so a preview is not a cheap
+  // extra - it is a whole second transcription. Measured under Electron:
+  // whisper-small.en q8 takes ~2.5s for a 6s segment (42% duty) but ~2.8s for
+  // a 1.7s preview, so turning previews on roughly DOUBLES the load for text
+  // that is about to be overwritten and is often wrong anyway (see
+  // pcm-segmenter.js's INTERIM_FIRST_MS note).
+  let previewsEnabled = false
+  let previewsBanned = false
+  let fastFinals = 0
   const disablePreviews = (why) => {
+    previewsBanned = true
     if (!previewsEnabled) return
     previewsEnabled = false
     console.warn(`[demist] live preview disabled for this recording: ${why}. Final transcription is unaffected and will now get the whole machine.`)
@@ -271,6 +365,14 @@ async function startSession(onTranscript, emitProgress, onInterim, emitDiag) {
   // enough never to trip it naturally - which is most development machines,
   // and is why a test written without this hook passed vacuously.
   const PREVIEW_BUDGET_RATIO = Number(process.env.DEMIST_PREVIEW_BUDGET_RATIO) || 1.5
+  // To EARN previews a machine must transcribe finals in under this fraction
+  // of the audio they cover, this many times in a row. 0.5 means "at least 2x
+  // faster than real time", which is the headroom needed to absorb a second
+  // full inference per segment without falling behind. This machine measures
+  // 0.42 under Electron with a following wind and 0.6-1.0 when anything else
+  // is running, so it correctly earns previews only when genuinely idle.
+  const PREVIEW_EARN_RATIO = Number(process.env.DEMIST_PREVIEW_EARN_RATIO) || 0.5
+  const PREVIEW_EARN_STREAK = 2
   // Resolves when any in-flight preview finishes. A final segment must wait
   // on this: previews and finals share ONE transformers.js pipeline, and the
   // interim path guards itself against the queue (queueBusy) while the queue
@@ -316,22 +418,57 @@ async function startSession(onTranscript, emitProgress, onInterim, emitDiag) {
   // the next; this restores a pause Whisper can hear.
   const JOIN_GAP_SAMPLES = Math.round(SAMPLE_RATE * 0.25)
 
+  // A segment that the segmenter marked `contiguous` begins at the exact
+  // sample the previous one ended on: the forced cut landed mid-sentence and
+  // speech simply carried on. Re-joining those two with a gap would insert a
+  // pause into the middle of a word, which is worse than the boundary the cut
+  // created in the first place. Only a genuine pause between segments gets the
+  // JOIN_GAP. This matters far more now that the forced cut is tuned down
+  // towards 2.5-4s, because mid-sentence cuts became the common case.
+  const gapBefore = (item) => (item.contiguous ? 0 : JOIN_GAP_SAMPLES)
+
   function takeBatch() {
     const batch = [backlog.shift()]
     let total = batch[0].segment.length
-    while (backlog.length && total + JOIN_GAP_SAMPLES + backlog[0].segment.length <= COALESCE_MAX_SAMPLES) {
-      total += JOIN_GAP_SAMPLES + backlog[0].segment.length
+    while (backlog.length && total + gapBefore(backlog[0]) + backlog[0].segment.length <= COALESCE_MAX_SAMPLES) {
+      total += gapBefore(backlog[0]) + backlog[0].segment.length
       batch.push(backlog.shift())
     }
     if (batch.length === 1) return { batch, audio: batch[0].segment }
     const audio = new Float32Array(total)
     let off = 0
     for (let i = 0; i < batch.length; i++) {
-      if (i > 0) off += JOIN_GAP_SAMPLES // leave zeros: that IS the gap
+      if (i > 0) off += gapBefore(batch[i]) // leave zeros: that IS the gap
       audio.set(batch[i].segment, off)
       off += batch[i].segment.length
     }
     return { batch, audio }
+  }
+
+  // Point the forced cut at what this machine actually measures.
+  //
+  // The cut length sets the floor on latency all by itself: a word spoken one
+  // second into a 6s segment cannot even begin transcribing for another five.
+  // But cutting faster than the machine can transcribe just builds a backlog,
+  // so the right cut is about one inference long - short enough to be
+  // responsive, long enough that at zero backlog each segment still gets its
+  // own call. 1.6x leaves ~37% headroom for a slow one.
+  //
+  // Measured under Electron: whisper-small.en q8 takes ~2.5s per call, so this
+  // settles at ~4s instead of 6s and takes worst-case lag from ~8.5s to ~6.5s.
+  // On a machine that manages 1.5s per call it settles at the 2.5s floor.
+  const SEGMENT_PER_INFERENCE = 1.6
+  let tunedMs = null
+  function tuneSegmentLength(took) {
+    inferenceMs.push(took)
+    if (inferenceMs.length > 9) inferenceMs.shift()
+    if (inferenceMs.length < 2) return
+    const target = Math.round(typicalInferenceMs() * SEGMENT_PER_INFERENCE)
+    const applied = segmenter.setMaxSegmentMs(target)
+    if (applied !== tunedMs) {
+      tunedMs = applied
+      diag(`forced cut retuned to ${applied} ms (typical inference ${typicalInferenceMs()} ms)`)
+    }
   }
 
   // drain() must be awaitable by stop() even when a drain is ALREADY running,
@@ -367,10 +504,33 @@ async function startSession(onTranscript, emitProgress, onInterim, emitDiag) {
           const result = await transcriber(audio, generationOpts(audio.length))
           const took = Date.now() - tStart
           const audioSecs = audio.length / SAMPLE_RATE
-          diag(`${label} (${audioSecs.toFixed(1)}s) transcribed in ${took} ms (waited ${tStart - batch[0].tQueued} ms)`)
+          // How far behind the speaker this text is landing, end to end: from
+          // the moment the last segment in this batch closed to the moment its
+          // words are ready. THIS is the number the bug report is about, and
+          // nothing in the pipeline was measuring it - every existing counter
+          // measured throughput, which stayed healthy while latency did not.
+          const lagMs = Date.now() - batch[batch.length - 1].tQueued
+          diag(
+            `${label} (${audioSecs.toFixed(1)}s) transcribed in ${took} ms `
+            + `(waited ${tStart - batch[0].tQueued} ms, ${backlog.length} still queued) `
+            + `| transcript is ${(lagMs / 1000).toFixed(1)}s behind the speaker`,
+          )
+          tuneSegmentLength(took)
           // The honest measure of whether this machine can afford previews.
           if (took > audioSecs * 1000 * PREVIEW_BUDGET_RATIO) {
             disablePreviews(`transcribing ${audioSecs.toFixed(1)}s took ${took} ms, slower than real time`)
+          } else if (!previewsBanned && batch.length === 1 && took <= audioSecs * 1000 * PREVIEW_EARN_RATIO) {
+            // Only a single-segment batch counts towards earning previews: a
+            // coalesced batch is cheap per second of audio by construction
+            // (Whisper's cost is flat in length), so judging the machine on one
+            // would let a struggling laptop earn previews out of its own
+            // backlog - the exact moment it can least afford them.
+            if (++fastFinals >= PREVIEW_EARN_STREAK && !previewsEnabled) {
+              previewsEnabled = true
+              diag(`previews enabled: ${fastFinals} finals in a row under ${PREVIEW_EARN_RATIO}x real time`)
+            }
+          } else {
+            fastFinals = 0
           }
           if (took > audioSecs * 1000 * SLOW_INFERENCE_RATIO) {
             console.warn(
@@ -402,7 +562,7 @@ async function startSession(onTranscript, emitProgress, onInterim, emitDiag) {
   }
 
   const segmenter = new PcmSegmenter(
-    (segment, meanRms) => {
+    (segment, meanRms, contiguous) => {
       const secs = (segment.length / SAMPLE_RATE).toFixed(1)
       // Checked BEFORE the sequence number is taken, so a dropped segment
       // never occupies an ordering slot the renderer is waiting on.
@@ -412,7 +572,7 @@ async function startSession(onTranscript, emitProgress, onInterim, emitDiag) {
       }
       const mySeq = ++seq
       diag(`segment ${mySeq} closed after ${secs}s of speech (meanRms ${meanRms.toFixed(4)}), queued`)
-      backlog.push({ seq: mySeq, segment, meanRms, secs, tQueued: Date.now() })
+      backlog.push({ seq: mySeq, segment, meanRms, secs, contiguous, tQueued: Date.now() })
       queueDepth++
       drain()
     },
@@ -548,10 +708,15 @@ async function keepWarm() {
   if (!transcribersByTier.has(tier)) return false
   const transcriber = await transcribersByTier.get(tier)
   if (activeSession) return false // a session may have started while we waited
-  // Half a second of silence. Whisper pads every input to its 30s window, so
-  // a shorter clip costs essentially the same as a longer one - the point is
-  // to touch the weights, not to transcribe anything.
-  await transcriber(new Float32Array(SAMPLE_RATE / 2), generationOpts(SAMPLE_RATE / 2))
+  // Half a second. Whisper pads every input to its 30s window, so a shorter
+  // clip costs essentially the same as a longer one - the point is to touch
+  // the weights, not to transcribe anything. min_new_tokens for the same
+  // reason as the warm-up above: on silence the decoder returns immediately
+  // and the decoder-with-past weights, which are most of them, stay cold.
+  const n = SAMPLE_RATE / 2
+  const probe = new Float32Array(n)
+  for (let i = 0; i < n; i++) probe[i] = 0.1 * Math.sin(2 * Math.PI * 130 * (i / SAMPLE_RATE))
+  await transcriber(probe, { ...generationOpts(n), min_new_tokens: 12 })
   return true
 }
 

@@ -349,6 +349,21 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     translateLang?: string | null | Promise<string | null | undefined>,
   ) => {
     setNativeModelsError(null)
+    // Lock the record button for the duration of THIS preload, not just the
+    // one that happens at mount.
+    //
+    // nativeModelsReady only ever moved false -> true, and only its initial
+    // value locked anything, so once it had flipped true nothing could take it
+    // back. Changing the transcription tier in Settings writes the new tier
+    // and returns (see setTranscribeTier in desktop/native/whisper.js - it
+    // writes a JSON file, it does not load anything), which left the dashboard
+    // claiming to be ready while the model for the newly chosen tier had never
+    // been downloaded on this device. Pressing record then started a session
+    // whose first act was a multi-hundred-megabyte download, with the
+    // recording already running and every word said during it lost.
+    // The Settings screen now re-runs this preload after a tier change, and
+    // this line is what makes that re-run actually gate anything.
+    setNativeModelsReady(false)
     const withRetry = <T,>(fn: () => Promise<T>, attemptsLeft = 2): Promise<T> =>
       fn().catch(err => attemptsLeft > 1 ? withRetry(fn, attemptsLeft - 1) : Promise.reject(err))
 
@@ -467,6 +482,20 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
         if (msg.event !== 'modelProgress') return
         const { label, pct } = msg.payload
         if (label === undefined || pct === undefined) return
+        // A TRANSCRIPTION model that is still downloading means recording
+        // cannot work, whoever started that download. The banner alone was
+        // never a gate - it is rendered on the idle screen while the record
+        // button reads a separate flag - so a download this provider did not
+        // itself kick off (a tier change, a respawned worker reloading, a
+        // retry) showed progress next to a perfectly clickable mic button.
+        // Belt and braces alongside the setNativeModelsReady(false) in
+        // runNativePreload: this one holds even for a download nothing in the
+        // renderer initiated. Term detection and translation are deliberately
+        // NOT included - neither is required to record, and locking the button
+        // on them is the 14-second regression the preload comments describe.
+        if (pct < 100 && /transcription/i.test(label) && !isActiveRef.current) {
+          setNativeModelsReady(false)
+        }
         setNativeModelProgress(pct >= 100 ? null : { label, pct })
       })
       runNativePreload(nativeAtMount, translateLangPromise)

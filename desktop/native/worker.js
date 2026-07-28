@@ -6,8 +6,31 @@
 
 const { parentPort, threadId } = require('worker_threads')
 
+// This file runs in one of two hosts, and the only difference between them is
+// how it talks to its parent:
+//
+//   - a worker THREAD (parentPort), which is how it has always run, and
+//   - a forked Node CHILD PROCESS (process.send / process.on('message')).
+//
+// The second exists because inside Electron's main process a worker thread
+// running onnxruntime is starved: measured on the shipping topology, one core
+// spins for 20-30 seconds after the model loads, this thread's event loop
+// ticks 0 times out of an expected 60 in a five-second window, a no-op control
+// message takes 20s to answer, and PCM sits undelivered in the port queue for
+// 15+ seconds. The identical code in a plain Node process transcribes steadily
+// at 2.3s per 6s segment and never starves. See test/child-process-host.js.
+const asChildProcess = !parentPort
+const port = parentPort ?? {
+  postMessage: (msg) => { try { process.send(msg) } catch { /* parent is gone */ } },
+  on: (event, handler) => process.on(event, handler),
+}
+// Only meaningful in thread mode; the process id is the equivalent identity
+// when forked, and every log line that names it is there to tell two live
+// workers apart.
+const workerId = asChildProcess ? `pid ${process.pid}` : threadId
+
 function emitEvent(event, payload) {
-  parentPort.postMessage({ event, payload })
+  port.postMessage({ event, payload })
 }
 const emitProgress = (label, pct, file) => emitEvent('modelProgress', { label, pct, file })
 
@@ -58,19 +81,38 @@ const handlers = {
 // also what a hop that never delivered would look like. A 100ms timer that
 // fires 20 seconds late says outright that this thread was blocked for 20
 // seconds, and by how much, with no inference required.
+// COUNT the firings as well as their lateness. "worst stall 0ms" was
+// ambiguous in the worst possible way: it reads as "this thread was healthy",
+// but it is also what a thread that never ran this callback AT ALL reports,
+// because only the callback can raise the number. That ambiguity sent this
+// investigation after the message bridge twice while the real answer was that
+// this thread was not running. A tick count has no such failure mode - 10 per
+// second is healthy, 2 in a five-second window is not, and zero is damning.
 let loopWorst = 0
+let loopTicks = 0
 let loopLast = Date.now()
 setInterval(() => {
   const now = Date.now()
   const late = now - loopLast - 100
   if (late > loopWorst) loopWorst = late
   loopLast = now
+  loopTicks++
 }, 100).unref?.()
 
-// Announce this thread the moment it exists. If PCM is going to one worker
+// Announce this worker the moment it exists. If PCM is going to one worker
 // while a session lives on another, the give-away is a second "started" line
 // appearing mid-recording.
-emitEvent('diag', { message: `worker[${threadId}] started` })
+emitEvent('diag', { message: `worker[${workerId}] started` })
+
+// A worker THREAD dies with the process that owns it; a child PROCESS does
+// not. Without this, quitting the app (or crashing it) would leave three
+// orphaned Node processes behind holding several gigabytes of model weights,
+// and they would accumulate one set per launch. 'disconnect' fires when the
+// IPC channel to the parent closes, which covers a clean quit and a killed
+// parent alike.
+if (asChildProcess) {
+  process.on('disconnect', () => process.exit(0))
+}
 
 let pcmMessages = 0
 let pcmSamples = 0
@@ -81,6 +123,16 @@ let lastPcmLog = Date.now()
 // Nth number means something is throttling, and a full run means no loss.
 let firstMseq = null
 let lastMseq = null
+// How long each message spent BETWEEN main's postMessage and this thread's
+// handler. Every counter to date measured how MANY messages arrived; none
+// measured how LATE. Those look identical in a rate, and they have completely
+// different causes: a low rate with ~0ms delivery means main never posted,
+// while a low rate with multi-second delivery means the messages were posted
+// on time and sat in this port's queue - which is the only evidence that
+// distinguishes "the bridge is broken" from "this thread was not scheduled".
+let deliveryWorst = 0
+let deliveryTotal = 0
+let deliveryCount = 0
 
 // Every message arriving at this thread, counted BEFORE any branch or any
 // parsing. The previous counter sat inside `if (msg.type === 'pcm')` and after
@@ -103,7 +155,7 @@ let badFrames = 0
 let lastBadReason = ''
 const typeTally = new Map()
 
-parentPort.on('message', async (msg) => {
+port.on('message', async (msg) => {
   rawMessages++
   const t = msg && typeof msg === 'object' ? String(msg.type) : `NOT-AN-OBJECT(${typeof msg})`
   typeTally.set(t, (typeTally.get(t) || 0) + 1)
@@ -130,10 +182,15 @@ parentPort.on('message', async (msg) => {
     pcmMessages++
     pcmSamples += frame.length
     const now = Date.now()
+    if (typeof msg.postedAt === 'number') {
+      const late = now - msg.postedAt
+      deliveryTotal += late; deliveryCount++
+      if (late > deliveryWorst) deliveryWorst = late
+    }
     if (now - lastPcmLog >= 5000) {
       const secs = (now - lastPcmLog) / 1000
       emitEvent('diag', {
-        message: `worker[${threadId}] received ${(pcmMessages / secs).toFixed(1)} pcm msgs/sec `
+        message: `worker[${workerId}] received ${(pcmMessages / secs).toFixed(1)} pcm msgs/sec `
           + `(${(pcmSamples / 16000).toFixed(1)}s of audio) over the last ${secs.toFixed(0)}s`
           + ` | saw main's mseq ${firstMseq}..${lastMseq}`
           + `${firstMseq != null && lastMseq != null
@@ -143,10 +200,12 @@ parentPort.on('message', async (msg) => {
           + ` | this thread saw ${rawMessages} messages of ALL types in that window `
           + `(${[...typeTally].map(([k, v]) => `${k}:${v}`).join(', ')})`
           + `${badFrames ? ` | ${badFrames} PCM frames FAILED to parse [${lastBadReason}]` : ''}`
-          + ` | worker event-loop worst stall ${loopWorst}ms`
-          + `${loopWorst > 1000 ? ' <- THIS THREAD WAS BLOCKED, which is why it did not drain its queue' : ''}`,
+          + `${deliveryCount ? ` | delivery main->here: mean ${(deliveryTotal / deliveryCount).toFixed(0)}ms, worst ${deliveryWorst}ms` : ''}`
+          + ` | worker event loop ticked ${loopTicks}/${Math.round(secs * 10)} times, worst stall ${loopWorst}ms`
+          + `${loopTicks < secs * 5 ? ' <- THIS THREAD WAS NOT RUNNING, which is why it did not drain its queue' : ''}`,
       })
-      pcmMessages = 0; pcmSamples = 0; lastPcmLog = now; loopWorst = 0; firstMseq = null; lastMseq = null
+      pcmMessages = 0; pcmSamples = 0; lastPcmLog = now; loopWorst = 0; loopTicks = 0; firstMseq = null; lastMseq = null
+      deliveryWorst = 0; deliveryTotal = 0; deliveryCount = 0
       rawMessages = 0; pcmTyped = 0; badFrames = 0; typeTally.clear()
     }
     ;(whisper ??= require('./whisper')).feedPcm(frame)
@@ -159,15 +218,15 @@ parentPort.on('message', async (msg) => {
     // that arrived and was thrown away looked exactly like one that was never
     // sent, which is the ambiguity this whole investigation kept running into.
     emitEvent('diag', {
-      message: `worker[${threadId}] got an UNROUTABLE message: type=${JSON.stringify(type)} `
+      message: `worker[${workerId}] got an UNROUTABLE message: type=${JSON.stringify(type)} `
         + `keys=${JSON.stringify(Object.keys(msg))} - it has been discarded`,
     })
     return
   }
   try {
     const result = await handlers[type](...(args ?? []))
-    parentPort.postMessage({ id, result })
+    port.postMessage({ id, result })
   } catch (err) {
-    parentPort.postMessage({ id, error: err?.message ?? String(err) })
+    port.postMessage({ id, error: err?.message ?? String(err) })
   }
 })

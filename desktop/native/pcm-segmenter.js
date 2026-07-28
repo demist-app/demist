@@ -42,7 +42,30 @@ const PRE_ROLL_MS = 300        // audio kept from just before speech started
 // Real inference cost also scales with segment length (more tokens to
 // decode): ~2.0s for a 6s segment vs ~3.0s for a 15s one, so shorter cuts
 // reduce the wait twice over.
-const MAX_SEGMENT_MS = 6000
+// This is now the CEILING, not a constant: setMaxSegmentMs() below tunes the
+// live value down towards MIN_MAX_SEGMENT_MS on machines that transcribe fast
+// enough to keep up with shorter cuts.
+//
+// Why tune it at all. End-to-end lag is (time until the segment closes) +
+// (time waiting for the pipeline) + (one inference). The forced cut sets the
+// first term outright: with a 6s cut, a word spoken one second into a segment
+// waits five seconds before transcription can even start on it. Measured under
+// Electron, one inference of whisper-small.en q8 is ~3.5s whatever length of
+// audio you hand it, so a 6s cut costs ~9.5s worst-case lag where a 3.5s cut
+// costs ~7s for exactly the same amount of inference work per second of audio.
+//
+// The floor exists because at zero backlog every closed segment is one
+// inference: cutting faster than the machine can transcribe just builds a
+// backlog. That backlog is not fatal (whisper.js coalesces it into one call,
+// and Whisper's cost is flat in audio length) but it is not free either, so
+// the tuner aims the cut at roughly one inference time.
+const MAX_SEGMENT_CEILING_MS = 6000
+const MIN_MAX_SEGMENT_MS = 2500
+// Where a session starts before anything has been measured. Deliberately at
+// the floor: the first segment of a recording is the one the user is watching
+// for, to find out whether the thing turned on at all, and at that moment the
+// pipeline is guaranteed idle so a short cut costs nothing.
+const INITIAL_MAX_SEGMENT_MS = 3000
 
 // Segments only reach Whisper once a natural pause closes them (or the
 // MAX_SEGMENT_MS forced cut), which is the right call for final-transcript
@@ -87,7 +110,6 @@ const INTERIM_INTERVAL_MS = 2500
 
 const HANGOVER_FRAMES = HANGOVER_MS / FRAME_MS
 const MIN_SEGMENT_SAMPLES = (SAMPLE_RATE * MIN_SEGMENT_MS) / 1000
-const MAX_SEGMENT_SAMPLES = (SAMPLE_RATE * MAX_SEGMENT_MS) / 1000
 const PRE_ROLL_FRAMES = PRE_ROLL_MS / FRAME_MS
 const INTERIM_FIRST_FRAMES = Math.round(INTERIM_FIRST_MS / FRAME_MS)
 const INTERIM_INTERVAL_FRAMES = Math.round(INTERIM_INTERVAL_MS / FRAME_MS)
@@ -99,8 +121,13 @@ const INTERIM_DEADZONE_SAMPLES = (SAMPLE_RATE * 2000) / 1000
 
 class PcmSegmenter {
   /**
-   * @param {(segment: Float32Array, meanRms: number) => void} onSegment
+   * @param {(segment: Float32Array, meanRms: number, contiguous: boolean) => void} onSegment
    *   Called with each complete speech segment, strictly in order.
+   *   `contiguous` is true when this segment begins at the exact sample the
+   *   previous one ended on - i.e. the previous segment hit the forced cut
+   *   mid-sentence and speech simply carried on. The caller needs this to
+   *   re-join such a pair without inserting a pause that was never there
+   *   (see whisper.js's takeBatch).
    * @param {(segment: Float32Array) => void} [onInterim]
    *   Called periodically (every INTERIM_INTERVAL_MS) with a snapshot of the
    *   still-accumulating segment, for a best-effort live preview. Optional:
@@ -120,6 +147,22 @@ class PcmSegmenter {
     this.rmsCount = 0
     this.framesSinceInterim = 0
     this.interimCount = 0                    // previews emitted for the in-progress segment
+    this.maxSegmentSamples = (SAMPLE_RATE * INITIAL_MAX_SEGMENT_MS) / 1000
+    // True between a forced cut and the very next frame, so a segment that
+    // starts on that frame can be marked as continuing the previous one.
+    this.cutMidSpeech = false
+    this.startsContiguous = false
+  }
+
+  /**
+   * Retune the forced cut to what this machine can actually transcribe.
+   * Clamped to the measured-safe range; see MAX_SEGMENT_CEILING_MS above for
+   * why shorter is better right up until it outruns the inference.
+   */
+  setMaxSegmentMs(ms) {
+    const clamped = Math.max(MIN_MAX_SEGMENT_MS, Math.min(MAX_SEGMENT_CEILING_MS, ms))
+    this.maxSegmentSamples = (SAMPLE_RATE * clamped) / 1000
+    return clamped
   }
 
   feed(chunk) {
@@ -154,12 +197,19 @@ class PcmSegmenter {
         this.inSpeech = true
         this.silentFrames = 0
         this.segmentFrames = [...this.preRoll, frame.slice()]
+        // Contiguous only if the forced cut happened on the PREVIOUS frame and
+        // no pre-roll was carried in - i.e. this is literally sample N+1 of the
+        // same sentence, with nothing lost and nothing repeated between them.
+        this.startsContiguous = this.cutMidSpeech && this.preRoll.length === 0
+        this.cutMidSpeech = false
         this.preRoll = []
         this.rmsSum = rms
         this.rmsCount = 1
         this.framesSinceInterim = 0
         this.interimCount = 0
       } else {
+        // A silent frame means whatever gap follows a forced cut is real.
+        this.cutMidSpeech = false
         this.preRoll.push(frame.slice())
         if (this.preRoll.length > PRE_ROLL_FRAMES) this.preRoll.shift()
       }
@@ -174,8 +224,9 @@ class PcmSegmenter {
     this.framesSinceInterim++
 
     const totalSamples = this.segmentFrames.length * FRAME_SAMPLES
-    if (this.silentFrames >= HANGOVER_FRAMES || totalSamples >= MAX_SEGMENT_SAMPLES) {
-      this._emit()
+    if (this.silentFrames >= HANGOVER_FRAMES || totalSamples >= this.maxSegmentSamples) {
+      // A forced cut lands mid-sentence; a hangover cut lands in a real pause.
+      this._emit(this.silentFrames < HANGOVER_FRAMES)
       return
     }
 
@@ -183,7 +234,7 @@ class PcmSegmenter {
     if (
       this.onInterim &&
       this.framesSinceInterim >= interimDue &&
-      totalSamples < MAX_SEGMENT_SAMPLES - INTERIM_DEADZONE_SAMPLES
+      totalSamples < this.maxSegmentSamples - INTERIM_DEADZONE_SAMPLES
     ) {
       this.framesSinceInterim = 0
       this.interimCount++
@@ -194,14 +245,14 @@ class PcmSegmenter {
     }
   }
 
-  _emit() {
+  _emit(midSpeech = false) {
     const totalSamples = this.segmentFrames.length * FRAME_SAMPLES
     if (totalSamples >= MIN_SEGMENT_SAMPLES) {
       const segment = new Float32Array(totalSamples)
       let o = 0
       for (const f of this.segmentFrames) { segment.set(f, o); o += f.length }
       const meanRms = this.rmsCount ? this.rmsSum / this.rmsCount : 0
-      this.onSegment(segment, meanRms)
+      this.onSegment(segment, meanRms, this.startsContiguous)
     }
     this.inSpeech = false
     this.segmentFrames = []
@@ -210,6 +261,8 @@ class PcmSegmenter {
     this.rmsSum = 0
     this.rmsCount = 0
     this.interimCount = 0
+    this.startsContiguous = false
+    this.cutMidSpeech = midSpeech
   }
 
   // Flush whatever is buffered (call on session stop).
@@ -218,4 +271,10 @@ class PcmSegmenter {
   }
 }
 
-module.exports = { PcmSegmenter, SAMPLE_RATE }
+module.exports = {
+  PcmSegmenter,
+  SAMPLE_RATE,
+  MAX_SEGMENT_CEILING_MS,
+  MIN_MAX_SEGMENT_MS,
+  INITIAL_MAX_SEGMENT_MS,
+}

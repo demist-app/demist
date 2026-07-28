@@ -59,7 +59,7 @@ export default function Profile() {
   // mic-mode summary eligibility gate, term-detection subject/year, and
   // translate_to). Without pushing saves back into it, changing e.g. support
   // need or translate language here had no effect until a full app reload.
-  const { setProfile: setSharedProfile } = useRecordingSession()
+  const { setProfile: setSharedProfile, retryNativeModelPreload } = useRecordingSession()
   const [profile, setProfile] = useState<ProfileData | null>(null)
   const [displayName, setDisplayName] = useState('')
   const [course, setCourse] = useState('')
@@ -155,6 +155,18 @@ export default function Profile() {
     return () => navigator.mediaDevices?.removeEventListener?.('devicechange', listMicDevices)
   }, [])
 
+  // Both tier setters only WRITE the chosen tier (see setTier in
+  // desktop/native/whisper.js and llm.js - a JSON file and nothing else). The
+  // model for the newly chosen tier may never have been downloaded on this
+  // device, and until this was added nothing ever downloaded it: the dashboard
+  // still reported every model ready, the record button stayed enabled, and
+  // the first recording after a tier change began with a several-hundred-
+  // megabyte download while it was already running, losing everything said
+  // until it finished.
+  //
+  // retryNativeModelPreload re-runs the provider's preload, which locks the
+  // record button, shows real download progress, and unlocks only once the
+  // newly chosen transcription model is genuinely resident.
   const handleModelTierChange = async (tier: 'tiny' | 'small' | 'large') => {
     const native = getDemistNative()
     if (!native || tierChanging) return
@@ -162,6 +174,7 @@ export default function Profile() {
     try {
       await native.setModelTier(tier)
       setModelTier(tier)
+      retryNativeModelPreload()
     } finally {
       setTierChanging(false)
     }
@@ -174,6 +187,7 @@ export default function Profile() {
     try {
       await native.setTranscribeTier(tier)
       setTranscribeTier(tier)
+      retryNativeModelPreload()
     } finally {
       setTranscribeTierChanging(false)
     }
