@@ -59,6 +59,7 @@ const CALL_ROLE = {
   startSession: 'transcribe',
   stopSession: 'transcribe',
   preloadWhisper: 'transcribe',
+  keepWhisperWarm: 'transcribe',
   getTranscribeTier: 'transcribe',
   setTranscribeTier: 'transcribe',
 
@@ -233,6 +234,27 @@ setInterval(() => {
     try { state.worker.postMessage({ id, type: 'ping' }) } catch { /* worker is going away; its exit handler will clean up */ }
   }
 }, KEEP_WARM_MS).unref?.()
+
+// The ping above keeps the transcribe worker's stack and heap resident, but
+// the model's WEIGHTS are only touched during inference and get trimmed
+// separately. The cost of that lands entirely on the user: in a real session
+// the FIRST preview of a recording took 17191 ms while every later one took
+// 2787 and 3150 ms - same model, same 1.8s of audio - so the one inference a
+// user is actually waiting on, to see their first words appear, was the one
+// paying to fault the weights back off disk.
+//
+// A short throwaway inference on silence every 60s while IDLE keeps them
+// resident. It is skipped outright during a recording (whisper.js's keepWarm
+// refuses when a session is active) and never triggers a model load, so on a
+// machine where transcription has not been used it costs nothing at all.
+// 60s is a deliberate compromise: often enough to stay ahead of the working
+// set trimmer, rare enough that ~2s of CPU per minute is not a battery
+// concern on a laptop.
+const WEIGHT_WARM_MS = 60_000
+setInterval(() => {
+  if (transcribeSessionActive || !workerStates.transcribe) return
+  callWorker('keepWhisperWarm').catch(() => { /* idle upkeep; a failure here is not worth reporting */ })
+}, WEIGHT_WARM_MS).unref?.()
 
 function callWorker(type, ...args) {
   return new Promise((resolve, reject) => {

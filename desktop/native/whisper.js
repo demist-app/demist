@@ -125,6 +125,34 @@ const HALLUCINATION_BLOCKLIST = new Set([
 ])
 const LOW_ENERGY_RMS = 0.004
 
+// Below this mean energy a closed segment is room tone, not speech, and is
+// dropped WITHOUT being transcribed at all.
+//
+// The segmenter's own VAD requires a frame to exceed max(noiseFloor*3, 0.006)
+// before it will open a segment, but a single spike - a key press, a breath, a
+// chair - is enough to do that, and the segment then fills with the pre-roll,
+// the hangover and whatever silence sat between. Its MEAN lands far below the
+// threshold any individual frame had to clear. Measured over one real session:
+// genuine speech segments came in at 0.0237-0.0424, while thirteen of
+// twenty-five segments measured 0.0026-0.0050 - room tone, cleanly separated
+// by roughly 5x from anything the user actually said.
+//
+// Transcribing those was doing active harm in three ways at once. Whisper
+// hallucinates confidently on silence, so they produced the "Oh", "Oh no...",
+// "five" fragments that appeared in the transcript as real lines. They cost
+// 2-4 seconds of inference EACH, so over half the queue was garbage - which
+// is what built the backlog that put transcription 50+ seconds behind. And
+// because a preview is a guess at the segment still accumulating while a
+// FINAL that arrives during a backlog belongs to a much older one, the
+// preview row was replaced by unrelated older text and its own content
+// resurfaced later, which is the line duplication that was reported.
+//
+// Set to the same 0.006 the VAD demands of a single frame: if a whole
+// segment's average energy does not reach the bar one frame had to clear to
+// open it, it was not speech. The existing HALLUCINATION_BLOCKLIST still
+// handles the quieter-but-real case just above this line.
+const SILENT_SEGMENT_RMS = 0.006
+
 // Bounds on a single decode. Left unset, transformers.js uses the model's own
 // generation_config.json, which for whisper-small.en is max_length: 448 with
 // NO repetition guards at all (confirmed by reading the cached config). 448
@@ -229,8 +257,14 @@ async function startSession(onTranscript, emitProgress, onInterim, emitDiag) {
 
   const segmenter = new PcmSegmenter(
     (segment, meanRms) => {
-      const mySeq = ++seq
       const secs = (segment.length / SAMPLE_RATE).toFixed(1)
+      // Checked BEFORE the sequence number is taken, so a dropped segment
+      // never occupies an ordering slot the renderer is waiting on.
+      if (meanRms < SILENT_SEGMENT_RMS) {
+        diag(`segment dropped: ${secs}s at meanRms ${meanRms.toFixed(4)} is room tone, not speech (below ${SILENT_SEGMENT_RMS})`)
+        return
+      }
+      const mySeq = ++seq
       diag(`segment ${mySeq} closed after ${secs}s of speech (meanRms ${meanRms.toFixed(4)}), queued`)
       queueDepth++
       const tQueued = Date.now()
@@ -353,4 +387,31 @@ async function preload(emitProgress) {
   return getTier()
 }
 
-module.exports = { startSession, feedPcm, stopSession, preload, getTier, setTier }
+// Touch the model's WEIGHTS while idle, so the first inference of a session is
+// not the one that pays to fault them back off disk.
+//
+// The keep-warm ping in main.js keeps this thread's own stack and heap in the
+// working set, but the weights are only touched during inference, so they get
+// trimmed independently. The signature is unmistakable in a real session: the
+// FIRST preview took 17191 ms while every later one took 2787 and 3150 ms,
+// same model, same audio length, minutes apart. That first-inference penalty
+// lands exactly when a user is waiting to see their first words appear.
+//
+// Refuses to run during a session (an inference here would block the worker
+// while real audio is arriving) and never loads anything - if no transcriber
+// has been built yet there is nothing to keep warm, and building one here
+// would be a surprise multi-hundred-MB load nobody asked for.
+async function keepWarm() {
+  if (activeSession) return false
+  const tier = getTier()
+  if (!transcribersByTier.has(tier)) return false
+  const transcriber = await transcribersByTier.get(tier)
+  if (activeSession) return false // a session may have started while we waited
+  // Half a second of silence. Whisper pads every input to its 30s window, so
+  // a shorter clip costs essentially the same as a longer one - the point is
+  // to touch the weights, not to transcribe anything.
+  await transcriber(new Float32Array(SAMPLE_RATE / 2), generationOpts(SAMPLE_RATE / 2))
+  return true
+}
+
+module.exports = { startSession, feedPcm, stopSession, preload, keepWarm, getTier, setTier }

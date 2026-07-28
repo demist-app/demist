@@ -30,6 +30,10 @@ const handlers = {
     (message) => emitEvent('diag', { message }),
   ),
   stopSession: () => (whisper ??= require('./whisper')).stopSession(),
+  // Deliberately does NOT require('./whisper'): if this worker has never
+  // loaded the transcriber there is nothing to keep warm, and loading one
+  // from a background timer would be a surprise multi-hundred-MB load.
+  keepWhisperWarm: () => whisper ? whisper.keepWarm() : false,
   preloadWhisper: () => (whisper ??= require('./whisper')).preload(emitProgress),
   preloadTermDetection: () => (llm ??= require('./llm')).preload(emitProgress),
   preloadTranslation: (lang) => (translate ??= require('./translate')).preload(lang, emitProgress),
