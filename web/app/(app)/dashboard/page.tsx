@@ -62,7 +62,6 @@ export default function Dashboard() {
     retrySessionSummarize, toggleExpandSession,
   } = useRecordingSession()
 
-  const [isScrolledUp, setIsScrolledUp] = useState(false)
   const [transcriptView, setTranscriptView] = useState<'both' | 'source' | 'translated'>('both')
   const [showSubjectInput, setShowSubjectInput] = useState(false)
   const [tabCaptureSupportedState, setTabCaptureSupportedState] = useState(false)
@@ -73,7 +72,6 @@ export default function Dashboard() {
   const barsRef = useRef<HTMLDivElement | null>(null)
   const btnRef = useRef<HTMLButtonElement | null>(null)
   const transcriptContainerRef = useRef<HTMLDivElement | null>(null)
-  const autoScrollRef = useRef(true)
 
   useEffect(() => {
     if (!isRecording) return
@@ -111,13 +109,6 @@ export default function Dashboard() {
     }
   }, [isRecording, vizAnalyserRef, chunkPeakRef])
 
-  // Auto-scroll the live transcript to the bottom as new sentences arrive
-  useEffect(() => {
-    if (!autoScrollRef.current) return
-    const el = transcriptContainerRef.current
-    if (el) el.scrollTop = el.scrollHeight
-  }, [sentences])
-
   useEffect(() => {
     setTabCaptureSupportedState(tabCaptureSupported())
     const savedView = localStorage.getItem('demist_transcript_view')
@@ -145,23 +136,10 @@ export default function Dashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [localTranslate.status])
 
-  // ── Live transcript: scroll handling, term highlighting, term-card re-open ──
-
-  const handleTranscriptScroll = () => {
-    const el = transcriptContainerRef.current
-    if (!el) return
-    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
-    const atBottom = distanceFromBottom < 32
-    autoScrollRef.current = atBottom
-    setIsScrolledUp(prev => (prev === !atBottom ? prev : !atBottom))
-  }
-
-  const scrollToLive = () => {
-    const el = transcriptContainerRef.current
-    if (el) el.scrollTop = el.scrollHeight
-    autoScrollRef.current = true
-    setIsScrolledUp(false)
-  }
+  // ── Live transcript: term highlighting, term-card re-open ──
+  // No scroll handling: the panel shows a fixed window of recent lines and
+  // cannot overflow, so there is nothing to scroll, stick to the bottom of, or
+  // offer a "back to live" button for.
 
   const openTermCard = (term: string) => {
     const entry = sessionGlossary.find(g => g.term.toLowerCase() === term.toLowerCase())
@@ -173,6 +151,14 @@ export default function Dashboard() {
       setTimeout(() => setLiveTerms(prev => prev.filter(t => t.id !== id)), 380)
     }, 8000)
   }
+
+  // How many lines the live transcript shows at once. Matches the number of
+  // steps the fade ladder defines in globals.css (data-age 0 through 5) - the
+  // ladder and the window have to be the same length, or the extra lines all
+  // pile up at the last opacity step and the panel starts scrolling.
+  const LIVE_WINDOW = 6
+  const liveStart = Math.max(0, sentences.length - LIVE_WINDOW)
+  const liveSentences = sentences.slice(liveStart)
 
   const handleTranscriptClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement
@@ -370,42 +356,53 @@ export default function Dashboard() {
                     )}
                   </div>
                 )}
+                {/* A fixed ladder of the most recent lines, anchored to the
+                    bottom and clipped — NOT a growing, scrollable log.
+                    Everything said is still saved and readable in History;
+                    this panel is the live view.
+
+                    It used to render every sentence of the session into an
+                    overflow-y-auto box. The fade ladder in globals.css only
+                    defines ages 0-5, so from the seventh line onwards every
+                    older line sat at the same 0.10 opacity, stacking up
+                    forever behind a scrollbar: a wall of near-invisible text
+                    that the user had to scroll to follow, and that grew worse
+                    the longer the lecture ran. Rendering exactly as many
+                    lines as the ladder has steps is what makes it a ladder. */}
                 <div
                   ref={transcriptContainerRef}
-                  onScroll={handleTranscriptScroll}
                   onClick={handleTranscriptClick}
-                  className={`transcript-container flex-1 overflow-y-auto ${isScrolledUp ? 'scrolled-up' : ''}`}
+                  className="transcript-container flex-1 min-h-0 overflow-hidden flex flex-col justify-end"
                 >
                   {sentences.length === 0 && (
                     <p className="text-[13px] text-gray-700 italic">Transcription will appear here as you speak…</p>
                   )}
                   {profile?.translate_to && liveTranslateAvailable && transcriptView === 'both' && (
                     <TranscriptBilingual
-                      pairs={sentences.map((s, i) => ({ srcHtml: highlightTerms(s), tgt: translatedSentences[i] ?? null }))}
+                      pairs={liveSentences.map((s, i) => ({
+                        srcHtml: highlightTerms(s),
+                        tgt: translatedSentences[liveStart + i] ?? null,
+                      }))}
                       lang={profile.translate_to}
                     />
                   )}
                   {(!profile?.translate_to || !liveTranslateAvailable || transcriptView === 'source') && (
-                    sentences.map((sentence, index) => {
-                      const age = Math.min(sentences.length - 1 - index, 5)
-                      return (
-                        <p
-                          key={index}
-                          data-age={age}
-                          className="text-[calc(0.875rem*var(--df-scale))] leading-relaxed mb-1 transition-opacity duration-500"
-                          dangerouslySetInnerHTML={{ __html: highlightTerms(sentence) }}
-                        />
-                      )
-                    })
+                    liveSentences.map((sentence, i) => (
+                      <p
+                        key={liveStart + i}
+                        data-age={liveSentences.length - 1 - i}
+                        className="text-[calc(0.875rem*var(--df-scale))] leading-relaxed mb-1 transition-opacity duration-500"
+                        dangerouslySetInnerHTML={{ __html: highlightTerms(sentence) }}
+                      />
+                    ))
                   )}
                   {profile?.translate_to && liveTranslateAvailable && transcriptView === 'translated' && (
-                    sentences.map((_, index) => {
-                      const age = Math.min(sentences.length - 1 - index, 5)
-                      const tgt = translatedSentences[index]
+                    liveSentences.map((_, i) => {
+                      const tgt = translatedSentences[liveStart + i]
                       return (
                         <p
-                          key={index}
-                          data-age={age}
+                          key={liveStart + i}
+                          data-age={liveSentences.length - 1 - i}
                           dir={profile.translate_to === 'ar' ? 'rtl' : undefined}
                           className="text-[calc(0.875rem*var(--df-scale))] leading-relaxed mb-1 transition-opacity duration-500 dark:text-amber-300/80 text-amber-700"
                         >
@@ -415,14 +412,6 @@ export default function Dashboard() {
                     })
                   )}
                 </div>
-                {isScrolledUp && (
-                  <button
-                    onClick={scrollToLive}
-                    className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-amber-500 text-white text-xs px-3 py-1.5 rounded-full"
-                  >
-                    back to live ↓
-                  </button>
-                )}
               </div>
             </div>
 

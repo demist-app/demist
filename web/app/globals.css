@@ -231,9 +231,8 @@ button, a {
 .transcript-container [data-age="3"] { opacity: 0.30; }
 .transcript-container [data-age="4"] { opacity: 0.15; }
 .transcript-container [data-age="5"] { opacity: 0.10; }
-.transcript-container.scrolled-up [data-age] {
-  opacity: 1;
-}
+/* The panel no longer scrolls, so there is no scrolled-up state to undo the
+   fade for. Kept out deliberately rather than left as a rule nothing matches. */
 .transcript-term {
   color: #f5a623;
   opacity: 1 !important;
