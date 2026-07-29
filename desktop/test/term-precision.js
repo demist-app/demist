@@ -18,6 +18,12 @@ const MUNDANE = [
   ['admin', 'The reading is chapter four and the tutorial is on Thursday, so please come prepared.'],
   ['smalltalk', 'I am going to use this one because the other one was a bit broken yesterday.'],
   ['weather', 'It is really cold outside today and I forgot my jacket again, which was silly of me.'],
+  // Reported from a real session on the 'tiny' tier: it produced cards for
+  // "five or six seconds" and "working out". Both are phrases made entirely of
+  // ordinary words, which the filters could not catch at all until they were
+  // made phrase-aware (see common-words.js).
+  ['timing', 'Just give it five or six seconds and then it should settle down on its own.'],
+  ['workingout', 'So we are working out how many of these we need before the end of the week.'],
 ]
 
 // Two sentences each, which is the shape of a real detection chunk. A single
@@ -34,6 +40,12 @@ const TECHNICAL = [
 ]
 
 ;(async () => {
+  // Pin the tier, so the two can be compared directly rather than whichever
+  // one this machine's memory happens to choose today:
+  //   node test/term-precision.js tiny
+  //   node test/term-precision.js small
+  const wanted = process.argv[2]
+  if (wanted) llm.setTier(wanted)
   console.log(`tier: ${llm.getTier()}\n`)
   await llm.preload(() => {})
 

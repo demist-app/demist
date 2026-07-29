@@ -48,6 +48,17 @@ const SUMMARY_SCHEMA = {
   required: ['synopsis'],
 }
 
+// A second, deliberately trivial question asked about each candidate term
+// before it becomes a card. See verifyTerm below for why this exists and what
+// it measured.
+const VERDICT_SCHEMA = {
+  type: 'object',
+  properties: {
+    technical: { type: 'boolean' },
+  },
+  required: ['technical'],
+}
+
 // Cap the LLM context window, sized against the machine. Left unset,
 // node-llama-cpp allocates the model's FULL trained context - Llama 3.2 is
 // trained at 131072 tokens - and that KV cache measured at +4222MB on top of
@@ -70,7 +81,7 @@ const CONTEXT_SIZE = os.totalmem() / (1024 ** 3) < 10 ? 2048 : 4096
 // lecture; termRows was previously passed through unbounded.
 const SUMMARY_MAX_TERMS = 60
 
-let llama, model, context, session, summaryGrammar, loadedTier, loadingPromise
+let llama, model, context, session, summaryGrammar, verdictGrammar, loadedTier, loadingPromise
 
 // Which term-detection model a machine gets by default, decided by its RAM.
 // Measured through the real detectTerms path on the same five excerpts
@@ -134,49 +145,59 @@ function defaultTier() {
   return resolvedDefaultTier
 }
 
-// How much RAM a machine must HAVE (not have free) to get the 3B by default.
-// A 16GB machine can hold Whisper's 2.3GB, the 3B's 2.5GB and translation's
-// 0.4GB with room to spare; this is not a close call on such a machine and it
-// should not be decided by a number that moves.
-const SMALL_TIER_TOTAL_GB = 14
+// The 'tiny' tier is no longer a default for anyone with a usable amount of
+// RAM, and this is the floor below which it is still the only option.
+//
+// It used to be the default for every machine under 10GB, and separately for
+// any machine whose freemem() dipped at the wrong moment. Measured with the
+// current filters on the suite in test/term-precision.js:
+//
+//   tiny  (Qwen2.5-1.5B)  2 of 7 mundane excerpts produced cards, 0 missed
+//   small (Llama-3.2-3B)  0 of 7 mundane excerpts produced cards, 0 missed
+//
+// The tiny tier's failures were "Take care" from a goodbye and "settle" from
+// "give it five or six seconds and it should settle down" - i.e. it puts
+// ordinary conversation into the user's flashcard deck, which is worse than
+// having no term detection at all. No word list fixes that in general; the
+// two above are simply the ones this suite happens to catch.
+//
+// And it was not even buying what it claimed. Whisper ALREADY drops from its
+// 2332MB tier to its 1027MB one below 10GB of RAM (see whisper.js), so a
+// small machine has 1.3GB more headroom than a large one right where it
+// matters - more than the 1.1GB the bigger LLM costs. Totals with the 3B:
+// 3.9GB of models on an 8GB machine against 5.2GB on a 16GB one. The small
+// machine was being given the worse model to save memory it had already saved
+// somewhere else.
+//
+// Below 8GB the sum genuinely does not fit, so 'tiny' remains the default
+// there, and it remains selectable in Settings on any machine.
+const SMALL_TIER_MIN_TOTAL_GB = 8
 
 function pickDefaultTier() {
   const totalGB = os.totalmem() / (1024 ** 3)
-  const freeGB = os.freemem() / (1024 ** 3)
-  // Free memory is only consulted on machines where the answer is genuinely
-  // marginal. It used to be consulted on every machine, with a 6GB bar, and
-  // that was self-defeating: this runs during startup, while the app itself is
-  // loading Whisper (2.3GB) and translation (0.4GB) and Chromium is spinning
-  // up, so the app's own consumption is what pushed free memory under the bar.
-  // A 15.9GB machine reported by a user therefore defaulted to 'tiny' - the
-  // 1.5B that this file's own measurements record as flagging "chapter" and
-  // "tutorial" as technical terms on deliberately mundane speech. That is
-  // exactly the "term cards for plain English words" that was reported, and
-  // the machine had ample room for the 3B the whole time.
-  //
-  // Total RAM is a fixed property of the machine and cannot flap, so it
-  // decides on its own above the threshold. Below it, free memory still gets a
-  // say, because on a genuinely small machine the 1.1GB difference is real -
-  // and an explicit choice in Settings overrides either way.
-  const wanted = (totalGB >= SMALL_TIER_TOTAL_GB || (totalGB >= 10 && freeGB >= 4))
-    ? 'small'
-    : 'tiny'
+  // Deliberately NOT freemem(). This runs during startup, while the app itself
+  // is loading Whisper and translation and Chromium is spinning up, so the
+  // app's own consumption is what pushed free memory under the old bar - a
+  // 15.9GB machine defaulted to 'tiny' with ample room for the 3B the whole
+  // time, which is the reported "term cards for plain English words". Total
+  // RAM is a fixed property of the machine and cannot flap.
+  const wanted = totalGB >= SMALL_TIER_MIN_TOTAL_GB ? 'small' : 'tiny'
   const have = downloadedTiers()
-  if (have.has(wanted) || have.size === 0) return wanted
-  // The memory-preferred tier is not downloaded but another one is. Use what
-  // is already here rather than starting a surprise multi-hundred-MB download
-  // the user did not ask for and cannot see the reason for.
+  if (have.has(wanted)) return wanted
+  // An already-downloaded BETTER tier beats downloading anything.
+  if (have.has('large')) return 'large'
+  // Otherwise download what this machine should have.
   //
-  // This matters because freemem() moves. The same machine measured 2.8GB free
-  // with a browser open and 8.8GB free minutes later, so a purely
-  // memory-derived default FLAPS between tiers - and each flip means
-  // downloading and then loading a different multi-GB model. That happened
-  // for real: a machine that already had the 3B silently began fetching the
-  // 1.5B mid-session because free memory had dipped below the threshold.
-  // Preferring what is on disk makes the choice stable, and 'tiny' is only
-  // 1.1GB lighter, which is not worth a download stall mid-lecture.
-  if (wanted === 'tiny' && have.has('small')) return 'small'
-  return have.has('tiny') ? 'tiny' : wanted
+  // This deliberately no longer falls back to "whatever is already on disk".
+  // That rule existed to stop the tier FLAPPING, back when the choice came
+  // from freemem() and could give a different answer minute to minute. The
+  // choice is now derived from total RAM alone, so it is fixed for a given
+  // machine and there is nothing left to flap - while the old rule, kept as
+  // is, would have permanently pinned every existing user to the 'tiny' model
+  // already sitting in their cache, which is the precise outcome this whole
+  // change exists to end. The download runs at app start behind the visible
+  // progress bar that already gates the record button, not mid-lecture.
+  return wanted
 }
 
 function getTier() {
@@ -263,6 +284,7 @@ async function ensureLoaded(emitProgress) {
     }
     session = new LlamaChatSession({ contextSequence: context.getSequence() })
     summaryGrammar = await llama.createGrammarForJsonSchema(SUMMARY_SCHEMA)
+    verdictGrammar = await llama.createGrammarForJsonSchema(VERDICT_SCHEMA)
 
     // Pays a large one-time cost here, during preload (while the app shows
     // "loading models..." before the user ever starts recording), instead
@@ -394,6 +416,10 @@ function parseTermLines(response, transcript, recentContext) {
       console.warn('[demist] dropped everyday word, not lecture jargon:', m[1])
       continue
     }
+    // The same term twice in one response is not two cards. Measured on the
+    // tiny tier: a single mundane excerpt returned ["settle", "settle"], which
+    // would have produced two identical flashcards from one sentence.
+    if (out.some(o => normalize(o.term) === normalize(m[1]))) continue
     out.push({ term: m[1], definition: m[2], context: m[3] })
     if (out.length >= 2) break
   }
@@ -413,6 +439,57 @@ TERM: <term> | DEFINITION: <one-sentence plain-English definition, specific to h
 If nothing in the excerpt qualifies, respond with exactly: NONE`
 }
 
+// Which tiers have to double-check themselves. Measured on
+// test/term-precision.js, false positives on 7 mundane excerpts:
+//
+//   tiny  without verification  2/7      with verification  0/7
+//   small without verification  0/7
+//
+// So this runs only where it is needed. It is not free - it costs one extra
+// (very short) generation per candidate, and on the chemistry excerpt it
+// talked itself out of "catalyst", a real term, though that excerpt still
+// produced "enthalpy change" so nothing was missed outright. Paying a little
+// recall to stop ordinary conversation reaching a flashcard deck is the right
+// trade on the weak model and the wrong one on a model that does not need it.
+const NEEDS_VERIFICATION = new Set(['tiny'])
+
+// Ask the model whether a candidate is really jargon, one term at a time,
+// with the answer constrained to a single boolean.
+//
+// This exists so that how good a machine is stops deciding how good the term
+// cards are. Extraction is an open-ended generative task and small models
+// over-produce at it - asked to find terms, they find something, which is why
+// the 1.5B put "Take care" and "settle" into a flashcard deck. Judging one
+// candidate is a closed binary question, which is a far easier task for the
+// same weights, and the grammar removes the model's ability to waffle instead
+// of answering.
+//
+// Deliberately NOT given the definition the model just wrote: that definition
+// is the model's own justification for the term, and including it just invites
+// it to agree with itself. It gets the term and the sentence it was said in,
+// and nothing else.
+async function verifyTerm(term, sentence, subject) {
+  const who = subject ? `the subject ${subject}` : 'an academic subject'
+  const prompt = `Answer with JSON only.
+
+Sentence from a lecture: "${sentence}"
+
+Is "${term}" a specialist technical term from ${who} that a student would need defined to follow the lecture?
+
+Ordinary English words and everyday phrases are NOT technical terms, even when a lecturer says them. Answer {"technical": false} for those.`
+  try {
+    session.resetChatHistory()
+    const response = await session.prompt(prompt, { grammar: verdictGrammar })
+    return verdictGrammar.parse(response)?.technical === true
+  } catch (e) {
+    // A failed verification must not silently delete a real term: fall back to
+    // keeping the candidate, which is exactly the behaviour before this pass
+    // existed.
+    console.error('[demist] term verification failed, keeping the candidate:', e?.message ?? e)
+    return true
+  }
+}
+
 async function runDetectOnce(transcript, recentContext, subject, year) {
   const prompt = buildDetectPrompt(transcript, recentContext, subject, year)
   const run = queue.then(async () => {
@@ -426,7 +503,16 @@ async function runDetectOnce(transcript, recentContext, subject, year) {
     // detection stops working" both being the same underlying bug.
     session.resetChatHistory()
     const response = await session.prompt(prompt)
-    return parseTermLines(response, transcript, recentContext)
+    const candidates = parseTermLines(response, transcript, recentContext)
+    if (!candidates.length || !NEEDS_VERIFICATION.has(loadedTier)) return candidates
+    // Inside the queue on purpose: verifyTerm drives the same
+    // LlamaChatSession, so it cannot run concurrently with anything else.
+    const kept = []
+    for (const c of candidates) {
+      if (await verifyTerm(c.term, c.context || transcript, subject)) kept.push(c)
+      else console.warn(`[demist] dropped "${c.term}": the model itself judged it not a technical term`)
+    }
+    return kept
   })
   // Swallow so one failed call doesn't poison the queue for calls behind it.
   queue = run.catch(() => {})
