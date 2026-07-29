@@ -202,7 +202,16 @@ port.on('message', async (msg) => {
           + `${badFrames ? ` | ${badFrames} PCM frames FAILED to parse [${lastBadReason}]` : ''}`
           + `${deliveryCount ? ` | delivery main->here: mean ${(deliveryTotal / deliveryCount).toFixed(0)}ms, worst ${deliveryWorst}ms` : ''}`
           + ` | worker event loop ticked ${loopTicks}/${Math.round(secs * 10)} times, worst stall ${loopWorst}ms`
-          + `${loopTicks < secs * 5 ? ' <- THIS THREAD WAS NOT RUNNING, which is why it did not drain its queue' : ''}`,
+          // A low tick count is only a PROBLEM when the audio is also arriving
+          // late. During a healthy recording this thread is inside an inference
+          // for roughly 1.8s out of every 3s, so it legitimately misses well
+          // over half its ticks while the transcript stays ~2s behind the
+          // speaker and nothing queues. Warning on the tick count alone fired
+          // on every healthy session, which is how a diagnostic teaches you to
+          // ignore it. Delivery latency is the thing that actually hurts.
+          + `${loopTicks < secs * 5 && deliveryWorst > 3000
+              ? ' <- THIS THREAD WAS NOT RUNNING, which is why it did not drain its queue'
+              : ''}`,
       })
       pcmMessages = 0; pcmSamples = 0; lastPcmLog = now; loopWorst = 0; loopTicks = 0; firstMseq = null; lastMseq = null
       deliveryWorst = 0; deliveryTotal = 0; deliveryCount = 0

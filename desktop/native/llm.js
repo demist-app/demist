@@ -215,6 +215,13 @@ function reportTier(tier, why) {
 }
 
 function getTier() {
+  // Test-only override, so a harness can pin a tier WITHOUT writing the shared
+  // tier.json. It used to call setTier() for this, and that file is read live
+  // by whatever app happens to be running: a background precision run flipped
+  // a real session from 'small' to 'tiny' mid-lecture, which is what produced
+  // the "why did this use both?" log. A test must never mutate user state.
+  const override = process.env.DEMIST_LLM_TIER
+  if (override && MODEL_URI[override]) return reportTier(override, 'DEMIST_LLM_TIER override (testing)')
   try {
     const tier = JSON.parse(fs.readFileSync(TIER_FILE, 'utf8')).tier
     if (MODEL_URI[tier]) return reportTier(tier, `explicitly chosen in Settings, saved in ${TIER_FILE}`)
@@ -235,9 +242,14 @@ function setTier(tier) {
   return tier
 }
 
-async function ensureLoaded(emitProgress) {
+async function ensureLoaded(emitProgress, calledBy = 'unknown') {
   const tier = getTier()
   if (session && loadedTier === tier) return
+  // Names the operation that triggered a load. A real run loaded 'small' and
+  // then loaded 'tiny' as well with nothing in the log to say what asked for
+  // the second one, which left the cause unidentifiable after the fact.
+  console.log(`[demist] term-detection: loading tier '${tier}' because ${calledBy} asked for it`
+    + `${loadedTier ? ` (previously loaded: '${loadedTier}')` : ''}`)
   // Without this, overlapping detectTerms() calls (e.g. several buffered
   // audio chunks resolving in a burst right after startup, before the first
   // load finishes) each saw `session` still unset and started their own
@@ -353,7 +365,7 @@ async function ensureLoaded(emitProgress) {
 // to warm this up as soon as the app opens rather than mid-lecture, the same
 // role native/whisper.js's preload() plays for transcription.
 async function preload(emitProgress) {
-  await ensureLoaded(emitProgress)
+  await ensureLoaded(emitProgress, 'preload')
   return getTier()
 }
 
@@ -576,7 +588,7 @@ let pendingWaiters = []
 
 async function detectTerms(transcript, recentContext, subject, year, emitProgress) {
   if (!transcript?.trim()) return []
-  await ensureLoaded(emitProgress)
+  await ensureLoaded(emitProgress, 'detectTerms')
 
   if (detectBusy) {
     if (pendingBatch) {
@@ -612,7 +624,7 @@ async function detectTerms(transcript, recentContext, subject, year, emitProgres
 // reason: one context sequence, one call at a time.
 async function summarize(termRows, subject) {
   if (!termRows?.length) return null
-  await ensureLoaded()
+  await ensureLoaded(undefined, 'summarize')
 
   const context = subject ? `for a lecture on "${subject}"` : 'from a lecture'
   const termList = termRows.slice(0, SUMMARY_MAX_TERMS).map((t) => `- ${t.term}: ${t.definition}`).join('\n')

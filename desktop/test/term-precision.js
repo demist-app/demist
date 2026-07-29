@@ -44,8 +44,13 @@ const TECHNICAL = [
   // one this machine's memory happens to choose today:
   //   node test/term-precision.js tiny
   //   node test/term-precision.js small
+  // Via the env override, NOT setTier: setTier writes ~/.demist/llm-models/
+  // tier.json, which is the live config a running app re-reads on every call.
+  // Running this in the background while the desktop app was open flipped a
+  // real recording session from 'small' to 'tiny' mid-lecture, and the app
+  // dutifully loaded the second model. A test must never mutate user state.
   const wanted = process.argv[2]
-  if (wanted) llm.setTier(wanted)
+  if (wanted) process.env.DEMIST_LLM_TIER = wanted
   console.log(`tier: ${llm.getTier()}\n`)
   await llm.preload(() => {})
 
