@@ -382,7 +382,27 @@ let queue = Promise.resolve()
 // blank lines, "NONE") is silently skipped rather than treated as an error:
 // the model occasionally adds a line of preamble even when told not to, and
 // that's fine as long as the real lines still match.
-const TERM_LINE_RE = /^\s*TERM:\s*(.+?)\s*\|\s*DEFINITION:\s*(.+?)\s*\|\s*CONTEXT:\s*(.+?)\s*$/i
+// Two accepted shapes, because the model reliably produces both and only one
+// of them was ever parsed. Observed verbatim from Llama-3.2-3B on a real
+// lecture, with DEMIST_LLM_DEBUG=1:
+//
+//   arithmetic logic unit: A hardware component within a CPU that performs
+//   mathematical and logical operations. | CONTEXT: different CPU registers...
+//
+// The term and the definition are both correct and useful. It simply dropped
+// the "TERM:" label and used a colon where the template said "| DEFINITION:".
+// The strict regex threw that away, so a lecture full of obvious jargon
+// produced no cards at all and looked like the model had found nothing.
+//
+// CANONICAL is the format the prompt asks for. LABELLESS accepts the drift,
+// still anchored on "| CONTEXT:" so it cannot match ordinary prose - a line
+// only qualifies if it carries the context marker the template demands.
+const TERM_LINE_CANONICAL = /^\s*(?:[-*]\s*)?TERM:\s*(.+?)\s*\|\s*DEFINITION:\s*(.+?)\s*\|\s*CONTEXT:\s*(.+?)\s*$/i
+const TERM_LINE_LABELLESS = /^\s*(?:[-*]\s*)?(?:TERM:\s*)?([^|:]{2,60}?)\s*[:|]\s*(.+?)\s*\|\s*CONTEXT:\s*(.+?)\s*$/i
+
+function matchTermLine(line) {
+  return line.match(TERM_LINE_CANONICAL) || line.match(TERM_LINE_LABELLESS)
+}
 
 function normalize(s) {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
@@ -429,7 +449,7 @@ function parseTermLines(response, transcript, recentContext) {
   }
   const out = []
   for (const line of response.split('\n')) {
-    const m = line.match(TERM_LINE_RE)
+    const m = matchTermLine(line)
     if (!m) continue
     // The model is asked to only extract terms actually said, verbatim, but
     // isn't grammar-constrained to guarantee that (see file header): direct
@@ -475,8 +495,11 @@ function buildDetectPrompt(transcript, recentContext, subject, year) {
 ${recentContext ? `Recent context: ${recentContext}\n\n` : ''}Lecture excerpt:
 ${transcript}
 
-Respond with each term on its own line in exactly this format:
+Respond with each term on its own line in exactly this format, keeping every label:
 TERM: <term> | DEFINITION: <one-sentence plain-English definition, specific to how it was used above> | CONTEXT: <the exact sentence it appeared in, verbatim>
+
+Example of a correctly formatted line:
+TERM: mitochondrial matrix | DEFINITION: The fluid-filled space inside the inner membrane of a mitochondrion, where the Krebs cycle takes place. | CONTEXT: the reactions occur in the mitochondrial matrix.
 
 If nothing in the excerpt qualifies, respond with exactly: NONE`
 }
@@ -545,6 +568,15 @@ async function runDetectOnce(transcript, recentContext, subject, year) {
     // detection stops working" both being the same underlying bug.
     session.resetChatHistory()
     const response = await session.prompt(prompt)
+    // The raw model output, before any parsing or filtering. Without this,
+    // "no term cards appeared" is unattributable: the model returning NONE,
+    // the model returning something matchTermLine cannot parse, and every
+    // candidate being filtered out all look identical from outside.
+    if (process.env.DEMIST_LLM_DEBUG === '1') {
+      console.log(`[demist] --- raw model output (${loadedTier}) ---
+${response}
+--- end ---`)
+    }
     const candidates = parseTermLines(response, transcript, recentContext)
     if (!candidates.length || !NEEDS_VERIFICATION.has(loadedTier)) return candidates
     // Inside the queue on purpose: verifyTerm drives the same
@@ -644,4 +676,7 @@ Write a 1-2 sentence summary of what this lecture covered, based only on the ter
   return run
 }
 
-module.exports = { detectTerms, summarize, preload, getTier, setTier }
+// matchTermLine is exported for test/run-all.js: a parser that silently
+// rejected the model's real output cost a whole lecture's term cards, and that
+// is checkable in milliseconds without loading a 2GB model.
+module.exports = { detectTerms, summarize, preload, getTier, setTier, matchTermLine }

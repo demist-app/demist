@@ -83,6 +83,41 @@ check('quiet speech still survives the energy gate', () => {
   assert.ok(segs.some(s => s.meanRms >= SILENT_SEGMENT_RMS), `all below gate: ${JSON.stringify(segs)}`)
 })
 
+console.log('')
+console.log('term-line parser (the model does not always keep the labels)')
+const { matchTermLine } = require('../native/llm')
+// Verbatim from Llama-3.2-3B on a real lecture. The strict regex rejected
+// this, so the session produced no term cards at all while the model was in
+// fact answering correctly.
+check('parses the labelless shape the model really emits', () => {
+  const m = matchTermLine('arithmetic logic unit: A hardware component within a CPU that performs mathematical and logical operations. | CONTEXT: different CPU registers, such as the arithmetic logic unit.')
+  assert.ok(m, 'did not match at all')
+  assert.strictEqual(m[1], 'arithmetic logic unit')
+  assert.ok(m[2].startsWith('A hardware component'), m[2])
+})
+check('still parses the canonical shape the prompt asks for', () => {
+  const m = matchTermLine('TERM: chemiosmosis | DEFINITION: Movement of ions across a membrane. | CONTEXT: chemiosmosis drives ATP synthase.')
+  assert.ok(m, 'did not match at all')
+  assert.strictEqual(m[1], 'chemiosmosis')
+  assert.strictEqual(m[2], 'Movement of ions across a membrane.')
+})
+check('tolerates a leading bullet', () => {
+  assert.ok(matchTermLine('- TERM: datagram | DEFINITION: A packet. | CONTEXT: each datagram is routed.'))
+})
+// The loosened parser must NOT start matching ordinary prose. '| CONTEXT:' is
+// the anchor that keeps it honest.
+for (const junk of [
+  'NONE',
+  'Here are the terms I found:',
+  'The lecture covered several topics: programming, testing and deployment.',
+  'I hope this helps! Let me know if you need anything else.',
+  '',
+]) {
+  check('rejects non-term line: ' + JSON.stringify(junk.slice(0, 40)), () => {
+    assert.strictEqual(matchTermLine(junk), null)
+  })
+}
+
 console.log('\nforced cut (end-to-end latency floor: audio cannot start transcribing until its segment closes)')
 
 check('a session starts at the short initial cut, not the ceiling', () => {
