@@ -50,7 +50,7 @@ const handlers = {
     // this file logs normally goes to the main process's stdout, invisible
     // unless the app was launched from a terminal, which is why the cause of
     // a slow startSession has been so hard to pin down from a screenshot.
-    (message) => emitEvent('diag', { message }),
+    (message, verbose) => emitEvent('diag', { message, verbose: verbose === true }),
   ),
   stopSession: () => (whisper ??= require('./whisper')).stopSession(),
   // Deliberately does NOT require('./whisper'): if this worker has never
@@ -190,6 +190,9 @@ port.on('message', async (msg) => {
     if (now - lastPcmLog >= 5000) {
       const secs = (now - lastPcmLog) / 1000
       emitEvent('diag', {
+        // Trace, not lifecycle: one of these every five seconds for a whole
+        // lecture. Shown only with localStorage demist_debug set.
+        verbose: true,
         message: `worker[${workerId}] received ${(pcmMessages / secs).toFixed(1)} pcm msgs/sec `
           + `(${(pcmSamples / 16000).toFixed(1)}s of audio) over the last ${secs.toFixed(0)}s`
           + ` | saw main's mseq ${firstMseq}..${lastMseq}`

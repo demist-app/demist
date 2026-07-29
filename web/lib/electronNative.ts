@@ -23,6 +23,10 @@ export interface NativeEvent {
     pct?: number
     file?: string | null
     message?: string
+    // 'diag' only: a high-frequency trace line (per-5-second counters,
+    // per-segment timings) rather than a session-lifecycle one. Logged only
+    // when localStorage demist_debug is set - see nativeSession.ts.
+    verbose?: boolean
     role?: string
   }
 }

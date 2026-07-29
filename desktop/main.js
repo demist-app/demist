@@ -56,7 +56,54 @@ function createWindow() {
     },
   })
   mainWindow.loadURL(APP_URL)
+
+  // Without this, an unreachable app URL leaves Chromium's raw
+  // "This site can't be reached" page sitting inside the window - which looks
+  // exactly like a broken app rather than a missing network, and is the first
+  // thing a Store certification tester would see on a restricted-network VM.
+  // Store policy 10.1.1 requires an app not to appear broken; an unexplained
+  // browser error page is a reasonable reading of that.
+  //
+  // errorCode -3 is ABORTED, which Chromium reports for ordinary navigations
+  // that were superseded (including our own retry), so it is not a failure.
+  // isMainFrame guards against a failed sub-resource replacing the whole app.
+  mainWindow.webContents.on('did-fail-load', (_e, errorCode, errorDescription, _url, isMainFrame) => {
+    if (!isMainFrame || errorCode === -3) return
+    console.error(`[demist] could not load ${APP_URL}: ${errorDescription} (${errorCode})`)
+    mainWindow?.loadURL(offlinePage(errorDescription))
+  })
+
   mainWindow.on('closed', () => { mainWindow = null })
+}
+
+// Self-contained: a data: URL, so this cannot itself fail to load. Deliberately
+// plain and honest about what is wrong and what still works - the on-device
+// models are already downloaded and nothing recorded is lost, but sign-in and
+// the UI itself live on the web app.
+function offlinePage(reason) {
+  const html = `<!doctype html><meta charset="utf-8">
+<title>Demist</title>
+<style>
+  :root { color-scheme: dark light }
+  body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
+         font: 15px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif;
+         background:#12100c; color:#efe9df; text-align:center; padding:2rem }
+  .card { max-width: 30rem }
+  h1 { font-size:1.35rem; margin:0 0 .6rem; font-weight:600 }
+  p { margin:0 0 1rem; color:#b6ada0 }
+  code { color:#8d8377; font-size:13px }
+  button { font:inherit; font-weight:600; padding:.6rem 1.4rem; border-radius:999px; cursor:pointer;
+           border:1px solid rgba(234,179,8,.4); background:rgba(234,179,8,.12); color:#f7d67a }
+  button:hover { background:rgba(234,179,8,.2) }
+</style>
+<div class="card">
+  <h1>Demist can't reach the internet</h1>
+  <p>Demist needs a connection to load and to sign you in. Your on-device models
+     and anything you've already recorded are safe on this computer.</p>
+  <button onclick="location.replace(${JSON.stringify(APP_URL)})">Try again</button>
+  <p><code>${String(reason).replace(/[<&]/g, (c) => (c === '<' ? '&lt;' : '&amp;'))}</code></p>
+</div>`
+  return `data:text/html;charset=utf-8,${encodeURIComponent(html)}`
 }
 
 // ── Worker plumbing (lazy spawn per role, crash recovery, request/response + events) ─
@@ -544,7 +591,8 @@ setInterval(() => {
     ` | main event-loop worst stall ${mainLoopWorst}ms` +
     `${mainLoopWorst > 1000 ? " <- MAIN WAS BLOCKED, so it could not dispatch the renderer messages" : ''}`
   if (recvRate < 5) console.warn(`[demist] ${message}`); else dlog(`[demist] ${message}`)
-  mainWindow?.webContents.send('demist:event', { event: 'diag', payload: { message } })
+  // Trace, not lifecycle: emitted every five seconds for a whole recording.
+  mainWindow?.webContents.send('demist:event', { event: 'diag', payload: { message, verbose: true } })
   pcmReceived = 0; pcmForwarded = 0; pcmBytes = 0; pcmDropped = 0
   pcmSeqBase = pcmMaxSeq
   mainLoopWorst = 0

@@ -251,6 +251,10 @@ async function startSession(onTranscript, emitProgress, onInterim, emitDiag) {
   // Forwarded to the renderer's console, where it is gated behind the
   // renderer's own debug flag; only mirrored to stdout when DEMIST_DEBUG=1.
   const diag = (m) => { if (process.env.DEMIST_DEBUG === '1') console.log(`[demist] ${m}`); emitDiag?.(m) }
+  // Per-segment trace. One line every few seconds for the length of a lecture,
+  // so it is hidden unless localStorage demist_debug is set; the lag warning
+  // below is what a shipping build says when this actually matters.
+  const vdiag = (m) => { if (process.env.DEMIST_DEBUG === '1') console.log(`[demist] ${m}`); emitDiag?.(m, true) }
   discardEmitter = (m) => emitDiag?.(m)
   diag(`startSession: entered (worker has transcriber cached: ${transcribersByTier.has(getTier())})`)
   stopSession() // safety: a crashed renderer can leave one dangling
@@ -435,6 +439,9 @@ async function startSession(onTranscript, emitProgress, onInterim, emitDiag) {
   let interimPromise = Promise.resolve()
   let samplesFed = 0
   let lastFeedLog = Date.now()
+  // Rate-limits the lag warning below: once every 30s is enough to tell the
+  // story without becoming the flood it replaced.
+  let lastLagWarnAt = 0
 
   // Segments waiting to be transcribed, and the drain loop that transcribes
   // them - coalescing whatever has piled up into ONE inference.
@@ -562,11 +569,25 @@ async function startSession(onTranscript, emitProgress, onInterim, emitDiag) {
           // nothing in the pipeline was measuring it - every existing counter
           // measured throughput, which stayed healthy while latency did not.
           const lagMs = Date.now() - batch[batch.length - 1].tQueued
-          diag(
+          vdiag(
             `${label} (${audioSecs.toFixed(1)}s) transcribed in ${took} ms `
             + `(waited ${tStart - batch[0].tQueued} ms, ${backlog.length} still queued) `
             + `| transcript is ${(lagMs / 1000).toFixed(1)}s behind the speaker`,
           )
+          // Quiet when healthy, loud when not. The per-segment line above is a
+          // trace and is hidden in a shipping build, so this is what a normal
+          // user's console says when the thing this whole investigation was
+          // about - the transcript drifting behind the speaker - is happening
+          // to them. Healthy measures 1.6-2.5s; 8s means a real backlog, not a
+          // slow segment.
+          if (lagMs > 8000 && Date.now() - lastLagWarnAt > 30_000) {
+            lastLagWarnAt = Date.now()
+            console.warn(
+              `[demist] transcription is ${(lagMs / 1000).toFixed(1)}s behind the speaker `
+              + `(${backlog.length} segments queued, last inference ${took} ms for ${audioSecs.toFixed(1)}s of audio). `
+              + `Set localStorage demist_debug = '1' for the full per-segment trace.`,
+            )
+          }
           tuneSegmentLength(took)
           // The honest measure of whether this machine can afford previews.
           if (took > audioSecs * 1000 * PREVIEW_BUDGET_RATIO) {
@@ -619,11 +640,11 @@ async function startSession(onTranscript, emitProgress, onInterim, emitDiag) {
       // Checked BEFORE the sequence number is taken, so a dropped segment
       // never occupies an ordering slot the renderer is waiting on.
       if (meanRms < SILENT_SEGMENT_RMS) {
-        diag(`segment dropped: ${secs}s at meanRms ${meanRms.toFixed(4)} is room tone, not speech (below ${SILENT_SEGMENT_RMS})`)
+        vdiag(`segment dropped: ${secs}s at meanRms ${meanRms.toFixed(4)} is room tone, not speech (below ${SILENT_SEGMENT_RMS})`)
         return
       }
       const mySeq = ++seq
-      diag(`segment ${mySeq} closed after ${secs}s of speech (meanRms ${meanRms.toFixed(4)}), queued`)
+      vdiag(`segment ${mySeq} closed after ${secs}s of speech (meanRms ${meanRms.toFixed(4)}), queued`)
       backlog.push({ seq: mySeq, segment, meanRms, secs, contiguous, tQueued: Date.now() })
       queueDepth++
       drain()
@@ -678,7 +699,7 @@ async function startSession(onTranscript, emitProgress, onInterim, emitDiag) {
       samplesFed += pcm.length
       const now = Date.now()
       if (now - lastFeedLog >= 10000) {
-        diag(`audio in: ${(samplesFed / SAMPLE_RATE).toFixed(1)}s fed over ${((now - t0) / 1000).toFixed(1)}s wall clock`)
+        vdiag(`audio in: ${(samplesFed / SAMPLE_RATE).toFixed(1)}s fed over ${((now - t0) / 1000).toFixed(1)}s wall clock`)
         lastFeedLog = now
       }
       segmenter.feed(pcm)

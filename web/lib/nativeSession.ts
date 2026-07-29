@@ -154,7 +154,16 @@ export async function startNativeSession(
       // "transcriber ready after 0 ms" - were being dropped here. They are the
       // difference between "the model was not loaded" and "the worker was
       // busy", which are opposite problems with opposite fixes.
-      console.info('[demist][native]', msg.payload.message)
+      //
+      // Verbose ones are the exception. The per-5-second bridge and worker
+      // reports, and the per-segment timings, were built to hunt a specific
+      // bug and they emit 3-4 lines every five seconds - about 2500 lines an
+      // hour, which is not "low volume" and buries the lifecycle lines above
+      // that this branch exists for. Those go through dlog, so they are still
+      // one localStorage flag away (demist_debug = '1') without shipping a
+      // flooded console to every user.
+      if (msg.payload.verbose) dlog('[demist][native]', msg.payload.message)
+      else console.info('[demist][native]', msg.payload.message)
     } else if (msg.event === 'sessionLost') {
       callbacks.onError?.(msg.payload.message ?? 'On-device transcription stopped unexpectedly.')
     }
