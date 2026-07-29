@@ -178,6 +178,18 @@ export default function LandingClient() {
   // INSERT but no SELECT, so this can be written to but never read back out).
   const [waitEmail, setWaitEmail] = useState('')
   const [waitState, setWaitState] = useState<'idle' | 'saving' | 'done' | 'error'>('idle')
+  // The banner is dismissible and stays dismissed. A bar pinned over every
+  // scroll position is only acceptable if it can be got rid of once.
+  const [bannerOpen, setBannerOpen] = useState(false)
+  const bannerInputRef = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    try { setBannerOpen(localStorage.getItem('demist_pro_banner_dismissed') !== '1') }
+    catch { setBannerOpen(true) }
+  }, [])
+  const dismissBanner = () => {
+    setBannerOpen(false)
+    try { localStorage.setItem('demist_pro_banner_dismissed', '1') } catch { /* private mode */ }
+  }
 
   const joinWaitlist = async () => {
     const email = waitEmail.trim()
@@ -200,6 +212,95 @@ export default function LandingClient() {
 
   return (
     <main className="relative overflow-x-hidden" style={{ background: 'var(--bg)', color: 'var(--fg)' }}>
+
+      {/* ── Pro waitlist banner ──
+          FIXED rather than sticky, deliberately: <main> above carries
+          overflow-x-hidden, which makes it the nearest scrolling ancestor and
+          silently breaks position:sticky for anything inside it. Fixed always
+          works, at the cost of needing the spacer below to keep the nav clear.
+          Dismissible, and dismissal persists - a bar pinned over every scroll
+          position has to be losable. */}
+      {bannerOpen && (
+        <div
+          className="fixed top-0 left-0 right-0 z-50"
+          style={{
+            background: 'var(--surface-2)',
+            borderBottom: '1px solid var(--border)',
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)',
+          }}
+        >
+          <div className="mx-auto max-w-6xl px-4 sm:px-8 h-[52px] flex items-center gap-3">
+            <span
+              aria-hidden
+              className="hidden sm:inline-block w-1.5 h-1.5 rounded-full shrink-0"
+              style={{ background: 'var(--accent)' }}
+            />
+            {waitState === 'done' ? (
+              <p className="flex-1 text-[13px] font-medium truncate" style={{ color: 'var(--accent)' }}>
+                You&apos;re on the Pro waitlist. We&apos;ll email you once, when it&apos;s ready.
+              </p>
+            ) : (
+              <>
+                <p className="flex-1 min-w-0 text-[13px] truncate">
+                  <span className="font-semibold">Demist Pro is coming.</span>
+                  <span className="hidden sm:inline" style={{ color: 'var(--fg-muted)' }}>
+                    {' '}Longer lectures, unlimited exports, priority on new features.
+                  </span>
+                </p>
+
+                {/* Inline form from sm up, where there is room for it. */}
+                <input
+                  ref={bannerInputRef}
+                  type="email"
+                  value={waitEmail}
+                  onChange={e => { setWaitEmail(e.target.value); if (waitState === 'error') setWaitState('idle') }}
+                  onKeyDown={e => { if (e.key === 'Enter') joinWaitlist() }}
+                  placeholder="your@email.com"
+                  aria-label="Email address for the Pro waitlist"
+                  className="hidden sm:block w-[190px] rounded-xl px-3 py-1.5 text-[13px] focus:outline-none"
+                  style={{ background: 'var(--bg)', border: `1px solid ${waitState === 'error' ? '#ef4444' : 'var(--border)'}`, color: 'var(--fg)' }}
+                />
+                {/* Deliberately NOT disabled on an empty field. This bar exists
+                    to be noticed, and a permanently greyed-out button is the
+                    opposite of that - it read as broken in a screenshot before
+                    anything had been typed. With nothing entered it puts the
+                    cursor in the field instead, which is what the click meant. */}
+                <button
+                  onClick={() => { if (waitEmail.trim()) joinWaitlist(); else bannerInputRef.current?.focus() }}
+                  disabled={waitState === 'saving'}
+                  className="hidden sm:block px-4 py-1.5 rounded-xl text-[13px] font-semibold text-white whitespace-nowrap transition-all active:scale-[0.97] disabled:opacity-40"
+                  style={{ background: 'var(--accent)' }}
+                >
+                  {waitState === 'saving' ? 'Joining…' : 'Join'}
+                </button>
+
+                {/* Below sm there is no room for a field, so send them to the
+                    full section rather than cramming one in. */}
+                <a
+                  href="#pro-waitlist"
+                  className="sm:hidden px-3.5 py-1.5 rounded-xl text-[12px] font-semibold text-white whitespace-nowrap"
+                  style={{ background: 'var(--accent)' }}
+                >
+                  Join
+                </a>
+              </>
+            )}
+            <button
+              onClick={dismissBanner}
+              aria-label="Dismiss the Pro waitlist banner"
+              className="shrink-0 w-7 h-7 -mr-1 rounded-lg flex items-center justify-center text-[16px] leading-none transition-opacity hover:opacity-100 opacity-50"
+              style={{ color: 'var(--fg)' }}
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
+      {/* Keeps the nav clear of the fixed bar above. 53, not 52: the bar is a
+          52px row PLUS its 1px bottom border, and at 52 the border sat over
+          the top pixel of the nav. */}
+      {bannerOpen && <div aria-hidden className="h-[53px]" />}
 
       {/* Fixed ambient glows */}
       <div aria-hidden className="pointer-events-none fixed inset-0 overflow-hidden z-0">
@@ -614,7 +715,13 @@ export default function LandingClient() {
             Sits under the main CTA on purpose: "get started free" is still the
             action we want from most visitors, and this must not compete with
             it. No account needed to join. */}
-        <div className="mt-14 pt-10 mx-auto max-w-md" style={{ borderTop: '1px solid var(--border)' }}>
+        <div
+          id="pro-waitlist"
+          className="mt-14 pt-10 mx-auto max-w-md"
+          // scrollMarginTop clears the fixed banner, so jumping here from it
+          // does not land with the heading tucked underneath.
+          style={{ borderTop: '1px solid var(--border)', scrollMarginTop: '72px' }}
+        >
           <p className="text-[13px] font-semibold mb-1.5">Demist Pro is coming</p>
           <p className="text-[13px] mb-4 leading-relaxed" style={{ color: 'var(--fg-muted)' }}>
             Longer lectures, unlimited flashcard exports and priority on new features.
