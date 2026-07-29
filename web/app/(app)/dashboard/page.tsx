@@ -65,6 +65,7 @@ export default function Dashboard() {
   const [transcriptView, setTranscriptView] = useState<'both' | 'source' | 'translated'>('both')
   const [showSubjectInput, setShowSubjectInput] = useState(false)
   const [tabCaptureSupportedState, setTabCaptureSupportedState] = useState(false)
+  const [isScrolledUp, setIsScrolledUp] = useState(false)
 
   const ring1Ref = useRef<HTMLSpanElement | null>(null)
   const ring2Ref = useRef<HTMLSpanElement | null>(null)
@@ -72,6 +73,7 @@ export default function Dashboard() {
   const barsRef = useRef<HTMLDivElement | null>(null)
   const btnRef = useRef<HTMLButtonElement | null>(null)
   const transcriptContainerRef = useRef<HTMLDivElement | null>(null)
+  const autoScrollRef = useRef(true)
 
   useEffect(() => {
     if (!isRecording) return
@@ -109,6 +111,13 @@ export default function Dashboard() {
     }
   }, [isRecording, vizAnalyserRef, chunkPeakRef])
 
+  // Stick to the newest line as it arrives, unless the reader has scrolled up.
+  useEffect(() => {
+    if (!autoScrollRef.current) return
+    const el = transcriptContainerRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [sentences, translatedSentences, transcriptView])
+
   useEffect(() => {
     setTabCaptureSupportedState(tabCaptureSupported())
     const savedView = localStorage.getItem('demist_transcript_view')
@@ -136,10 +145,26 @@ export default function Dashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [localTranslate.status])
 
-  // ── Live transcript: term highlighting, term-card re-open ──
-  // No scroll handling: the panel shows a fixed window of recent lines and
-  // cannot overflow, so there is nothing to scroll, stick to the bottom of, or
-  // offer a "back to live" button for.
+  // ── Live transcript: scroll handling, term highlighting, term-card re-open ──
+  // The panel keeps the WHOLE transcript and scrolls, but only the last few
+  // lines are visible while you are following the speaker (see the fade ladder
+  // in globals.css). Scrolling up hands the panel over to reading: every line
+  // goes to full opacity and auto-follow stops until "back to live".
+
+  const handleTranscriptScroll = () => {
+    const el = transcriptContainerRef.current
+    if (!el) return
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 32
+    autoScrollRef.current = atBottom
+    setIsScrolledUp(prev => (prev === !atBottom ? prev : !atBottom))
+  }
+
+  const scrollToLive = () => {
+    const el = transcriptContainerRef.current
+    if (el) el.scrollTop = el.scrollHeight
+    autoScrollRef.current = true
+    setIsScrolledUp(false)
+  }
 
   const openTermCard = (term: string) => {
     const entry = sessionGlossary.find(g => g.term.toLowerCase() === term.toLowerCase())
@@ -152,13 +177,13 @@ export default function Dashboard() {
     }, 8000)
   }
 
-  // How many lines the live transcript shows at once. Matches the number of
-  // steps the fade ladder defines in globals.css (data-age 0 through 5) - the
-  // ladder and the window have to be the same length, or the extra lines all
-  // pile up at the last opacity step and the panel starts scrolling.
-  const LIVE_WINDOW = 6
-  const liveStart = Math.max(0, sentences.length - LIVE_WINDOW)
-  const liveSentences = sentences.slice(liveStart)
+  // Depth of the fade ladder. globals.css styles ages 0-5 and HIDES age 6, so
+  // clamping here at 6 means "older than the ladder" collapses to one hidden
+  // step instead of every old line sitting at the last visible opacity - which
+  // is what turned the panel into a wall of ghost text. Nothing is dropped
+  // from the DOM: the whole transcript is still scrollable.
+  const FADE_DEPTH = 6
+  const ageOf = (index: number) => Math.min(sentences.length - 1 - index, FADE_DEPTH)
 
   const handleTranscriptClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement
@@ -371,38 +396,39 @@ export default function Dashboard() {
                     lines as the ladder has steps is what makes it a ladder. */}
                 <div
                   ref={transcriptContainerRef}
+                  onScroll={handleTranscriptScroll}
                   onClick={handleTranscriptClick}
-                  className="transcript-container flex-1 min-h-0 overflow-hidden flex flex-col justify-end"
+                  className={`transcript-container flex-1 min-h-0 overflow-y-auto ${isScrolledUp ? 'scrolled-up' : ''}`}
                 >
                   {sentences.length === 0 && (
                     <p className="text-[13px] text-gray-700 italic">Transcription will appear here as you speak…</p>
                   )}
                   {profile?.translate_to && liveTranslateAvailable && transcriptView === 'both' && (
                     <TranscriptBilingual
-                      pairs={liveSentences.map((s, i) => ({
+                      pairs={sentences.map((s, i) => ({
                         srcHtml: highlightTerms(s),
-                        tgt: translatedSentences[liveStart + i] ?? null,
+                        tgt: translatedSentences[i] ?? null,
                       }))}
                       lang={profile.translate_to}
                     />
                   )}
                   {(!profile?.translate_to || !liveTranslateAvailable || transcriptView === 'source') && (
-                    liveSentences.map((sentence, i) => (
+                    sentences.map((sentence, i) => (
                       <p
-                        key={liveStart + i}
-                        data-age={liveSentences.length - 1 - i}
+                        key={i}
+                        data-age={ageOf(i)}
                         className="text-[calc(0.875rem*var(--df-scale))] leading-relaxed mb-1 transition-opacity duration-500"
                         dangerouslySetInnerHTML={{ __html: highlightTerms(sentence) }}
                       />
                     ))
                   )}
                   {profile?.translate_to && liveTranslateAvailable && transcriptView === 'translated' && (
-                    liveSentences.map((_, i) => {
-                      const tgt = translatedSentences[liveStart + i]
+                    sentences.map((_, i) => {
+                      const tgt = translatedSentences[i]
                       return (
                         <p
-                          key={liveStart + i}
-                          data-age={liveSentences.length - 1 - i}
+                          key={i}
+                          data-age={ageOf(i)}
                           dir={profile.translate_to === 'ar' ? 'rtl' : undefined}
                           className="text-[calc(0.875rem*var(--df-scale))] leading-relaxed mb-1 transition-opacity duration-500 dark:text-amber-300/80 text-amber-700"
                         >
@@ -412,6 +438,14 @@ export default function Dashboard() {
                     })
                   )}
                 </div>
+                {isScrolledUp && (
+                  <button
+                    onClick={scrollToLive}
+                    className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 bg-amber-500 text-white text-[12px] font-medium px-3.5 py-1.5 rounded-full shadow-lg"
+                  >
+                    back to live ↓
+                  </button>
+                )}
               </div>
             </div>
 

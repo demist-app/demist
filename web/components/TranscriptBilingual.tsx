@@ -44,11 +44,13 @@ export function TranscriptBilingual({
   return (
     <>
       {pairs.map((p, i) => (
-        // Matches the single-language views' `Math.min(length - 1 - i, 5)`:
-        // the fade ladder in globals.css only defines ages 0 through 5.
+        // Matches the single-language views' `Math.min(length - 1 - i, 6)`:
+        // globals.css fades ages 0-5 and hides age 6, which is every line
+        // older than the live ladder. They are still in the DOM and become
+        // readable the moment the container is scrolled up (.scrolled-up).
         <div
           key={i}
-          data-age={Math.min(pairs.length - 1 - i, 5)}
+          data-age={Math.min(pairs.length - 1 - i, 6)}
           className="mb-2 transition-opacity duration-500"
         >
           <p

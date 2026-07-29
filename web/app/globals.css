@@ -231,8 +231,16 @@ button, a {
 .transcript-container [data-age="3"] { opacity: 0.30; }
 .transcript-container [data-age="4"] { opacity: 0.15; }
 .transcript-container [data-age="5"] { opacity: 0.10; }
-/* The panel no longer scrolls, so there is no scrolled-up state to undo the
-   fade for. Kept out deliberately rather than left as a rule nothing matches. */
+/* Age 6 is every line older than the ladder. Hidden rather than dimmed: at
+   0.10 they piled up as a wall of ghost text you had to scroll past, which is
+   what made the panel look untidy. They stay in the DOM, so the full
+   transcript is still there to scroll back through - see .scrolled-up. */
+.transcript-container [data-age="6"] { opacity: 0; }
+/* Reading back is not watching live: the fade exists to show where "now" is,
+   and stops being useful the moment you scroll away from it. */
+.transcript-container.scrolled-up [data-age] {
+  opacity: 1;
+}
 .transcript-term {
   color: #f5a623;
   opacity: 1 !important;
