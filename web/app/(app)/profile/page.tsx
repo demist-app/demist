@@ -686,7 +686,7 @@ export default function Profile() {
                 ))}
               </div>
               <p className="text-[12px] text-gray-500 mt-1.5">
-                Tiny (~1.4GB in memory) found the same terms as Small in testing and is the default on machines with under 10GB of RAM. Small (~2.5GB) is the default above that. Large is closer to cloud-quality term detection but needs 8GB+ RAM free and downloads a bigger model on first use. Demist picks a default from your machine&apos;s memory; choosing here overrides it.
+                Small (~2.5GB in memory) is the default on machines with 8GB of RAM or more. Tiny (~1.4GB) is the default below that; it finds the same terms but is looser about ordinary speech, so it double-checks each one before showing a card. Large is closer to cloud-quality term detection but needs 8GB+ RAM free and downloads a bigger model on first use. Demist picks a default from your machine&apos;s memory; choosing here overrides it.
               </p>
               {/* Required by the Llama 3.2/3.1 Community License's redistribution
                   terms: "prominently display 'Built with Llama'". This is the
