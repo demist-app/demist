@@ -50,18 +50,16 @@ win:
   icon: ../web/public/icon-512.png
 
 appx:
-  # Both of these are assigned by Microsoft when you reserve the app name in
-  # Partner Center (Microsoft Store account): placeholders until then.
-  # https://partner.microsoft.com
-  # PLACEHOLDERS - BOTH MUST BE REPLACED WITH THE REAL VALUES FROM PARTNER
-  # CENTER BEFORE SUBMISSION. They are in a syntactically valid form only so
-  # the build can complete and be size-checked and installed locally; the
-  # previous REPLACE_WITH_... strings failed packaging outright because
-  # identityName rejects underscores. A package built with these will be
-  # refused at submission, since the publisher must match the account's own
-  # certificate, so this cannot be shipped by accident.
-  identityName: Demist.PlaceholderReplaceBeforeSubmission
-  publisher: CN=00000000-0000-0000-0000-000000000000
+  # Assigned by Microsoft when the app name was reserved in Partner Center, and
+  # copied verbatim from Product management -> Product identity. These are not
+  # editable values: identityName and publisher must match the account's own
+  # certificate exactly or the package is rejected at upload.
+  #
+  # The publisher GUID looking nothing like a name is correct and deliberate -
+  # it is the account's identity, not a display string. PublisherDisplayName
+  # below is the human-readable one.
+  identityName: Demist.Demist
+  publisher: CN=99817A35-A5E3-4E7A-8F44-601153999894
   publisherDisplayName: Demist
   displayName: Demist
   # microphone: mic recording is the app's core feature. runFullTrust is
