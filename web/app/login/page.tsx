@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
+import { isElectronNative } from '@/lib/electronNative'
 import posthog from 'posthog-js'
 
 type Step = 'email' | 'code'
@@ -59,12 +60,54 @@ export default function Login() {
   const [resent, setResent] = useState(false)
   const [resendCooldown, setResendCooldown] = useState(0)
   const codeRef = useRef<HTMLInputElement>(null)
+  // Desktop only. On the web an account is the whole point (it syncs across
+  // the machines someone actually uses), but the desktop app processes
+  // everything on-device and never sends a lecture anywhere - so demanding an
+  // email before it will do anything is asking for a signup in exchange for
+  // nothing the user can see. Resolved in an effect rather than inline because
+  // window.demistNative does not exist during server rendering.
+  const [isDesktop, setIsDesktop] = useState(false)
+  const [guestLoading, setGuestLoading] = useState(false)
 
   useEffect(() => {
+    setIsDesktop(isElectronNative())
     createClient().auth.getSession().then(({ data }) => {
       if (data.session?.user) router.replace('/dashboard')
     })
   }, [])
+
+  // Start with no email at all.
+  //
+  // signInAnonymously mints a real user with a real auth.uid() and no email,
+  // which is why this needs no schema or policy work: every RLS policy in
+  // backend/supabase/migrations is `auth.uid() = user_id`, and the
+  // on_auth_user_created trigger inserts profiles(id) without touching email.
+  // Sessions, terms, flashcards, glossary, streaks and stats all just work.
+  //
+  // The catch, and it is a real one: with no email there is no recovery. If
+  // this device's storage is cleared the account and everything in it is gone.
+  // Settings offers adding an email later, which UPGRADES this same user id
+  // rather than creating a second account, so nothing has to be migrated.
+  const handleGuestStart = async () => {
+    setGuestLoading(true)
+    setError('')
+    const supabase = createClient()
+    const { data, error } = await supabase.auth.signInAnonymously()
+    if (error || !data.session) {
+      // The most likely cause by far is anonymous sign-ins being switched off
+      // for the Supabase project, which is a dashboard setting and produces a
+      // 422 that means nothing to a user.
+      console.error('anonymous sign-in failed:', error)
+      setError("Couldn't start without an account. Try signing in with an email instead.")
+      posthog.capture('guest_start_failed', { error_message: error?.message })
+      setGuestLoading(false)
+      return
+    }
+    posthog.capture('guest_start')
+    // Same routing the email path uses: straight to onboarding, since a brand
+    // new anonymous user has no course or year yet.
+    router.replace('/onboarding')
+  }
 
   useEffect(() => {
     if (step === 'code') setTimeout(() => codeRef.current?.focus(), 80)
@@ -162,11 +205,42 @@ export default function Login() {
           <div className="animate-step">
             <p className="text-[12px] dark:text-white/40 text-gray-500 mb-3">Real-time term detection for lectures</p>
             <h1 className="text-[30px] sm:text-[36px] font-bold tracking-tight leading-tight mb-2">
-              Sign in
+              {isDesktop ? 'Get started' : 'Sign in'}
             </h1>
             <p className="text-gray-700 mb-8">
-              We&apos;ll send a code to your email, no password needed.
+              {isDesktop
+                ? 'Demist runs entirely on this computer. Nothing you record is ever sent anywhere, so you don’t need an account to use it.'
+                : 'We’ll send a code to your email, no password needed.'}
             </p>
+
+            {isDesktop && (
+              <div className="mb-7">
+                <button
+                  type="button"
+                  onClick={handleGuestStart}
+                  disabled={guestLoading}
+                  className="w-full py-4 rounded-2xl text-[15px] font-semibold text-white disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-[0.97]"
+                  style={{ background: 'var(--accent)' }}
+                >
+                  {guestLoading ? 'Setting up…' : 'Start without an account'}
+                </button>
+                <p className="text-[12px] text-gray-500 mt-2.5 leading-relaxed">
+                  Everything stays on this computer. You can add an email later in Settings
+                  to keep your cards if you reinstall or switch machines.
+                </p>
+                <div className="flex items-center gap-3 mt-7 mb-1">
+                  <span className="h-px flex-1 dark:bg-white/[0.09] bg-black/[0.09]" />
+                  <span className="text-[11px] uppercase tracking-[0.15em] text-gray-500">or</span>
+                  <span className="h-px flex-1 dark:bg-white/[0.09] bg-black/[0.09]" />
+                </div>
+              </div>
+            )}
+
+            {isDesktop && (
+              <p className="text-[13px] text-gray-600 mb-3">
+                Already have an account? Sign in to pull your cards onto this computer.
+              </p>
+            )}
 
             <form onSubmit={handleSendCode} className="flex flex-col gap-3">
               <input
@@ -174,18 +248,28 @@ export default function Login() {
                 value={email}
                 onChange={e => { setEmail(e.target.value); if (error) setError('') }}
                 placeholder="your@email.com"
-                autoFocus
+                // Not on desktop: autofocusing the email field there drags
+                // attention straight past the "no account needed" option that
+                // is meant to be the answer for most people.
+                autoFocus={!isDesktop}
                 required
                 className="w-full dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.1] border-black/[0.15] rounded-2xl px-5 py-4 dark:text-white text-gray-900 text-[15px] placeholder-gray-500 focus:outline-none transition-all"
                 style={{ '--tw-ring-color': 'var(--accent)' } as React.CSSProperties}
                 onFocus={e => (e.target.style.borderColor = 'var(--accent)')}
                 onBlur={e => (e.target.style.borderColor = '')}
               />
+              {/* Secondary on desktop: "start without an account" is the
+                  primary action there, and two accent-filled buttons would
+                  give the user no steer at all. */}
               <button
                 type="submit"
                 disabled={loading || !email.trim()}
-                className="py-4 rounded-2xl text-[15px] font-semibold text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-[0.97]"
-                style={{ background: 'var(--accent)' }}
+                className={`py-4 rounded-2xl text-[15px] font-semibold disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-[0.97] ${
+                  isDesktop
+                    ? 'dark:bg-white/[0.06] bg-[#F6F5F2] border dark:border-white/[0.12] border-black/[0.15] dark:text-white text-gray-900'
+                    : 'text-white'
+                }`}
+                style={isDesktop ? undefined : { background: 'var(--accent)' }}
               >
                 {loading ? 'Sending…' : 'Send code'}
               </button>

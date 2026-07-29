@@ -87,6 +87,52 @@ export default function Profile() {
   const [tierChanging, setTierChanging] = useState(false)
   const [transcribeTier, setTranscribeTier] = useState<'fast' | 'accurate'>('fast')
   const [transcribeTierChanging, setTranscribeTierChanging] = useState(false)
+  // Whether this user was created with signInAnonymously (see login/page.tsx).
+  // Supabase exposes it as a real claim on the user, so it stays correct after
+  // an email is linked without anything here having to track state.
+  const [isAnonymous, setIsAnonymous] = useState(false)
+  const [linkStep, setLinkStep] = useState<'email' | 'code' | 'done'>('email')
+  const [linkEmail, setLinkEmail] = useState('')
+  const [linkCode, setLinkCode] = useState('')
+  const [linkBusy, setLinkBusy] = useState(false)
+  const [linkError, setLinkError] = useState<string | null>(null)
+
+  // Attaches an email to an EXISTING anonymous user rather than creating a
+  // second account, so nothing has to be migrated: same auth.uid(), so every
+  // row already keyed to it (sessions, terms, flashcards) is untouched.
+  const handleSendLink = async () => {
+    setLinkBusy(true)
+    setLinkError(null)
+    const { error } = await createClient().auth.updateUser({ email: linkEmail.trim() })
+    if (error) {
+      setLinkError(error.message)
+    } else {
+      setLinkStep('code')
+    }
+    setLinkBusy(false)
+  }
+
+  const handleVerifyLink = async () => {
+    setLinkBusy(true)
+    setLinkError(null)
+    // 'email_change', not 'email': attaching an address to an account that had
+    // none is still an email CHANGE as far as Supabase is concerned.
+    const { error } = await createClient().auth.verifyOtp({
+      email: linkEmail.trim(),
+      token: linkCode,
+      type: 'email_change',
+    })
+    if (error) {
+      setLinkError(error.message)
+      setLinkBusy(false)
+      return
+    }
+    capture('guest_account_linked')
+    setLinkStep('done')
+    setIsAnonymous(false)
+    setProfile(p => (p ? { ...p, email: linkEmail.trim() } : p))
+    setLinkBusy(false)
+  }
 
   // Account deletion state
   const [showDeleteModal, setShowDeleteModal] = useState(false)
@@ -101,6 +147,7 @@ export default function Profile() {
       const user = session?.user
       if (!user) return
       setUserId(user.id)
+      setIsAnonymous(user.is_anonymous === true)
 
       const [
         { data: prof },
@@ -393,9 +440,77 @@ export default function Profile() {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-[17px] font-bold truncate">{displayName || 'No name set'}</p>
-            <p className="text-[13px] text-gray-700 truncate">{profile.email}</p>
+            <p className="text-[13px] text-gray-700 truncate">
+              {profile.email || 'No account — this device only'}
+            </p>
           </div>
         </div>
+
+        {/* Anonymous users have no way back in if this device's storage is
+            cleared, so this is the one prompt worth making unmissable. It
+            upgrades the SAME user id (supabase updateUser + verifyOtp with
+            type 'email_change'), so every card, session and streak carries
+            over and there is nothing to migrate. */}
+        {isAnonymous && (
+          <div className="rounded-2xl px-4 py-4 dark:bg-amber-500/[0.07] bg-amber-50 border dark:border-amber-500/20 border-amber-300/70 animate-step opacity-0" style={{ animationDelay: '10ms', animationFillMode: 'forwards' }}>
+            <p className="text-[14px] font-semibold mb-1">Back up your account</p>
+            <p className="text-[13px] text-gray-700 leading-relaxed mb-3">
+              You&apos;re using Demist without an account, so everything lives on this
+              computer only. Add an email and your terms, flashcards and streak survive a
+              reinstall or a new machine. Your lectures still never leave this device.
+            </p>
+            {linkStep === 'done' ? (
+              <p className="text-[13px] font-medium text-green-600 dark:text-green-400">Email added. Your account is backed up.</p>
+            ) : linkStep === 'code' ? (
+              <div className="flex flex-col gap-2">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={linkCode}
+                  onChange={e => setLinkCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="6-digit code"
+                  className="w-full dark:bg-white/[0.05] bg-white border dark:border-white/[0.1] border-black/[0.15] rounded-xl px-4 py-2.5 text-[15px] font-mono tracking-[0.2em] text-center focus:outline-none"
+                />
+                <p className="text-[12px] text-gray-600">Sent to {linkEmail}</p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleVerifyLink}
+                    disabled={linkBusy || linkCode.length < 6}
+                    className="flex-1 py-2.5 rounded-xl text-[13px] font-semibold text-white disabled:opacity-40 transition-all"
+                    style={{ background: 'var(--accent)' }}
+                  >
+                    {linkBusy ? 'Verifying…' : 'Confirm'}
+                  </button>
+                  <button
+                    onClick={() => { setLinkStep('email'); setLinkCode(''); setLinkError(null) }}
+                    className="px-4 py-2.5 rounded-xl text-[13px] font-medium dark:bg-white/[0.06] bg-white border dark:border-white/[0.12] border-black/[0.12]"
+                  >
+                    Back
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  type="email"
+                  value={linkEmail}
+                  onChange={e => setLinkEmail(e.target.value)}
+                  placeholder="your@email.com"
+                  className="flex-1 dark:bg-white/[0.05] bg-white border dark:border-white/[0.1] border-black/[0.15] rounded-xl px-4 py-2.5 text-[14px] focus:outline-none"
+                />
+                <button
+                  onClick={handleSendLink}
+                  disabled={linkBusy || !linkEmail.trim()}
+                  className="py-2.5 px-5 rounded-xl text-[13px] font-semibold text-white disabled:opacity-40 transition-all whitespace-nowrap"
+                  style={{ background: 'var(--accent)' }}
+                >
+                  {linkBusy ? 'Sending…' : 'Send code'}
+                </button>
+              </div>
+            )}
+            {linkError && <p className="text-[12px] text-red-500 mt-2">{linkError}</p>}
+          </div>
+        )}
 
         {/* All-time stats */}
         <div className="grid grid-cols-3 gap-2 animate-step opacity-0" style={{ animationDelay: '20ms', animationFillMode: 'forwards' }}>
