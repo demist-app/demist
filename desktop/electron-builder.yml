@@ -33,11 +33,35 @@ files:
   # even if the directory reappears. Models are downloaded at runtime to
   # ~/.demist and must never be bundled.
   - "!node_modules/@huggingface/transformers/.cache${/*}"
+# Everything the workers touch has to live OUTSIDE the asar, and that means
+# every transitive dependency too, not just the packages named directly.
+#
+# The three workers are forked child processes running
+# app.asar.unpacked/native/worker.js (a child process cannot execute a script
+# from inside an asar). Node resolves modules by walking up from the script's
+# own directory, so from there it looks in app.asar.unpacked/node_modules and
+# then leaves the app entirely - it NEVER looks inside app.asar/node_modules.
+#
+# Listing only onnxruntime-node and @huggingface/transformers therefore
+# shipped a package where transcription could not start at all:
+#
+#     Error occurred in handler for 'demist:preloadWhisper':
+#     Error: Cannot find module 'onnxruntime-common'
+#
+# onnxruntime-common is a dependency OF onnxruntime-node, was left inside the
+# asar, and was unreachable. Caught by running the built exe rather than by
+# reading this file; nothing in the build output hinted at it, and the app
+# started and looked healthy right up until a recording produced no text.
+#
+# Unpacking node_modules wholesale rather than chasing the dependency closure
+# is deliberate: the closure has to be re-derived every time a dependency
+# updates, a single miss is another silently broken build, and the cost here is
+# only file count - the bytes are identical and the .appx compresses either
+# way. Correctness over tidiness for something that cannot be checked by
+# looking at it.
 asarUnpack:
   - native/**/*
-  - node_modules/onnxruntime-node/**/*
-  - node_modules/node-llama-cpp/**/*
-  - "node_modules/@huggingface/transformers/**/*"
+  - node_modules/**/*
 
 # Target is "appx", not "msix": confirmed by an actual build attempt that
 # the installed electron-builder (26.15.3) only ships AppXOptions, not

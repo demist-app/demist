@@ -74,10 +74,10 @@ export default function Onboarding() {
   }
 
   return (
-    <main className="relative min-h-dvh bg-[#080810] text-white flex items-center justify-center px-6 overflow-y-auto py-12">
+    <main className="relative min-h-dvh dark:bg-[#080810] bg-[#EDEAE3] dark:text-white text-gray-900 flex items-center justify-center px-6 overflow-y-auto py-12">
       {/* Background glow */}
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-        <div className="w-[800px] h-[800px] rounded-full bg-amber-600/[0.07] blur-[140px]" />
+        <div className="w-[800px] h-[800px] rounded-full dark:bg-amber-600/[0.07] bg-yellow-500/[0.12] blur-[140px]" />
       </div>
 
       <div className="relative w-full max-w-[420px]">
@@ -92,7 +92,7 @@ export default function Onboarding() {
             <h1 className="text-[32px] sm:text-[38px] font-bold tracking-tight leading-tight mb-2">
               What are you<br />studying?
             </h1>
-            <p className="text-gray-500 mb-8">
+            <p className="dark:text-gray-500 text-gray-600 mb-8">
               We use this to get explanations at the right level.
             </p>
 
@@ -103,7 +103,7 @@ export default function Onboarding() {
               onKeyDown={e => e.key === 'Enter' && course.trim() && setStep(2)}
               placeholder="e.g. Molecular Biology, Computer Science…"
               autoFocus
-              className="w-full bg-white/[0.05] border border-white/[0.1] rounded-2xl px-5 py-4 text-white text-[15px] placeholder-gray-600 focus:outline-none focus:border-amber-500/50 focus:bg-white/[0.07] transition-all"
+              className="w-full dark:bg-white/[0.05] bg-[#FAF9F6] border dark:border-white/[0.1] border-black/[0.15] rounded-2xl px-5 py-4 dark:text-white text-gray-900 text-[15px] placeholder-gray-500 focus:outline-none focus:border-amber-500/50 transition-all"
             />
 
             <button
@@ -121,7 +121,7 @@ export default function Onboarding() {
             <h1 className="text-[32px] sm:text-[38px] font-bold tracking-tight leading-tight mb-2">
               What year<br />are you in?
             </h1>
-            <p className="text-gray-500 mb-8">
+            <p className="dark:text-gray-500 text-gray-600 mb-8">
               So we get the depth just right.
             </p>
 
@@ -133,7 +133,7 @@ export default function Onboarding() {
                   className={`py-4 rounded-2xl text-[15px] font-medium transition-all ${
                     year === value
                       ? 'bg-amber-600 border border-amber-400/40 text-white shadow-[0_0_24px_rgba(245,158,11,0.35)]'
-                      : 'bg-white/[0.05] border border-white/[0.08] text-gray-300 hover:bg-white/[0.09] hover:border-white/[0.15]'
+                      : 'dark:bg-white/[0.05] bg-[#FAF9F6] border dark:border-white/[0.08] border-black/[0.12] dark:text-gray-300 text-gray-700 dark:hover:bg-white/[0.09] hover:bg-white hover:border-black/[0.2] dark:hover:border-white/[0.15]'
                   }`}
                 >
                   {label}
@@ -144,7 +144,7 @@ export default function Onboarding() {
             <div className="flex gap-2.5 mt-4">
               <button
                 onClick={() => setStep(1)}
-                className="px-6 py-4 rounded-2xl text-[15px] font-medium bg-white/[0.05] border border-white/[0.08] text-gray-400 hover:bg-white/[0.09] transition-all"
+                className="px-6 py-4 rounded-2xl text-[15px] font-medium dark:bg-white/[0.05] bg-[#FAF9F6] border dark:border-white/[0.08] border-black/[0.12] dark:text-gray-400 text-gray-700 dark:hover:bg-white/[0.09] hover:bg-white transition-all"
               >
                 ←
               </button>
@@ -165,7 +165,7 @@ export default function Onboarding() {
             <h1 className="text-[32px] sm:text-[38px] font-bold tracking-tight leading-tight mb-2">
               Does anything make<br />lectures harder to follow?
             </h1>
-            <p className="text-gray-500 mb-8">
+            <p className="dark:text-gray-500 text-gray-600 mb-8">
               This tailors Demist to you. You can change it anytime in settings.
             </p>
 
@@ -177,7 +177,7 @@ export default function Onboarding() {
                   className={`w-full py-4 px-5 rounded-2xl text-[15px] font-medium text-left transition-all ${
                     supportNeed === value
                       ? 'bg-amber-600 border border-amber-400/40 text-white shadow-[0_0_24px_rgba(245,158,11,0.35)]'
-                      : 'bg-white/[0.05] border border-white/[0.08] text-gray-300 hover:bg-white/[0.09] hover:border-white/[0.15]'
+                      : 'dark:bg-white/[0.05] bg-[#FAF9F6] border dark:border-white/[0.08] border-black/[0.12] dark:text-gray-300 text-gray-700 dark:hover:bg-white/[0.09] hover:bg-white hover:border-black/[0.2] dark:hover:border-white/[0.15]'
                   }`}
                 >
                   {label}
@@ -188,7 +188,7 @@ export default function Onboarding() {
             <div className="flex gap-2.5 mt-4">
               <button
                 onClick={() => setStep(2)}
-                className="px-6 py-4 rounded-2xl text-[15px] font-medium bg-white/[0.05] border border-white/[0.08] text-gray-400 hover:bg-white/[0.09] transition-all"
+                className="px-6 py-4 rounded-2xl text-[15px] font-medium dark:bg-white/[0.05] bg-[#FAF9F6] border dark:border-white/[0.08] border-black/[0.12] dark:text-gray-400 text-gray-700 dark:hover:bg-white/[0.09] hover:bg-white transition-all"
               >
                 ←
               </button>
@@ -209,23 +209,23 @@ export default function Onboarding() {
             <h1 className="text-[32px] sm:text-[38px] font-bold tracking-tight leading-tight mb-2">
               When&apos;s your<br />birthday?
             </h1>
-            <p className="text-gray-500 mb-1">
+            <p className="dark:text-gray-500 text-gray-600 mb-1">
               We use this to keep Demist age-appropriate. We never share it.
             </p>
-            <p className="text-[12px] text-gray-600 mb-6">Optional: you can skip this.</p>
+            <p className="text-[12px] dark:text-gray-600 text-gray-500 mb-6">Optional: you can skip this.</p>
             <input
               type="date"
               value={dob}
               onChange={e => setDob(e.target.value)}
-              className="w-full bg-white/[0.05] border border-white/[0.1] rounded-2xl px-5 py-4 text-white text-[15px] placeholder-gray-600 focus:outline-none focus:border-amber-500/50 focus:bg-white/[0.07] transition-all"
+              className="w-full dark:bg-white/[0.05] bg-[#FAF9F6] border dark:border-white/[0.1] border-black/[0.15] rounded-2xl px-5 py-4 dark:text-white text-gray-900 text-[15px] placeholder-gray-500 focus:outline-none focus:border-amber-500/50 transition-all"
             />
-            <p className="text-[12px] text-gray-500 mt-3 leading-relaxed">
+            <p className="text-[12px] dark:text-gray-500 text-gray-600 mt-3 leading-relaxed">
               Demist&apos;s explanations are AI-generated and occasionally imperfect. Always check anything important against your course materials.
             </p>
             <div className="flex gap-2.5 mt-4">
               <button
                 onClick={() => setStep(3)}
-                className="px-6 py-4 rounded-2xl text-[15px] font-medium bg-white/[0.05] border border-white/[0.08] text-gray-400 hover:bg-white/[0.09] transition-all"
+                className="px-6 py-4 rounded-2xl text-[15px] font-medium dark:bg-white/[0.05] bg-[#FAF9F6] border dark:border-white/[0.08] border-black/[0.12] dark:text-gray-400 text-gray-700 dark:hover:bg-white/[0.09] hover:bg-white transition-all"
               >
                 ←
               </button>
@@ -246,10 +246,10 @@ export default function Onboarding() {
 
         {/* Step dots */}
         <div className="flex items-center gap-2 mt-10">
-          <div className={`h-1 rounded-full transition-all duration-400 ${step === 1 ? 'w-8 bg-amber-500' : 'w-2 bg-white/20'}`} />
-          <div className={`h-1 rounded-full transition-all duration-400 ${step === 2 ? 'w-8 bg-amber-500' : 'w-2 bg-white/20'}`} />
-          <div className={`h-1 rounded-full transition-all duration-400 ${step === 3 ? 'w-8 bg-amber-500' : 'w-2 bg-white/20'}`} />
-          <div className={`h-1 rounded-full transition-all duration-400 ${step === 4 ? 'w-8 bg-amber-500' : 'w-2 bg-white/20'}`} />
+          <div className={`h-1 rounded-full transition-all duration-400 ${step === 1 ? 'w-8 bg-amber-500' : 'w-2 dark:bg-white/20 bg-black/15'}`} />
+          <div className={`h-1 rounded-full transition-all duration-400 ${step === 2 ? 'w-8 bg-amber-500' : 'w-2 dark:bg-white/20 bg-black/15'}`} />
+          <div className={`h-1 rounded-full transition-all duration-400 ${step === 3 ? 'w-8 bg-amber-500' : 'w-2 dark:bg-white/20 bg-black/15'}`} />
+          <div className={`h-1 rounded-full transition-all duration-400 ${step === 4 ? 'w-8 bg-amber-500' : 'w-2 dark:bg-white/20 bg-black/15'}`} />
         </div>
       </div>
     </main>
