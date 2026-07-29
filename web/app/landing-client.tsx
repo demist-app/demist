@@ -171,6 +171,33 @@ export default function LandingClient() {
     router.push(authed ? '/dashboard' : '/login')
   }
 
+  // Pro waitlist. Deliberately does NOT require an account: the whole point is
+  // to measure interest from people who have not signed up, and asking them to
+  // make an account first would only count the ones who already did.
+  // user_id is left unset (see migration 025 - it is nullable, and anon has
+  // INSERT but no SELECT, so this can be written to but never read back out).
+  const [waitEmail, setWaitEmail] = useState('')
+  const [waitState, setWaitState] = useState<'idle' | 'saving' | 'done' | 'error'>('idle')
+
+  const joinWaitlist = async () => {
+    const email = waitEmail.trim()
+    if (!email || waitState === 'saving') return
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { setWaitState('error'); return }
+    setWaitState('saving')
+    const { error } = await createClient()
+      .from('pro_waitlist')
+      .insert({ email, source: 'landing' })
+    // A duplicate is a success from the visitor's point of view: they are on
+    // the list, which is all they asked for. 23505 is unique_violation.
+    if (!error || error.code === '23505') {
+      capture('pro_waitlist_joined', { source: 'landing' })
+      setWaitState('done')
+    } else {
+      console.error('waitlist join failed:', error)
+      setWaitState('error')
+    }
+  }
+
   return (
     <main className="relative overflow-x-hidden" style={{ background: 'var(--bg)', color: 'var(--fg)' }}>
 
@@ -581,6 +608,51 @@ export default function LandingClient() {
           >
             {authed ? 'Open app →' : 'Get started free →'}
           </button>
+        </div>
+
+        {/* ── Pro waitlist ──
+            Sits under the main CTA on purpose: "get started free" is still the
+            action we want from most visitors, and this must not compete with
+            it. No account needed to join. */}
+        <div className="mt-14 pt-10 mx-auto max-w-md" style={{ borderTop: '1px solid var(--border)' }}>
+          <p className="text-[13px] font-semibold mb-1.5">Demist Pro is coming</p>
+          <p className="text-[13px] mb-4 leading-relaxed" style={{ color: 'var(--fg-muted)' }}>
+            Longer lectures, unlimited flashcard exports and priority on new features.
+            Join the waitlist and we&apos;ll email you once, when it&apos;s ready.
+          </p>
+          {waitState === 'done' ? (
+            <p className="text-[14px] font-medium" style={{ color: 'var(--accent)' }}>
+              You&apos;re on the list. We&apos;ll be in touch.
+            </p>
+          ) : (
+            <>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  type="email"
+                  value={waitEmail}
+                  onChange={e => { setWaitEmail(e.target.value); if (waitState === 'error') setWaitState('idle') }}
+                  onKeyDown={e => { if (e.key === 'Enter') joinWaitlist() }}
+                  placeholder="your@email.com"
+                  aria-label="Email address for the Pro waitlist"
+                  className="flex-1 rounded-2xl px-4 py-3 text-[14px] focus:outline-none"
+                  style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--fg)' }}
+                />
+                <button
+                  onClick={joinWaitlist}
+                  disabled={waitState === 'saving' || !waitEmail.trim()}
+                  className="px-6 py-3 rounded-2xl font-semibold text-[14px] transition-all duration-200 active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+                  style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--fg)' }}
+                >
+                  {waitState === 'saving' ? 'Joining…' : 'Join the waitlist'}
+                </button>
+              </div>
+              {waitState === 'error' && (
+                <p className="text-[12px] mt-2" style={{ color: '#ef4444' }}>
+                  That didn&apos;t work. Check the address and try again.
+                </p>
+              )}
+            </>
+          )}
         </div>
       </section>
 
