@@ -18,6 +18,19 @@ const NATIVE_DIR = path.join(__dirname.replace('app.asar', 'app.asar.unpacked'),
 
 const APP_URL = process.env.DEMIST_DESKTOP_URL || 'https://www.demist.app'
 
+// Where the window actually opens. NOT the site root: that is the marketing
+// landing page, so someone who installed the desktop app and signed in months
+// ago still got the pitch for a product they are already running, behind an
+// "Open app →" button they had to click on every single launch. They installed
+// it; that decision is made.
+//
+// Safe for signed-out users too - the (app) layout redirects to /login when
+// there is no session (web/app/(app)/layout.tsx), and Supabase persists the
+// session in this window's own storage, so a returning user lands straight on
+// the dashboard. APP_URL itself stays the ORIGIN, because the permission
+// handlers below compare hostnames against it and the offline page retries it.
+const APP_START_URL = new URL('/dashboard', APP_URL).toString()
+
 // A fingerprint of THIS file, computed from its own bytes at startup. Reported
 // with every session so a log can never again be ambiguous about which build
 // produced it - "did the app get restarted with the fix" has cost a full round
@@ -55,7 +68,7 @@ function createWindow() {
       nodeIntegration: false,
     },
   })
-  mainWindow.loadURL(APP_URL)
+  mainWindow.loadURL(APP_START_URL)
 
   // Without this, an unreachable app URL leaves Chromium's raw
   // "This site can't be reached" page sitting inside the window - which looks
@@ -69,7 +82,7 @@ function createWindow() {
   // isMainFrame guards against a failed sub-resource replacing the whole app.
   mainWindow.webContents.on('did-fail-load', (_e, errorCode, errorDescription, _url, isMainFrame) => {
     if (!isMainFrame || errorCode === -3) return
-    console.error(`[demist] could not load ${APP_URL}: ${errorDescription} (${errorCode})`)
+    console.error(`[demist] could not load ${APP_START_URL}: ${errorDescription} (${errorCode})`)
     mainWindow?.loadURL(offlinePage(errorDescription))
   })
 
@@ -100,7 +113,7 @@ function offlinePage(reason) {
   <h1>Demist can't reach the internet</h1>
   <p>Demist needs a connection to load and to sign you in. Your on-device models
      and anything you've already recorded are safe on this computer.</p>
-  <button onclick="location.replace(${JSON.stringify(APP_URL)})">Try again</button>
+  <button onclick="location.replace(${JSON.stringify(APP_START_URL)})">Try again</button>
   <p><code>${String(reason).replace(/[<&]/g, (c) => (c === '<' ? '&lt;' : '&amp;'))}</code></p>
 </div>`
   return `data:text/html;charset=utf-8,${encodeURIComponent(html)}`
