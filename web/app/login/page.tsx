@@ -178,7 +178,13 @@ export default function Login() {
       setLoading(false)
       return
     }
-    posthog.identify(data.user!.id, { email: email.trim() })
+    // The user id ONLY. This used to pass { email }, which sent every user's
+    // email address to PostHog as a person property while the privacy policy
+    // stated in two places that analytics events contain no personal data.
+    // The email bought nothing analytically - the id already ties a person's
+    // events together - so removing it is a straight improvement over
+    // rewriting the policy to admit to it.
+    posthog.identify(data.user!.id)
     posthog.capture('login_success', { method: 'otp' })
     const { data: profile } = await supabase
       .from('profiles')
