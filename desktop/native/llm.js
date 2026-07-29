@@ -134,10 +134,33 @@ function defaultTier() {
   return resolvedDefaultTier
 }
 
+// How much RAM a machine must HAVE (not have free) to get the 3B by default.
+// A 16GB machine can hold Whisper's 2.3GB, the 3B's 2.5GB and translation's
+// 0.4GB with room to spare; this is not a close call on such a machine and it
+// should not be decided by a number that moves.
+const SMALL_TIER_TOTAL_GB = 14
+
 function pickDefaultTier() {
   const totalGB = os.totalmem() / (1024 ** 3)
   const freeGB = os.freemem() / (1024 ** 3)
-  const wanted = (totalGB >= 10 && freeGB >= 6) ? 'small' : 'tiny'
+  // Free memory is only consulted on machines where the answer is genuinely
+  // marginal. It used to be consulted on every machine, with a 6GB bar, and
+  // that was self-defeating: this runs during startup, while the app itself is
+  // loading Whisper (2.3GB) and translation (0.4GB) and Chromium is spinning
+  // up, so the app's own consumption is what pushed free memory under the bar.
+  // A 15.9GB machine reported by a user therefore defaulted to 'tiny' - the
+  // 1.5B that this file's own measurements record as flagging "chapter" and
+  // "tutorial" as technical terms on deliberately mundane speech. That is
+  // exactly the "term cards for plain English words" that was reported, and
+  // the machine had ample room for the 3B the whole time.
+  //
+  // Total RAM is a fixed property of the machine and cannot flap, so it
+  // decides on its own above the threshold. Below it, free memory still gets a
+  // say, because on a genuinely small machine the 1.1GB difference is real -
+  // and an explicit choice in Settings overrides either way.
+  const wanted = (totalGB >= SMALL_TIER_TOTAL_GB || (totalGB >= 10 && freeGB >= 4))
+    ? 'small'
+    : 'tiny'
   const have = downloadedTiers()
   if (have.has(wanted) || have.size === 0) return wanted
   // The memory-preferred tier is not downloaded but another one is. Use what
@@ -326,7 +349,20 @@ function parseTermLines(response, transcript, recentContext) {
   // adapter" were both genuinely said but dropped here before this fix,
   // because they'd landed in recentContext rather than the current chunk.
   const normalizedHaystack = normalize(`${recentContext ?? ''} ${transcript}`)
-  const isAdmin = (t) => ADMIN_WORDS.has(t.trim().toLowerCase())
+  // Course-admin housekeeping, phrase-aware for the same reason
+  // isEverydayWord is (see common-words.js): an exact-match set could only
+  // ever catch a bare "reading", never "the reading" or "this week's reading",
+  // which is the form the model actually emits most of the time.
+  const isAdmin = (t) => {
+    const term = t.trim().toLowerCase()
+    if (ADMIN_WORDS.has(term)) return true
+    const words = term.split(/[\s-]+/).filter(Boolean)
+    // Every word ordinary or administrative, and at least one of them
+    // administrative - otherwise this would just duplicate isEverydayWord.
+    return words.length > 1
+      && words.some(w => ADMIN_WORDS.has(w))
+      && words.every(w => ADMIN_WORDS.has(w) || isEverydayWord(w))
+  }
   const out = []
   for (const line of response.split('\n')) {
     const m = line.match(TERM_LINE_RE)

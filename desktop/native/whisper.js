@@ -81,6 +81,28 @@ function setTier(tier) {
   return tier
 }
 
+// When an inference last actually touched the model weights, from anywhere:
+// the load-time warm-up, the idle keep-warm timer, a preview, or a real
+// segment. Windows only trims pages that have gone untouched, so this is the
+// thing the keep-warm timer in main.js is really managing, and how stale it
+// is at startSession is the difference between a 2s warm-up and an 11s one.
+//
+// Deliberately NOT used to skip the warm-up. That was tried and measured: a
+// session that skipped it because the weights looked warm pushed the same
+// cost onto the first real segment, which then took 22.9-24.5s across three
+// consecutive runs against 2.0s with the warm-up in place.
+let lastInferenceAt = 0
+const msSinceLastInference = () => Date.now() - lastInferenceAt
+// Every call to the pipeline goes through here so nothing can forget to
+// record it.
+async function runInference(transcriber, audio, opts) {
+  try {
+    return await transcriber(audio, opts)
+  } finally {
+    lastInferenceAt = Date.now()
+  }
+}
+
 const transcribersByTier = new Map()
 function getTranscriber(emitProgress) {
   const tier = getTier()
@@ -122,7 +144,7 @@ function getTranscriber(emitProgress) {
           const t = i / SAMPLE_RATE
           probe[i] = 0.1 * (Math.sin(2 * Math.PI * 130 * t) + 0.5 * Math.sin(2 * Math.PI * 700 * t))
         }
-        await transcriber(probe, { ...generationOpts(SAMPLE_RATE), min_new_tokens: 12 })
+        await runInference(transcriber, probe, { ...generationOpts(SAMPLE_RATE), min_new_tokens: 12 })
       } catch { /* warm-up only, ignore */ }
       return transcriber
     })
@@ -264,17 +286,47 @@ async function startSession(onTranscript, emitProgress, onInterim, emitDiag) {
   // flushes it the moment this resolves (see lib/nativeSession.ts), so
   // nothing said during it is lost - whereas the same seconds spent AFTER the
   // session is live are seconds of a lecture arriving late.
+  //
+  // ...but ONLY when the weights might actually be cold. Warming
+  // unconditionally was measured at 11358 ms on a real machine, which is a
+  // 14-second startSession and a renderer watchdog firing at 10s - it turned
+  // the first-segment penalty into a startup penalty of the same size, for a
+  // model that in the common case (the keep-warm timer has been running the
+  // whole time the app sat idle) was already hot and needed nothing. The
+  // pipeline is only warmed here if nothing has touched the weights recently.
+  // This runs UNCONDITIONALLY, and an attempt to skip it when the weights
+  // looked warm was measured and reverted. Skipping does not remove the
+  // one-off cost, it relocates it onto the user's first spoken sentence, and
+  // that is strictly worse - the same 3s segment measured 2052 ms with this
+  // warm-up in front of it and 22917/23163/24508 ms across three consecutive
+  // runs without it. Warming twice at app launch instead did not pay it down
+  // either, so whatever it is, it is not satisfied by an earlier inference in
+  // the same process; only an inference close in front of the session works.
+  //
+  // Cost here is genuinely free in UX terms - the renderer buffers PCM while
+  // startSession is outstanding and flushes it the moment this resolves (see
+  // lib/nativeSession.ts), so nothing said during it is lost, whereas the
+  // same seconds spent after the session is live are a lecture arriving late.
+  // What makes it CHEAP is main.js's keep-warm timer: warm, this measures
+  // ~2s; on weights Windows has already trimmed it measured 11358 ms on a
+  // real machine, which is what the 30s keep-warm interval exists to prevent.
   const tWarm = Date.now()
   try {
+    // One second. Sizing this to match the first real segment (3s, so a
+    // 61-token decode budget rather than 31) was tried on the theory that the
+    // decode path was what stayed cold, and measured no different at all:
+    // 25008 ms vs 24867 ms on the first segment. Left at 1s, which is cheaper.
     const n = SAMPLE_RATE
     const probe = new Float32Array(n)
     for (let i = 0; i < n; i++) {
       const t = i / SAMPLE_RATE
       probe[i] = 0.1 * (Math.sin(2 * Math.PI * 130 * t) + 0.5 * Math.sin(2 * Math.PI * 700 * t))
     }
-    await warmTranscriber(probe, { ...generationOpts(n), min_new_tokens: 12 })
+    await runInference(warmTranscriber, probe, { ...generationOpts(n), min_new_tokens: 12 })
   } catch { /* warm-up only: a failure here must not stop a recording */ }
-  diag(`startSession: weights warmed in ${Date.now() - tWarm} ms (total ${Date.now() - t0} ms)`)
+  const warmMs = Date.now() - tWarm
+  diag(`startSession: weights warmed in ${warmMs} ms (total ${Date.now() - t0} ms)`
+    + `${warmMs > 5000 ? ' <- COLD: the keep-warm timer is not keeping ahead of the OS trimming this model' : ''}`)
   let seq = 0
   let lastText = ''
   // How many segments are queued or in flight. This replaces a `queueBusy`
@@ -501,7 +553,7 @@ async function startSession(onTranscript, emitProgress, onInterim, emitDiag) {
         const tStart = Date.now()
         try {
           const transcriber = await getTranscriber(emitProgress)
-          const result = await transcriber(audio, generationOpts(audio.length))
+          const result = await runInference(transcriber, audio, generationOpts(audio.length))
           const took = Date.now() - tStart
           const audioSecs = audio.length / SAMPLE_RATE
           // How far behind the speaker this text is landing, end to end: from
@@ -599,7 +651,7 @@ async function startSession(onTranscript, emitProgress, onInterim, emitDiag) {
       interimBusy = true
       const tInterim = Date.now()
       interimPromise = getTranscriber(emitProgress)
-        .then(transcriber => transcriber(segment, generationOpts(segment.length)))
+        .then(transcriber => runInference(transcriber, segment, generationOpts(segment.length)))
         .then(result => {
           const text = (result?.text ?? '').trim()
           const previewMs = Date.now() - tInterim
@@ -716,8 +768,22 @@ async function keepWarm() {
   const n = SAMPLE_RATE / 2
   const probe = new Float32Array(n)
   for (let i = 0; i < n; i++) probe[i] = 0.1 * Math.sin(2 * Math.PI * 130 * (i / SAMPLE_RATE))
-  await transcriber(probe, { ...generationOpts(n), min_new_tokens: 12 })
-  return true
+  const t = Date.now()
+  const idleFor = msSinceLastInference()
+  await runInference(transcriber, probe, { ...generationOpts(n), min_new_tokens: 12 })
+  // Reported because it is the only window onto whether the keep-warm cadence
+  // is actually keeping up with the OS. This inference is identical every
+  // time, so it should measure the same every time; one that suddenly takes
+  // many seconds means the weights had ALREADY been trimmed and the interval
+  // in main.js is too slow for this machine.
+  const took = Date.now() - t
+  if (took > 4000) {
+    console.warn(
+      `[demist] keep-warm inference took ${took} ms after ${idleFor} ms idle - the weights had already been trimmed, `
+      + `so the keep-warm interval in main.js is too slow for this machine and the next recording will start slowly`,
+    )
+  }
+  return took
 }
 
 module.exports = { startSession, feedPcm, stopSession, preload, keepWarm, getTier, setTier }

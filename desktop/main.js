@@ -307,14 +307,22 @@ setInterval(() => {
 // user is actually waiting on, to see their first words appear, was the one
 // paying to fault the weights back off disk.
 //
-// A short throwaway inference on silence every 60s while IDLE keeps them
-// resident. It is skipped outright during a recording (whisper.js's keepWarm
-// refuses when a session is active) and never triggers a model load, so on a
-// machine where transcription has not been used it costs nothing at all.
-// 60s is a deliberate compromise: often enough to stay ahead of the working
-// set trimmer, rare enough that ~2s of CPU per minute is not a battery
-// concern on a laptop.
-const WEIGHT_WARM_MS = 60_000
+// A short throwaway inference every 30s while IDLE keeps them resident. It is
+// skipped outright during a recording (whisper.js's keepWarm refuses when a
+// session is active) and never triggers a model load, so on a machine where
+// transcription has not been used it costs nothing at all.
+//
+// 30s, not the 60s this used to be, because startSession now SKIPS its own
+// warm-up when an inference has touched the weights inside whisper.js's
+// WARM_VALID_MS (45s) - and that is what takes starting a recording from 14
+// seconds down to under one. This interval has to stay comfortably under that
+// window or the skip never applies and every session pays the cold-start cost
+// again. If either number changes, change both.
+//
+// The cost is ~1.7s of CPU per 30s on one already-loaded model, and
+// keepWarm's own timing is logged when it looks like the weights were trimmed
+// anyway, which is the signal that even this cadence is too slow here.
+const WEIGHT_WARM_MS = 30_000
 setInterval(() => {
   if (transcribeSessionActive || !workerStates.transcribe) return
   callWorker('keepWhisperWarm').catch(() => { /* idle upkeep; a failure here is not worth reporting */ })

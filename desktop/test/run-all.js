@@ -35,9 +35,17 @@ for (const w of ['chemiosmosis', 'datagram', 'enthalpy', 'calorimetry', 'overfit
 for (const w of ['current', 'work', 'field', 'power', 'force', 'energy', 'ring', 'group', 'matrix', 'function']) {
   check(`keeps ambiguous technical word: ${w}`, () => assert.strictEqual(isEverydayWord(w), false))
 }
-// Multi-word terms are never filtered.
+// Multi-word terms survive as long as ANY word in them is technical.
 for (const w of ['proton motive force', 'Giffen good', 'loss function', 'packet switching']) {
   check(`keeps multi-word term: ${w}`, () => assert.strictEqual(isEverydayWord(w), false))
+}
+// ...but a phrase made entirely of everyday words is not a term card. These
+// used to be structurally unfilterable: the filter bailed out on any term
+// containing a space, so the word list it was built from was never consulted.
+// ('the reading' and friends are course ADMIN rather than everyday English;
+// llm.js's isAdmin handles those, phrase-aware for the same reason.)
+for (const w of ['next week', 'good question', 'office hours', 'this week', 'a lot of things']) {
+  check(`drops everyday phrase: ${w}`, () => assert.strictEqual(isEverydayWord(w), true))
 }
 
 console.log('\nsegmenter energy gate (room tone must not reach transcription)')

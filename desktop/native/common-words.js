@@ -108,20 +108,59 @@ const COMMON_WORDS = new Set([
   'word', 'words', 'book', 'books', 'page', 'paper', 'pen', 'pencil', 'picture', 'photo', 'video',
   'music', 'song', 'film', 'movie', 'game', 'games', 'money', 'price', 'cost', 'job',
   'idea', 'ideas', 'problem', 'question', 'answer', 'story', 'news', 'life', 'world', 'point',
+  // Everyday -ing forms whose BASE word is deliberately absent above because
+  // the base is also real jargon. "work", "set" and "order" must stay
+  // available to a physics or maths lecture; "working out" as a term card
+  // never is. Reported from a real session: "working out". Listing only the
+  // gerund keeps both true, and because a term is dropped only when EVERY
+  // word in it is everyday, "working memory" and "working set" still pass
+  // (neither "memory" nor "set" is listed).
+  'working', 'doing', 'getting', 'making', 'taking', 'saying', 'looking',
+  'coming', 'trying', 'talking', 'thinking', 'seeing', 'putting', 'giving',
+  'asking', 'telling', 'happening', 'wanting', 'needing',
 ])
 
-// A term is filtered only when it is a SINGLE everyday word. Multi-word terms
-// are left alone: the model does not invent everyday phrases here, and real
-// jargon is very often multi-word.
-function isEverydayWord(term) {
-  const t = String(term).trim().toLowerCase().replace(/[.,!?;:'"]+$/g, '')
-  if (!t || /\s/.test(t)) return false
+// Is this ONE word everyday English?
+function isCommonSingleWord(word) {
+  const t = word.replace(/[.,!?;:'"]+$/g, '').replace(/^[.,!?;:'"]+/g, '')
+  if (!t) return false
   if (COMMON_WORDS.has(t)) return true
   // Plurals of listed words ("ones", "jackets", "berries").
   if (t.endsWith('s') && COMMON_WORDS.has(t.slice(0, -1))) return true
   if (t.endsWith('es') && COMMON_WORDS.has(t.slice(0, -2))) return true
   if (t.endsWith('ies') && COMMON_WORDS.has(`${t.slice(0, -3)}y`)) return true
+  // -ing forms of verbs that are already listed ("walking", "listening",
+  // "checking"). Derived rather than listed one by one, and safe by
+  // construction: the base word has already been judged everyday. Gerunds
+  // whose base is deliberately NOT listed are handled explicitly above.
+  if (t.endsWith('ing')) {
+    const stem = t.slice(0, -3)
+    if (COMMON_WORDS.has(stem) || COMMON_WORDS.has(`${stem}e`)) return true
+    // "putting", "running", "getting": doubled final consonant.
+    if (stem.length > 2 && stem.at(-1) === stem.at(-2) && COMMON_WORDS.has(stem.slice(0, -1))) return true
+  }
   return false
+}
+
+// A term is everyday when EVERY word in it is everyday English.
+//
+// This used to bail out on anything containing a space, on the reasoning that
+// "the model does not invent everyday phrases here". It does. A multi-word
+// term was waved straight through no matter what it contained, so "the
+// reading", "next week", "good question" and "office hours" were structurally
+// unfilterable - the single-word list they were each made of never got
+// consulted. That is half of the "term cards for plain English words" report,
+// and no amount of adding words to the list above could ever have fixed it.
+//
+// Requiring EVERY word to be everyday is what keeps real jargon safe: "proton
+// motive force" survives on "proton" and "motive", "Giffen good" on "Giffen",
+// "loss function" on both, and any term with a single genuinely technical word
+// in it passes untouched. A phrase where every word is ordinary English is not
+// something a student needs a definition card for.
+function isEverydayWord(term) {
+  const words = String(term).trim().toLowerCase().split(/[\s-]+/).filter(Boolean)
+  if (!words.length) return false
+  return words.every(isCommonSingleWord)
 }
 
 module.exports = { COMMON_WORDS, isEverydayWord }
