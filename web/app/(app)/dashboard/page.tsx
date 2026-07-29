@@ -207,7 +207,7 @@ export default function Dashboard() {
   }
 
   if (loading) return (
-    <main className="min-h-dvh dark:bg-[#080810] bg-[#EDEAE3] dark:text-white text-gray-900 flex flex-col overflow-hidden nav-bottom-pad">
+    <main className="h-dvh sm:h-[calc(100dvh-3.5rem)] dark:bg-[#080810] bg-[#EDEAE3] dark:text-white text-gray-900 flex flex-col overflow-hidden nav-bottom-pad">
       <header className="sm:hidden shrink-0 flex items-center px-6 h-14 border-b dark:border-white/[0.05] border-black/[0.06]">
         <span className="font-bold tracking-tight text-[15px]">Demist</span>
       </header>
@@ -246,7 +246,20 @@ export default function Dashboard() {
   )
 
   return (
-    <main className="min-h-dvh dark:bg-[#080810] bg-[#EDEAE3] dark:text-white text-gray-900 flex flex-col overflow-hidden nav-bottom-pad">
+    // h-, not min-h-. This page is a fixed two-pane layout: the transcript and
+    // the session cards each scroll INSIDE themselves and the page itself never
+    // scrolls. With min-h-dvh the flex-1 transcript just grew the page past the
+    // viewport, so the window scrolled, neither pane had a bounded height to
+    // scroll within, and the transcript spilled off the bottom behind a browser
+    // scrollbar - with the hidden older lines (age 6 still occupies layout
+    // space, deliberately, so they can be scrolled back to) padding it out
+    // further.
+    //
+    // The sm: variant subtracts the nav: (app)/layout.tsx wraps this page in
+    // `sm:pt-14`, so on desktop a plain 100dvh overflows by exactly the nav's
+    // 3.5rem. Below sm the nav is at the bottom instead and nav-bottom-pad
+    // reserves its space inside this element.
+    <main className="h-dvh sm:h-[calc(100dvh-3.5rem)] dark:bg-[#080810] bg-[#EDEAE3] dark:text-white text-gray-900 flex flex-col overflow-hidden nav-bottom-pad">
       {/* Ambient blobs */}
       <div aria-hidden className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
         <div
