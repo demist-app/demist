@@ -86,6 +86,14 @@ appx:
   publisher: CN=99817A35-A5E3-4E7A-8F44-601153999894
   publisherDisplayName: Demist
   displayName: Demist
+  # electron-builder defaults these to 10.0.14316.0 - Windows 10 build 14316,
+  # from April 2016 - which is a promise this app cannot keep. Electron 43's
+  # Chromium requires Windows 10 1809 (build 17763) or newer, so leaving the
+  # default would have let the Store offer Demist to machines where it cannot
+  # launch at all, and the user would see an install that simply does nothing.
+  # MaxVersionTested is what the app has actually been run against.
+  minVersion: 10.0.17763.0
+  maxVersionTested: 10.0.26100.0
   # microphone: mic recording is the app's core feature. runFullTrust is
   # auto-added by electron-builder for every Electron app regardless.
   # Declaring only what's actually used matters: Store certification checks
