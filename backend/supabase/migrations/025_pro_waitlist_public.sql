@@ -20,8 +20,17 @@ ALTER TABLE pro_waitlist ALTER COLUMN user_id DROP DEFAULT;
 -- user_id was UNIQUE, which is wrong once it can be NULL for everyone who
 -- signed up logged-out. Dedupe on the thing that actually identifies a person
 -- here. Case-insensitive, because Foo@x.com and foo@x.com are one person.
-DROP INDEX IF EXISTS pro_waitlist_user_id_key;
+--
+-- The CONSTRAINT goes first and the index second, not the other way round.
+-- UNIQUE(user_id) in 020's CREATE TABLE is a constraint that OWNS its backing
+-- index, so DROP INDEX on it fails outright:
+--   2BP01: cannot drop index pro_waitlist_user_id_key because constraint
+--          pro_waitlist_user_id_key on table pro_waitlist requires it
+-- Dropping the constraint takes its index with it; the DROP INDEX afterwards
+-- is only there to catch a hand-made index of the same name on a database
+-- where it was never a constraint.
 ALTER TABLE pro_waitlist DROP CONSTRAINT IF EXISTS pro_waitlist_user_id_key;
+DROP INDEX IF EXISTS pro_waitlist_user_id_key;
 CREATE UNIQUE INDEX IF NOT EXISTS pro_waitlist_email_key
   ON pro_waitlist (lower(email));
 -- Kept so a signed-in user still cannot create two rows.
