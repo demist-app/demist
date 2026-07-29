@@ -200,12 +200,27 @@ function pickDefaultTier() {
   return wanted
 }
 
+// Says WHERE the answer came from, once per distinct answer. A real run
+// loaded 'small' and then loaded 'tiny' as well, and nothing anywhere
+// recorded which of the two possible sources - an explicit choice saved in
+// tier.json, or the memory-derived default - had produced either one, so the
+// flip could not be explained from the log at all.
+let lastReportedTier = null
+function reportTier(tier, why) {
+  if (tier !== lastReportedTier) {
+    lastReportedTier = tier
+    console.log(`[demist] term-detection tier resolved to '${tier}' (${why})`)
+  }
+  return tier
+}
+
 function getTier() {
   try {
     const tier = JSON.parse(fs.readFileSync(TIER_FILE, 'utf8')).tier
-    return MODEL_URI[tier] ? tier : defaultTier()
+    if (MODEL_URI[tier]) return reportTier(tier, `explicitly chosen in Settings, saved in ${TIER_FILE}`)
+    return reportTier(defaultTier(), `${TIER_FILE} held an unknown tier ${JSON.stringify(tier)}`)
   } catch {
-    return defaultTier()
+    return reportTier(defaultTier(), `no saved choice; ${(os.totalmem() / 1024 ** 3).toFixed(1)}GB total RAM`)
   }
 }
 
@@ -279,6 +294,21 @@ async function ensureLoaded(emitProgress) {
       // Reused across tier switches: whichever GPU/CPU mode succeeded the
       // first time is kept, rather than re-attempting GPU (and possibly
       // re-failing) on every switch between "small" and "large".
+      //
+      // The OLD model has to go first. Reassigning `model` and `context` only
+      // drops this file's JS references - llama.cpp is holding the weights
+      // natively and frees them when the handle is disposed, not when a
+      // variable stops pointing at it. So every tier switch left the previous
+      // model fully resident and loaded the next one alongside it: a switch
+      // from 'small' to 'tiny' meant 2502MB + 1413MB of term-detection models
+      // in a process that was switching precisely because memory was tight.
+      // Reported from a real run - both "(small): model ready" and "(tiny):
+      // model ready" in one session, hence "why did this use both?".
+      try { await context?.dispose() } catch { /* best-effort */ }
+      try { await model?.dispose() } catch { /* best-effort */ }
+      session = null
+      context = null
+      model = null
       model = await llama.loadModel({ modelPath })
       context = await model.createContext({ contextSize: CONTEXT_SIZE })
     }
