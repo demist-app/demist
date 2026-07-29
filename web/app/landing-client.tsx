@@ -768,6 +768,7 @@ export default function LandingClient() {
         <span className="text-[11px] font-bold tracking-[0.2em] uppercase" style={{ color: 'var(--fg-faint)' }}>Demist</span>
         <div className="flex items-center gap-5">
           <a href="/about" className="text-[12px] transition-colors" style={{ color: 'var(--fg-faint)' }}>About Us</a>
+          <a href="/support" className="text-[12px] transition-colors" style={{ color: 'var(--fg-faint)' }}>Support</a>
           <a href="/privacy" className="text-[12px] transition-colors" style={{ color: 'var(--fg-faint)' }}>Privacy</a>
           <p className="text-[12px]" style={{ color: 'var(--fg-faint)' }}>© {new Date().getFullYear()} Demist</p>
         </div>

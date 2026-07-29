@@ -889,6 +889,30 @@ export default function Profile() {
           <ConsentManager />
         </div>
 
+        {/* Help. Settings is where someone goes when something is wrong, so it
+            is where the way out has to be - the desktop app has no browser
+            chrome to reach the website with. target=_blank so it opens in the
+            real browser rather than replacing the app window. */}
+        <div className="space-y-3 animate-step opacity-0" style={{ animationDelay: '165ms', animationFillMode: 'forwards' }}>
+          <p className="text-[10px] font-bold tracking-[0.18em] text-gray-600 uppercase">Help</p>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <a
+              href="https://www.demist.app/support"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 py-3.5 px-4 rounded-2xl text-[14px] font-medium text-center dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] text-gray-700 dark:text-white/80 hover:border-yellow-500/30 transition-all"
+            >
+              Support &amp; troubleshooting
+            </a>
+            <a
+              href="mailto:hello@demist.app"
+              className="flex-1 py-3.5 px-4 rounded-2xl text-[14px] font-medium text-center dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] text-gray-700 dark:text-white/80 hover:border-yellow-500/30 transition-all"
+            >
+              Email us
+            </a>
+          </div>
+        </div>
+
         {/* Sign out */}
         <button
           onClick={handleSignOut}

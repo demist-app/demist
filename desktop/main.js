@@ -6,7 +6,7 @@
 // (start/stop/PCM feed) and forwarding of worker push events (transcript
 // segments, model download progress) to the renderer.
 
-const { app, BrowserWindow, ipcMain, session, powerSaveBlocker } = require('electron')
+const { app, BrowserWindow, ipcMain, session, powerSaveBlocker, shell } = require('electron')
 const path = require('path')
 const { fork } = require('child_process')
 
@@ -84,6 +84,29 @@ function createWindow() {
     if (!isMainFrame || errorCode === -3) return
     console.error(`[demist] could not load ${APP_START_URL}: ${errorDescription} (${errorCode})`)
     mainWindow?.loadURL(offlinePage(errorDescription))
+  })
+
+  // Links that leave the app open in the user's real browser.
+  //
+  // Without this, target="_blank" (the Support link in Settings, the ICO link
+  // in the privacy policy, a mailto:) opens a bare Electron window with no
+  // address bar, no back button and no way out except closing it - or is
+  // silently swallowed. Neither is a link working.
+  //
+  // Deny + shell.openExternal rather than allowing a child window, so the app
+  // can never end up hosting arbitrary web pages inside itself.
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https?:|^mailto:/i.test(url)) shell.openExternal(url).catch(() => {})
+    return { action: 'deny' }
+  })
+
+  // And the main window itself never navigates off our own origin. An inline
+  // link to somewhere else would otherwise replace the entire app with a page
+  // the user cannot navigate back from.
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    if (sameSite(url, APP_URL)) return
+    event.preventDefault()
+    if (/^https?:/i.test(url)) shell.openExternal(url).catch(() => {})
   })
 
   mainWindow.on('closed', () => { mainWindow = null })
