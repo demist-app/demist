@@ -137,6 +137,7 @@ interface RecordingSessionValue {
   recordingError: string | null
   recordingWarning: string | null
   sessionSyncWarning: string | null
+  modelWarning: string | null
   wakeLockUnsupported: boolean
   captureMode: CaptureMode
   setCaptureMode: (mode: CaptureMode) => void
@@ -196,6 +197,16 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
   // Confirmed by driving the real app with the sessions insert blocked: the
   // recovery worked perfectly and the user was told nothing at all.
   const [sessionSyncWarning, setSessionSyncWarning] = useState<string | null>(null)
+  // "Term detection could not load." Its own slot for the same reason
+  // sessionSyncWarning has one: it is set when the preload settles, which is
+  // usually while a recording is starting, and the capture lifecycle rewrites
+  // recordingWarning twice in that window. Put here it survived exactly as long
+  // as it took startNativeSession to say "Preparing on-device transcription…".
+  //
+  // It also has to outlive the recording. Someone on a network that blocks the
+  // model host gets a perfect transcript and no term cards, and "why are there
+  // no cards" is a question they will ask after they stop, not during.
+  const [modelWarning, setModelWarning] = useState<string | null>(null)
   // Whether the desktop app's bundled translation model is loaded and can
   // actually translate a sentence.
   //
@@ -403,6 +414,8 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     translateLang?: string | null | Promise<string | null | undefined>,
   ) => {
     setNativeModelsError(null)
+    // Cleared per attempt, so a retry that succeeds takes the notice away.
+    setModelWarning(null)
     // Lock the record button for the duration of THIS preload, not just the
     // one that happens at mount.
     //
@@ -519,7 +532,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       dlog(`[demist] preload: ALL models ready after ${Date.now() - tPre} ms`)
       setNativeModelProgress(null)
       if (degraded.length) {
-        setRecordingWarning(`Couldn't load the ${degraded.join(' and ')} model${degraded.length > 1 ? 's' : ''}. Recording and transcription still work normally.`)
+        setModelWarning(`Couldn't load the ${degraded.join(' and ')} model${degraded.length > 1 ? 's' : ''}. Recording and transcription work normally; you just won't get ${degraded.includes('term detection') ? 'term cards' : 'translations'}.`)
       }
     })()
   }
@@ -1883,7 +1896,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
   const value: RecordingSessionValue = {
     loading, isRecording, elapsed, liveTerms, setLiveTerms, sessionGlossary, profile, setProfile, stats,
     recentSessions, setRecentSessions, sessionGenIds, sessionFailIds, sessionFailReasons, sessionTermLoading,
-    recordingError, recordingWarning, sessionSyncWarning, wakeLockUnsupported, captureMode, setCaptureMode, capturedTabTitle,
+    recordingError, recordingWarning, sessionSyncWarning, modelWarning, wakeLockUnsupported, captureMode, setCaptureMode, capturedTabTitle,
     sentences, translatedSentences, liveSessionId, reviewTerms, setReviewTerms, sessionSubject, setSessionSubject,
     sessionSubjectRef, paywall, setPaywall, localTranslate, localTranslateUsable, liveTranslateAvailable, translationReady,
     nativeModelsReady, nativeModelProgress, nativeModelsError, retryNativeModelPreload,

@@ -54,7 +54,7 @@ export default function Dashboard() {
   const {
     loading, isRecording, elapsed, liveTerms, setLiveTerms, sessionGlossary, profile, stats,
     recentSessions, sessionGenIds, sessionFailIds, sessionFailReasons, sessionTermLoading,
-    recordingError, recordingWarning, sessionSyncWarning, wakeLockUnsupported, captureMode, setCaptureMode, capturedTabTitle,
+    recordingError, recordingWarning, sessionSyncWarning, modelWarning, wakeLockUnsupported, captureMode, setCaptureMode, capturedTabTitle,
     sentences, translatedSentences, reviewTerms, setReviewTerms, sessionSubject, setSessionSubject,
     sessionSubjectRef, paywall, setPaywall, localTranslate, liveTranslateAvailable, translationReady,
     nativeModelsReady, nativeModelProgress, nativeModelsError, retryNativeModelPreload,
@@ -367,11 +367,11 @@ export default function Dashboard() {
             {/* Its own slot, not recordingWarning: that one is rewritten by the
                 on-device capture lifecycle within a second of a recording
                 starting, which silently swallowed this notice entirely. */}
-            {sessionSyncWarning && (
-              <div className="relative z-10 mx-4 sm:mx-6 mt-4 rounded-lg px-4 py-2 text-[13px] leading-relaxed dark:bg-amber-500/10 bg-amber-50 border dark:border-amber-500/25 border-amber-200 dark:text-amber-300 text-amber-800" role="status">
-                {sessionSyncWarning}
+            {[sessionSyncWarning, modelWarning].filter(Boolean).map((msg, i) => (
+              <div key={i} className="relative z-10 mx-4 sm:mx-6 mt-4 rounded-lg px-4 py-2 text-[13px] leading-relaxed dark:bg-amber-500/10 bg-amber-50 border dark:border-amber-500/25 border-amber-200 dark:text-amber-300 text-amber-800" role="status">
+                {msg}
               </div>
-            )}
+            ))}
 
             {/* Visualizer */}
             <div className="shrink-0 flex flex-col items-center justify-center pt-8 pb-2 relative z-10">
@@ -683,9 +683,9 @@ export default function Dashboard() {
               {/* Survives the end of a recording on purpose: "this session could
                   not be saved" is most worth reading once the user has stopped
                   and is looking at a History page that will not list it. */}
-              {sessionSyncWarning && (
-                <p className="mt-2 text-amber-500 text-[12px] text-center max-w-xs leading-relaxed" role="status">{sessionSyncWarning}</p>
-              )}
+              {[sessionSyncWarning, modelWarning].filter(Boolean).map((msg, i) => (
+                <p key={i} className="mt-2 text-amber-500 text-[12px] text-center max-w-xs leading-relaxed" role="status">{msg}</p>
+              ))}
             </div>
 
             {/* Stats */}
