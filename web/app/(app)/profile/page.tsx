@@ -112,6 +112,27 @@ export default function Profile() {
     setLinkBusy(false)
   }
 
+  // Supabase's "Change Email Address" email can carry a code, a link, or both,
+  // and the link opens the default browser rather than this app - so the change
+  // can complete server-side with the app still holding a session that has no
+  // email on it. Refreshing the session is how the app finds out.
+  const handleAlreadyClickedLink = async () => {
+    setLinkBusy(true)
+    setLinkError(null)
+    const supabase = createClient()
+    await supabase.auth.refreshSession()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user?.email) {
+      capture('guest_account_linked', { via: 'link' })
+      setLinkStep('done')
+      setIsAnonymous(false)
+      setProfile(p => (p ? { ...p, email: user.email as string } : p))
+    } else {
+      setLinkError("That email hasn't been confirmed yet. Open the email and either enter the code or follow the link.")
+    }
+    setLinkBusy(false)
+  }
+
   const handleVerifyLink = async () => {
     setLinkBusy(true)
     setLinkError(null)
@@ -471,7 +492,16 @@ export default function Profile() {
                   placeholder="6-digit code"
                   className="w-full dark:bg-white/[0.05] bg-white border dark:border-white/[0.1] border-black/[0.15] rounded-xl px-4 py-2.5 text-[15px] font-mono tracking-[0.2em] text-center focus:outline-none"
                 />
-                <p className="text-[12px] text-gray-600">Sent to {linkEmail}</p>
+                <p className="text-[12px] text-gray-600">
+                  Sent to {linkEmail}. Enter the code, or follow the link in the email and then{' '}
+                  <button
+                    onClick={handleAlreadyClickedLink}
+                    disabled={linkBusy}
+                    className="underline underline-offset-2 disabled:opacity-40"
+                  >
+                    tap here
+                  </button>.
+                </p>
                 <div className="flex gap-2">
                   <button
                     onClick={handleVerifyLink}
