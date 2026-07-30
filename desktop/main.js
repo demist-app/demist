@@ -215,6 +215,14 @@ let nextRequestId = 1
 // Whether a live transcription session is meant to be running on the
 // 'transcribe' worker, so its death can be reported rather than swallowed.
 let transcribeSessionActive = false
+// How many import windows are outstanding on the 'transcribe' worker. An import
+// is not a session, so without this the idle keep-warm timer below fired in the
+// MIDDLE of one: measured during a real import, a throwaway keep-warm inference
+// took 9143 ms wedged between two windows, on the same worker and the same ONNX
+// session the import was queued on. It is not incorrect - they serialise
+// safely - it is just the timer spending the user's import time warming weights
+// that an import is, by definition, keeping hot already.
+let transcribeImportsInFlight = 0
 
 function getWorkerState(role) {
   if (workerStates[role]) return workerStates[role]
@@ -409,7 +417,7 @@ setInterval(() => {
 // anyway, which is the signal that even this cadence is too slow here.
 const WEIGHT_WARM_MS = 30_000
 setInterval(() => {
-  if (transcribeSessionActive || !workerStates.transcribe) return
+  if (transcribeSessionActive || transcribeImportsInFlight > 0 || !workerStates.transcribe) return
   callWorker('keepWhisperWarm').catch(() => { /* idle upkeep; a failure here is not worth reporting */ })
 }, WEIGHT_WARM_MS).unref?.()
 
@@ -492,9 +500,16 @@ ipcMain.handle('demist:preloadWhisper', () => callWorker('preloadWhisper'))
 // One window of an imported file. Refused outright while a recording is live:
 // both would drive the same transcribe worker and the same ONNX session, and
 // an import is the one of the two that can wait.
-ipcMain.handle('demist:transcribeBuffer', (_event, buffer) => {
+ipcMain.handle('demist:transcribeBuffer', async (_event, buffer) => {
   if (transcribeSessionActive) throw new Error('Stop the recording before importing a file.')
-  return callWorker('transcribeBuffer', buffer)
+  // Counted, not a boolean: an import is a run of windows and the renderer
+  // issues them back to back, so the flag has to survive the gaps between them.
+  transcribeImportsInFlight++
+  try {
+    return await callWorker('transcribeBuffer', buffer)
+  } finally {
+    transcribeImportsInFlight--
+  }
 })
 ipcMain.handle('demist:preloadTermDetection', () => callWorker('preloadTermDetection'))
 ipcMain.handle('demist:preloadTranslation', (_event, lang) => callWorker('preloadTranslation', lang))
