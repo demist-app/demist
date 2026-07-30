@@ -35,6 +35,23 @@ export type CaptureMode = 'microphone' | 'tab'
 // segments. See the warmupHoldoff comment in accumulateAndMaybeDetect.
 const FIRST_DETECTION_DELAY_MS = 20_000
 
+// Turns a worker's internal progress label into something worth showing a
+// person. The workers label themselves for the console - "translation model
+// (hi)", "transcription model (accurate)" - and that was being dropped straight
+// into a banner inside another sentence that also said "model", producing
+// "Downloading on-device model (translation model (hi))… 99%": nested
+// parentheses, the word twice, and a tier name that means nothing to a user.
+export function friendlyModelName(raw: string): string {
+  if (/transcription/i.test(raw)) return 'transcription'
+  if (/term.?detection/i.test(raw)) return 'term detection'
+  if (/translation/i.test(raw)) {
+    const code = raw.match(/\(([a-z]{2})\)/i)?.[1]
+    const lang = code ? LANGUAGE_NAMES[code] : null
+    return lang ? `${lang} translation` : 'translation'
+  }
+  return raw
+}
+
 export const LANGUAGE_NAMES: Record<string, string> = {
   zh: 'Mandarin',
   ar: 'Arabic',
@@ -1401,7 +1418,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
             // mid-lecture that their connection is the problem.
             setRecordingWarning(pct >= 100
               ? null
-              : `${partialProgressSeenRef.current.has(label) ? 'Downloading' : 'Preparing'} on-device model (${label})… ${pct}%`)
+              : `${partialProgressSeenRef.current.has(label) ? 'Downloading' : 'Preparing'} ${friendlyModelName(label)}… ${pct}%`)
           },
           // Previously console-only, which meant the one failure the user
           // most needs to know about - on-device transcription having died
@@ -1410,6 +1427,12 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
           onError: (message) => {
             console.error('[demist] native session error:', message)
             setRecordingWarning(message)
+          },
+          // Not an error, and retractable: the worker sends '' once the
+          // condition clears, which puts the banner away again.
+          onNotice: (message) => {
+            if (message) console.warn('[demist] session notice:', message)
+            setRecordingWarning(message || null)
           },
         }, sharedGraph)
         // One last check: the recording may have been stopped or restarted

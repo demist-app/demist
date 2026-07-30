@@ -70,6 +70,11 @@ export interface NativeSessionCallbacks {
   onInterimTranscript?: (text: string) => void
   onModelProgress?: (label: string, pct: number) => void
   onError?: (message: string) => void
+  // A user-facing condition the session has noticed and can also un-notice, so
+  // unlike onError it is expected to be called with '' to clear. Kept separate
+  // for that reason: onError's callers log every message, and logging a
+  // retraction as an error would be nonsense.
+  onNotice?: (message: string) => void
   // Checked after the backend session call resolves but BEFORE any audio
   // graph is attached. startSession() can block for a long time when the
   // native worker is busy loading models, and the caller may have given up
@@ -166,6 +171,11 @@ export async function startNativeSession(
       else console.info('[demist][native]', msg.payload.message)
     } else if (msg.event === 'sessionLost') {
       callbacks.onError?.(msg.payload.message ?? 'On-device transcription stopped unexpectedly.')
+    } else if (msg.event === 'sessionNotice') {
+      // Deliberately allowed through empty: '' is how the worker retracts a
+      // notice once the condition clears (see whisper.js's quiet-audio check),
+      // and the caller maps an empty message back to "no warning showing".
+      callbacks.onNotice?.(msg.payload.message ?? '')
     }
   })
 

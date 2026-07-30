@@ -8,7 +8,7 @@ import { capture } from '@/lib/analytics'
 import { tabCaptureSupported } from '@/lib/tabCapture'
 import { summaryFailureMessage } from '@/lib/summaryFailure'
 import { isElectronNative } from '@/lib/electronNative'
-import { useRecordingSession, LANGUAGE_NAMES, type LiveTerm } from '@/lib/recordingSession'
+import { useRecordingSession, LANGUAGE_NAMES, friendlyModelName, type LiveTerm } from '@/lib/recordingSession'
 
 const SummaryViewer = dynamic(() => import('../summary-viewer').then(m => ({ default: m.SummaryViewer })), { ssr: false })
 const OnboardingOverlay = dynamic(() => import('@/components/OnboardingOverlay').then(m => ({ default: m.OnboardingOverlay })), { ssr: false })
@@ -345,9 +345,18 @@ export default function Dashboard() {
                 one state where it matters. The transcript panel just sat on
                 "Transcription will appear here as you speak…" with no way to
                 tell "still warming up" from "silently broken". */}
+            {/* A pill that fits its text, centred, rather than a full-width
+                banner. Most of what lands here is a progress line a few words
+                long ("Downloading Hindi translation… 99%"), and stretching that
+                across the whole window made a routine, temporary notice look
+                like a page-level alert. w-fit keeps a genuinely long message
+                (a dead engine, a muted microphone) readable by wrapping inside
+                max-w rather than being truncated. */}
             {recordingWarning && (
-              <div className="relative z-10 mx-4 sm:mx-6 mt-4 rounded-lg px-4 py-2 text-[13px] leading-relaxed dark:bg-amber-500/10 bg-amber-50 border dark:border-amber-500/25 border-amber-200 dark:text-amber-300 text-amber-800" role="status">
-                {recordingWarning}
+              <div className="relative z-10 mt-4 px-4 sm:px-6 flex justify-center">
+                <div className="w-fit max-w-xl rounded-full px-3.5 py-1.5 text-[12px] leading-snug text-center dark:bg-amber-500/10 bg-amber-50 border dark:border-amber-500/25 border-amber-200 dark:text-amber-300 text-amber-800" role="status">
+                  {recordingWarning}
+                </div>
               </div>
             )}
             {recordingError && (
@@ -592,7 +601,7 @@ export default function Dashboard() {
                 <div className="w-full max-w-[220px] mt-2.5">
                   <p className="text-gray-600 text-[12px] text-center mb-1.5">
                     {nativeModelProgress
-                      ? `${nativeModelProgress.downloading ? 'Downloading' : 'Preparing'} ${nativeModelProgress.label}… ${nativeModelProgress.pct}%`
+                      ? `${nativeModelProgress.downloading ? 'Downloading' : 'Preparing'} ${friendlyModelName(nativeModelProgress.label)}… ${nativeModelProgress.pct}%`
                       : 'Loading models into memory…'}
                   </p>
                   <div className="h-1 rounded-full dark:bg-white/[0.08] bg-black/[0.08] overflow-hidden">

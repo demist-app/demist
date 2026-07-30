@@ -51,6 +51,9 @@ const handlers = {
     // unless the app was launched from a terminal, which is why the cause of
     // a slow startSession has been so hard to pin down from a screenshot.
     (message, verbose) => emitEvent('diag', { message, verbose: verbose === true }),
+    // Something the USER needs to read, not a diagnostic: currently only "your
+    // microphone is too quiet to transcribe". An empty message retracts it.
+    (message) => emitEvent('sessionNotice', { message }),
   ),
   stopSession: () => (whisper ??= require('./whisper')).stopSession(),
   // Bulk transcription of one window of an imported FILE. Arrives as a

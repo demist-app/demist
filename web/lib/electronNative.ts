@@ -15,7 +15,11 @@ export interface NativeEvent {
   // damaging case is an IDLE death: the preload has already resolved, so the
   // UI still claims everything is ready while the replacement worker has
   // nothing loaded.
-  event: 'transcript' | 'interimTranscript' | 'modelProgress' | 'sessionLost' | 'modelsUnloaded' | 'diag'
+  // 'sessionNotice': something the user needs to read about the live session,
+  // as opposed to a diagnostic. Currently only "your microphone is too quiet to
+  // transcribe", raised by the transcribe worker when it is discarding every
+  // segment as room tone. An empty message retracts a notice already showing.
+  event: 'transcript' | 'interimTranscript' | 'modelProgress' | 'sessionLost' | 'modelsUnloaded' | 'sessionNotice' | 'diag'
   payload: {
     seq?: number
     text?: string

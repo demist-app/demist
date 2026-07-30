@@ -270,7 +270,7 @@ const SLOW_INFERENCE_RATIO = 8
 
 let activeSession = null
 
-async function startSession(onTranscript, emitProgress, onInterim, emitDiag) {
+async function startSession(onTranscript, emitProgress, onInterim, emitDiag, onNotice) {
   const t0 = Date.now()
   // Forwarded to the renderer's console, where it is gated behind the
   // renderer's own debug flag; only mirrored to stdout when DEMIST_DEBUG=1.
@@ -658,15 +658,56 @@ async function startSession(onTranscript, emitProgress, onInterim, emitDiag) {
     }
   }
 
+  // Say so when audio is arriving but is too quiet to transcribe.
+  //
+  // Dropping room tone is right - it stops Whisper hallucinating over silence -
+  // but doing it in complete silence is not. A user recorded for 54 seconds
+  // with their microphone muted at the OS level and the app showed a running
+  // timer, a moving level meter and an empty transcript, with nothing anywhere
+  // saying why. They worked it out themselves.
+  //
+  // The existing silence watchdog in lib/nativeSession.ts cannot catch this: it
+  // requires EXACTLY zero samples, and a muted or simply quiet input usually
+  // still carries a noise floor. This one triggers on the thing that actually
+  // matters - segments being discarded - so it fires for a muted mic, a mic
+  // turned down, and a laptop lid mic across the room alike.
+  //
+  // Three in a row, so one quiet gap between sentences cannot trip it.
+  const QUIET_SEGMENTS_BEFORE_WARNING = 3
+  let quietRun = 0
+  let quietWarned = false
+  // Segments the segmenter has handed over, kept or dropped. Zero of them after
+  // a good stretch of audio is the OTHER shape of this problem and the more
+  // common one: the VAD only opens a segment once a frame exceeds 0.006, so a
+  // muted microphone never produces a segment at all and the dropped-segment
+  // counter above would sit at zero forever, warning about nothing while
+  // nothing worked. Both paths raise the same notice.
+  let segmentsSeen = 0
+  const SILENCE_GRACE_SAMPLES = SAMPLE_RATE * 15
+  const warnTooQuiet = (why) => {
+    if (quietWarned) return
+    quietWarned = true
+    console.warn(`[demist] ${why} - the microphone is probably muted or turned right down`)
+    onNotice?.('Demist can hear your microphone, but it is too quiet to transcribe. Check it is not muted, and that it is the input selected in Profile.')
+  }
   const segmenter = new PcmSegmenter(
     (segment, meanRms, contiguous) => {
       const secs = (segment.length / SAMPLE_RATE).toFixed(1)
       // Checked BEFORE the sequence number is taken, so a dropped segment
       // never occupies an ordering slot the renderer is waiting on.
+      segmentsSeen++
       if (meanRms < SILENT_SEGMENT_RMS) {
         vdiag(`segment dropped: ${secs}s at meanRms ${meanRms.toFixed(4)} is room tone, not speech (below ${SILENT_SEGMENT_RMS})`)
+        if (++quietRun >= QUIET_SEGMENTS_BEFORE_WARNING) {
+          warnTooQuiet(`every segment is below the speech threshold (last meanRms ${meanRms.toFixed(4)} vs ${SILENT_SEGMENT_RMS})`)
+        }
         return
       }
+      // Real speech: retract the notice if one is showing. Someone who unmutes
+      // mid-lecture should not be left reading a warning about a problem they
+      // have just fixed.
+      if (quietWarned) { quietWarned = false; onNotice?.('') }
+      quietRun = 0
       const mySeq = ++seq
       vdiag(`segment ${mySeq} closed after ${secs}s of speech (meanRms ${meanRms.toFixed(4)}), queued`)
       backlog.push({ seq: mySeq, segment, meanRms, secs, contiguous, tQueued: Date.now() })
@@ -721,6 +762,12 @@ async function startSession(onTranscript, emitProgress, onInterim, emitDiag) {
     // apart from "no audio". Once every 10s, so it stays cheap.
     feed: (pcm) => {
       samplesFed += pcm.length
+      // Audio has been arriving for a good while and the VAD has never once
+      // decided any of it was speech. That is a muted or near-silent input, and
+      // it is the case the dropped-segment counter cannot see.
+      if (segmentsSeen === 0 && samplesFed >= SILENCE_GRACE_SAMPLES) {
+        warnTooQuiet(`${(samplesFed / SAMPLE_RATE).toFixed(0)}s of audio has arrived and not one frame reached the speech threshold`)
+      }
       const now = Date.now()
       if (now - lastFeedLog >= 10000) {
         vdiag(`audio in: ${(samplesFed / SAMPLE_RATE).toFixed(1)}s fed over ${((now - t0) / 1000).toFixed(1)}s wall clock`)
