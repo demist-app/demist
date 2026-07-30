@@ -52,11 +52,38 @@ if ($dev -ne 1) {
 }
 
 # 2. An .appx is a zip. Unpack it so the manifest can be registered directly.
+#
+# The part names inside are PERCENT-ENCODED (OPC rules), and the real Windows
+# deployment engine decodes them when it installs. ExtractToDirectory does not:
+# it writes the literal name. In this package that is 1122 entries, every one of
+# them a scoped npm package, so node_modules ended up holding "%40huggingface"
+# instead of "@huggingface" and the app died with
+#
+#     Cannot find module '@huggingface/transformers'
+#
+# which looks exactly like the packaging bug this script exists to catch, in a
+# package that is completely fine. Decode per entry so the staged tree matches
+# what an installed package actually looks like.
 Write-Host "2/4  unpacking the package..."
 if (Test-Path $staged) { Remove-Item $staged -Recurse -Force }
 New-Item -ItemType Directory $staged | Out-Null
 Add-Type -AssemblyName System.IO.Compression.FileSystem
-[System.IO.Compression.ZipFile]::ExtractToDirectory($source.FullName, $staged)
+$zip = [System.IO.Compression.ZipFile]::OpenRead($source.FullName)
+try {
+  $decoded = 0
+  foreach ($entry in $zip.Entries) {
+    if ([string]::IsNullOrEmpty($entry.Name)) { continue }  # directory marker
+    $rel = [Uri]::UnescapeDataString($entry.FullName) -replace '/', '\'
+    if ($rel -ne ($entry.FullName -replace '/', '\')) { $decoded++ }
+    $dest = Join-Path $staged $rel
+    $dir = Split-Path -Parent $dest
+    if (-not (Test-Path $dir)) { New-Item -ItemType Directory $dir -Force | Out-Null }
+    [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $dest, $true)
+  }
+  Write-Host "     $decoded percent-encoded paths decoded (e.g. %40huggingface -> @huggingface)"
+} finally {
+  $zip.Dispose()
+}
 # These describe the packaged form and confuse a loose-file registration.
 foreach ($junk in 'AppxBlockMap.xml', 'AppxSignature.p7x', '[Content_Types].xml') {
   $p = Join-Path $staged $junk
