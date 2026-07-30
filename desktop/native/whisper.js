@@ -31,6 +31,30 @@ const { PcmSegmenter, SAMPLE_RATE } = require('./pcm-segmenter')
 // session. Same home-directory convention native/llm.js already uses.
 env.cacheDir = path.join(os.homedir(), '.demist', 'model-cache')
 
+// Transcription models ship INSIDE the app, and are loaded from here before
+// anything reaches the network.
+//
+// Store certification failed 10.1.2.10 - "Product fails to load on-device
+// model showing error message 'Couldn't load the transcription model'" - on a
+// machine that had a working internet connection. Transcription is the primary
+// functionality and it could not start at all without first pulling several
+// hundred megabytes from Hugging Face. On a restricted, throttled or simply
+// unlucky network that fails, and the app is not degraded, it is useless.
+//
+// Both tiers are bundled by scripts/fetch-models.mjs (315MB for the pair; the
+// 2332MB/1027MB figures below are resident memory, not file size).
+//
+// __dirname is app.asar.unpacked/native in a packaged build - models/ is in
+// asarUnpack for the same reason the native modules are, since onnxruntime
+// reads these off the filesystem. In development the same relative path lands
+// on desktop/models, so both cases take the identical code path.
+env.allowLocalModels = true
+env.localModelPath = path.join(__dirname.replace('app.asar', 'app.asar.unpacked'), '..', 'models')
+// Remote stays ENABLED as a fallback. If a bundled file is ever missing, or a
+// future tier is added without being bundled, the app should degrade to
+// downloading rather than refusing to transcribe.
+env.allowRemoteModels = true
+
 const MODEL_BY_TIER = {
   fast: 'Xenova/whisper-base.en',
   accurate: 'Xenova/whisper-small.en',

@@ -5,6 +5,11 @@ files:
   - preload.js
   - native/**/*
   - licenses/**/*
+  # The transcription models, fetched by scripts/fetch-models.mjs. Shipping
+  # them is what stops first-run transcription depending on a Hugging Face
+  # download that Store certification watched fail (10.1.2.10). 315MB for the
+  # pair - the multi-gigabyte numbers elsewhere here are resident memory.
+  - models/**/*
   # onnxruntime-node ships prebuilt binaries for every platform it supports,
   # and two copies of the package end up installed (a top-level one and one
   # nested under @huggingface/transformers). In a Windows-only AppX the macOS
@@ -62,6 +67,10 @@ files:
 asarUnpack:
   - native/**/*
   - node_modules/**/*
+  # onnxruntime reads these off the filesystem, and native/whisper.js points
+  # env.localModelPath at app.asar.unpacked/models, so they cannot live
+  # inside the archive.
+  - models/**/*
 
 # Target is "appx", not "msix": confirmed by an actual build attempt that
 # the installed electron-builder (26.15.3) only ships AppXOptions, not
