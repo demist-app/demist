@@ -119,6 +119,7 @@ interface RecordingSessionValue {
   sessionTermLoading: string | null
   recordingError: string | null
   recordingWarning: string | null
+  sessionSyncWarning: string | null
   wakeLockUnsupported: boolean
   captureMode: CaptureMode
   setCaptureMode: (mode: CaptureMode) => void
@@ -169,6 +170,14 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
   const [sessionTermLoading, setSessionTermLoading] = useState<string | null>(null)
   const [recordingError, setRecordingError] = useState<string | null>(null)
   const [recordingWarning, setRecordingWarning] = useState<string | null>(null)
+  // "This recording has no row in your account yet." Deliberately NOT
+  // recordingWarning: that slot is written by the native capture path several
+  // times a second's worth of lifecycle - "Preparing on-device transcription…"
+  // is set immediately after this, and onReady then clears it to null - so a
+  // notice put there was overwritten and gone before anyone could read it.
+  // Confirmed by driving the real app with the sessions insert blocked: the
+  // recovery worked perfectly and the user was told nothing at all.
+  const [sessionSyncWarning, setSessionSyncWarning] = useState<string | null>(null)
   const [wakeLockUnsupported, setWakeLockUnsupported] = useState(false)
   const [captureMode, setCaptureMode] = useState<CaptureMode>('microphone')
   const [capturedTabTitle, setCapturedTabTitle] = useState<string | null>(null)
@@ -1225,14 +1234,12 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     // can be created when the network comes back (see stopRecording).
     const sessionId = await createSessionRow(mode)
     sessionIdRef.current = sessionId
-    if (!sessionId) {
-      console.error('[demist] could not create the session row; recording locally and will save on stop')
-      setRecordingWarning(
-        isElectronNative()
-          ? 'No connection to your account, so this session is being kept on this computer for now. Transcription works normally and Demist will save it when the connection is back.'
-          : 'No connection to your account. Recording continues and Demist will try to save it when you stop.',
-      )
-    }
+    setSessionSyncWarning(sessionId ? null : (
+      isElectronNative()
+        ? 'No connection to your account, so this session is being kept on this computer for now. Transcription works normally and Demist will save it when the connection is back.'
+        : 'No connection to your account. Recording continues and Demist will try to save it when you stop.'
+    ))
+    if (!sessionId) console.error('[demist] could not create the session row; recording locally and will save on stop')
     isActiveRef.current = true
     termFrequencyRef.current = new Map()
     sentTermsRef.current = new Set()
@@ -1558,9 +1565,9 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
           const idByTerm = Object.fromEntries((saved ?? []).map((s: { id: string; term: string }) => [s.term.toLowerCase(), s.id]))
           allSessionTermsRef.current = allSessionTermsRef.current.map(t => ({ ...t, dbId: idByTerm[t.term.toLowerCase()] }))
         }
-        setRecordingWarning(null)
+        setSessionSyncWarning(null)
       } else {
-        setRecordingError('Demist could not reach your account, so this session could not be saved. The transcript is still on screen; copy anything you need before leaving this page.')
+        setSessionSyncWarning('Demist could not reach your account, so this session could not be saved. The transcript is still on screen; copy anything you need before leaving this page.')
       }
     }
 
@@ -1826,7 +1833,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
   const value: RecordingSessionValue = {
     loading, isRecording, elapsed, liveTerms, setLiveTerms, sessionGlossary, profile, setProfile, stats,
     recentSessions, setRecentSessions, sessionGenIds, sessionFailIds, sessionFailReasons, sessionTermLoading,
-    recordingError, recordingWarning, wakeLockUnsupported, captureMode, setCaptureMode, capturedTabTitle,
+    recordingError, recordingWarning, sessionSyncWarning, wakeLockUnsupported, captureMode, setCaptureMode, capturedTabTitle,
     sentences, translatedSentences, liveSessionId, reviewTerms, setReviewTerms, sessionSubject, setSessionSubject,
     sessionSubjectRef, paywall, setPaywall, localTranslate, localTranslateUsable, liveTranslateAvailable,
     nativeModelsReady, nativeModelProgress, nativeModelsError, retryNativeModelPreload,

@@ -54,7 +54,7 @@ export default function Dashboard() {
   const {
     loading, isRecording, elapsed, liveTerms, setLiveTerms, sessionGlossary, profile, stats,
     recentSessions, sessionGenIds, sessionFailIds, sessionFailReasons, sessionTermLoading,
-    recordingError, recordingWarning, wakeLockUnsupported, captureMode, setCaptureMode, capturedTabTitle,
+    recordingError, recordingWarning, sessionSyncWarning, wakeLockUnsupported, captureMode, setCaptureMode, capturedTabTitle,
     sentences, translatedSentences, reviewTerms, setReviewTerms, sessionSubject, setSessionSubject,
     sessionSubjectRef, paywall, setPaywall, localTranslate, liveTranslateAvailable,
     nativeModelsReady, nativeModelProgress, nativeModelsError, retryNativeModelPreload,
@@ -315,6 +315,14 @@ export default function Dashboard() {
             {recordingError && (
               <div className="relative z-10 mx-4 sm:mx-6 mt-4 rounded-lg px-4 py-2 text-[13px] leading-relaxed dark:bg-red-500/10 bg-red-50 border dark:border-red-500/25 border-red-200 dark:text-red-300 text-red-700" role="alert">
                 {recordingError}
+              </div>
+            )}
+            {/* Its own slot, not recordingWarning: that one is rewritten by the
+                on-device capture lifecycle within a second of a recording
+                starting, which silently swallowed this notice entirely. */}
+            {sessionSyncWarning && (
+              <div className="relative z-10 mx-4 sm:mx-6 mt-4 rounded-lg px-4 py-2 text-[13px] leading-relaxed dark:bg-amber-500/10 bg-amber-50 border dark:border-amber-500/25 border-amber-200 dark:text-amber-300 text-amber-800" role="status">
+                {sessionSyncWarning}
               </div>
             )}
 
@@ -614,6 +622,12 @@ export default function Dashboard() {
               )}
               {recordingError && (
                 <p className="mt-2 text-red-400 text-[13px] text-center max-w-xs" role="alert">{recordingError}</p>
+              )}
+              {/* Survives the end of a recording on purpose: "this session could
+                  not be saved" is most worth reading once the user has stopped
+                  and is looking at a History page that will not list it. */}
+              {sessionSyncWarning && (
+                <p className="mt-2 text-amber-500 text-[12px] text-center max-w-xs leading-relaxed" role="status">{sessionSyncWarning}</p>
               )}
             </div>
 
