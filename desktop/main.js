@@ -713,13 +713,28 @@ app.whenReady().then(() => {
   // 'unknown' is Electron's catch-all; both request AND check handlers are
   // needed or the check step silently blocks before request ever runs.
   // Scoped to our own origin.
-  session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
+  //
+  // VIDEO IS ALWAYS REFUSED. Electron's 'media' permission is a single switch
+  // covering microphone AND camera, so granting it wholesale told Chromium this
+  // app may use the camera - and a user was duly asked for camera access by an
+  // app that has no camera feature at all. Every getUserMedia call in the
+  // renderer passes video:false and the package declares only the microphone
+  // capability, so nothing here ever legitimately needs it.
+  //
+  // Deny on an explicit video request rather than requiring an explicit audio
+  // one: the system-audio path (setDisplayMediaRequestHandler below) does not
+  // always populate mediaTypes, and demanding audio be named would refuse it.
+  const wantsVideo = (details) =>
+    details?.mediaTypes?.includes('video') || details?.mediaType === 'video'
+
+  session.defaultSession.setPermissionRequestHandler((webContents, permission, callback, details) => {
     const allowed = permission === 'media' || permission === 'unknown'
-    callback(allowed && sameSite(webContents.getURL(), APP_URL))
+    callback(allowed && !wantsVideo(details) && sameSite(webContents.getURL(), APP_URL))
   })
-  session.defaultSession.setPermissionCheckHandler((webContents, permission, requestingOrigin) => {
+  session.defaultSession.setPermissionCheckHandler((webContents, permission, requestingOrigin, details) => {
     const allowed = permission === 'media' || permission === 'unknown'
-    return allowed && sameSite(requestingOrigin || webContents?.getURL() || APP_URL, APP_URL)
+    return allowed && !wantsVideo(details)
+      && sameSite(requestingOrigin || webContents?.getURL() || APP_URL, APP_URL)
   })
   // "Tab capture" (lib/tabCapture.ts) getDisplayMedia() calls reject in
   // Electron with no handler registered at all: that's why this was
