@@ -360,7 +360,13 @@ export async function startNativeSession(
               `audio is being lost before it reaches transcription.`,
             )
           } else {
-            console.info(line)
+            // A HEALTHY capture reporting itself healthy every five seconds is
+            // the single largest source of console noise in the app - twelve
+            // identical lines a minute, for the whole length of a lecture,
+            // burying anything that actually matters. The unhealthy branch
+            // above is always printed, which is the case worth seeing, so this
+            // one goes behind the debug flag with every other trace.
+            dlog(line)
           }
           batchesSent = 0
           samplesSent = 0
@@ -422,7 +428,7 @@ export async function startNativeSession(
       audioContext = sharedGraph.context
       source = sharedGraph.source
       await audioContext.resume().catch(() => {})
-      console.info('[demist] capture graph: SHARING the caller AudioContext, sampleRate =', audioContext.sampleRate, 'state =', audioContext.state)
+      dlog('[demist] capture graph: SHARING the caller AudioContext, sampleRate =', audioContext.sampleRate, 'state =', audioContext.state)
       await audioContext.audioWorklet.addModule('/pcm-worklet.js')
       worklet = new AudioWorkletNode(audioContext, 'pcm-capture')
       wireWorklet(audioContext.sampleRate, mediaStream.getAudioTracks()[0])
@@ -454,7 +460,7 @@ export async function startNativeSession(
     // running, so this only ever helps. rebindStream re-enters here on a mic
     // reconnect and needs the same treatment.
     await audioContext.resume().catch(() => {})
-    console.info('[demist] capture graph: OWN AudioContext, sampleRate =', audioContext.sampleRate, 'state =', audioContext.state)
+    dlog('[demist] capture graph: OWN AudioContext, sampleRate =', audioContext.sampleRate, 'state =', audioContext.state)
     if (audioContext.state !== 'running') {
       console.error('[demist] attachGraph: AudioContext is not running (state:', audioContext.state + '). No PCM will be captured.')
       callbacks.onError?.(`Audio capture could not start (audio context ${audioContext.state}).`)
@@ -468,7 +474,7 @@ export async function startNativeSession(
     // privacy level. Nothing downstream can tell that apart from a quiet
     // room, so the device identity has to be logged here.
     const track = mediaStream.getAudioTracks()[0]
-    console.info('[demist] capturing from', JSON.stringify({
+    dlog('[demist] capturing from', JSON.stringify({
       label: track?.label,
       enabled: track?.enabled,
       muted: track?.muted,
@@ -587,7 +593,7 @@ export async function startNativeSession(
   // Backend is ready: release everything captured while it was loading, in
   // order, then switch to streaming straight through.
   sessionReady = true
-  console.info(`[demist] native session READY after ${Date.now() - startedAt} ms; PCM now streams straight through (${pendingPcm.length} batches were buffered while waiting)`)
+  dlog(`[demist] native session READY after ${Date.now() - startedAt} ms; PCM now streams straight through (${pendingPcm.length} batches were buffered while waiting)`)
   // Kept always-on but only when it is actually slow. A fast start is not
   // worth a line; a slow one is the single most useful number for diagnosing
   // "nothing is happening", and it splits that into "the worker could not

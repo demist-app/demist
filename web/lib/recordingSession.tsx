@@ -272,6 +272,9 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
   const startRecordingRef = useRef<(mode?: CaptureMode) => Promise<void>>(() => Promise.resolve())
   const stopRecordingRef = useRef<() => Promise<void>>(() => Promise.resolve())
   const startingRef = useRef(false)
+  // Guards against a second stop click doing the work twice while the first is
+  // still draining the native session.
+  const stoppingRef = useRef(false)
   const captureModeRef = useRef<CaptureMode>('microphone')
   const localTranslate = useNativeTranslate()
   // Only 'ready' counts as usable: everything else (unsupported browser,
@@ -1571,7 +1574,30 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     // recording that was genuinely live, not for the unmount-time and
     // beforeunload calls that also land here.
     const wasRecording = isActiveRef.current
+    // Checked before anything else, and OUTSIDE the wasRecording branch below:
+    // by the time a second click arrives isActiveRef is already false, so a
+    // guard placed in that branch would never be reached and the whole teardown
+    // would run a second time.
+    if (stoppingRef.current) return
     isActiveRef.current = false
+
+    // Come out of the recording UI IMMEDIATELY.
+    //
+    // setIsRecording(false) used to sit near the bottom of this function,
+    // behind the native session's flush (which deliberately waits for
+    // in-flight segments), a possible session-row retry, a wake-lock release
+    // and several database round trips. That is seconds of the stop button
+    // still reading "stop" and the timer still counting after it was pressed,
+    // so the only reasonable conclusion is that the click missed - and people
+    // press it again. Reported as "I have to click stop twice".
+    //
+    // Nothing below needs the recording UI to still be on screen; the flush
+    // carries on in the background and the transcript is already saved from it.
+    if (wasRecording) {
+      stoppingRef.current = true
+      setIsRecording(false)
+      if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
+    }
     // Invalidate any startNativeSession still waiting on the native worker, so
     // it abandons itself instead of attaching a capture graph after the user
     // has already stopped (see sessionEpochRef).
@@ -1655,6 +1681,8 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     // Let the screen lock again now that recording has stopped
     await releaseWakeLock()
 
+    // Usually already cleared at the top; harmless for the unmount and
+    // beforeunload paths, which skip that branch.
     if (timerRef.current) clearInterval(timerRef.current)
     audioProcessingCtxRef.current?.close()
     audioProcessingCtxRef.current = null
@@ -1667,10 +1695,12 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       const supabase = createClient()
       await supabase.from('sessions').update({ ended_at: new Date().toISOString() }).eq('id', sid)
     }
-    setIsRecording(false)
     setRecordingWarning(null)
     setCapturedTabTitle(null)
     setLiveSessionId(null)
+    // The microphone is released and the session is closed, so a new recording
+    // is allowed again. Everything after this point is bookkeeping.
+    stoppingRef.current = false
     window.postMessage({ source: 'demist', type: 'recording-stopped' }, window.location.origin)
     capture('recording_stopped', { duration_seconds: elapsed })
     if (allSessionTermsRef.current.length > 0) setReviewTerms([...allSessionTermsRef.current])
