@@ -26,6 +26,7 @@ import { extractCandidates } from '@/lib/extractTerms'
 import { isElectronNative, getDemistNative, dlog, type DemistNative } from '@/lib/electronNative'
 import { startNativeSession, type NativeSessionHandle } from '@/lib/nativeSession'
 import { isEligibleForSummary } from '@/lib/summaryEligibility'
+import { collidesWith } from '@/lib/termSimilarity'
 
 export type CaptureMode = 'microphone' | 'tab'
 
@@ -136,7 +137,7 @@ interface RecordingSessionValue {
   localTranslateUsable: () => boolean
   liveTranslateAvailable: boolean
   nativeModelsReady: boolean
-  nativeModelProgress: { label: string; pct: number } | null
+  nativeModelProgress: { label: string; pct: number; downloading: boolean } | null
   nativeModelsError: string | null
   retryNativeModelPreload: () => void
   vizAnalyserRef: React.RefObject<AnalyserNode | null>
@@ -185,7 +186,15 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
   // own loads), but the first minute of a lecture would be silently lost to
   // a multi-hundred-MB download instead of being transcribed.
   const [nativeModelsReady, setNativeModelsReady] = useState<boolean>(() => !isElectronNative())
-  const [nativeModelProgress, setNativeModelProgress] = useState<{ label: string; pct: number } | null>(null)
+  const [nativeModelProgress, setNativeModelProgress] = useState<{ label: string; pct: number; downloading: boolean } | null>(null)
+  // Which models have reported a percentage strictly between 0 and 100, i.e.
+  // arrived in pieces over time. The transcription models ship inside the app
+  // now and load off local disk, so calling their load a "download" told a new
+  // user the app needed a connection it does not need - the exact impression
+  // the certification failure was about. transformers.js emits identical events
+  // for a local read and a remote fetch, and this is the one thing that tells
+  // them apart without adding a flag to the worker protocol.
+  const partialProgressSeenRef = useRef<Set<string>>(new Set())
   // Set only when preload genuinely fails (see runNativePreload below), not
   // merely "still in progress". Distinct from nativeModelsReady being false
   // during a normal download, so the UI can tell "still loading" apart from
@@ -233,6 +242,11 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
   const chunkPeakRef = useRef(0)           // max audio level seen during current chunk
   const webSpeechFinalRef = useRef('')     // accumulated final Web Speech results (fallback transcript)
   const allSessionTermsRef = useRef<{ term: string; definition: string; dbId?: string }[]>([])
+  // Every term name this session has already shown, in order, used both to tell
+  // the on-device model what not to find again and to reject a rephrasing of
+  // something already on screen. Separate from knownTermsRef, which is the
+  // user's whole history of terms marked known and is seeded from the database.
+  const sessionTermNamesRef = useRef<string[]>([])
   const speechModeRef = useRef(false)     // true = Web Speech is active display source
   const webSpeechHasFiredRef = useRef(false) // true once Web Speech onresult fires
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -515,7 +529,10 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
         if (pct < 100 && /transcription/i.test(label) && !isActiveRef.current) {
           setNativeModelsReady(false)
         }
-        setNativeModelProgress(pct >= 100 ? null : { label, pct })
+        if (pct > 0 && pct < 100) partialProgressSeenRef.current.add(label)
+        setNativeModelProgress(pct >= 100
+          ? null
+          : { label, pct, downloading: partialProgressSeenRef.current.has(label) })
       })
       runNativePreload(nativeAtMount, translateLangPromise)
     }
@@ -610,7 +627,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
 
   // ── Shared: detect terms, save to DB, update UI ──────────────────────────────
 
-  const runDetection = async (transcript: string, sessionId: string, token: string, context = '') => {
+  const runDetection = async (transcript: string, sessionId: string | null, token: string, context = '') => {
     const supabase = createClient()
     const base = process.env.NEXT_PUBLIC_SUPABASE_URL!
     const native = getDemistNative()
@@ -628,6 +645,12 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
           context,
           sessionSubjectRef.current || profileRef.current?.course || null,
           profileRef.current?.year_of_study ?? null,
+          // What this session has already carded. Detection windows overlap on
+          // purpose, so without telling the model what it has covered it keeps
+          // re-finding the same concept under a slightly different name, which
+          // no string-equality dedupe downstream can catch. The cloud path has
+          // always sent known_terms; this is the on-device equivalent.
+          sessionTermNamesRef.current.slice(-40),
         )
       } catch (e) {
         // Previously unguarded: a failure here (e.g. the local model
@@ -706,9 +729,22 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       // dark for that window with no way to tell apart from "nothing found".
       if (!t?.term || !t?.definition) return false
       const key = t.term.toLowerCase()
-      return isLatinTerm(t.term) &&
-             !knownTermsRef.current.has(key) &&
-             (termFrequencyRef.current.get(key) ?? 0) < 3
+      if (!isLatinTerm(t.term)) return false
+      if (knownTermsRef.current.has(key)) return false
+      if ((termFrequencyRef.current.get(key) ?? 0) >= 3) return false
+      // Exact-key checks above cannot see "proton motive" and "proton motive
+      // force", or "chemiosmosis" and the transcriber's "chemisomosis", as the
+      // one concept they are. Both pairs were produced by a single real test
+      // recording and both became separate flashcards.
+      const clash = collidesWith(t.term, sessionTermNamesRef.current)
+      if (clash) {
+        dlog(`[demist] dropped "${t.term}": same concept as "${clash}", already carded this session`)
+        return false
+      }
+      // Within THIS batch too, not only against earlier ones: one response can
+      // name the same thing twice.
+      sessionTermNamesRef.current.push(t.term)
+      return true
     })
     if (!filtered.length) return
 
@@ -754,6 +790,16 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       capture('term_card_shown', { term })
       scheduleCardDismiss(id, term)
     })
+
+    // No session row yet (the insert failed and we are recording anyway). Keep
+    // the cards and the glossary on screen and remember the terms; stopRecording
+    // creates the row and writes them all in one go. Falling through to the
+    // insert here would fail and then ROLL BACK the very cards the user is
+    // reading, which is the worst of both.
+    if (!sessionId) {
+      for (const t of filtered) allSessionTermsRef.current.push({ term: t.term, definition: t.definition })
+      return
+    }
 
     const { data: saved, error: saveErr } = await supabase
       .from('terms')
@@ -870,7 +916,11 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
   // async part) so that stopRecording's flush-on-stop check, which runs right
   // after the native session's stop() resolves, always sees this chunk's text
   // already in detectionBufferRef, not still pending on a promise.
-  const accumulateAndMaybeDetect = (chunkText: string, sessionId: string, replaceLast = false) => {
+  // sessionId may be null: a recording whose `sessions` row could not be
+  // created still transcribes, still shows term cards, and still builds the
+  // transcript in memory (see createSessionRow). Only the DB writes are
+  // skipped, and stopRecording retries the row and saves everything then.
+  const accumulateAndMaybeDetect = (chunkText: string, sessionId: string | null, replaceLast = false) => {
     transcriptRef.current = transcriptRef.current ? transcriptRef.current + ' ' + chunkText : chunkText
     if (!speechModeRef.current || !webSpeechHasFiredRef.current) appendSentence(chunkText, replaceLast)
 
@@ -1036,6 +1086,33 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     }
   }
 
+  // The `sessions` row a recording hangs off. Returns null rather than throwing
+  // when it cannot be created, because every caller's right answer is to carry
+  // on without one. Three attempts: the failure this exists for is a momentary
+  // one (a laptop that has just woken, a campus network mid-handover), and
+  // those clear in seconds.
+  const createSessionRow = async (mode: CaptureMode): Promise<string | null> => {
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const { data, error } = await createClient()
+          .from('sessions')
+          .insert({
+            user_id: userIdRef.current,
+            subject: sessionSubjectRef.current || profileRef.current?.course,
+            year_of_study: profileRef.current?.year_of_study,
+            capture_mode: mode,
+          })
+          .select('id').single()
+        if (!error && data?.id) return data.id as string
+        console.warn(`[demist] session insert attempt ${attempt} failed:`, error?.message ?? 'no row returned')
+      } catch (e) {
+        console.warn(`[demist] session insert attempt ${attempt} threw:`, e)
+      }
+      if (attempt < 3) await new Promise(r => setTimeout(r, attempt * 800))
+    }
+    return null
+  }
+
   const startRecording = async (mode: CaptureMode = 'microphone') => {
     if (isActiveRef.current || startingRef.current) return
     // Desktop app only (nativeModelsReady is always true elsewhere): don't
@@ -1134,22 +1211,28 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     attachAudioGraph(audioCtx, stream)
     sessionIdRef.current = null
 
-    const supabase = createClient()
-    const { data: session, error: sessionErr } = await supabase
-      .from('sessions')
-      .insert({ user_id: userIdRef.current, subject: sessionSubjectRef.current || profileRef.current?.course, year_of_study: profileRef.current?.year_of_study, capture_mode: mode })
-      .select('id').single()
-
-    if (sessionErr || !session) {
-      streamRef.current?.getTracks().forEach(t => t.stop())
-      audioProcessingCtxRef.current?.close()
-      audioProcessingCtxRef.current = null
-      startingRef.current = false
-      alert('Could not start session. Check your connection and try again.')
-      return
-    }
-    const sessionId = session.id
+    // Creating the session row is a NETWORK call, and it used to be able to
+    // stop a recording dead: a failure here tore the microphone down and put up
+    // a bare alert(), so on a flaky or captive network the desktop app - which
+    // transcribes entirely on this machine and needs nothing from a server to
+    // do it - simply refused to record. That is the same shape of failure as
+    // the certification report ("primary functionality does not work"), just
+    // from a different cause, and it is the one case where the app's own
+    // architecture makes the dependency avoidable.
+    //
+    // So: try, retry, and if it still fails RECORD ANYWAY. The transcript is
+    // the thing the user is in the room for; the row it eventually hangs off
+    // can be created when the network comes back (see stopRecording).
+    const sessionId = await createSessionRow(mode)
     sessionIdRef.current = sessionId
+    if (!sessionId) {
+      console.error('[demist] could not create the session row; recording locally and will save on stop')
+      setRecordingWarning(
+        isElectronNative()
+          ? 'No connection to your account, so this session is being kept on this computer for now. Transcription works normally and Demist will save it when the connection is back.'
+          : 'No connection to your account. Recording continues and Demist will try to save it when you stop.',
+      )
+    }
     isActiveRef.current = true
     termFrequencyRef.current = new Map()
     sentTermsRef.current = new Set()
@@ -1167,6 +1250,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     firstTranscriptLoggedRef.current = false
     webSpeechFinalRef.current = ''
     allSessionTermsRef.current = []
+    sessionTermNamesRef.current = []
     startingRef.current = false
     setIsRecording(true); setElapsed(0); setLiveTerms([]); setSessionGlossary([]); setRecordingError(null)
     setSentences([]); setTranslatedSentences([])
@@ -1244,8 +1328,11 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
               dlog(`[demist] first transcript ${Date.now() - recordingStartedAtRef.current} ms after recording started`)
             }
             dlog('[demist] FINAL transcript received:', text)
-            const sid = sessionIdRef.current
-            if (sid) accumulateAndMaybeDetect(text, sid, nativeInterimShowingRef.current)
+            // NOT gated on a session id any more. It used to be, so a recording
+            // whose `sessions` row could not be created transcribed perfectly
+            // well inside the worker and then threw every word away before it
+            // reached the screen.
+            accumulateAndMaybeDetect(text, sessionIdRef.current, nativeInterimShowingRef.current)
             nativeInterimShowingRef.current = false
           },
           // Best-effort live preview of whatever Whisper is still listening
@@ -1275,7 +1362,12 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
             nativeInterimShowingRef.current = true
           },
           onModelProgress: (label, pct) => {
-            setRecordingWarning(pct >= 100 ? null : `Downloading on-device model (${label})… ${pct}%`)
+            // Same distinction the idle screen makes: a bundled model being
+            // read off disk is not a download, and saying it is tells a user
+            // mid-lecture that their connection is the problem.
+            setRecordingWarning(pct >= 100
+              ? null
+              : `${partialProgressSeenRef.current.has(label) ? 'Downloading' : 'Preparing'} on-device model (${label})… ${pct}%`)
           },
           // Previously console-only, which meant the one failure the user
           // most needs to know about - on-device transcription having died
@@ -1405,6 +1497,10 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
   }
 
   const stopRecording = async () => {
+    // Read BEFORE clearing it: the recovery below must only run for a
+    // recording that was genuinely live, not for the unmount-time and
+    // beforeunload calls that also land here.
+    const wasRecording = isActiveRef.current
     isActiveRef.current = false
     // Invalidate any startNativeSession still waiting on the native worker, so
     // it abandons itself instead of attaching a capture graph after the user
@@ -1435,6 +1531,36 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
         console.error('[demist] stopping the native session failed:', e)
       } finally {
         nativeSessionRef.current = null
+      }
+    }
+
+    // A recording that started with no `sessions` row (see createSessionRow)
+    // gets one here, now the network has had the length of a lecture to come
+    // back. Everything downstream - the ended_at update, the transcript, the
+    // terms, the summary - then behaves exactly as it does normally.
+    if (!sessionIdRef.current && wasRecording) {
+      const recovered = await createSessionRow(captureModeRef.current)
+      if (recovered) {
+        sessionIdRef.current = recovered
+        console.warn('[demist] session row created on stop; saving the recording now')
+        if (allSessionTermsRef.current.length) {
+          const { data: saved } = await createClient().from('terms').insert(
+            allSessionTermsRef.current.map(t => ({
+              user_id: userIdRef.current,
+              session_id: recovered,
+              term: t.term,
+              definition: t.definition,
+              subject: sessionSubjectRef.current || profileRef.current?.course,
+            })),
+          ).select('id, term')
+          // Give the review sheet the real ids, so ticking a card to keep it
+          // updates the row that was just written rather than nothing at all.
+          const idByTerm = Object.fromEntries((saved ?? []).map((s: { id: string; term: string }) => [s.term.toLowerCase(), s.id]))
+          allSessionTermsRef.current = allSessionTermsRef.current.map(t => ({ ...t, dbId: idByTerm[t.term.toLowerCase()] }))
+        }
+        setRecordingWarning(null)
+      } else {
+        setRecordingError('Demist could not reach your account, so this session could not be saved. The transcript is still on screen; copy anything you need before leaving this page.')
       }
     }
 
