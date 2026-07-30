@@ -527,13 +527,30 @@ export async function startNativeSession(
   // Say so if the backend is taking an unreasonable time. Without this the
   // UI shows "preparing... will appear shortly" indefinitely, which is what a
   // startSession that never resolves looked like for a whole recording.
+  //
+  // "Unreasonable" was 10 seconds, and it was wrong in the one case that
+  // matters most: the FIRST recording on a machine, where startSession
+  // legitimately pays the model load plus the warm-up. Measured on a clean
+  // profile against the shipping build, that is 4.6-11s routinely - so a first
+  // run reliably produced "The on-device transcription engine hasn't responded
+  // in 11s", which reads as a malfunction while the app is doing exactly what
+  // it is supposed to. It also contradicted main.js, which does not consider a
+  // startSession late until 120s.
+  //
+  // Two stages now. Up to a minute the app says what is true and calm - it is
+  // still preparing, and nothing said is being lost - and only past that does
+  // it suggest something is actually wrong.
+  const FIRST_NOTICE_MS = 25_000
+  let noticeAt = FIRST_NOTICE_MS
   const stillWaiting = setInterval(() => {
     const waited = Math.round((Date.now() - startedAt) / 1000)
+    if (waited * 1000 < noticeAt) return
+    noticeAt += 20_000
     console.warn(`[demist] still waiting for the on-device transcription engine after ${waited}s`)
-    callbacks.onError?.(
-      `The on-device transcription engine hasn't responded in ${waited}s. Your audio is still being recorded and will be transcribed if it comes back.`,
-    )
-  }, 10000)
+    callbacks.onError?.(waited < 60
+      ? `Still preparing on-device transcription (${waited}s). Your audio is being recorded and will appear once it is ready.`
+      : `The on-device transcription engine hasn't responded in ${waited}s. Your audio is still being recorded and will be transcribed if it comes back.`)
+  }, 5_000)
 
   try {
     await sessionStarted
