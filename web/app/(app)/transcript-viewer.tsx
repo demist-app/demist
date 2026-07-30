@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { createClient } from '@/lib/supabase'
+import { explainSelection } from '@/lib/explainSelection'
 import { useReadAloud } from '@/lib/readAloud'
 
 interface Popup {
@@ -110,17 +111,7 @@ export function TranscriptViewer({
     setPopup({ term: text, definition: null, loading: true, saving: false, saved: false, x, y, flipDown })
 
     try {
-      const supabase = createClient()
-      const { data } = await supabase.functions.invoke('detect-terms', {
-        body: {
-          transcript: text,
-          subject: subject ?? 'general',
-          year: year ?? 1,
-          known_terms: [],
-          explain_mode: true,
-        },
-      })
-      const def: string | null = data?.terms?.[0]?.definition ?? null
+      const def = await explainSelection(text, subject ?? null, year ?? null)
       setPopup(prev => prev ? { ...prev, definition: def, loading: false } : null)
     } catch {
       setPopup(null)

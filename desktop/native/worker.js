@@ -53,6 +53,11 @@ const handlers = {
     (message, verbose) => emitEvent('diag', { message, verbose: verbose === true }),
   ),
   stopSession: () => (whisper ??= require('./whisper')).stopSession(),
+  // Bulk transcription of one window of an imported FILE. Arrives as a
+  // structured-cloned ArrayBuffer over the same 'advanced' serialization the
+  // PCM path uses, so it has to be re-viewed as Float32Array here.
+  transcribeBuffer: (buffer) =>
+    (whisper ??= require('./whisper')).transcribeBuffer(new Float32Array(buffer), emitProgress),
   // Deliberately does NOT require('./whisper'): if this worker has never
   // loaded the transcriber there is nothing to keep warm, and loading one
   // from a background timer would be a surprise multi-hundred-MB load.
@@ -63,8 +68,9 @@ const handlers = {
 
   // Existing request/response surface
   translate: (text, targetLang) => (translate ??= require('./translate')).translate(text, targetLang, emitProgress),
-  detectTerms: (transcript, context, subject, year) =>
-    (llm ??= require('./llm')).detectTerms(transcript, context, subject, year, emitProgress),
+  detectTerms: (transcript, context, subject, year, knownTerms) =>
+    (llm ??= require('./llm')).detectTerms(transcript, context, subject, year, emitProgress, knownTerms),
+  explain: (text, subject, year) => (llm ??= require('./llm')).explain(text, subject, year),
   summarize: (termRows, subject) => (llm ??= require('./llm')).summarize(termRows, subject),
   getModelTier: () => (llm ??= require('./llm')).getTier(),
   setModelTier: (tier) => (llm ??= require('./llm')).setTier(tier),

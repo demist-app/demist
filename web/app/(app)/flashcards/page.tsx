@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
+import { explainSelection } from '@/lib/explainSelection'
 import { capture } from '@/lib/analytics'
 import { TermContext } from '@/components/TermContext'
 
@@ -330,11 +331,7 @@ export default function Flashcards() {
     const y = flipDown ? rect.bottom : rect.top
     setDefPopup({ text, explanation: null, loading: true, x, y, flipDown })
     try {
-      const supabase = createClient()
-      const { data } = await supabase.functions.invoke('detect-terms', {
-        body: { transcript: text, subject: null, year: 1, known_terms: [], explain_mode: true },
-      })
-      const def: string | null = data?.terms?.[0]?.definition ?? null
+      const def = await explainSelection(text, null, null)
       setDefPopup(prev => prev ? { ...prev, explanation: def, loading: false } : null)
       if (def) capture('flashcard_word_defined', { term: text })
     } catch {

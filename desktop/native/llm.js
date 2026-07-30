@@ -48,6 +48,29 @@ const SUMMARY_SCHEMA = {
   required: ['synopsis'],
 }
 
+// "What does this mean?" for a phrase the user has SELECTED, rather than a
+// term the model went looking for. Deliberately a separate schema and a
+// separate prompt from detectTerms: that path exists to decide whether
+// something is worth flagging at all, and every filter on it (everyday words,
+// course-admin words, the not-in-the-transcript check) is there to keep
+// unasked-for cards out. Applied to a phrase someone has highlighted and
+// tapped, those same filters produce "no explanation available" for perfectly
+// reasonable requests - the user has already made the judgement the filters
+// exist to make.
+//
+// A grammar is safe here in a way it was not for term extraction: the failure
+// mode there was that an empty array is the shortest always-legal completion
+// under a list schema, so the model took it every time. A single required
+// string has no such shortcut, and summarize() below has run on the same
+// schema shape and the same models without it.
+const EXPLAIN_SCHEMA = {
+  type: 'object',
+  properties: {
+    definition: { type: 'string' },
+  },
+  required: ['definition'],
+}
+
 // A second, deliberately trivial question asked about each candidate term
 // before it becomes a card. See verifyTerm below for why this exists and what
 // it measured.
@@ -81,7 +104,7 @@ const CONTEXT_SIZE = os.totalmem() / (1024 ** 3) < 10 ? 2048 : 4096
 // lecture; termRows was previously passed through unbounded.
 const SUMMARY_MAX_TERMS = 60
 
-let llama, model, context, session, summaryGrammar, verdictGrammar, loadedTier, loadingPromise
+let llama, model, context, session, summaryGrammar, verdictGrammar, explainGrammar, loadedTier, loadingPromise
 
 // Which term-detection model a machine gets by default, decided by its RAM.
 // Measured through the real detectTerms path on the same five excerpts
@@ -327,6 +350,7 @@ async function ensureLoaded(emitProgress, calledBy = 'unknown') {
     session = new LlamaChatSession({ contextSequence: context.getSequence() })
     summaryGrammar = await llama.createGrammarForJsonSchema(SUMMARY_SCHEMA)
     verdictGrammar = await llama.createGrammarForJsonSchema(VERDICT_SCHEMA)
+    explainGrammar = await llama.createGrammarForJsonSchema(EXPLAIN_SCHEMA)
 
     // Pays a large one-time cost here, during preload (while the app shows
     // "loading models..." before the user ever starts recording), instead
@@ -408,6 +432,65 @@ function normalize(s) {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
 }
 
+// Edit distance, abandoned as soon as it provably exceeds `max`. Bounded
+// because it runs per candidate term against every same-length window of the
+// transcript, and an unbounded O(nm) there would be doing real work to answer a
+// question that is almost always "no, not remotely close".
+function editDistanceWithin(a, b, max) {
+  if (a === b) return 0
+  if (Math.abs(a.length - b.length) > max) return max + 1
+  let prev = new Array(b.length + 1)
+  let cur = new Array(b.length + 1)
+  for (let j = 0; j <= b.length; j++) prev[j] = j
+  for (let i = 1; i <= a.length; i++) {
+    cur[0] = i
+    let best = cur[0]
+    for (let j = 1; j <= b.length; j++) {
+      cur[j] = Math.min(
+        prev[j] + 1,
+        cur[j - 1] + 1,
+        prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1),
+      )
+      if (cur[j] < best) best = cur[j]
+    }
+    if (best > max) return max + 1
+    const t = prev; prev = cur; cur = t
+  }
+  return prev[b.length]
+}
+
+// How far off a transcript's spelling of a term is allowed to be. Whisper
+// mis-hears technical vocabulary constantly - measured on this app's own test
+// fixture, "chemiosmosis" came back as "chemisimosis" and "chemisomosis" in the
+// same recording - and roughly a fifth of the characters is the scale of that
+// error, while being far too tight to let one real term match a different one.
+const spellingSlack = (term) => Math.min(3, Math.max(1, Math.round(term.length * 0.2)))
+
+// Did the lecturer actually say this, allowing for the transcriber getting the
+// spelling wrong?
+//
+// The exact-substring version of this check was a real anti-hallucination win
+// and a real bug at the same time. The model, which knows the subject, spells
+// the term CORRECTLY; the transcript, which only heard it, often does not. So
+// the check dropped precisely the terms most worth having - the unfamiliar,
+// hard-to-spell ones the whole feature exists for - and was measured doing it
+// four times in a single 11-second test recording, while the mis-spelled
+// version of the same word sailed through on a later call and became the
+// flashcard. Exact match is still tried first and is still what passes almost
+// always; this only decides what happens when it fails.
+function saidInTranscript(haystack, term) {
+  const needle = normalize(term)
+  if (!needle) return false
+  if (haystack.includes(needle)) return true
+  const words = haystack.split(' ').filter(Boolean)
+  const span = needle.split(' ').length
+  const max = spellingSlack(needle)
+  for (let i = 0; i + span <= words.length; i++) {
+    if (editDistanceWithin(words.slice(i, i + span).join(' '), needle, max) <= max) return true
+  }
+  return false
+}
+
 // Course-admin vocabulary is not lecture jargon. Smaller models are much
 // looser about this: measured on a deliberately mundane excerpt ("the reading
 // is chapter four and the tutorial is on Thursday"), Llama 3.2 3B correctly
@@ -459,8 +542,8 @@ function parseTermLines(response, transcript, recentContext) {
     // i.e. admitting it had no real anchor for it. Requiring the term
     // itself to actually appear in what was said (this chunk or recent
     // context) is a cheap, direct check against both.
-    if (!normalizedHaystack.includes(normalize(m[1]))) {
-      console.warn('[demist] dropped likely-hallucinated term (not found in transcript or recent context):', m[1])
+    if (!saidInTranscript(normalizedHaystack, m[1])) {
+      console.warn('[demist] dropped likely-hallucinated term (not found in transcript or recent context, even allowing for misspelling):', m[1])
       continue
     }
     if (isAdmin(m[1])) {
@@ -488,10 +571,22 @@ function parseTermLines(response, transcript, recentContext) {
   return out
 }
 
-function buildDetectPrompt(transcript, recentContext, subject, year) {
+function buildDetectPrompt(transcript, recentContext, subject, year, knownTerms) {
   const who = subject ? `a ${year ? `Year ${year} ` : ''}${subject} student` : 'a university student'
+  // What has already been carded this session. Detection windows overlap by
+  // design (recentContext is deliberately fed back in), so without this the
+  // model re-finds the same concept and phrases it slightly differently each
+  // time - measured on one 11-second recording producing BOTH "proton motive"
+  // and "proton motive force" as separate cards with near-identical
+  // definitions. The cloud detect-terms function has always taken a
+  // known_terms list for exactly this reason; the on-device path simply never
+  // had one, and the renderer's exact-string dedupe cannot catch a rephrasing.
+  const already = (knownTerms ?? []).slice(-40).filter(Boolean)
+  const exclusions = already.length
+    ? `\nThese have already been explained to this student. Do not return them again, and do not return a longer or shorter wording of the same thing:\n${already.map(t => `- ${t}`).join('\n')}\n`
+    : ''
   return `You are a study assistant. From the lecture excerpt below, identify at most 2 subject-specific technical terms ${who} is unlikely to know and would need explained to follow the lecture. Ignore common English words and anything already understood from context.
-
+${exclusions}
 ${recentContext ? `Recent context: ${recentContext}\n\n` : ''}Lecture excerpt:
 ${transcript}
 
@@ -555,8 +650,8 @@ Ordinary English words and everyday phrases are NOT technical terms, even when a
   }
 }
 
-async function runDetectOnce(transcript, recentContext, subject, year) {
-  const prompt = buildDetectPrompt(transcript, recentContext, subject, year)
+async function runDetectOnce(transcript, recentContext, subject, year, knownTerms) {
+  const prompt = buildDetectPrompt(transcript, recentContext, subject, year, knownTerms)
   const run = queue.then(async () => {
     // Each call is independent: recentContext/transcript above already
     // carry everything the prompt needs. LlamaChatSession accumulates
@@ -618,7 +713,7 @@ let detectBusy = false
 let pendingBatch = null
 let pendingWaiters = []
 
-async function detectTerms(transcript, recentContext, subject, year, emitProgress) {
+async function detectTerms(transcript, recentContext, subject, year, emitProgress, knownTerms) {
   if (!transcript?.trim()) return []
   await ensureLoaded(emitProgress, 'detectTerms')
 
@@ -627,13 +722,13 @@ async function detectTerms(transcript, recentContext, subject, year, emitProgres
       pendingBatch.transcript += ' ' + transcript
       if (recentContext) pendingBatch.context = recentContext
     } else {
-      pendingBatch = { transcript, context: recentContext, subject, year }
+      pendingBatch = { transcript, context: recentContext, subject, year, knownTerms }
     }
     return new Promise(resolve => pendingWaiters.push(resolve))
   }
 
   detectBusy = true
-  const result = await runDetectOnce(transcript, recentContext, subject, year)
+  const result = await runDetectOnce(transcript, recentContext, subject, year, knownTerms)
   // Drain whatever piled up while the call above was running. A loop, not a
   // single pass: more callers can arrive (and merge into a fresh
   // pendingBatch) while THIS drain call is itself running.
@@ -642,11 +737,54 @@ async function detectTerms(transcript, recentContext, subject, year, emitProgres
     pendingBatch = null
     const waiters = pendingWaiters
     pendingWaiters = []
-    const batchResult = await runDetectOnce(batch.transcript, batch.context, batch.subject, batch.year)
+    const batchResult = await runDetectOnce(batch.transcript, batch.context, batch.subject, batch.year, batch.knownTerms)
     waiters.forEach(resolve => resolve(batchResult))
   }
   detectBusy = false
   return result
+}
+
+// On-device replacement for the detect-terms edge function's `explain_mode`,
+// which is what the "select a phrase and ask what it means" popups in the
+// transcript, the summary and the flashcard reader call.
+//
+// Those three popups were the last place the desktop app sent text a user had
+// derived from their own lecture to OpenAI, which contradicted the app's own
+// privacy policy outright. Everything they need is already resident in this
+// worker, so routing them here costs no extra memory and no extra model - only
+// the same few seconds of local generation every other call here takes.
+//
+// Unlike detectTerms this NEVER returns nothing on a judgement call. The user
+// selected the phrase and asked; refusing to answer because the phrase looks
+// ordinary would be answering a different question than the one asked.
+async function explain(text, subject, year) {
+  const phrase = text?.trim()
+  if (!phrase) return null
+  await ensureLoaded(undefined, 'explain')
+
+  const who = subject
+    ? `a ${year ? `Year ${year} ` : ''}${subject} student`
+    : 'a university student'
+  const prompt = `Explain what "${phrase}" means, for ${who} who has just met it in a lecture and does not know it.
+
+Write one or two plain-English sentences. Be specific and concrete: say what it actually is or does, not that it is "a term used in this field". Do not repeat the phrase back as its own definition.
+
+Return JSON with a single field "definition".`
+
+  // Same queue as detectTerms/summarize: one LlamaChatSession, one context
+  // sequence, so these cannot overlap.
+  const run = queue.then(async () => {
+    session.resetChatHistory()
+    const response = await session.prompt(prompt, { grammar: explainGrammar })
+    return explainGrammar.parse(response)?.definition?.trim() || null
+  })
+  queue = run.catch(() => {})
+  try {
+    return await run
+  } catch (e) {
+    console.error('[demist] explain generation failed:', e?.message ?? e)
+    return null
+  }
 }
 
 // On-device replacement for the summarize-session edge function's OpenAI
@@ -679,4 +817,9 @@ Write a 1-2 sentence summary of what this lecture covered, based only on the ter
 // matchTermLine is exported for test/run-all.js: a parser that silently
 // rejected the model's real output cost a whole lecture's term cards, and that
 // is checkable in milliseconds without loading a 2GB model.
-module.exports = { detectTerms, summarize, preload, getTier, setTier, matchTermLine }
+// matchTermLine and saidInTranscript are exported for test/run-all.js: a parser
+// that silently rejected the model's real output cost a whole lecture's term
+// cards, and a transcript check that silently rejected correctly-spelled terms
+// cost the best ones. Both are checkable in milliseconds without loading a 2GB
+// model, which is the only reason either bug survived as long as it did.
+module.exports = { detectTerms, explain, summarize, preload, getTier, setTier, matchTermLine, saidInTranscript, normalize }

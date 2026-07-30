@@ -2,10 +2,10 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase'
+import { explainSelection, EXPLAIN_TIMEOUT_MS } from '@/lib/explainSelection'
 
 const POPUP_WIDTH = 280
 const POPUP_HALF  = POPUP_WIDTH / 2
-const EXPLAIN_TIMEOUT_MS = 10_000
 
 interface Popup {
   text: string
@@ -64,17 +64,7 @@ export function SummaryViewer({
     }, EXPLAIN_TIMEOUT_MS)
 
     try {
-      const supabase = createClient()
-      const { data } = await supabase.functions.invoke('detect-terms', {
-        body: {
-          transcript: text,
-          subject: subject ?? 'general',
-          year: year ?? 1,
-          known_terms: [],
-          explain_mode: true,
-        },
-      })
-      const explanation: string | null = data?.terms?.[0]?.definition ?? null
+      const explanation = await explainSelection(text, subject ?? null, year ?? null)
       setPopup(prev => prev ? { ...prev, explanation, loading: false } : null)
     } catch {
       setPopup(prev => prev ? { ...prev, loading: false, explanation: null } : null)

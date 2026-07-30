@@ -778,6 +778,42 @@ async function stopSession() {
   if (activeSession) await activeSession.stop()
 }
 
+// One inference over a block of audio that is ALREADY complete, for importing
+// a recorded file rather than following a live microphone.
+//
+// Deliberately not routed through startSession/feedPcm/the segmenter. All of
+// that machinery exists to solve a problem a file does not have: it cuts at
+// natural pauses because it cannot see the future, it paces itself against the
+// clock because audio is still being spoken, and main.js's PCM bridge bounds
+// its queue at ~20 seconds because a live recording that falls behind must drop
+// something. Push a 50-minute file through that and it takes 50 minutes and
+// silently drops most of it once the queue bound is hit.
+//
+// A file can instead be transcribed as fast as the machine manages, because
+// Whisper's cost is FLAT in the length of audio it is handed (measured in this
+// same file: 1.2s of audio -> 1600ms, 25s of audio -> 1579ms; it pads
+// everything to its 30-second window either way). So the whole file goes
+// through in one inference per window: a 50-minute lecture is ~120 windows at
+// ~1.6s each, about three minutes, instead of fifty.
+//
+// The caller does the windowing (see web/lib/nativeImport.ts) so it can report
+// progress and keep only one window's PCM in flight at a time.
+async function transcribeBuffer(pcmFloat32, emitProgress) {
+  if (!pcmFloat32?.length) return ''
+  const transcriber = await getTranscriber(emitProgress)
+  const result = await runInference(transcriber, pcmFloat32, generationOpts(pcmFloat32.length))
+  const text = (result?.text ?? '').trim()
+  // The same energy judgement the live path makes, for the same reason:
+  // Whisper hallucinates confidently on silence, and an imported file has
+  // plenty of it (a gap between slides, a room before the lecturer starts).
+  let sum = 0
+  for (let i = 0; i < pcmFloat32.length; i++) sum += pcmFloat32[i] * pcmFloat32[i]
+  const rms = Math.sqrt(sum / pcmFloat32.length)
+  if (rms < SILENT_SEGMENT_RMS) return ''
+  if (rms < LOW_ENERGY_RMS && HALLUCINATION_BLOCKLIST.has(text.toLowerCase())) return ''
+  return text
+}
+
 // Warm the model outside a session (used by the settings screen so the
 // download happens there, with visible progress, not mid-lecture).
 async function preload(emitProgress) {
@@ -831,4 +867,4 @@ async function keepWarm() {
   return took
 }
 
-module.exports = { startSession, feedPcm, stopSession, preload, keepWarm, getTier, setTier }
+module.exports = { startSession, feedPcm, stopSession, transcribeBuffer, preload, keepWarm, getTier, setTier }

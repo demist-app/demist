@@ -39,6 +39,9 @@ export interface DemistNative {
   preloadTermDetection: () => Promise<'tiny' | 'small' | 'large'>
   preloadTranslation: (lang: string) => Promise<string>
   sendPcm: (arrayBuffer: ArrayBuffer, seq?: number) => void
+  // One window of an imported audio file, transcribed as fast as the machine
+  // manages rather than at the speed the audio was originally spoken.
+  transcribeBuffer: (arrayBuffer: ArrayBuffer) => Promise<string>
   onEvent: (callback: (msg: NativeEvent) => void) => () => void
   translate: (text: string, targetLang: string) => Promise<string>
   detectTerms: (
@@ -46,7 +49,16 @@ export interface DemistNative {
     context: string,
     subject?: string | null,
     year?: number | null,
+    // Terms already carded this session. An older desktop shell ignores the
+    // extra argument rather than failing on it, so the site can send it before
+    // every installed build understands it.
+    knownTerms?: string[],
   ) => Promise<{ term: string; definition: string; context?: string }[]>
+  explain: (
+    text: string,
+    subject?: string | null,
+    year?: number | null,
+  ) => Promise<string | null>
   summarize: (
     terms: { term: string; definition: string }[],
     subject?: string | null,

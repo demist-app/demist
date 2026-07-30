@@ -16,6 +16,11 @@ contextBridge.exposeInMainWorld('demistNative', {
   startSession: () => ipcRenderer.invoke('demist:startSession'),
   stopSession: () => ipcRenderer.invoke('demist:stopSession'),
   preloadWhisper: () => ipcRenderer.invoke('demist:preloadWhisper'),
+  // Bulk transcription of one window of an imported file (see
+  // web/lib/nativeImport.ts). invoke, not send: unlike live PCM this is
+  // request/response, and the caller needs the text back plus backpressure -
+  // it must not queue the next window until this one is done.
+  transcribeBuffer: (arrayBuffer) => ipcRenderer.invoke('demist:transcribeBuffer', arrayBuffer),
   preloadTermDetection: () => ipcRenderer.invoke('demist:preloadTermDetection'),
   preloadTranslation: (lang) => ipcRenderer.invoke('demist:preloadTranslation', lang),
   // Not actually zero-copy: Electron's ipcRenderer.postMessage transfer list
@@ -54,8 +59,12 @@ contextBridge.exposeInMainWorld('demistNative', {
 
   // Existing request/response surface
   translate: (text, targetLang) => ipcRenderer.invoke('demist:translate', text, targetLang),
-  detectTerms: (transcript, context, subject, year) =>
-    ipcRenderer.invoke('demist:detectTerms', transcript, context, subject, year),
+  detectTerms: (transcript, context, subject, year, knownTerms) =>
+    ipcRenderer.invoke('demist:detectTerms', transcript, context, subject, year, knownTerms),
+  // "What does this selected phrase mean?" - the on-device replacement for the
+  // detect-terms edge function's explain_mode, used by the transcript, summary
+  // and flashcard reader popups.
+  explain: (text, subject, year) => ipcRenderer.invoke('demist:explain', text, subject, year),
   summarize: (termRows, subject) => ipcRenderer.invoke('demist:summarize', termRows, subject),
   getModelTier: () => ipcRenderer.invoke('demist:getModelTier'),
   setModelTier: (tier) => ipcRenderer.invoke('demist:setModelTier', tier),

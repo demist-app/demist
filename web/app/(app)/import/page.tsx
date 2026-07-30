@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { capture } from '@/lib/analytics'
+import { nativeImportSupported, nativeImportAudio, nativeImportText } from '@/lib/nativeImport'
 
 const FETCH_TIMEOUT_MS = 300_000 // 5 min: long audio files take time
 
@@ -97,6 +98,14 @@ export default function ImportPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
+  // Whether this machine can do the whole import locally (the desktop app,
+  // with a build new enough to expose transcribeBuffer). Resolved in an effect
+  // rather than inline: window.demistNative does not exist during server
+  // rendering, and reading it in render would make the first paint disagree
+  // with the second.
+  const [onDevice, setOnDevice] = useState(false)
+  useEffect(() => { setOnDevice(nativeImportSupported()) }, [])
+
   const [userId, setUserId] = useState<string | null>(null)
   const [profile, setProfile] = useState<{ course: string | null; year_of_study: number | null } | null>(null)
   const [notionIntegration, setNotionIntegration] = useState<NotionIntegration | null>(null)
@@ -180,8 +189,17 @@ export default function ImportPage() {
 
   // ---- Progress bars ----
 
+  // The synthetic creep below exists because the cloud path cannot see inside
+  // the edge function: it knows only which phase it is in. The on-device path
+  // reports real progress per window, so letting these timers run as well would
+  // have two writers racing over the same bar.
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | null = null
+    if (onDevice) {
+      if (audioStatus === 'idle' || audioStatus === 'error') setAudioProgress(0)
+      else if (audioStatus === 'done') setAudioProgress(100)
+      return
+    }
     if (audioStatus === 'uploading') {
       // Real progress comes from XHR upload events (0–40%)
     } else if (audioStatus === 'transcribing') {
@@ -195,10 +213,15 @@ export default function ImportPage() {
       setAudioProgress(0)
     }
     return () => { if (interval) clearInterval(interval) }
-  }, [audioStatus])
+  }, [audioStatus, onDevice])
 
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | null = null
+    if (onDevice) {
+      if (textStatus === 'idle' || textStatus === 'error') setTextProgress(0)
+      else if (textStatus === 'done') setTextProgress(100)
+      return
+    }
     if (textStatus === 'extracting') {
       setTextProgress(0)
       interval = setInterval(() => setTextProgress(p => Math.min(p + 10, 25)), 100)
@@ -210,7 +233,7 @@ export default function ImportPage() {
       setTextProgress(0)
     }
     return () => { if (interval) clearInterval(interval) }
-  }, [textStatus])
+  }, [textStatus, onDevice])
 
   // ---- Auto-redirect after success ----
 
@@ -260,6 +283,37 @@ export default function ImportPage() {
     capture('import_audio_started', { file_size_mb: Math.round(audioFile.size / 1048576 * 10) / 10 })
     const importStartedAt = new Date().toISOString()
     const importT0 = Date.now()
+
+    // Desktop: decode and transcribe here, on the models already loaded, and
+    // never upload the recording. This is the difference between the app's
+    // privacy policy being true and being true except for this button.
+    if (onDevice) {
+      try {
+        const result = await nativeImportAudio({
+          file: audioFile,
+          userId,
+          sessionName: audioFile.name.replace(/\.[^.]+$/, '').slice(0, 100),
+          subject: profile?.course?.slice(0, 100) ?? null,
+          year: profile?.year_of_study ?? null,
+          onProgress: (pct, stage) => {
+            setAudioProgress(pct)
+            setAudioStatus(stage === 'decoding' ? 'uploading' : stage === 'transcribing' ? 'transcribing' : 'processing')
+          },
+          onTerms: setLiveImportTerms,
+        })
+        setAudioResult(result)
+        setAudioStatus('done')
+        capture('import_audio_completed', {
+          terms_detected: result.term_count,
+          duration_seconds: Math.round((Date.now() - importT0) / 1000),
+          on_device: true,
+        })
+      } catch (err) {
+        setAudioError(err instanceof Error ? err.message : 'Something went wrong')
+        setAudioStatus('error')
+      }
+      return
+    }
 
     try {
       const supabase = createClient()
@@ -371,11 +425,31 @@ export default function ImportPage() {
       setTextStatus('processing')
 
       const supabase = createClient()
+
+      const sourceMap: Record<string, string> = { pptx: 'pptx_upload', docx: 'docx_upload', txt: 'transcript_upload' }
+
+      // Desktop: the text was extracted in this browser already, so the only
+      // thing the edge function was still adding was OpenAI. Run it through the
+      // resident local model instead and the slides never leave the machine.
+      if (onDevice) {
+        const result = await nativeImportText({
+          text,
+          userId,
+          sessionName: textFile.name.replace(/\.[^.]+$/, '').slice(0, 100),
+          subject: profile?.course?.slice(0, 100) ?? null,
+          year: profile?.year_of_study ?? null,
+          source: sourceMap[ext ?? ''] ?? 'text_upload',
+          onProgress: pct => setTextProgress(pct),
+        })
+        setTextResult(result)
+        setTextStatus('done')
+        capture('import_text_completed', { file_type: ext, terms_detected: result.term_count, on_device: true })
+        return
+      }
+
       const { data: { session } } = await supabase.auth.getSession()
       const token = session?.access_token
       const base = process.env.NEXT_PUBLIC_SUPABASE_URL!
-
-      const sourceMap: Record<string, string> = { pptx: 'pptx_upload', docx: 'docx_upload', txt: 'transcript_upload' }
 
       if (!token) throw new Error('Not authenticated')
 
@@ -462,13 +536,32 @@ export default function ImportPage() {
       const pullData = await pullRes.json()
       if (!pullRes.ok || !pullData.ok) throw new Error(pullData.error ?? 'Failed to fetch page')
 
+      const pageName = notionPages.find(p => p.id === selectedPageId)?.title ?? 'Notion Import'
+
+      // Desktop: the page text is already here, so send it to the resident
+      // local model rather than on to OpenAI. Pulling from Notion is a cloud
+      // round trip the user asked for; handing the result to a second service
+      // they did not is the part worth removing.
+      if (onDevice && userId) {
+        const result = await nativeImportText({
+          text: pullData.text,
+          userId,
+          sessionName: pageName,
+          subject: profile?.course ?? null,
+          year: profile?.year_of_study ?? null,
+          source: 'notion',
+        })
+        setNotionPullResult(result)
+        setNotionPullStatus('done')
+        capture('notion_import_completed', { terms_detected: result.term_count, on_device: true })
+        return
+      }
+
       // Process via edge function
       const supabase = createClient()
       const { data: { session } } = await supabase.auth.getSession()
       const token = session?.access_token
       const base = process.env.NEXT_PUBLIC_SUPABASE_URL!
-
-      const pageName = notionPages.find(p => p.id === selectedPageId)?.title ?? 'Notion Import'
 
       const processRes = await fetch(`${base}/functions/v1/process-text-upload`, {
         method: 'POST',
@@ -573,6 +666,11 @@ export default function ImportPage() {
         <div className="mb-8 animate-step opacity-0" style={{ animationDelay: '0ms', animationFillMode: 'forwards' }}>
           <h1 className="text-2xl font-bold tracking-tight dark:text-white text-gray-900">Import</h1>
           <p className="mt-1 text-sm text-gray-700">Upload recordings, slides, or sync with Notion to build your glossary.</p>
+          {onDevice && (
+            <p className="mt-2 text-xs dark:text-amber-300/80 text-amber-700">
+              Imports are processed on this computer by the same models the live recorder uses. Nothing you upload here is sent anywhere.
+            </p>
+          )}
         </div>
 
         {/* Section 1: Audio */}

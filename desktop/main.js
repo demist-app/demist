@@ -191,11 +191,13 @@ const CALL_ROLE = {
   stopSession: 'transcribe',
   preloadWhisper: 'transcribe',
   keepWhisperWarm: 'transcribe',
+  transcribeBuffer: 'transcribe',
   getTranscribeTier: 'transcribe',
   setTranscribeTier: 'transcribe',
 
   preloadTermDetection: 'terms',
   detectTerms: 'terms',
+  explain: 'terms',
   summarize: 'terms',
   getModelTier: 'terms',
   setModelTier: 'terms',
@@ -487,11 +489,19 @@ ipcMain.handle('demist:stopSession', async () => {
   return callWorker('stopSession')
 })
 ipcMain.handle('demist:preloadWhisper', () => callWorker('preloadWhisper'))
+// One window of an imported file. Refused outright while a recording is live:
+// both would drive the same transcribe worker and the same ONNX session, and
+// an import is the one of the two that can wait.
+ipcMain.handle('demist:transcribeBuffer', (_event, buffer) => {
+  if (transcribeSessionActive) throw new Error('Stop the recording before importing a file.')
+  return callWorker('transcribeBuffer', buffer)
+})
 ipcMain.handle('demist:preloadTermDetection', () => callWorker('preloadTermDetection'))
 ipcMain.handle('demist:preloadTranslation', (_event, lang) => callWorker('preloadTranslation', lang))
 ipcMain.handle('demist:translate', (_event, text, targetLang) => callWorker('translate', text, targetLang))
-ipcMain.handle('demist:detectTerms', (_event, transcript, context, subject, year) =>
-  callWorker('detectTerms', transcript, context, subject, year))
+ipcMain.handle('demist:detectTerms', (_event, transcript, context, subject, year, knownTerms) =>
+  callWorker('detectTerms', transcript, context, subject, year, knownTerms))
+ipcMain.handle('demist:explain', (_event, text, subject, year) => callWorker('explain', text, subject, year))
 ipcMain.handle('demist:summarize', (_event, termRows, subject) => callWorker('summarize', termRows, subject))
 ipcMain.handle('demist:getModelTier', () => callWorker('getModelTier'))
 ipcMain.handle('demist:setModelTier', (_event, tier) => callWorker('setModelTier', tier))
