@@ -753,11 +753,26 @@ app.whenReady().then(() => {
   //
   // Deliberately not preloading translation: it needs the user's language
   // from their profile, which only the renderer knows.
-  for (const call of ['preloadWhisper', 'preloadTermDetection']) {
-    callWorker(call).catch((err) => {
-      console.error(`[demist] eager ${call} at startup failed (the renderer will retry):`, err?.message ?? err)
+  // Whisper FIRST, and term detection only once it has finished.
+  //
+  // These used to start together. They run in separate processes so they do not
+  // block each other's event loops, but they do compete for cores and memory
+  // while loading, and they are not equally urgent: the record button is gated
+  // on transcription alone, while term detection is a ~2GB llama.cpp load that
+  // nothing waits for until several seconds into a recording.
+  //
+  // Racing them cost the thing that matters. Measured across repeated clean-
+  // profile launches, startSession varied 4.6s to 17.6s, and one run had the
+  // audio graph starved to 0.0 frames/sec while both models loaded at once - a
+  // recording that captured nothing, on a machine with 6.2GB free and no
+  // orphaned processes. Sequencing them leaves the transcription load as the
+  // only heavy thing happening while the user is most likely to press record.
+  callWorker('preloadWhisper')
+    .catch((err) => console.error('[demist] eager preloadWhisper at startup failed (the renderer will retry):', err?.message ?? err))
+    .finally(() => {
+      callWorker('preloadTermDetection')
+        .catch((err) => console.error('[demist] eager preloadTermDetection at startup failed (the renderer will retry):', err?.message ?? err))
     })
-  }
 
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow() })
 })
