@@ -83,8 +83,14 @@ if (Test-Path $demist) {
   Write-Host "Otherwise the app finds them and proves nothing." -ForegroundColor Yellow
 }
 
+# The Application Id comes from the manifest, it is NOT "App". electron-builder
+# sets it to the identity name, so this package's is "Demist.Demist" and the
+# hardcoded !App printed here before launched nothing at all, silently: explorer
+# returns success either way and no process appears, which reads exactly like
+# the app itself failing to start.
+$appId = (Get-AppxPackageManifest $pkg).Package.Applications.Application.Id
 Write-Host "`nLaunch from the Start menu (search 'Demist'), or:"
-Write-Host "  explorer.exe shell:appsFolder\$($pkg.PackageFamilyName)!App"
+Write-Host "  explorer.exe shell:appsFolder\$($pkg.PackageFamilyName)!$appId"
 Write-Host "`nWhat to check:"
 Write-Host "  - the record button unlocks with NO transcription-model download"
 Write-Host "  - a recording produces transcript text"
