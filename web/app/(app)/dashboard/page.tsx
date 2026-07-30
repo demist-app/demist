@@ -536,7 +536,7 @@ export default function Dashboard() {
                 <div className="w-full max-w-[220px] mt-2.5">
                   <p className="text-gray-600 text-[12px] text-center mb-1.5">
                     {nativeModelProgress
-                      ? `Downloading ${nativeModelProgress.label}… ${nativeModelProgress.pct}%`
+                      ? `${nativeModelProgress.downloading ? 'Downloading' : 'Preparing'} ${nativeModelProgress.label}… ${nativeModelProgress.pct}%`
                       : 'Loading models into memory…'}
                   </p>
                   <div className="h-1 rounded-full dark:bg-white/[0.08] bg-black/[0.08] overflow-hidden">

@@ -16,13 +16,23 @@ const YEARS = [
   { value: 8, label: 'PhD' },
 ]
 
-type SupportNeed = 'hearing' | 'dyslexia' | 'attention' | 'language' | 'other'
+type SupportNeed = 'hearing' | 'dyslexia' | 'attention' | 'language' | 'other' | 'none'
 
+// 'none' is a real, storable answer, not the absence of one.
+//
+// Without it the only way past this step was to claim a support need, and any
+// value other than 'none' unlocks saving a microphone transcript without
+// lecturer consent (see summaryEligibility.ts and the gate in
+// recordingSession.tsx). So everyone who completed onboarding was granted that
+// exemption, the consent path became unreachable in practice, and the consent
+// question the app asks was one it never acted on. Someone who simply wants
+// term cards should be able to say so.
 const SUPPORT_NEEDS: { value: SupportNeed; label: string }[] = [
   { value: 'hearing', label: 'Hearing' },
   { value: 'dyslexia', label: 'Reading or dyslexia' },
   { value: 'attention', label: 'Focus or attention' },
   { value: 'language', label: 'English isn’t my first language' },
+  { value: 'none', label: 'None of these' },
   { value: 'other', label: 'Prefer not to say' },
 ]
 

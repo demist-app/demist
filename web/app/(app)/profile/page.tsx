@@ -31,13 +31,18 @@ const YEAR_OPTIONS = [
   { value: 8, label: 'PhD' },
 ]
 
-type SupportNeed = 'hearing' | 'dyslexia' | 'attention' | 'language' | 'other'
+type SupportNeed = 'hearing' | 'dyslexia' | 'attention' | 'language' | 'other' | 'none'
 
+// Kept in step with app/onboarding/page.tsx, including 'none'. Someone who
+// picked a support need during onboarding and no longer wants that exemption
+// needs a way to withdraw it, and until 'none' existed here there was none:
+// every option on this screen granted it.
 const SUPPORT_NEED_OPTIONS: { value: SupportNeed; label: string }[] = [
   { value: 'hearing', label: 'Hearing' },
   { value: 'dyslexia', label: 'Reading or dyslexia' },
   { value: 'attention', label: 'Focus or attention' },
   { value: 'language', label: 'English isn’t my first language' },
+  { value: 'none', label: 'None of these' },
   { value: 'other', label: 'Prefer not to say' },
 ]
 
@@ -85,7 +90,12 @@ export default function Profile() {
   const [micLabelsUnlocked, setMicLabelsUnlocked] = useState(false)
   const [modelTier, setModelTier] = useState<'tiny' | 'small' | 'large'>('small')
   const [tierChanging, setTierChanging] = useState(false)
-  const [transcribeTier, setTranscribeTier] = useState<'fast' | 'accurate'>('fast')
+  // null until the desktop app answers getTranscribeTier. Defaulting to 'fast'
+  // showed Fast highlighted on every machine for the first moment, including
+  // the majority where the real default is Accurate — a settings screen that
+  // states the wrong current value, however briefly, is worse than one that
+  // shows neither for a frame.
+  const [transcribeTier, setTranscribeTier] = useState<'fast' | 'accurate' | null>(null)
   const [transcribeTierChanging, setTranscribeTierChanging] = useState(false)
   // Whether this user was created with signInAnonymously (see login/page.tsx).
   // Supabase exposes it as a real claim on the user, so it stays correct after
@@ -806,7 +816,7 @@ export default function Profile() {
                 ))}
               </div>
               <p className="text-[12px] text-gray-500 mt-1.5">
-                Fast is the smaller default model. Accurate catches meaningfully more of what you actually said, at the cost of a bigger download and somewhat slower transcription. Applies next time you start recording.
+                Both ship inside the app, so neither is downloaded. Accurate catches meaningfully more of what you actually said and is the default on machines with 10GB of RAM or more; Fast uses about half the memory and runs roughly twice as quickly, and is the default below that. Changing this loads the other model now, so the record button is briefly unavailable.
               </p>
             </div>
           )}
