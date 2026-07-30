@@ -33,6 +33,13 @@ for (const [term, want, why] of [
   ['photosynthesis', false, 'never said'],
   ['quantum entanglement', false, 'never said, multi-word'],
   ['Bayesian ridge regularization', false, 'plausible from context but not what was written'],
+  // Short terms get NO spelling slack. At three characters a slack of one lets
+  // an invented fragment match almost anything - this exact string reached a
+  // real user's screen as a flashcard reading "Rit - Not a recognized term in
+  // the context of the provided excerpt".
+  ['Rit', false, 'too short for fuzzy matching to mean anything'],
+  ['ATP', false, 'short, and genuinely not in this transcript'],
+  ['proton', true, 'short-ish but literally present, so exact match carries it'],
 ]) {
   const got = saidInTranscript(HAY, term)
   check(`${JSON.stringify(term)} -> ${got}`, got === want, why)
@@ -93,5 +100,25 @@ for (const [a, b, want, why] of [
   check(`${JSON.stringify(a)} vs ${JSON.stringify(b)} -> ${got}`, got === want, why)
 }
 
-console.log(failures ? `\n${failures} FAILED` : '\nboth term-quality rules behave')
+// ── A definition that refuses to define ─────────────────────────────────────
+// The model sometimes honours the FORMAT while declining the substance, and the
+// parser read that as a real answer. Same source as the "Rit" case above: the
+// card's own text said it was not a term.
+const { matchTermLine } = require('../native/llm')
+const NON_DEFINITION = /^\s*(not (a|an)\b|no\b|n\/a\b|unknown\b|unclear\b|cannot\b|can't\b|this (is not|isn't)\b|there is no\b|does not (appear|refer)\b|undefined\b)/i
+
+console.log('\nself-negating definitions:')
+for (const [line, shouldDrop] of [
+  ['TERM: Rit | DEFINITION: Not a recognized term in the context of the provided excerpt. | CONTEXT: and rich regularization', true],
+  ['TERM: Foo | DEFINITION: Unknown. | CONTEXT: something', true],
+  ['TERM: chemiosmosis | DEFINITION: The movement of ions across a membrane to drive ATP synthesis. | CONTEXT: we will cover chemiosmosis', false],
+  ['TERM: entropy | DEFINITION: A measure of disorder in a system. | CONTEXT: entropy increases', false],
+]) {
+  const m = matchTermLine(line)
+  const dropped = !!m && NON_DEFINITION.test(m[2])
+  check(`${JSON.stringify((m ? m[2] : line).slice(0, 44))} -> ${dropped ? 'dropped' : 'kept'}`,
+    dropped === shouldDrop)
+}
+
+console.log(failures ? `\n${failures} FAILED` : '\nall term-quality rules behave')
 process.exit(failures ? 1 : 0)

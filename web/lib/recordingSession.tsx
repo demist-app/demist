@@ -137,6 +137,7 @@ interface RecordingSessionValue {
   localTranslate: ReturnType<typeof useNativeTranslate>
   localTranslateUsable: () => boolean
   liveTranslateAvailable: boolean
+  translationReady: boolean
   nativeModelsReady: boolean
   nativeModelProgress: { label: string; pct: number; downloading: boolean } | null
   nativeModelsError: string | null
@@ -178,6 +179,19 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
   // Confirmed by driving the real app with the sessions insert blocked: the
   // recovery worked perfectly and the user was told nothing at all.
   const [sessionSyncWarning, setSessionSyncWarning] = useState<string | null>(null)
+  // Whether the desktop app's bundled translation model is loaded and can
+  // actually translate a sentence.
+  //
+  // It is the ONE model that is neither shipped in the package nor preloaded
+  // ahead of time - it cannot be, because which language to fetch comes from
+  // the user's profile - so on first use it downloads while a lecture is
+  // already running. Nothing said so. The toggle bar's only progress line is
+  // Chrome's, and Chrome's Translator is excluded in Electron, so the desktop
+  // app showed an empty translation column and no explanation: reported as
+  // "translation is not working" when it was working and still arriving.
+  // Starts true outside Electron, where the cloud and Chrome paths report
+  // their own state.
+  const [translationReady, setTranslationReady] = useState<boolean>(() => !isElectronNative())
   const [wakeLockUnsupported, setWakeLockUnsupported] = useState(false)
   const [captureMode, setCaptureMode] = useState<CaptureMode>('microphone')
   const [capturedTabTitle, setCapturedTabTitle] = useState<string | null>(null)
@@ -435,8 +449,12 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       degraded.push('term detection')
     })
     const translationTask = Promise.resolve(translateLang).then((lang) => {
-      if (!lang) return
+      // Nothing to prepare, so nothing to wait for: without this the "preparing
+      // translation" note would sit there forever for users who have no
+      // translation language set at all.
+      if (!lang) { setTranslationReady(true); return }
       return withRetry(() => native.preloadTranslation(lang)).then(() => {
+        setTranslationReady(true)
         dlog(`[demist] preload: translation model ready at ${Date.now() - tPre} ms`)
       })
     }).catch((err) => {
@@ -893,13 +911,22 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       : native
       ? native.translate(text, profileRef.current!.translate_to!)
       : Promise.resolve('')
-    translated.then(result => {
+    const settle = (result: string) => {
       setTranslatedSentences(prev => {
         if (idx >= prev.length) return prev
         const next = [...prev]
         next[idx] = result || ''
         return next
       })
+    }
+    // A rejection here used to be an unhandled one, which left this sentence on
+    // null forever - and null is the "still translating" marker, so the line
+    // kept a pending "⋯" under it for the rest of the session with nothing to
+    // say it had actually failed. Settling to '' renders the source alone,
+    // which is what TranscriptBilingual already does for a failed sentence.
+    translated.then(settle, (err) => {
+      console.error('[demist] sentence translation failed:', err)
+      settle('')
     })
   }
 
@@ -1835,7 +1862,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     recentSessions, setRecentSessions, sessionGenIds, sessionFailIds, sessionFailReasons, sessionTermLoading,
     recordingError, recordingWarning, sessionSyncWarning, wakeLockUnsupported, captureMode, setCaptureMode, capturedTabTitle,
     sentences, translatedSentences, liveSessionId, reviewTerms, setReviewTerms, sessionSubject, setSessionSubject,
-    sessionSubjectRef, paywall, setPaywall, localTranslate, localTranslateUsable, liveTranslateAvailable,
+    sessionSubjectRef, paywall, setPaywall, localTranslate, localTranslateUsable, liveTranslateAvailable, translationReady,
     nativeModelsReady, nativeModelProgress, nativeModelsError, retryNativeModelPreload,
     vizAnalyserRef, chunkPeakRef, startRecording, stopRecording, dismissTerm, pinTerm, markKnown,
     maybeGenerateOnDashboard, retrySessionSummarize, toggleExpandSession,

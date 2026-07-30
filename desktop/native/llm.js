@@ -466,6 +466,20 @@ function editDistanceWithin(a, b, max) {
 // error, while being far too tight to let one real term match a different one.
 const spellingSlack = (term) => Math.min(3, Math.max(1, Math.round(term.length * 0.2)))
 
+// Below this length, only an EXACT match counts.
+//
+// Edit distance is meaningless on short strings: at three characters a slack of
+// one lets "Rit" match "Ritz", "writ", "rich" or "it", so a fragment the model
+// invented finds a partner in almost any transcript. That is not hypothetical -
+// a real session produced a card reading "Rit — Not a recognized term in the
+// context of the provided excerpt", i.e. the model said outright that it had
+// nothing, and the fuzzy check waved it through anyway.
+//
+// Six characters is where a one-or-two character difference stops being most of
+// the word. Everything the fuzzy path exists for - chemiosmosis, regularisation,
+// mitochondrial - is far longer than this, so nothing it was built for is lost.
+const MIN_FUZZY_LENGTH = 6
+
 // Did the lecturer actually say this, allowing for the transcriber getting the
 // spelling wrong?
 //
@@ -482,6 +496,8 @@ function saidInTranscript(haystack, term) {
   const needle = normalize(term)
   if (!needle) return false
   if (haystack.includes(needle)) return true
+  // Short terms get no slack at all - see MIN_FUZZY_LENGTH.
+  if (needle.replace(/\s/g, '').length < MIN_FUZZY_LENGTH) return false
   const words = haystack.split(' ').filter(Boolean)
   const span = needle.split(' ').length
   const max = spellingSlack(needle)
@@ -505,6 +521,16 @@ const ADMIN_WORDS = new Set([
   'semester', 'term', 'deadline', 'submission', 'revision', 'office hours',
   'question', 'answer', 'example', 'problem', 'exercise', 'chapter four',
 ])
+
+// A definition that says, in words, that there is nothing to define.
+//
+// Asked for terms when an excerpt has none, the model sometimes complies with
+// the FORMAT while refusing the substance: a real session produced
+// "Rit — Not a recognized term in the context of the provided excerpt", which
+// parsed perfectly and became a flashcard. The model is answering "no" and the
+// parser was reading it as "yes". Cheaper and far more reliable than trying to
+// stop it happening through prompt wording.
+const NON_DEFINITION = /^\s*(not (a|an)\b|no\b|n\/a\b|unknown\b|unclear\b|cannot\b|can't\b|this (is not|isn't)\b|there is no\b|does not (appear|refer)\b|undefined\b)/i
 
 function parseTermLines(response, transcript, recentContext) {
   // Checked against transcript AND recentContext together, not just
@@ -542,6 +568,10 @@ function parseTermLines(response, transcript, recentContext) {
     // i.e. admitting it had no real anchor for it. Requiring the term
     // itself to actually appear in what was said (this chunk or recent
     // context) is a cheap, direct check against both.
+    if (NON_DEFINITION.test(m[2])) {
+      console.warn(`[demist] dropped "${m[1]}": the model's own definition says it is not a term (${JSON.stringify(m[2].slice(0, 60))})`)
+      continue
+    }
     if (!saidInTranscript(normalizedHaystack, m[1])) {
       console.warn('[demist] dropped likely-hallucinated term (not found in transcript or recent context, even allowing for misspelling):', m[1])
       continue

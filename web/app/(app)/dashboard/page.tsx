@@ -56,7 +56,7 @@ export default function Dashboard() {
     recentSessions, sessionGenIds, sessionFailIds, sessionFailReasons, sessionTermLoading,
     recordingError, recordingWarning, sessionSyncWarning, wakeLockUnsupported, captureMode, setCaptureMode, capturedTabTitle,
     sentences, translatedSentences, reviewTerms, setReviewTerms, sessionSubject, setSessionSubject,
-    sessionSubjectRef, paywall, setPaywall, localTranslate, liveTranslateAvailable,
+    sessionSubjectRef, paywall, setPaywall, localTranslate, liveTranslateAvailable, translationReady,
     nativeModelsReady, nativeModelProgress, nativeModelsError, retryNativeModelPreload,
     vizAnalyserRef, chunkPeakRef, startRecording, stopRecording, dismissTerm, pinTerm, markKnown,
     retrySessionSummarize, toggleExpandSession,
@@ -83,6 +83,37 @@ export default function Dashboard() {
     const data = new Uint8Array(analyser.frequencyBinCount)
     const usable = Math.floor(analyser.frequencyBinCount * 0.55)
     const BAR_COUNT = 28
+
+    // Which FFT bins each bar covers.
+    //
+    // The bars used to point-sample a LINEAR sweep: bar i read bin
+    // floor(i * usable / 28), spreading 28 bars evenly across ~13kHz. Speech
+    // has almost nothing above about 4kHz, so the top two-thirds of the bars
+    // sat at the floor permanently - visibly "half the waves don't move", and
+    // it is not a rendering bug, those bins genuinely are empty.
+    //
+    // Hearing is roughly logarithmic, so the bands are too: each bar covers a
+    // constant RATIO of frequency rather than a constant width, which is how
+    // every meter that looks alive is built. Bar 0 covers ~80-110Hz, the last
+    // ~5-6kHz, so all 28 sit inside the range a voice actually occupies.
+    //
+    // Each bar also AVERAGES its band instead of sampling one bin: with narrow
+    // low bands a single bin can fall between harmonics and read zero while the
+    // band around it is loud, which made the low bars flicker.
+    const nyquist = (analyser.context?.sampleRate ?? 48000) / 2
+    const binOf = (hz: number) =>
+      Math.max(0, Math.min(analyser.frequencyBinCount - 1, Math.round((hz / nyquist) * analyser.frequencyBinCount)))
+    const LOW_HZ = 80
+    const HIGH_HZ = 6000
+    const bands: [number, number][] = Array.from({ length: BAR_COUNT }, (_, i) => {
+      const lo = LOW_HZ * Math.pow(HIGH_HZ / LOW_HZ, i / BAR_COUNT)
+      const hi = LOW_HZ * Math.pow(HIGH_HZ / LOW_HZ, (i + 1) / BAR_COUNT)
+      const a = binOf(lo)
+      // At least one bin wide: the lowest bands are narrower than the FFT's
+      // resolution, so they would otherwise be empty ranges.
+      return [a, Math.max(a + 1, binOf(hi))]
+    })
+
     let raf: number
     const tick = () => {
       analyser.getByteFrequencyData(data)
@@ -94,9 +125,16 @@ export default function Dashboard() {
       if (ring3Ref.current) ring3Ref.current.style.transform = `scale(${1 + level * 1.3})`
       if (btnRef.current) btnRef.current.style.boxShadow = `0 0 ${20 + Math.round(level * 60)}px rgba(239,68,68,${(0.3 + level * 0.5).toFixed(2)})`
       if (barsRef.current) {
-        const bars = barsRef.current.children; const step = usable / BAR_COUNT
-        for (let i = 0; i < bars.length; i++) {
-          const val = data[Math.floor(i * step)] / 255
+        const bars = barsRef.current.children
+        for (let i = 0; i < bars.length && i < bands.length; i++) {
+          const [from, to] = bands[i]
+          let bandSum = 0
+          for (let b = from; b < to; b++) bandSum += data[b]
+          // Speech rolls off steeply with frequency, so a linear height would
+          // leave the upper bars technically alive but visually flat. A gentle
+          // curve lifts the quieter high bands into the same visual range as
+          // the loud low ones, which is what makes the whole row move together.
+          const val = Math.min(1, Math.pow((bandSum / (to - from)) / 255, 0.7) * 1.35)
           ;(bars[i] as HTMLElement).style.height = `${4 + val * 44}px`
         }
       }
@@ -396,6 +434,16 @@ export default function Dashboard() {
                     </div>
                     {localTranslate.status === 'downloading' && (
                       <span className="text-[11px] text-gray-600 shrink-0" title="A one-time Chrome download shared by every site, not specific to Demist">Chrome downloading translation model… {localTranslate.progress}%</span>
+                    )}
+                    {/* The desktop equivalent. Chrome's Translator is excluded
+                        in Electron, so the line above never appears there and
+                        the app said nothing at all while its own translation
+                        model downloaded - which reads as translation being
+                        broken rather than a one-time wait. */}
+                    {!translationReady && localTranslate.status !== 'downloading' && (
+                      <span className="text-[11px] text-gray-600 shrink-0" title="One-time download for this language. Transcription is unaffected.">
+                        Preparing translation… first lines stay English
+                      </span>
                     )}
                     {localTranslate.status === 'error' && (
                       <span className="text-[11px] text-red-400 shrink-0">Live translation unavailable, term definitions still translated</span>
