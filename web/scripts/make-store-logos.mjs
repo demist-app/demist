@@ -77,3 +77,49 @@ for (const size of [300, 150, 71]) {
 }
 
 console.log(`\nwritten to ${OUT}`)
+
+// ── 16:9 Super hero art ──────────────────────────────────────────────────────
+// The banner across the top of the Store listing on Windows 10 1607+. Partner
+// Center is explicit that it MUST NOT include the product's title, because the
+// Store draws its own title over it - so this carries no wordmark at all, only
+// the waveform motif from the icon.
+//
+// The motif sits right of centre and the left third is left quiet: that is
+// where the Store overlays the title and buttons, and art that competes with
+// them just makes both harder to read.
+function hero(w, h) {
+  const cx = w * 0.66
+  const cy = h * 0.5
+  const unit = h / 14
+  // Same five-bar rhythm as the app icon, mirrored outward from the centre.
+  const bars = [0.34, 0.62, 1.0, 0.62, 0.34]
+  const colours = ['#9A5B06', '#B4740E', '#F0A32A', '#B4740E', '#9A5B06']
+  const gap = unit * 2.1
+  const rects = bars.map((scale, i) => {
+    const bh = unit * 7.4 * scale
+    const bw = unit * 0.92
+    const x = cx + (i - 2) * gap - bw / 2
+    return `<rect x="${x.toFixed(1)}" y="${(cy - bh / 2).toFixed(1)}" width="${bw.toFixed(1)}" height="${bh.toFixed(1)}" rx="${(bw / 2).toFixed(1)}" fill="${colours[i]}"/>`
+  }).join('\n    ')
+  return Buffer.from(`<svg width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#EDEAE3"/>
+      <stop offset="100%" stop-color="#DEDACF"/>
+    </linearGradient>
+    <radialGradient id="warm" cx="66%" cy="50%" r="46%">
+      <stop offset="0%" stop-color="rgba(161,98,7,0.22)"/>
+      <stop offset="100%" stop-color="rgba(161,98,7,0)"/>
+    </radialGradient>
+  </defs>
+  <rect width="${w}" height="${h}" fill="url(#bg)"/>
+  <rect width="${w}" height="${h}" fill="url(#warm)"/>
+  ${rects}
+</svg>`)
+}
+
+for (const [w, h] of [[3840, 2160], [1920, 1080]]) {
+  const name = `superhero-16x9-${w}x${h}.png`
+  await sharp(hero(w, h)).png().toFile(path.join(OUT, name))
+  console.log(`  ${name.padEnd(30)} ${w}x${h}  (no title text, per Partner Center)`)
+}

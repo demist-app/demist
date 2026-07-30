@@ -364,8 +364,18 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     // The Settings screen now re-runs this preload after a tier change, and
     // this line is what makes that re-run actually gate anything.
     setNativeModelsReady(false)
-    const withRetry = <T,>(fn: () => Promise<T>, attemptsLeft = 2): Promise<T> =>
-      fn().catch(err => attemptsLeft > 1 ? withRetry(fn, attemptsLeft - 1) : Promise.reject(err))
+    // Three attempts with a growing pause between them, not two back to back.
+    // The transcription model is a multi-gigabyte download; retrying it
+    // instantly after a transient network failure just fails again on the same
+    // bad second, which is how Store certification saw "Couldn't load the
+    // transcription model" on a machine that had a working connection.
+    const withRetry = <T,>(fn: () => Promise<T>, attemptsLeft = 3, waitMs = 2000): Promise<T> =>
+      fn().catch(err => {
+        if (attemptsLeft <= 1) return Promise.reject(err)
+        console.warn(`[demist] model load failed, retrying in ${waitMs}ms (${attemptsLeft - 1} left):`, err?.message ?? err)
+        return new Promise<T>(resolve =>
+          setTimeout(() => resolve(withRetry(fn, attemptsLeft - 1, waitMs * 3)), waitMs))
+      })
 
     // All three load CONCURRENTLY, and the record button stays locked until
     // every one of them is resident. Nothing should still be loading once a
@@ -416,7 +426,16 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
         await whisperTask
       } catch (err) {
         console.error('[demist] preload failed for transcription model:', err)
-        setNativeModelsError("Couldn't load the transcription model. Check your connection and try again.")
+        // Carry the REASON into the message the user sees. Store certification
+        // failed with our own generic "Check your connection and try again."
+        // quoted back at us, on a machine that had a working connection - so
+        // the report told us the symptom and nothing about the cause, and no
+        // amount of re-reading the code could recover it. Whatever fails next,
+        // the screenshot will say why.
+        const reason = (err as Error)?.message?.trim()
+        setNativeModelsError(reason
+          ? `Couldn't load the transcription model: ${reason.slice(0, 200)}`
+          : "Couldn't load the transcription model. Check your connection and try again.")
         setNativeModelProgress(null)
         return
       }

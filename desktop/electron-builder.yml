@@ -99,4 +99,17 @@ appx:
   # Declaring only what's actually used matters: Store certification checks
   # that requested capabilities match real functionality.
   capabilities:
+    # internetClient is NOT a default. electron-builder's getCapabilities()
+    # emits exactly what is listed here plus runFullTrust and nothing else, so
+    # declaring only `microphone` shipped a package that never declared it
+    # needed the network at all - while the app downloads its models from
+    # Hugging Face on first run and loads its interface from demist.app.
+    #
+    # Store certification failed 10.1.2.10 with "Product fails to load
+    # on-device model showing error message 'Couldn't load the transcription
+    # model'", observed on a machine with a working internet connection. An
+    # undeclared network capability is the first thing to rule out for that,
+    # and declaring it is correct regardless of whether it was the cause: the
+    # app genuinely is an internet client.
+    - internetClient
     - microphone
