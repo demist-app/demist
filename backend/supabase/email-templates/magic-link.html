@@ -1,0 +1,51 @@
+<!--
+  Supabase → Authentication → Emails → "Magic Link"
+
+  Sent by signInWithOtp: the ordinary sign-in code. This one already worked -
+  it is here so the two emails a user can receive look like the same product,
+  and so both live under review rather than only in a dashboard.
+
+  Same email-client rules as change-email.html: tables for layout, styles
+  inline, system fonts, no images.
+-->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#EDEAE3;margin:0;padding:32px 12px;">
+  <tr>
+    <td align="center">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:460px;background-color:#FAF9F6;border:1px solid rgba(0,0,0,0.10);border-radius:20px;">
+        <tr>
+          <td style="padding:32px 32px 0 32px;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+            <p style="margin:0 0 28px 0;font-size:11px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:#A16207;">Demist</p>
+            <h1 style="margin:0 0 10px 0;font-size:21px;line-height:1.3;font-weight:700;color:#0F0F14;">Your sign-in code</h1>
+            <p style="margin:0 0 24px 0;font-size:15px;line-height:1.6;color:rgba(15,15,20,0.65);">
+              Enter this code in Demist to sign in. No password needed.
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:0 32px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#EDEAE3;border:1px solid rgba(161,98,7,0.30);border-radius:14px;">
+              <tr>
+                <td align="center" style="padding:20px 12px;font-family:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace;font-size:30px;font-weight:700;letter-spacing:8px;color:#0F0F14;">
+                  {{ .Token }}
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:22px 32px 32px 32px;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+            <p style="margin:0 0 22px 0;font-size:14px;line-height:1.6;color:rgba(15,15,20,0.65);">
+              Or <a href="{{ .ConfirmationURL }}" style="color:#A16207;font-weight:600;text-decoration:underline;">sign in from your browser</a> instead.
+            </p>
+            <p style="margin:0;padding-top:20px;border-top:1px solid rgba(0,0,0,0.08);font-size:12px;line-height:1.6;color:rgba(15,15,20,0.42);">
+              This code expires shortly. If you didn&rsquo;t try to sign in, you can ignore this email.
+            </p>
+          </td>
+        </tr>
+      </table>
+      <p style="margin:20px 0 0 0;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:11px;color:rgba(15,15,20,0.42);">
+        Demist &middot; lecture terms, explained as they are said
+      </p>
+    </td>
+  </tr>
+</table>
