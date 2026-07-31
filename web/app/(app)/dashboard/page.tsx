@@ -62,6 +62,18 @@ export default function Dashboard() {
     retrySessionSummarize, toggleExpandSession,
   } = useRecordingSession()
 
+  // Only the TRANSCRIPTION model gates the record button. nativeModelProgress
+  // carries whichever model reported last, so while transcription was loading
+  // this panel happily announced "Downloading Hindi translation... 99%" under a
+  // heading that says the app is preparing and a button that will not click -
+  // naming a model that is holding nothing up, and implying the wait is for
+  // something the user could have skipped. Anything else in flight is genuinely
+  // background work and reports itself elsewhere (see translationReady in the
+  // transcript toggle bar, and modelWarning if it fails).
+  const gatingProgress = nativeModelProgress && /transcription/i.test(nativeModelProgress.label)
+    ? nativeModelProgress
+    : null
+
   const [transcriptView, setTranscriptView] = useState<'both' | 'source' | 'translated'>('both')
   const [showSubjectInput, setShowSubjectInput] = useState(false)
   const [tabCaptureSupportedState, setTabCaptureSupportedState] = useState(false)
@@ -600,14 +612,14 @@ export default function Dashboard() {
               ) : (
                 <div className="w-full max-w-[220px] mt-2.5">
                   <p className="text-gray-600 text-[12px] text-center mb-1.5">
-                    {nativeModelProgress
-                      ? `${nativeModelProgress.downloading ? 'Downloading' : 'Preparing'} ${friendlyModelName(nativeModelProgress.label)}… ${nativeModelProgress.pct}%`
+                    {gatingProgress
+                      ? `${gatingProgress.downloading ? 'Downloading' : 'Preparing'} ${friendlyModelName(gatingProgress.label)}… ${gatingProgress.pct}%`
                       : 'Loading models into memory…'}
                   </p>
                   <div className="h-1 rounded-full dark:bg-white/[0.08] bg-black/[0.08] overflow-hidden">
                     <div
                       className="h-full rounded-full bg-yellow-500 transition-all duration-300"
-                      style={{ width: `${nativeModelProgress?.pct ?? 8}%` }}
+                      style={{ width: `${gatingProgress?.pct ?? 8}%` }}
                     />
                   </div>
                   <p className="text-gray-500 text-[11px] text-center mt-1.5">One-time setup. Only needed the first time, or after a model change.</p>
