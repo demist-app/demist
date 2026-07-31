@@ -550,7 +550,13 @@ async function startSession(onTranscript, emitProgress, onInterim, emitDiag, onN
     const applied = segmenter.setMaxSegmentMs(target)
     if (applied !== tunedMs) {
       tunedMs = applied
-      diag(`forced cut retuned to ${applied} ms (typical inference ${typicalInferenceMs()} ms)`)
+      // vdiag, not diag. The median inference time wobbles by a few tens of
+      // milliseconds between segments, so this fires on nearly every one - seven
+      // lines in a forty-second recording, and hundreds across a lecture. It is
+      // a per-segment tuning trace, which is exactly what the verbose channel is
+      // for; the lag warning is what a shipping console says when this actually
+      // matters.
+      vdiag(`forced cut retuned to ${applied} ms (typical inference ${typicalInferenceMs()} ms)`)
     }
   }
 
