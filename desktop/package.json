@@ -19,7 +19,8 @@
     "test:idle": "node test/idle-decay.js",
     "test:preview": "node test/preview-budget.js",
     "test:electron": "node test/electron-vs-node.js",
-    "test:contention": "node test/three-way-contention.js"
+    "test:contention": "node test/three-way-contention.js",
+    "test:vcredist": "node test/vcredist-bundled.js"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.2.0",

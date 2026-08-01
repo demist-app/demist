@@ -64,6 +64,33 @@ files:
 # only file count - the bytes are identical and the .appx compresses either
 # way. Correctness over tidiness for something that cannot be checked by
 # looking at it.
+# The Visual C++ 2015-2022 runtime, next to Demist.exe.
+#
+# THIS IS WHAT FAILED CERTIFICATION TWICE. onnxruntime and llama.cpp's binaries
+# import msvcp140.dll / vcruntime140.dll / vcruntime140_1.dll / msvcp140_1.dll /
+# msvcp140_atomic_wait.dll - 29 of the 85 native binaries in this package do -
+# and a clean Windows install does not have them. They arrive with the Visual
+# C++ Redistributable, which every development machine has and a test machine
+# does not.
+#
+# So on this machine onnxruntime_binding.node loaded happily, from
+# C:\WINDOWS\SYSTEM32 (confirmed by reading the process's loaded module list),
+# while on Microsoft's HP Spectre x360 LoadLibrary returned error 126 and the
+# app reported "Couldn't load the transcription model". Bundling the
+# transcription models was a real fix for a real problem, but it was never THIS
+# problem - the app could not load the runtime that reads them.
+#
+# Shipped next to the executable because that directory is searched before
+# System32 for every module load, including from the forked worker processes,
+# which run this same exe with ELECTRON_RUN_AS_NODE. Microsoft's redistributable
+# licence explicitly permits app-local deployment of these files.
+# Placed beside every native module by scripts/bundle-vcredist.js, NOT next to
+# the executable. Node opens .node files with LOAD_WITH_ALTERED_SEARCH_PATH,
+# which swaps "the executable's directory" out of the search order in favour of
+# "the directory of the module being loaded" - so an exe-adjacent copy is never
+# looked at. That was tried first and did not work.
+afterPack: ./scripts/bundle-vcredist.js
+
 asarUnpack:
   - native/**/*
   - node_modules/**/*

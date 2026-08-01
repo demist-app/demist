@@ -33,3 +33,8 @@ Thumbs.db
 # IDE
 .vscode
 .idea
+
+# Copies of the Visual C++ runtime, staged for app-local bundling by
+# scripts/bundle-vcredist.js. Microsoft's binaries, not ours - recreate with
+# scripts/stage-vcredist.ps1 rather than committing them.
+desktop/vcredist/
