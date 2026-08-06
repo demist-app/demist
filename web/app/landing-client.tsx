@@ -42,6 +42,12 @@ const CHROME_STORE_URL: string | null = null
 // Put your zipped extension in web/public/demist-extension.zip
 const EXTENSION_DOWNLOAD_URL = '/demist-extension.zip'
 
+// Microsoft Store, product 9N4TZSCFHZN8. The https:// URL is the one to link:
+// it opens the Store app when one is installed and a web listing when not, so
+// it works for the Mac and phone visitors who will also click it. The
+// ms-windows-store: deep link fails outright everywhere else.
+const MS_STORE_URL = 'https://apps.microsoft.com/detail/9N4TZSCFHZN8'
+
 const FEATURES = [
   {
     title: 'Live concept detection',
@@ -120,6 +126,7 @@ export default function LandingClient() {
 
   const featuresRef = useInView()
   const stepsRef = useInView()
+  const winRef = useInView()
   const extRef = useInView()
   const faqRef = useInView()
   const ctaRef = useInView()
@@ -174,10 +181,15 @@ export default function LandingClient() {
   // Pro waitlist. Deliberately does NOT require an account: the whole point is
   // to measure interest from people who have not signed up, and asking them to
   // make an account first would only count the ones who already did.
-  // user_id is left unset (see migration 025 - it is nullable, and anon has
-  // INSERT but no SELECT, so this can be written to but never read back out).
+  //
+  // This used to INSERT straight into pro_waitlist with the public anon key.
+  // It now posts to /api/waitlist/join, because confirming an address needs a
+  // token the visitor must not be able to see and a mail API key that must not
+  // ship to a browser - neither of which a client-side insert can have. See
+  // migration 026; anon's INSERT grant is revoked, so this is the only route in.
   const [waitEmail, setWaitEmail] = useState('')
-  const [waitState, setWaitState] = useState<'idle' | 'saving' | 'done' | 'error'>('idle')
+  const [waitState, setWaitState] =
+    useState<'idle' | 'saving' | 'sent' | 'already' | 'error'>('idle')
   // The banner is dismissible and stays dismissed. A bar pinned over every
   // scroll position is only acceptable if it can be got rid of once.
   const [bannerOpen, setBannerOpen] = useState(false)
@@ -196,16 +208,25 @@ export default function LandingClient() {
     if (!email || waitState === 'saving') return
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { setWaitState('error'); return }
     setWaitState('saving')
-    const { error } = await createClient()
-      .from('pro_waitlist')
-      .insert({ email, source: 'landing' })
-    // A duplicate is a success from the visitor's point of view: they are on
-    // the list, which is all they asked for. 23505 is unique_violation.
-    if (!error || error.code === '23505') {
-      capture('pro_waitlist_joined', { source: 'landing' })
-      setWaitState('done')
-    } else {
-      console.error('waitlist join failed:', error)
+    try {
+      const res = await fetch('/api/waitlist/join', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, source: 'landing' }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        console.error('waitlist join failed:', data?.error ?? res.status)
+        setWaitState('error')
+        return
+      }
+      // Note what is being counted: a confirmation has been REQUESTED, not
+      // granted. The join is only real once they click the link, and mixing
+      // the two would make the funnel read as healthier than it is.
+      capture('pro_waitlist_requested', { source: 'landing', outcome: data?.status ?? 'sent' })
+      setWaitState(data?.status === 'already_verified' ? 'already' : 'sent')
+    } catch (e) {
+      console.error('waitlist join failed:', e)
       setWaitState('error')
     }
   }
@@ -236,9 +257,11 @@ export default function LandingClient() {
               className="hidden sm:inline-block w-1.5 h-1.5 rounded-full shrink-0"
               style={{ background: 'var(--accent)' }}
             />
-            {waitState === 'done' ? (
+            {waitState === 'sent' || waitState === 'already' ? (
               <p className="flex-1 text-[13px] font-medium truncate" style={{ color: 'var(--accent)' }}>
-                You&apos;re on the Pro waitlist. We&apos;ll email you once, when it&apos;s ready.
+                {waitState === 'already'
+                  ? 'You’re already on the Pro waitlist. We’ll email you once, when it’s ready.'
+                  : 'Check your inbox — confirm your email to save your place.'}
               </p>
             ) : (
               <>
@@ -377,24 +400,40 @@ export default function LandingClient() {
           Record a live lecture or import a slide deck or audio file. Demist transcribes it, reads it back, explains and translates unfamiliar terms, and builds your glossary, summaries, and flashcards automatically, for students who find lectures harder to follow.
         </p>
 
-        <div className="flex flex-col sm:flex-row items-center gap-3 mb-16" {...anim(320)}>
+        <div className="flex flex-col sm:flex-row items-center gap-3 mb-4" {...anim(320)}>
           <button
             onClick={cta}
             className="px-8 py-4 rounded-2xl bg-yellow-600 hover:brightness-[1.1] text-white font-semibold text-[15px] transition-all duration-200 hover:shadow-[0_0_24px_rgba(161,98,7,0.25)] active:scale-[0.97] select-none"
           >
             {authed ? 'Open app →' : 'Get started free →'}
           </button>
-          <button
-            onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })}
-            className="text-[14px] text-gray-600 hover:text-gray-400 transition-colors px-3 py-4 select-none"
+          {/* Secondary, not primary. The browser app is still the shortest path
+              for most visitors and the one that works on every device they
+              might be reading this on; the Store link is for the ones who
+              already know they want it installed. */}
+          <a
+            href={MS_STORE_URL}
+            target="_blank" rel="noopener noreferrer"
+            onClick={() => capture('ms_store_clicked', { placement: 'hero' })}
+            className="flex items-center gap-2.5 px-6 py-4 rounded-2xl font-semibold text-[15px] transition-all duration-200 active:scale-[0.97] select-none hover:brightness-[0.98]"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border-strong)', color: 'var(--fg)' }}
           >
-            See how it works ↓
-          </button>
+            <WindowsIcon />
+            Get it on Windows
+          </a>
         </div>
 
-        <p className="text-[13px] mb-12 -mt-6" style={{ color: 'var(--fg-faint)', ...anim(360).style }}>
+        <button
+          onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })}
+          className="text-[14px] text-gray-600 hover:text-gray-400 transition-colors px-3 py-2 mb-12 select-none"
+          {...anim(350)}
+        >
+          See how it works ↓
+        </button>
+
+        <p className="text-[13px] mb-12 -mt-8" style={{ color: 'var(--fg-faint)', ...anim(380).style }}>
           <span className="sm:hidden">Works instantly in your phone&apos;s browser, no install needed.</span>
-          <span className="hidden sm:inline">On laptop or desktop? Install the app after signing in for the smoothest experience.</span>
+          <span className="hidden sm:inline">Free either way. The Windows app transcribes on your own machine, so lectures never leave it.</span>
         </p>
 
         {/* Product mockup */}
@@ -589,6 +628,65 @@ export default function LandingClient() {
         </div>
       </section>
 
+      {/* ── Windows app ──
+          Above the extension section on purpose: this is a shipped, installable
+          product and the extension is still a load-unpacked beta. Claims here
+          are deliberately narrow - transcription running locally is true and
+          tested, "works offline" is not (the app loads its interface from
+          demist.app), and that distinction got a Store submission rejected
+          once already. */}
+      <section id="windows" ref={winRef.ref} className="relative z-10 px-6 sm:px-12 py-28 max-w-3xl mx-auto text-center">
+        <p className="text-[10px] font-bold tracking-[0.2em] uppercase mb-4" style={{ color: 'var(--fg-faint)', ...scrollAnim(winRef.visible, 0).style }}>
+          Windows app
+        </p>
+        <h2
+          className="text-[30px] sm:text-[42px] font-bold tracking-tight mb-4 leading-tight"
+          style={{ color: 'var(--fg)', ...scrollAnim(winRef.visible, 80).style }}
+        >
+          Now on the Microsoft Store.{' '}
+          <span style={{ color: 'var(--fg-muted)', fontWeight: 400 }}>Transcribed on your own machine.</span>
+        </h2>
+        <p
+          className="text-[15px] leading-relaxed mb-10 max-w-[490px] mx-auto"
+          style={{ color: 'var(--fg-muted)', ...scrollAnim(winRef.visible, 160).style }}
+        >
+          The desktop app runs speech recognition locally, on your computer&apos;s own processor. Your lecture audio is never uploaded &mdash; not to us, not to anyone&apos;s AI service. Install it once and record straight from your laptop.
+        </p>
+
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3" style={scrollAnim(winRef.visible, 240).style}>
+          <a
+            href={MS_STORE_URL}
+            target="_blank" rel="noopener noreferrer"
+            onClick={() => capture('ms_store_clicked', { placement: 'section' })}
+            className="flex items-center gap-2.5 px-6 py-3.5 rounded-2xl text-white font-semibold text-[15px] transition-all active:scale-[0.97] hover:brightness-[1.1]"
+            style={{ background: 'var(--accent)' }}
+          >
+            <WindowsIcon />
+            Get it on the Microsoft Store
+          </a>
+          <button
+            onClick={cta}
+            className="px-6 py-3.5 rounded-2xl text-[15px] font-medium transition-all active:scale-[0.97]"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--fg-muted)' }}
+          >
+            Or use it in your browser
+          </button>
+        </div>
+
+        <div
+          className="mt-10 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[12px]"
+          style={{ color: 'var(--fg-faint)', ...scrollAnim(winRef.visible, 320).style }}
+        >
+          <span>Free</span>
+          <span aria-hidden>·</span>
+          <span>Windows 10 &amp; 11</span>
+          <span aria-hidden>·</span>
+          <span>Audio stays on your device</span>
+          <span aria-hidden>·</span>
+          <span>No account required</span>
+        </div>
+      </section>
+
       {/* ── Extension ── */}
       <section ref={extRef.ref} className="relative z-10 px-6 sm:px-12 py-28 max-w-3xl mx-auto text-center">
         <p className="text-[10px] font-bold tracking-[0.2em] uppercase mb-4" style={{ color: 'var(--fg-faint)', ...scrollAnim(extRef.visible, 0).style }}>
@@ -727,10 +825,17 @@ export default function LandingClient() {
             Longer lectures, unlimited flashcard exports and priority on new features.
             Join the waitlist and we&apos;ll email you once, when it&apos;s ready.
           </p>
-          {waitState === 'done' ? (
-            <p className="text-[14px] font-medium" style={{ color: 'var(--accent)' }}>
-              You&apos;re on the list. We&apos;ll be in touch.
-            </p>
+          {waitState === 'sent' || waitState === 'already' ? (
+            <div>
+              <p className="text-[14px] font-medium mb-1.5" style={{ color: 'var(--accent)' }}>
+                {waitState === 'already' ? 'You’re already on the list.' : 'Check your inbox.'}
+              </p>
+              <p className="text-[13px] leading-relaxed" style={{ color: 'var(--fg-muted)' }}>
+                {waitState === 'already'
+                  ? 'Nothing more to do — we’ll be in touch when Pro is ready.'
+                  : 'We’ve sent a confirmation link to that address. Click it and your place is saved. It can take a minute to arrive, and it’s worth a look in spam.'}
+              </p>
+            </div>
           ) : (
             <>
               <div className="flex flex-col sm:flex-row gap-2">
@@ -813,6 +918,21 @@ function ChromeIcon() {
       <line x1="21.17" y1="8" x2="12" y2="8" />
       <line x1="3.95" y1="6.06" x2="8.54" y2="14" />
       <line x1="10.88" y1="21.94" x2="15.46" y2="14" />
+    </svg>
+  )
+}
+
+// The Windows logo is four panes with a slight perspective skew - the top edge
+// sits higher on the left than the right. Drawn as filled paths rather than
+// four rects because that skew is the whole thing that makes it read as the
+// logo and not as a generic grid icon.
+function WindowsIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M2.4 5.6 10 4.5v7.1H2.4z" />
+      <path d="M11.1 4.35 21.6 2.8v8.8h-10.5z" />
+      <path d="M2.4 12.6H10v7.1L2.4 18.6z" />
+      <path d="M11.1 12.6h10.5v8.8l-10.5-1.55z" />
     </svg>
   )
 }

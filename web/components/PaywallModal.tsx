@@ -35,16 +35,24 @@ export function PaywallModal({
     })
   }, [source])
 
+  // Same endpoint as the landing page, so a join from here is confirmed the
+  // same way. It used to upsert directly with the anon key; that grant is gone
+  // (migration 026) and a row written from a browser could never be verified
+  // anyway - there is no token and no email behind it.
   const join = async () => {
     if (!email.trim()) return
     setState('saving')
-    const { error } = await createClient()
-      .from('pro_waitlist')
-      .upsert({ email: email.trim(), source }, { onConflict: 'user_id' })
-    if (!error) {
-      capture('paywall_waitlist_joined', { source })
-      setState('done')
-    } else {
+    try {
+      const res = await fetch('/api/waitlist/join', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim(), source }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) { setState('idle'); return }
+      capture('paywall_waitlist_requested', { source, outcome: data?.status ?? 'sent' })
+      setState(data?.status === 'already_verified' ? 'already' : 'done')
+    } catch {
       setState('idle')
     }
   }
@@ -77,7 +85,9 @@ export function PaywallModal({
 
         {state === 'done' || state === 'already' ? (
           <p className="text-[13px] dark:text-white/70 text-gray-700 py-2">
-            {state === 'done' ? 'You’re on the list ✓' : 'You’re already on the list ✓'}
+            {state === 'done'
+              ? 'Check your inbox — confirm your email to save your place.'
+              : 'You’re already on the list ✓'}
           </p>
         ) : (
           <div className="flex gap-2">
