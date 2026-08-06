@@ -16,7 +16,7 @@ const STORE_URL = 'https://apps.microsoft.com/detail/9N4TZSCFHZN8'
 const STATES = {
   verified: {
     title: 'You’re on the list',
-    body: 'Your email is confirmed. We’ll email you once — when Demist Pro is ready. Nothing else, no newsletter.',
+    body: 'Your email is confirmed. We’ll email you once, when Demist Pro is ready. Nothing else, no newsletter.',
     tone: 'good',
   },
   expired: {

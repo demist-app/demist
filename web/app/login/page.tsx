@@ -215,7 +215,7 @@ export default function Login() {
             </h1>
             <p className="text-gray-700 mb-8">
               {isDesktop
-                ? 'Demist runs entirely on this computer. Nothing you record is ever sent anywhere, so you don’t need an account to use it.'
+                ? 'Demist transcribes on this computer, so your lecture audio never leaves it. You don’t need an account to use it.'
                 : 'We’ll send a code to your email, no password needed.'}
             </p>
 

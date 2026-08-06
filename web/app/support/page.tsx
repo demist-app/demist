@@ -18,16 +18,16 @@ const SECTIONS: { title: string; items: { q: string; a: React.ReactNode }[] }[] 
     title: 'Getting started (Windows app)',
     items: [
       {
-        q: 'The first launch is taking a long time — is it stuck?',
-        a: <>Almost certainly not. The first time you open Demist it downloads the AI models it uses to work offline, which are several gigabytes in total. On a slow connection this can take a while. You’ll see a progress bar under the record button. It only happens once — after that the app starts in a couple of seconds, and everything works without an internet connection except signing in.</>,
+        q: 'The first launch is taking a long time. Is it stuck?',
+        a: <>Almost certainly not. Transcription is built into the app, so recording works straight away with nothing to download. What takes time is the term-detection model, which is several gigabytes and downloads in the background the first time you open Demist. Its progress shows under the record button. Until it finishes you get a live transcript without term cards, rather than nothing at all, and it only happens once.</>,
       },
       {
         q: 'The record button is greyed out',
-        a: <>That means the transcription model isn’t loaded yet — the text under it will say <em>Preparing on-device models…</em> or show a download percentage. Wait for it to finish. If it stays greyed out after the download completes, close the app fully and reopen it.</>,
+        a: <>It unlocks once the transcription model has loaded into memory, which normally takes a few seconds. The text underneath says <em>Preparing on-device models…</em> while that happens. If it stays greyed out, or reads <em>Couldn’t load on-device models</em>, press <em>Retry</em>. If that doesn’t help, close the app fully and reopen it.</>,
       },
       {
         q: 'Do I need an account?',
-        a: <>Not on the Windows app. Choose <em>Start without an account</em> and everything works — recording, term cards, flashcards, your glossary. The catch is that an account with no email address cannot be recovered: if you reinstall Windows or clear the app’s data, it’s gone. You can add an email at any time in Settings, which keeps the same account and everything in it.</>,
+        a: <>Not on the Windows app. Choose <em>Start without an account</em> and recording, term cards, flashcards and your glossary all work. The catch is that an account with no email address cannot be recovered: if you reinstall Windows or clear the app’s data, it’s gone. You can add an email at any time in Settings, which keeps the same account and everything in it.</>,
       },
       {
         q: 'It says Demist can’t reach the internet',
@@ -40,7 +40,7 @@ const SECTIONS: { title: string; items: { q: string; a: React.ReactNode }[] }[] 
     items: [
       {
         q: 'I’m recording but no text appears',
-        a: <>Give it a few seconds — Demist waits for a natural pause before transcribing, so the first line usually appears about three to five seconds after you start talking. If nothing appears after that, check Windows has given Demist microphone access: <em>Settings → Privacy &amp; security → Microphone</em>, and make sure both microphone access and access for desktop apps are on.</>,
+        a: <>Give it a few seconds. Demist waits for a natural pause before transcribing, so the first line usually appears about three to five seconds after you start talking. If nothing appears after that, check Windows has given Demist microphone access: <em>Settings → Privacy &amp; security → Microphone</em>, and make sure both microphone access and access for desktop apps are on.</>,
       },
       {
         q: 'The wrong microphone is being used',
@@ -48,7 +48,7 @@ const SECTIONS: { title: string; items: { q: string; a: React.ReactNode }[] }[] 
       },
       {
         q: 'The transcript lags behind the speaker',
-        a: <>A second or two behind is normal and expected — Demist transcribes complete phrases rather than individual words. If it drifts much further than that, close other heavy applications: transcription runs entirely on your computer’s processor, so it competes with whatever else is running. On a slower machine you can switch the transcription model to <em>Fast</em> in Settings, which roughly halves the work at some cost to accuracy.</>,
+        a: <>A second or two behind is normal and expected, because Demist transcribes complete phrases rather than individual words. If it drifts much further than that, close other heavy applications: transcription runs entirely on your computer’s processor, so it competes with whatever else is running. On a slower machine you can switch the transcription model to <em>Fast</em> in Settings, which roughly halves the work at some cost to accuracy.</>,
       },
       {
         q: 'The transcript is inaccurate',
@@ -65,11 +65,11 @@ const SECTIONS: { title: string; items: { q: string; a: React.ReactNode }[] }[] 
       },
       {
         q: 'It’s flagging ordinary words',
-        a: <>Open Settings and check which term-detection model is selected. The smallest one is less able to tell jargon from ordinary speech and is only intended for machines with under 8GB of memory. If yours has more, choose <em>Small</em> — it is noticeably more precise. You can dismiss any card you don’t want and it won’t be saved.</>,
+        a: <>Open Settings and check which term-detection model is selected. The smallest one is less able to tell jargon from ordinary speech and is only intended for machines with under 8GB of memory. If yours has more, choose <em>Small</em>, which is noticeably more precise. You can dismiss any card you don’t want and it won’t be saved.</>,
       },
       {
         q: 'Can I use Demist for a subject in another language?',
-        a: <>Not yet. Transcription is English-only. If you study in English and would like definitions translated into another language, set your translation language in Settings — Mandarin, Arabic, Hindi, Spanish and French are supported.</>,
+        a: <>Not yet. Transcription is English-only. If you study in English and would like definitions translated into another language, set your translation language in Settings. Mandarin, Arabic, Hindi, Spanish and French are supported.</>,
       },
     ],
   },
@@ -82,11 +82,11 @@ const SECTIONS: { title: string; items: { q: string; a: React.ReactNode }[] }[] 
       },
       {
         q: 'How do I delete my data?',
-        a: <>Go to <em>Settings → Delete account</em>, type DELETE to confirm, and everything stored against your account — profile, transcripts, terms, sessions and flashcard history — is removed immediately. It cannot be undone. If you can’t sign in, email us and we’ll do it for you.</>,
+        a: <>Go to <em>Settings → Delete account</em>, type DELETE to confirm, and everything stored against your account (profile, transcripts, terms, sessions and flashcard history) is removed immediately. It cannot be undone. If you can’t sign in, email us and we’ll do it for you.</>,
       },
       {
         q: 'Can I move my glossary to another computer?',
-        a: <>Yes, as long as your account has an email address on it. Sign in on the other machine and your terms, flashcards and history are already there. If you started without an account, add an email in Settings first — that keeps the same account rather than starting a new one.</>,
+        a: <>Yes, as long as your account has an email address on it. Sign in on the other machine and your terms, flashcards and history are already there. If you started without an account, add an email in Settings first, which keeps the same account rather than starting a new one.</>,
       },
     ],
   },
@@ -133,7 +133,7 @@ export default function Support() {
             <a href={`mailto:${SUPPORT_EMAIL}`} className="dark:text-yellow-400 text-yellow-700 dark:hover:text-yellow-300 hover:text-yellow-600 transition-colors">{SUPPORT_EMAIL}</a>.
             {' '}For anything about your personal data specifically, write to{' '}
             <a href="mailto:privacy@demist.app" className="dark:text-yellow-400 text-yellow-700 dark:hover:text-yellow-300 hover:text-yellow-600 transition-colors">privacy@demist.app</a>
-            {' '}— see the <Link href="/privacy" className="underline underline-offset-2">privacy policy</Link> for how we handle it.
+            {' '}and see the <Link href="/privacy" className="underline underline-offset-2">privacy policy</Link> for how we handle it.
           </p>
         </section>
 

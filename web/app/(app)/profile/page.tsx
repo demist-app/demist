@@ -472,7 +472,7 @@ export default function Profile() {
           <div className="flex-1 min-w-0">
             <p className="text-[17px] font-bold truncate">{displayName || 'No name set'}</p>
             <p className="text-[13px] text-gray-700 truncate">
-              {profile.email || 'No account — this device only'}
+              {profile.email || 'No account, this device only'}
             </p>
           </div>
         </div>

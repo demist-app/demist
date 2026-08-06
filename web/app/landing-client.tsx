@@ -261,7 +261,7 @@ export default function LandingClient() {
               <p className="flex-1 text-[13px] font-medium truncate" style={{ color: 'var(--accent)' }}>
                 {waitState === 'already'
                   ? 'You’re already on the Pro waitlist. We’ll email you once, when it’s ready.'
-                  : 'Check your inbox — confirm your email to save your place.'}
+                  : 'Check your inbox and confirm your email to save your place.'}
               </p>
             ) : (
               <>
@@ -433,7 +433,7 @@ export default function LandingClient() {
 
         <p className="text-[13px] mb-12 -mt-8" style={{ color: 'var(--fg-faint)', ...anim(380).style }}>
           <span className="sm:hidden">Works instantly in your phone&apos;s browser, no install needed.</span>
-          <span className="hidden sm:inline">Free either way. The Windows app transcribes on your own machine, so lectures never leave it.</span>
+          <span className="hidden sm:inline">Free either way. The Windows app transcribes on your own machine, so your lecture audio never leaves it.</span>
         </p>
 
         {/* Product mockup */}
@@ -650,7 +650,7 @@ export default function LandingClient() {
           className="text-[15px] leading-relaxed mb-10 max-w-[490px] mx-auto"
           style={{ color: 'var(--fg-muted)', ...scrollAnim(winRef.visible, 160).style }}
         >
-          The desktop app runs speech recognition locally, on your computer&apos;s own processor. Your lecture audio is never uploaded &mdash; not to us, not to anyone&apos;s AI service. Install it once and record straight from your laptop.
+          The desktop app runs speech recognition locally, on your computer&apos;s own processor. Your lecture audio is never uploaded, not to us and not to anyone&apos;s AI service. Install it once and record straight from your laptop.
         </p>
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3" style={scrollAnim(winRef.visible, 240).style}>
@@ -832,7 +832,7 @@ export default function LandingClient() {
               </p>
               <p className="text-[13px] leading-relaxed" style={{ color: 'var(--fg-muted)' }}>
                 {waitState === 'already'
-                  ? 'Nothing more to do — we’ll be in touch when Pro is ready.'
+                  ? 'Nothing more to do. We’ll be in touch when Pro is ready.'
                   : 'We’ve sent a confirmation link to that address. Click it and your place is saved. It can take a minute to arrive, and it’s worth a look in spam.'}
               </p>
             </div>

@@ -86,7 +86,7 @@ export function PaywallModal({
         {state === 'done' || state === 'already' ? (
           <p className="text-[13px] dark:text-white/70 text-gray-700 py-2">
             {state === 'done'
-              ? 'Check your inbox — confirm your email to save your place.'
+              ? 'Check your inbox and confirm your email to save your place.'
               : 'You’re already on the list ✓'}
           </p>
         ) : (

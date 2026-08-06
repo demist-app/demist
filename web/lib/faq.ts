@@ -9,7 +9,11 @@ export const FAQ = [
   },
   {
     q: 'Does it work offline?',
-    a: 'Live recording and AI term detection require an internet connection for processing. Your saved glossary, session history, and flashcard queue are available to browse once loaded.',
+    a: 'Not fully, in either version. On the website, recording and term detection are processed on our servers, so both need a connection. The Windows app does all of that on your own machine, but it still loads its interface from demist.app, so it needs a connection to start. Your saved glossary, session history and flashcard queue stay available to browse once loaded.',
+  },
+  {
+    q: 'Is there a Windows app?',
+    a: 'Yes, free on the Microsoft Store. It transcribes on your own computer rather than sending audio to a server, so your lecture audio never leaves the machine. Your glossary, flashcards and history still sync to your account so they follow you across devices.',
   },
   {
     q: 'What file formats can I import?',

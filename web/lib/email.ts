@@ -132,7 +132,7 @@ export function verificationEmail(confirmUrl: string) {
         P('Someone entered this address for the Demist Pro waitlist. Confirm it was you and your place is saved.') +
         button(confirmUrl, 'Confirm my email') +
         P(
-          `This link works for 7 days. If you didn&rsquo;t ask for this, ignore it &mdash; nothing has been added and we won&rsquo;t email you again.`,
+          `This link works for 7 days. If you didn&rsquo;t ask for this, just ignore it. Nothing has been added and we won&rsquo;t email you again.`,
           `font-size:13px;color:${FAINT};`,
         ) +
         P(
@@ -148,7 +148,7 @@ export function verificationEmail(confirmUrl: string) {
       '',
       confirmUrl,
       '',
-      'This link works for 7 days. If you didn’t ask for this, ignore it — nothing has been added and we won’t email you again.',
+      'This link works for 7 days. If you didn’t ask for this, just ignore it. Nothing has been added and we won’t email you again.',
       '',
       APP_URL,
     ].join('\n'),
@@ -160,9 +160,9 @@ export function welcomeEmail() {
     subject: 'You’re on the Demist Pro waitlist',
     html: shell(
       H('You&rsquo;re in') +
-        P('Your email is confirmed and your place on the Demist Pro waitlist is saved. We&rsquo;ll email you once &mdash; when Pro is ready. No newsletter, no drip campaign.') +
+        P('Your email is confirmed and your place on the Demist Pro waitlist is saved. We&rsquo;ll email you once, when Pro is ready. No newsletter, no drip campaign.') +
         P('<strong style="color:' + INK + ';">What Pro adds:</strong> longer lectures, unlimited flashcard exports, and priority on new features.') +
-        P(`In the meantime, Demist is free and works today &mdash; in your browser, or as a <a href="${MS_STORE_URL}" style="color:${ACCENT};">Windows app on the Microsoft Store</a>.`) +
+        P(`In the meantime, Demist is free and works today, in your browser or as a <a href="${MS_STORE_URL}" style="color:${ACCENT};">Windows app on the Microsoft Store</a>.`) +
         button(APP_URL, 'Open Demist') +
         P(
           'Changed your mind? Reply to this email and we&rsquo;ll take you off the list.',
@@ -173,7 +173,7 @@ export function welcomeEmail() {
     text: [
       'You’re in',
       '',
-      'Your email is confirmed and your place on the Demist Pro waitlist is saved. We’ll email you once — when Pro is ready. No newsletter, no drip campaign.',
+      'Your email is confirmed and your place on the Demist Pro waitlist is saved. We’ll email you once, when Pro is ready. No newsletter, no drip campaign.',
       '',
       'What Pro adds: longer lectures, unlimited flashcard exports, and priority on new features.',
       '',
