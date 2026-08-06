@@ -64,8 +64,23 @@ let q = sb
 // somebody makes on purpose rather than a side effect of running this twice.
 if (!RESEND_UNCLICKED) q = q.is('token_sent_at', null)
 
-const { data: rows, error } = await q
-if (error) { console.error('could not read the waitlist:', error.message); process.exit(1) }
+const { data: allRows, error } = await q
+if (error) {
+  console.error('could not read the waitlist:', error.message)
+  if (error.message.includes('permission denied')) {
+    console.error('-> service_role has no SELECT on pro_waitlist. Run migration 027.')
+  }
+  process.exit(1)
+}
+
+// RFC 2606/6761 reserve these; they can never receive mail, so every send is a
+// guaranteed hard bounce. Test rows have reached production once already (the
+// first test-waitlist.mjs run could not delete its own), and a bounce rate on a
+// domain with no sending history is worth more care than this check costs.
+const RESERVED = /@([^@]*\.)?(invalid|test|example|localhost)$/i
+const rows = allRows.filter(r => !RESERVED.test(r.email))
+const excluded = allRows.length - rows.length
+if (excluded) console.log(`excluded      ${excluded} reserved/test address(es) that could only bounce\n`)
 
 console.log(`target        ${TARGET}`)
 console.log(`unconfirmed   ${rows.length} row(s)${RESEND_UNCLICKED ? ' (including previously-mailed)' : ' never mailed'}`)

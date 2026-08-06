@@ -145,8 +145,15 @@ await admin.rpc('waitlist_join', {
 const { data: exp } = await admin.rpc('waitlist_verify', { p_token_hash: hash(oldToken) })
 check('an expired token reports as expired', exp?.[0]?.status === 'expired', `-> ${exp?.[0]?.status}`)
 
-// Service role owns these rows, so this cleans up after itself completely.
-await admin.from('pro_waitlist').delete().like('email', 'demist-selftest%@example.invalid')
+// Cleanup is CHECKED, not assumed. The first run of this script left its rows
+// behind: service_role had no DELETE on the table (fixed in 027) and the error
+// went unread, so it printed "all passed" over two rows still sitting in
+// production - one of them unverified, which the backfill would then have
+// tried to mail at a reserved .invalid address.
+const { error: delErr } = await admin
+  .from('pro_waitlist').delete().like('email', 'demist-selftest%@example.invalid')
+check('the test rows were removed', !delErr,
+  delErr ? `-> ${delErr.code} ${delErr.message} - REMOVE THEM BY HAND` : '')
 
 console.log(failures ? `\n${failures} FAILED` : '\nall passed')
 process.exit(failures ? 1 : 0)

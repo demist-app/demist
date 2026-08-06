@@ -40,9 +40,19 @@ The last statements in migration 026 revoke anon's `INSERT` grant. Until
 `/api/waitlist/join` is deployed, that grant is the **only** way anyone can
 join, so pulling it early breaks the form for every visitor in between.
 
+**Adding a variable in Vercel does not affect a deployment that is already
+built.** Vercel captures env vars into a deployment at build time, so a key
+added after the build is invisible to it — `/api/waitlist/verify` redirects to
+`?status=error` and joins return 500. Redeploy (or push) after adding any of
+these.
+
 1. Set the env vars in Vercel and deploy.
-2. Run `backend/supabase/migrations/026_waitlist_verification.sql` in the
-   Supabase SQL editor.
+2. Run `backend/supabase/migrations/026_waitlist_verification.sql`, then
+   `027_waitlist_service_role_grant.sql`, in the Supabase SQL editor. 027 is
+   not optional — without it every server-side script that reads the table
+   directly fails with `permission denied`, because 020 granted the table to
+   `authenticated` but never to `service_role`. The endpoints themselves work
+   either way, since they only call SECURITY DEFINER functions.
 3. `node scripts/test-waitlist.mjs` — checks the migration actually took, and
    sends no email, so it is safe against production.
 4. Join the waitlist yourself on the live site and click the link.
