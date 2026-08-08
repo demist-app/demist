@@ -5,7 +5,10 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "build:extension": "node scripts/build-extension.mjs",
+    "check:extension": "node scripts/build-extension.mjs --check",
+    "prebuild": "node scripts/build-extension.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.3",

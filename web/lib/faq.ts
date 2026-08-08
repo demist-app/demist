@@ -33,11 +33,11 @@ export const FAQ = [
   },
   {
     q: 'Do concept cards follow me when I switch tabs?',
-    a: 'Yes. Cards always appear on whichever tab you\'re currently on. Switch to your lecture slides, your notes, or anywhere else and concepts will keep showing up there.',
+    a: 'On the tab you were on when you started recording, yes. On any other tab, click the Demist extension icon once and cards will appear there too, and keep appearing for the rest of the session. The extension only adds itself to a page when you ask it to, which is why it does not need permission to read every site you visit.',
   },
   {
-    q: 'Concept cards aren\'t appearing on a tab I had open before installing the extension',
-    a: 'The extension only injects into tabs that load after it\'s installed. Refresh any tab that was already open before you installed Demist and concept cards will start showing on it.',
+    q: 'Concept cards aren\'t appearing on a tab',
+    a: 'Click the Demist extension icon while that tab is open. Some pages cannot be added to at all, including chrome:// settings pages, PDFs and the Chrome Web Store, which is a restriction Chrome puts on every extension rather than something specific to Demist.',
   },
   {
     q: 'Does it work during online lectures on Zoom or Teams?',

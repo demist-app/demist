@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { MS_STORE_URL } from '@/lib/links'
 
 export const metadata: Metadata = {
   title: 'Waitlist',
@@ -7,8 +8,6 @@ export const metadata: Metadata = {
   // action - keep it out of search results entirely.
   robots: { index: false, follow: false },
 }
-
-const STORE_URL = 'https://apps.microsoft.com/detail/9N4TZSCFHZN8'
 
 // Keyed by the status the verify route redirects with. Anything unrecognised
 // falls through to 'invalid', which is also the honest answer for a mangled
@@ -90,7 +89,7 @@ export default async function WaitlistConfirmedPage({
 
           {tone === 'good' && (
             <a
-              href={STORE_URL}
+              href={MS_STORE_URL}
               target="_blank"
               rel="noopener noreferrer"
               className="px-6 py-3.5 rounded-2xl text-[15px] font-medium transition-all"

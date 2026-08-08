@@ -6,6 +6,7 @@ import { useTheme } from 'next-themes'
 import { createClient } from '@/lib/supabase'
 import { capture } from '@/lib/analytics'
 import { FAQ as FAQS } from '@/lib/faq'
+import { CHROME_STORE_URL, EXTENSION_DOWNLOAD_URL, MS_STORE_URL } from '@/lib/links'
 
 const SPRING = 'cubic-bezier(0.16, 1, 0.3, 1)'
 
@@ -36,17 +37,6 @@ function scrollAnim(visible: boolean, delay: number, duration = 560) {
 
 // Deterministic waveform bar heights
 const BARS = [10, 22, 34, 26, 14, 38, 28, 18, 32, 42, 30, 16, 36, 26, 18, 12, 30, 22, 14, 20]
-
-// Update CHROME_STORE_URL once the Web Store listing is live
-const CHROME_STORE_URL: string | null = null
-// Put your zipped extension in web/public/demist-extension.zip
-const EXTENSION_DOWNLOAD_URL = '/demist-extension.zip'
-
-// Microsoft Store, product 9N4TZSCFHZN8. The https:// URL is the one to link:
-// it opens the Store app when one is installed and a web listing when not, so
-// it works for the Mac and phone visitors who will also click it. The
-// ms-windows-store: deep link fails outright everywhere else.
-const MS_STORE_URL = 'https://apps.microsoft.com/detail/9N4TZSCFHZN8'
 
 const FEATURES = [
   {
@@ -103,7 +93,7 @@ const STEPS = [
   {
     n: '01',
     title: 'Record live or import from anywhere',
-    body: 'Tap record before a lecture, or upload a recording or slide deck. No setup, no download. Just open the app.',
+    body: 'Tap record before a lecture, or upload a recording or slide deck. In the browser there is nothing to set up or install, and the Windows app is a single install from the Microsoft Store.',
   },
   {
     n: '02',
@@ -729,28 +719,40 @@ export default function LandingClient() {
             </div>
           )}
 
+          {/* Named for what it actually is. "Download beta", sitting one
+              section below a Windows app that is also downloadable, was read
+              as the Windows app by at least one real person - who then
+              installed a Chrome extension and reasonably called it the wrong
+              version. The label has to survive being read on its own. */}
           <a
             href={EXTENSION_DOWNLOAD_URL}
             download
+            onClick={() => capture('extension_zip_downloaded')}
             className="flex items-center gap-2 px-6 py-3.5 rounded-2xl text-[15px] font-medium transition-all"
             style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--fg-muted)' }}
           >
             <DownloadIcon />
-            Download beta
+            Download the Chrome extension (beta)
           </a>
         </div>
+
+        <p className="mt-5 text-[12px]" style={{ color: 'var(--fg-faint)' }}>
+          This is the browser extension, not the Demist app. For the app, use{' '}
+          <a href={MS_STORE_URL} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">the Microsoft Store</a>
+          {' '}or open Demist in your browser.
+        </p>
 
         {!CHROME_STORE_URL && (
           <div className="mt-8 rounded-2xl px-6 py-5 max-w-sm mx-auto text-left" style={{ background: 'var(--surface)', border: '1px solid var(--border)', ...scrollAnim(extRef.visible, 320).style }}>
             <p className="text-[11px] font-bold tracking-[0.16em] uppercase mb-3" style={{ color: 'var(--fg-faint)' }}>Install in 60 seconds (beta)</p>
             <ol className="space-y-2.5">
               {[
-                'Click Download beta above and save the zip file',
+                'Click Download the Chrome extension above and save the zip file',
                 'Unzip it. You will get a single folder called demist-extension',
                 'In Chrome, go to chrome://extensions',
                 'Turn on Developer mode using the toggle in the top right',
                 'Click Load unpacked and select the demist-extension folder',
-                'Pin the extension, open Demist, and click the icon to open the side panel',
+                'Pin the extension, start recording in Demist, then click the icon on any tab you want cards to appear on',
               ].map((step, i) => (
                 <li key={i} className="flex items-start gap-2.5">
                   <span className="text-[11px] font-bold mt-[3px] shrink-0 tabular-nums" style={{ color: 'var(--accent)', opacity: 0.5 }}>{String(i + 1).padStart(2, '0')}</span>

@@ -488,7 +488,7 @@ export default function Profile() {
             <p className="text-[13px] text-gray-700 leading-relaxed mb-3">
               You&apos;re using Demist without an account, so everything lives on this
               computer only. Add an email and your terms, flashcards and streak survive a
-              reinstall or a new machine. Your lectures still never leave this device.
+              reinstall or a new machine. Your lecture audio still never leaves this device.
             </p>
             {linkStep === 'done' ? (
               <p className="text-[13px] font-medium text-green-600 dark:text-green-400">Email added. Your account is backed up.</p>

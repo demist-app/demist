@@ -7,6 +7,7 @@
 
 import { useEffect, useState } from 'react'
 import { isElectronNative } from '@/lib/electronNative'
+import { MS_STORE_URL } from '@/lib/links'
 
 const DISMISS_KEY = 'demist_install_dismissed'
 
@@ -116,11 +117,23 @@ export function InstallPrompt() {
           )}
           {mode === 'unsupported' && <>This browser doesn&apos;t support one-click install yet, try Chrome or Edge.</>}
         </p>
-        {/* This is a UI convenience, not the on-device path: same cloud
-            processing as the website either way. The desktop app (separate
-            download, not out yet) is what actually keeps everything local. */}
+        {/* This is a UI convenience, not the on-device path: installing the
+            PWA gives the same cloud processing as the website. The Windows app
+            is the one that keeps audio local, and it is a completely separate
+            install from the Microsoft Store - so this has to say so and link
+            there. It previously read "a fully on-device desktop app is on the
+            way", which stayed on screen for weeks after the Store listing went
+            live: an "Install Demist" button that installs the cloud version
+            while telling you the local one does not exist yet. */}
         <p className="text-[11px] dark:text-white/30 text-gray-500 mt-1.5 leading-relaxed">
-          Still processes via the cloud, same as the website. A fully on-device desktop app is on the way.
+          Still processes via the cloud, same as the website. For on-device transcription, get the{' '}
+          <a
+            href={MS_STORE_URL}
+            target="_blank" rel="noopener noreferrer"
+            className="underline underline-offset-2 dark:text-white/50 text-gray-600 dark:hover:text-white/80 hover:text-gray-900 transition-colors"
+          >
+            Windows app
+          </a>.
         </p>
         {mode === 'chromium' && (
           <button

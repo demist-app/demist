@@ -8,11 +8,11 @@
 // prefix, so importing it from a client component fails the build rather than
 // leaking the key, which is the outcome we want.
 
+import { MS_STORE_URL } from './links'
+
 const RESEND_ENDPOINT = 'https://api.resend.com/emails'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://demist.app'
-// Kept in step with MS_STORE_URL in app/landing-client.tsx.
-const MS_STORE_URL = 'https://apps.microsoft.com/detail/9N4TZSCFHZN8'
 // Must be an address on a domain verified in Resend, or every send 403s.
 const FROM = process.env.WAITLIST_FROM ?? 'Demist <hello@demist.app>'
 const REPLY_TO = process.env.WAITLIST_REPLY_TO ?? undefined
