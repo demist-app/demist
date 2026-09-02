@@ -47,6 +47,21 @@ function fmtDuration(start: string, end: string | null): string {
   return `${Math.floor(mins / 60)}h ${mins % 60}m`
 }
 
+// termCount === 0 alone is not proof nothing was said: a full lecture whose
+// every term happened to already be familiar also detects zero. Term
+// detection and transcript storage are unrelated gates (support_need/consent
+// decide the latter, entirely independent of vocabulary), so termCount is
+// only a proxy for "probably an empty test tap", and a wrong proxy is worse
+// than no proxy - it would tell someone their real lecture "had no speech
+// detected". Requiring genuinely short duration alongside it is what keeps
+// this from misfiring on an actual lecture that only lacked jargon.
+function looksEmpty(started_at: string, ended_at: string | null, termCount: number): boolean {
+  if (termCount > 0) return false
+  if (!ended_at) return false
+  const durationSec = (new Date(ended_at).getTime() - new Date(started_at).getTime()) / 1000
+  return durationSec < 30
+}
+
 function sessionLabel(n: number, startedAt: string): string {
   const d = new Date(startedAt)
   const date = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
@@ -739,15 +754,17 @@ export default function History() {
                                 <TranscriptViewer transcript={s.transcript} subject={s.subject} year={null} sessionId={s.id} terms={s.terms?.map(t => ({ term: t.term, definition: t.definition, context: t.context }))} translation={s.transcript_translation} translationLang={s.translation_lang} />
                               </div>
                             </details>
-                          ) : s.capture_mode === 'microphone' && s.termCount === 0 ? (
-                            // Nothing was detected, so there is nothing a support
-                            // need or consent could have unlocked - this almost
-                            // always means the recording was very short or picked
-                            // up no speech, not that access was denied. The old
-                            // copy told every empty test tap to "set a support
-                            // need", which was simply wrong for this case.
+                          ) : s.capture_mode === 'microphone' && looksEmpty(s.started_at, s.ended_at, s.termCount) ? (
+                            // Short AND zero terms - a genuine lecture that
+                            // simply had no unfamiliar vocabulary would still
+                            // fail termCount, but not also run under 30s. The
+                            // old copy told every empty test tap to "set a
+                            // support need", which was simply wrong for this
+                            // case: there was nothing to unlock in the first
+                            // place, term detection and transcript storage
+                            // being unrelated gates.
                             <p className="text-[12px] text-gray-500 dark:text-white/60 mt-2 leading-relaxed">
-                              No transcript because no speech was detected in this recording.
+                              No transcript because this recording was very short and nothing was said.
                             </p>
                           ) : s.capture_mode === 'microphone' && currentlyEligible(s.subject) ? (
                             // The precondition IS met right now - this session
