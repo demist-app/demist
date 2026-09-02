@@ -104,6 +104,35 @@ export default function History() {
   // session from History left Dashboard showing stale data until a full reload.
   const { setRecentSessions, profile } = useRecordingSession()
 
+  // module_name values (lowercased) the user currently has lecturer consent
+  // for, so the "no transcript" message below can tell "you could unlock this
+  // one" apart from "this is a past session, nothing left to unlock". Fetched
+  // once here rather than reusing ConsentManager's copy, which is local state
+  // in a separate component with no shared source.
+  const [consentSubjects, setConsentSubjects] = useState<Set<string>>(new Set())
+  useEffect(() => {
+    createClient().from('lecturer_consents').select('module_name').then(({ data }) => {
+      setConsentSubjects(new Set((data ?? []).map(c => c.module_name.trim().toLowerCase())))
+    })
+  }, [])
+
+  // Whether a mic-mode recording made RIGHT NOW, with the subject given,
+  // would save its transcript under the CURRENT profile and consents. Mirrors
+  // the eligibility check in recordingSession.tsx, which only ever looks at
+  // profile/consent state at the moment a session ends - so a session
+  // recorded before support_need or a consent existed stays un-transcripted
+  // forever, on purpose (the copyright basis for saving it never existed for
+  // that recording). This function exists purely to tell that case apart from
+  // "you could fix this today", which is what was missing: the message below
+  // used to say "set a support need to unlock" unconditionally, even to a
+  // user who already had one set, because it never checked current state at
+  // all - just whether transcript was null.
+  const currentlyEligible = (subject: string | null) => {
+    const supportNeed = profile?.support_need
+    if (supportNeed && supportNeed !== 'none') return true
+    return consentSubjects.has((subject ?? '').trim().toLowerCase())
+  }
+
   const summarizingRef = useRef(new Set<string>())
 
   useEffect(() => {
@@ -710,12 +739,32 @@ export default function History() {
                                 <TranscriptViewer transcript={s.transcript} subject={s.subject} year={null} sessionId={s.id} terms={s.terms?.map(t => ({ term: t.term, definition: t.definition, context: t.context }))} translation={s.transcript_translation} translationLang={s.translation_lang} />
                               </div>
                             </details>
-                          ) : (
+                          ) : s.capture_mode === 'microphone' && s.termCount === 0 ? (
+                            // Nothing was detected, so there is nothing a support
+                            // need or consent could have unlocked - this almost
+                            // always means the recording was very short or picked
+                            // up no speech, not that access was denied. The old
+                            // copy told every empty test tap to "set a support
+                            // need", which was simply wrong for this case.
+                            <p className="text-[12px] text-gray-500 dark:text-white/60 mt-2 leading-relaxed">
+                              No transcript because no speech was detected in this recording.
+                            </p>
+                          ) : s.capture_mode === 'microphone' && currentlyEligible(s.subject) ? (
+                            // The precondition IS met right now - this session
+                            // simply predates it. Telling this user to "set a
+                            // support need" when they already have one is the
+                            // exact confusion that prompted this fix: it read as
+                            // the feature not working, when the setting they were
+                            // told to make had already been made.
+                            <p className="text-[12px] text-gray-500 dark:text-white/60 mt-2 leading-relaxed">
+                              No transcript. This recording was made before your support need or lecturer consent was in place, so it can&apos;t be unlocked after the fact. Recordings from now on will save in full.
+                            </p>
+                          ) : s.capture_mode === 'microphone' ? (
                             <p className="text-[12px] text-gray-500 dark:text-white/60 mt-2 leading-relaxed">
                               Live sessions keep your glossary, not the lecture transcript.{' '}
                               <span className="text-amber-600 dark:text-amber-400">Set a support need in your profile, or ask your lecturer, to unlock full notes.</span>
                             </p>
-                          )}
+                          ) : null}
 
                           {loadingTerms === s.id && <p className="text-gray-700 text-[13px] py-3">Loading…</p>}
                           {s.terms && s.terms.length === 0 && (
