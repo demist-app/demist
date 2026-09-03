@@ -156,9 +156,13 @@ serve(async (req) => {
 
     // Persist the chunk so the dashboard can stream it live via Supabase Realtime
     if (cleanText && sessionId && chunkIndex !== null && Number.isFinite(chunkIndex)) {
+      // transcript_chunks has no user_id column (id, session_id, chunk_index,
+      // text, created_at only) - ownership is via session_id -> sessions.user_id.
+      // Sending user_id here was a schema mismatch that made every insert fail
+      // outright (PostgREST: column "user_id" does not exist), independent of
+      // and on top of migration 029's missing INSERT policy.
       const { error: insertErr } = await supabase.from('transcript_chunks').insert({
         session_id: sessionId,
-        user_id: user.id,
         text: cleanText,
         chunk_index: chunkIndex,
       })
