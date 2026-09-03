@@ -8,6 +8,13 @@ if (typeof window !== 'undefined') {
         defaults: '2026-01-30',
         capture_exceptions: true,
         debug: process.env.NODE_ENV === 'development',
+        // Never auto-start recording just because the PostHog project has it
+        // enabled. Dashboard/history/flashcards etc. render real lecture
+        // transcript and term-definition text as DOM content - exactly the
+        // text the privacy policy promises the desktop app never sends to a
+        // third party. Recording is instead started explicitly, only on the
+        // public marketing pages, by SessionReplayGate in app/providers.tsx.
+        disable_session_recording: true,
       })
     )
 

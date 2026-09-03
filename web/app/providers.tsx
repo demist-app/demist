@@ -1,9 +1,32 @@
 'use client'
 
 import { useEffect } from 'react'
+import { usePathname } from 'next/navigation'
 import { ThemeProvider, useTheme } from 'next-themes'
+import { startSessionRecording, stopSessionRecording } from '@/lib/analytics'
 
 const THEME_COLOR = { light: '#EDEAE3', dark: '#080810' }
+
+// Session recording is off by default (disable_session_recording: true in
+// instrumentation-client.ts) and enabled ONLY on this exact set of public,
+// logged-out, static-content pages - deliberately an allowlist, not a
+// blocklist of (app)/ routes. A blocklist fails open: a new authenticated
+// page that forgets to add itself gets recorded by default. An allowlist
+// fails closed: anything not explicitly listed here, including every current
+// and future (app)/ route (dashboard, history, flashcards, glossary, import,
+// leaderboard, profile, quiz, stats, study - all of them render real lecture
+// transcript or term-definition text as DOM content) and /onboarding and
+// /u/[userId] (post-auth or another user's data), simply never records.
+const RECORDABLE_PATHS = new Set(['/', '/login', '/about', '/privacy', '/terms', '/support'])
+
+function SessionReplayGate() {
+  const pathname = usePathname()
+  useEffect(() => {
+    if (RECORDABLE_PATHS.has(pathname)) startSessionRecording()
+    else stopSessionRecording()
+  }, [pathname])
+  return null
+}
 
 // Theme here is a manual toggle (enableSystem={false}), not OS preference, so
 // the installed-app window chrome/status bar color has to track the actual
@@ -44,6 +67,7 @@ export function PHProvider({ children }: { children: React.ReactNode }) {
     <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} disableTransitionOnChange>
       <ThemeColorSync />
       <ServiceWorkerRegistration />
+      <SessionReplayGate />
       {children}
     </ThemeProvider>
   )

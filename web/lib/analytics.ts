@@ -23,3 +23,17 @@ export function reset(): void {
   if (typeof window === 'undefined') return
   get().then(ph => ph.reset())
 }
+
+// Session recording is opted OUT by default in instrumentation-client.ts
+// (disable_session_recording: true) and turned on only for the exact public
+// pages listed in SessionReplayGate (app/providers.tsx) - never inside (app)/,
+// which renders real lecture transcripts and term definitions as DOM text.
+export function startSessionRecording(): void {
+  if (typeof window === 'undefined') return
+  get().then(ph => ph.startSessionRecording())
+}
+
+export function stopSessionRecording(): void {
+  if (typeof window === 'undefined') return
+  get().then(ph => ph.stopSessionRecording())
+}
