@@ -1,0 +1,50 @@
+<!--
+Supabase "Magic Link" template - the ONLY template signInWithOtp() ever uses,
+whether or not shouldCreateUser is true. Supabase's own docs are explicit:
+"Email OTPs share an implementation with Magic Links" - there is no separate
+"confirm signup" template for this flow, so this one file covers every
+"Get started" click, first-time or returning.
+
+This has to include {{ .Token }} (not {{ .ConfirmationURL }}), because
+web/app/login/page.tsx has the user type a 6-digit code rather than click a
+link - Supabase decides which to send based on which variable the template
+references, per their docs.
+
+WHY THIS FILE EXISTS IN THE REPO: Supabase auth email templates live in
+project config, not the database, so there is no migration file for them and
+no way to apply this one from here either - no tool in this session's Supabase
+MCP connector edits auth config, and the Management API endpoint for it
+(PATCH /v1/projects/{ref}/config/auth) needs a personal access token nobody
+here holds. This file is the one committed record of what SHOULD be live, so
+a future change to this template starts from a real diff instead of the
+"what does the dashboard currently say" guessing game review_log's missing
+migration turned into.
+
+HOW TO APPLY (Supabase dashboard is the only path):
+  1. https://supabase.com/dashboard/project/bsjcdvhiuxtyvbnrcbwg/auth/templates
+  2. Select "Magic Link"
+  3. Subject: {{ .Token }} is your Demist sign-in code
+  4. Paste everything below the divider as the message body (source/HTML mode,
+     not the rich text editor - it will otherwise escape the Go template tags)
+  5. Save, then send yourself a real code from /login to confirm it renders
+-->
+<!-- ============================== BODY BELOW ============================== -->
+<div style="margin:0;padding:32px 16px;background:#EDEAE3;">
+  <div style="max-width:480px;margin:0 auto;background:#FAF9F6;border:1px solid #DCD8CF;border-radius:16px;padding:32px 32px 36px 32px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+    <p style="margin:0 0 28px 0;font-size:12px;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;color:#A16207;">Demist</p>
+
+    <h1 style="margin:0 0 12px 0;font-size:22px;line-height:1.3;font-weight:700;color:#0F0F14;">Your sign-in code</h1>
+    <p style="margin:0 0 24px 0;font-size:15px;line-height:1.65;color:#5B5B63;">Enter this code on the Demist sign-in screen. It expires shortly and works once.</p>
+
+    <div style="margin:0 0 24px 0;padding:20px;background:#F6F5F2;border:1px solid #DCD8CF;border-radius:12px;text-align:center;">
+      <span style="font-family:'SF Mono',SFMono-Regular,Consolas,'Liberation Mono',Menlo,monospace;font-size:32px;font-weight:700;letter-spacing:0.35em;color:#0F0F14;">{{ .Token }}</span>
+    </div>
+
+    <p style="margin:0 0 16px 0;font-size:13px;line-height:1.65;color:#8A8A92;">Didn&rsquo;t request this? Ignore it and no one gets signed in - only someone with access to this inbox can use the code.</p>
+
+    <p style="margin:0;font-size:13px;line-height:1.65;color:#8A8A92;">Landed in spam or junk? Mark it &ldquo;Not spam&rdquo; so the next code reaches your inbox directly.</p>
+  </div>
+  <p style="max-width:480px;margin:20px auto 0 auto;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;line-height:1.6;color:#8A8A92;text-align:center;">
+    <a href="https://demist.app" style="color:#8A8A92;text-decoration:underline;">demist.app</a>
+  </p>
+</div>

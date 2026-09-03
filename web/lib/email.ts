@@ -124,6 +124,19 @@ const H = (t: string) =>
 const P = (t: string, extra = '') =>
   `<p style="margin:0 0 16px 0;font-size:15px;line-height:1.65;color:${MUTED};${extra}">${t}</p>`
 
+// A note that makes sense to someone who HAS found this email, unlike "check
+// your spam folder" would (they're reading it - it's too late for that
+// advice). What actually helps the people who never see the NEXT one: ask
+// them to whitelist the address now, while they have it in front of them.
+// The on-screen copy immediately after requesting a code/link is the real
+// fix for people who never find the email at all - see login/page.tsx and
+// the waitlist section in app/landing-client.tsx.
+const JUNK_NOTE_HTML = P(
+  `Add hello@demist.app to your contacts now, so the next one doesn&rsquo;t end up in spam.`,
+  `font-size:13px;color:${FAINT};`,
+)
+const JUNK_NOTE_TEXT = 'Add hello@demist.app to your contacts now, so the next one doesn’t end up in spam.'
+
 export function verificationEmail(confirmUrl: string) {
   return {
     subject: 'Confirm your place on the Demist Pro waitlist',
@@ -135,6 +148,7 @@ export function verificationEmail(confirmUrl: string) {
           `This link works for 7 days. If you didn&rsquo;t ask for this, just ignore it. Nothing has been added and we won&rsquo;t email you again.`,
           `font-size:13px;color:${FAINT};`,
         ) +
+        JUNK_NOTE_HTML +
         P(
           `Button not working? Paste this into your browser:<br><a href="${confirmUrl}" style="color:${ACCENT};word-break:break-all;">${confirmUrl}</a>`,
           `font-size:12px;color:${FAINT};margin-bottom:0;`,
@@ -150,6 +164,8 @@ export function verificationEmail(confirmUrl: string) {
       '',
       'This link works for 7 days. If you didn’t ask for this, just ignore it. Nothing has been added and we won’t email you again.',
       '',
+      JUNK_NOTE_TEXT,
+      '',
       APP_URL,
     ].join('\n'),
   }
@@ -164,6 +180,7 @@ export function welcomeEmail() {
         P('<strong style="color:' + INK + ';">What Pro adds:</strong> longer lectures, unlimited flashcard exports, and priority on new features.') +
         P(`In the meantime, Demist is free and works today, in your browser or as a <a href="${MS_STORE_URL}" style="color:${ACCENT};">Windows app on the Microsoft Store</a>.`) +
         button(APP_URL, 'Open Demist') +
+        JUNK_NOTE_HTML +
         P(
           'Changed your mind? Reply to this email and we&rsquo;ll take you off the list.',
           `font-size:13px;color:${FAINT};margin-bottom:0;`,
@@ -182,6 +199,8 @@ export function welcomeEmail() {
       '',
       'Or as a Windows app on the Microsoft Store:',
       MS_STORE_URL,
+      '',
+      JUNK_NOTE_TEXT,
       '',
       'Changed your mind? Reply to this email and we’ll take you off the list.',
     ].join('\n'),

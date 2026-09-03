@@ -292,7 +292,17 @@ export default function Login() {
             <p className="text-gray-700 mb-1">
               We sent a sign-in code to
             </p>
-            <p className="font-medium mb-8">{email}</p>
+            <p className="font-medium mb-2">{email}</p>
+            {/* The actual fix for "clicked get started, never came back": that
+                drop-off looks identical to someone changing their mind, but a
+                brand-new sending domain has no reputation yet, so a real share
+                of first codes land in spam. Telling someone the email "didn't
+                arrive" AFTER they've already given up does nothing - this has
+                to be read before that happens, right where they're staring at
+                an empty inbox. */}
+            <p className="text-[13px] text-gray-600 mb-8">
+              Not there in a minute? Check your spam or junk folder.
+            </p>
 
             <form onSubmit={handleVerifyCode} className="flex flex-col gap-3">
               <input
