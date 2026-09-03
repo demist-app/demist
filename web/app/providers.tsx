@@ -42,6 +42,40 @@ function ThemeColorSync() {
 
 function ServiceWorkerRegistration() {
   useEffect(() => {
+    // Never on iOS (all browsers there, not just Safari - Apple mandates
+    // WebKit underneath every one of them, so Chrome/Firefox on iOS inherit
+    // the identical behavior). Reported bug: cold-starting the site froze for
+    // ~20s on an iPhone. Root cause is a WebKit characteristic, not a bug in
+    // sw.js itself: iOS terminates an idle service worker's execution context
+    // to save memory, and the NEXT navigation has to pay the cost of
+    // resurrecting that whole context - parsing and running sw.js again -
+    // BEFORE the fetch event this app's SW handles even fires, let alone
+    // before the actual network request begins. That resurrection is measured
+    // in real iOS PWA performance reports as multiple seconds on its own, on
+    // top of whatever the network itself takes; Chromium does not have this
+    // tax to nearly the same degree.
+    //
+    // And nothing here needs it on iOS. The two things this SW exists for
+    // (see sw.js's own header comment) are Chromium's install-banner
+    // criteria, which Safari's Add to Home Screen never checks in the first
+    // place, and a custom offline page, for an app that already does not try
+    // to work offline. Registering here traded a benefit that does not apply
+    // on this platform for a tax that is unique to it.
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+    if (isIOS) {
+      // Not registering from here on is not enough on its own: anyone who
+      // already visited on iOS before this fix shipped has the old SW
+      // installed and controlling their device right now, and it stays that
+      // way indefinitely - browsers do not expire a registration just
+      // because the page stops calling register(). Actively unregister it,
+      // one time, for exactly the people this bug actually affected.
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations()
+          .then(regs => Promise.all(regs.map(r => r.unregister())))
+          .catch(() => {})
+      }
+      return
+    }
     if ('serviceWorker' in navigator) {
       // A registered SW with a fetch handler is part of Chrome's PWA
       // installability checklist alongside the manifest: a silently failed

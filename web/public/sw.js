@@ -20,7 +20,24 @@ self.addEventListener('activate', (event) => {
   self.clients.claim()
 })
 
+// A plain fetch(event.request) here has no upper bound: on a slow connection
+// the promise just stays pending, and respondWith() cannot hand anything back
+// to the browser until it settles - so the page cannot even start rendering
+// in the meantime, no matter how long that takes. This raced a 6s timeout
+// against the real fetch on iOS specifically (see providers.tsx for why iOS
+// no longer registers this SW at all, which is the actual fix for the ~20s
+// freeze that was reported there); kept here too because an unbounded wait on
+// a bad connection is the wrong default on any platform, not just the one it
+// was caught on. 6s: comfortably past a slow-but-working mobile handshake,
+// short enough that offline.html's own retry button (see offline.html) is a
+// reasonable thing to land on if it fires.
 self.addEventListener('fetch', (event) => {
   if (event.request.mode !== 'navigate') return
-  event.respondWith(fetch(event.request).catch(() => caches.match(OFFLINE_URL)))
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 6000)
+  event.respondWith(
+    fetch(event.request, { signal: controller.signal })
+      .finally(() => clearTimeout(timer))
+      .catch(() => caches.match(OFFLINE_URL))
+  )
 })

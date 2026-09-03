@@ -19,13 +19,34 @@
     }
     .wrap { max-width: 320px; }
     .title { font-size: 17px; font-weight: 700; margin-bottom: 8px; }
-    .body { font-size: 14px; color: rgba(237, 237, 237, 0.6); line-height: 1.5; }
+    .body { font-size: 14px; color: rgba(237, 237, 237, 0.6); line-height: 1.5; margin-bottom: 20px; }
+    button {
+      font: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      color: #080810;
+      background: #FBBF24;
+      border: none;
+      border-radius: 12px;
+      padding: 12px 24px;
+      cursor: pointer;
+    }
+    button:active { opacity: 0.8; }
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="title">You're offline</div>
     <div class="body">Demist needs a connection to record and transcribe lectures. Reconnect and try again.</div>
+    <button onclick="location.reload()">Try again</button>
   </div>
+  <script>
+    // This page can also be reached by sw.js's own 6s navigation timeout on a
+    // connection that is merely slow, not actually down - a false positive
+    // has to have a way out, not just a message. The button covers a manual
+    // retry; this covers the case where the connection recovers on its own
+    // and the visitor never touches anything.
+    window.addEventListener('online', () => location.reload())
+  </script>
 </body>
 </html>
