@@ -1,19 +1,23 @@
 # Demist for macOS — build & distribution plan
 
-Status: **CI build succeeds, real-hardware verification blocked - no Mac
-exists anywhere in this project's reach.** Updated 2026-09-04 after actually
-triggering the workflow (see below). `electron-builder.mac.yml` built
-cleanly on the first real run on a `macos-14` (Apple Silicon) GitHub Actions
-runner - no config bugs found, contrary to this plan's own expectation that
-a never-executed native-module packaging config would fail its first run.
-Produced an 827MB `.dmg`/`.zip` artifact (run
+Status: **CI build succeeds and its native pipeline is verified for real on
+the macOS runner; only physical-hardware/GUI verification remains, and it is
+blocked purely on hardware access - no Mac exists anywhere in this project's
+reach.** Updated 2026-09-04 after actually triggering the workflow three
+times (see below). `electron-builder.mac.yml` built cleanly on the first
+real run on a `macos-14` (Apple Silicon) GitHub Actions runner - no config
+bugs found, contrary to this plan's own expectation that a never-executed
+native-module packaging config would fail its first run. Produced an 827MB
+`.dmg`/`.zip` artifact (run
 [33886095755](https://github.com/demist-app/demist/actions/runs/33886095755),
-278s). A second run
-([33886991579](https://github.com/demist-app/demist/actions/runs/33886991579))
-added a CI step (`npm run test:mac-verify`, see `test/mac-hardware-verify.js`)
-that runs the real transcription/term-detection/translation pipeline against
-real cached models on that same runner - see the "what got verified through
-CI" note below §7 for what that can and cannot prove.
+278s). A second run added a CI step (`npm run test:mac-verify`, see
+`test/mac-hardware-verify.js`) that runs the real
+transcription/term-detection/translation pipeline against real cached models
+on that same runner, and caught a real bug in the new test script itself
+within minutes (see the third-run results below). The third run
+([33887498327](https://github.com/demist-app/demist/actions/runs/33887498327))
+is the current, passing baseline - see the "what got verified through CI"
+note below §7 for what it can and cannot prove.
 
 **What's actually blocking §7 now is not engineering, it's hardware access:**
 neither this session nor the user has a physical Mac, and the sandboxed
@@ -26,6 +30,42 @@ real output on arm64 macOS, but nobody has clicked through Gatekeeper,
 granted a mic permission, or opened the packaged `.app` even once. See §7 for
 exactly what is and isn't checked off, and the question at the bottom of this
 file for what's needed to close the gap.
+
+**Real results from the third run**
+([33887498327](https://github.com/demist-app/demist/actions/runs/33887498327),
+after fixing a real bug the second run caught - `test:mac-verify` had used
+`require('node-llama-cpp')` instead of the dynamic `import()` `native/llm.js`
+itself uses, which throws `ERR_REQUIRE_ASYNC_MODULE` under Node 20 for an ESM
+package with top-level await; the app code was never wrong, only the new test
+script was), pulled from the run's check-annotations since this environment
+cannot download full job logs:
+
+- Transcription: real text out of the fixture WAV in 8.7s - `"Today we will
+  cover chemiosomosis and the proton motive force across the
+  inomitochondrial ..."`.
+- `node-llama-cpp` GPU backend: **`"metal"`** - confirmed actually selected,
+  not silently falling back to CPU. This answers the one open question §7
+  flags about CI vs. physical hardware GPU passthrough, at least for this
+  virtualized runner.
+- Term detection: both real answers, but slow - 26.8s for "packet switching",
+  49.7s for "chemiosmosis" - versus the ~12s-with-GPU-offload figure measured
+  on Windows and referenced in `native/llm.js`'s own comments. Metal is
+  confirmed active, so this isn't a silent CPU fallback; more likely this
+  specific runner's shared/virtualized GPU is simply slower than a real
+  discrete or Apple Silicon GPU with no other tenant. **Not yet explained by
+  a physical-Mac measurement** - flag this if term detection feels slow once
+  someone tests on real hardware, don't assume it'll match Windows's number.
+- Translation: `"The mitochondria is the powerhouse of the cell."` →
+  `"La mitocondria es la potencia de la célula."` (es, 4.8s) and
+  `"Les mitochondries sont la puissance de la cellule."` (fr, 3.9s) - both
+  correct.
+- Gatekeeper (`spctl --assess -vv` against the actual built, unsigned `.app`):
+  **rejects it**, confirming the plan's core assumption in §4a is something
+  real `spctl` output backs up, not merely inferred from "no `identity:` key
+  in the config." The exact rejection-reason text is in the step's own log
+  output (not captured as an annotation, and this environment cannot fetch
+  full logs) - read it directly at the run URL above if the precise wording
+  matters.
 
 Decisions confirmed by the user: Apple Silicon only for v1 (no Intel), reuse
 existing brand assets rather than commission new ones, ship independently of
@@ -383,33 +423,49 @@ runs", not as a substitute for anything below.
       **NOT DONE — no Mac available to this session or the user; the .dmg is
       built (see Status above) but nobody has downloaded it onto a Mac yet.**
 - [ ] Gatekeeper's "Open Anyway" recovery path (§4a) actually works as
-      documented on a current macOS version. **NOT DONE**, same blocker.
+      documented on a current macOS version. **PARTIALLY COVERED**: the new
+      `spctl --assess -vv` CI step (run 33887498327) confirms Gatekeeper's
+      own policy engine genuinely rejects this exact unsigned/ad-hoc build -
+      the plan's core assumption is backed by real tool output now, not just
+      inferred from "no `identity:` key". The *recovery* half - System
+      Settings → Privacy & Security → Open Anyway, and the exact current
+      wording of both dialogs - needs an actual GUI session and is
+      **NOT DONE**.
 - [ ] App launches from `/Applications` without crashing. **NOT DONE**, same
-      blocker.
+      hardware blocker.
 - [ ] Microphone permission prompt appears and, once granted, live
       transcription actually produces text (not a silent no-op — this is the
       exact failure class the Windows Store rejection was, and mic access is
       the one macOS entitlement this build depends on most directly).
       **PARTIALLY COVERED, not truly done**: `test:mac-verify` confirms
-      `native/whisper.js` transcribes real audio to real text on this
-      runner's arm64 macOS (see run 33886991579) — but that is a fixture WAV
-      fed directly to the module, not a real mic captured through the
-      packaged `.app`'s permission dialog and Electron's actual audio
-      capture path. The permission-dialog half is **NOT DONE**.
+      `native/whisper.js` transcribes real audio to real text on real
+      arm64 macOS - run 33887498327 got `"Today we will cover chemiosomosis
+      and the proton motive force across the inomitochondrial ..."` from the
+      fixture WAV in 8.7s - but that is a fixture fed directly to the
+      module, not a real mic captured through the packaged `.app`'s
+      permission dialog and Electron's actual audio capture path. The
+      permission-dialog half is **NOT DONE**.
 - [ ] Term detection loads and runs — ideally confirm Metal is actually
       engaging (Activity Monitor's GPU history, or comparable timing to the
       "~4x faster with GPU offload" figure already measured on Windows) not
       silently falling back to slow CPU-only inference. **PARTIALLY
-      COVERED**: `test:mac-verify` logs `node-llama-cpp`'s actual
-      `llama.gpu` value and gets real answers from `llm.explain` on this
-      runner — check the run's annotations for the exact backend string.
-      Activity Monitor GPU history specifically requires a physical machine
-      and is **NOT DONE**.
+      COVERED, and one real finding worth flagging**: run 33887498327 logged
+      `node-llama-cpp`'s actual GPU backend as **`"metal"`** - confirmed
+      active, not a silent CPU fallback - but `llm.explain` still took 26.8s
+      and 49.7s for the two test terms, well past the ~12s-with-GPU-offload
+      figure `native/llm.js` cites from Windows measurements. Metal being
+      active rules out the "silently on CPU" failure mode specifically, but
+      does NOT mean this runner's performance is representative of a real
+      Mac's - a shared/virtualized GPU on a CI runner has no reason to match
+      a physical machine's. Re-measure this once real hardware exists rather
+      than assuming either number. Activity Monitor GPU history itself
+      requires a physical machine and is **NOT DONE**.
 - [ ] Translation (OPUS-MT models) works. **COVERED** by `test:mac-verify`
-      (two real translations, en→es and en→fr, against the real bundled
-      model family) to the extent a headless run can cover it — no UI
-      involved either way, so this one item is about as done as CI can make
-      it.
+      (run 33887498327: en→es in 4.8s - `"La mitocondria es la potencia de
+      la célula."` - and en→fr in 3.9s - `"Les mitochondries sont la
+      puissance de la cellule."` - both correct) to the extent a headless
+      run can cover it — no UI involved either way, so this one item is
+      about as done as CI can make it.
 - [ ] Test on as clean a machine as realistically available — a fresh user
       account at minimum, ideally not the primary dev Mac, which will have
       Xcode Command Line Tools and other developer tooling already present
@@ -431,7 +487,7 @@ runs", not as a substitute for anything below.
 
 **Closing this gap needs one of:** the user (or anyone) with physical access
 to an Apple Silicon Mac downloading the `.dmg` from
-[the workflow artifact](https://github.com/demist-app/demist/actions/runs/33886991579)
+[the workflow artifact](https://github.com/demist-app/demist/actions/runs/33887498327)
 (requires being logged into GitHub — Actions artifacts, unlike Release
 assets, are never publicly downloadable) and working through this checklist
 by hand; or attaching the artifact to a GitHub Release (public, no login
