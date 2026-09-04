@@ -513,26 +513,30 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
         setNativeModelProgress(null)
         return
       }
-      // Unlock the moment TRANSCRIPTION is resident, and let term detection
-      // and translation keep loading in the background. The comment above
-      // already says only Whisper is a hard requirement, but the code then
-      // waited on all three anyway, so the record button stayed locked behind
-      // the slowest of them - and the slowest is term detection, a ~2GB llama
-      // model that measured 14 SECONDS after Whisper was already ready
-      // (whisper ready at 30s from app launch, terms at 44s). That is 14
-      // seconds of a user staring at "Preparing on-device models…" for two
-      // models that are not needed to start a recording: term detection runs
-      // against transcript chunks and translation against finished sentences,
-      // both of which arrive seconds into a session at the earliest, by which
-      // point these have long since finished.
-      dlog(`[demist] preload: transcription ready after ${Date.now() - tPre} ms - record button unlocked`)
-      setNativeModelsReady(true)
-      setNativeModelProgress(null)
+      dlog(`[demist] preload: transcription ready after ${Date.now() - tPre} ms`)
 
-      // Still awaited, just not blocking the button: the degraded warning and
-      // termDetectionReadyRef both depend on how these land.
+      // Wait for term detection and translation too before unlocking the
+      // record button, even though neither is needed until seconds into a
+      // session. This used to unlock as soon as transcription alone was
+      // ready specifically to avoid an earlier regression (term detection, a
+      // ~2GB llama model, measured 14s behind transcription) - but a session
+      // starting while a model is still mid-download deep in the background,
+      // with no visible reason recording won't start, read as broken rather
+      // than "in progress". The fix is not to skip the wait, it's to show it:
+      // nativeModelProgress already reports whichever model is currently
+      // downloading (see the modelProgress handler below, now un-gated to
+      // all three), so the panel can say exactly what it's waiting for
+      // instead of the button simply staying disabled with no explanation.
+      //
+      // termsTask and translationTask never actually REJECT here even on a
+      // genuine failure after retries - each catches its own error above and
+      // pushes onto `degraded` instead - so Promise.all below cannot hang
+      // forever on an unreachable Hugging Face endpoint; it resolves once
+      // every task has either succeeded or given up, and a permanent failure
+      // still degrades gracefully rather than locking recording out entirely.
       await Promise.all([termsTask, translationTask])
-      dlog(`[demist] preload: ALL models ready after ${Date.now() - tPre} ms`)
+      dlog(`[demist] preload: ALL models ready after ${Date.now() - tPre} ms - record button unlocked`)
+      setNativeModelsReady(true)
       setNativeModelProgress(null)
       if (degraded.length) {
         setModelWarning(`Couldn't load the ${degraded.join(' and ')} model${degraded.length > 1 ? 's' : ''}. Recording and transcription work normally; you just won't get ${degraded.includes('term detection') ? 'term cards' : 'translations'}.`)
@@ -565,7 +569,18 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       nativeAtMount.onEvent((msg) => {
         if (msg.event === 'modelsUnloaded') {
           console.error(`[demist] the ${msg.payload.role ?? 'native'} worker restarted; reloading its on-device models`)
-          if (msg.payload.role === 'transcribe' && !isActiveRef.current) {
+          // All three roles, not just 'transcribe': every one of them now
+          // gates the record button (see runNativePreload), so a respawned
+          // 'terms' or 'translate' worker has to re-lock and re-preload the
+          // same as a respawned 'transcribe' one, or the button would sit
+          // unlocked while that worker's model quietly reloads on first real
+          // use mid-session. Re-running the full preload here is cheap for
+          // the two roles that DIDN'T die - each worker caches its own loaded
+          // model in its own process's module state (see whisper.js's
+          // transcribersByTier, llm.js's loadingPromise, translate.js's
+          // translators map), so only the actually-dead worker's model does
+          // real work; the other two resolve immediately.
+          if (msg.payload.role && ['transcribe', 'terms', 'translate'].includes(msg.payload.role) && !isActiveRef.current) {
             setNativeModelsReady(false)
             const n = getDemistNative()
             if (n) runNativePreload(n, profileRef.current?.translate_to)
@@ -575,18 +590,21 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
         if (msg.event !== 'modelProgress') return
         const { label, pct } = msg.payload
         if (label === undefined || pct === undefined) return
-        // A TRANSCRIPTION model that is still downloading means recording
-        // cannot work, whoever started that download. The banner alone was
-        // never a gate - it is rendered on the idle screen while the record
-        // button reads a separate flag - so a download this provider did not
-        // itself kick off (a tier change, a respawned worker reloading, a
-        // retry) showed progress next to a perfectly clickable mic button.
-        // Belt and braces alongside the setNativeModelsReady(false) in
-        // runNativePreload: this one holds even for a download nothing in the
-        // renderer initiated. Term detection and translation are deliberately
-        // NOT included - neither is required to record, and locking the button
-        // on them is the 14-second regression the preload comments describe.
-        if (pct < 100 && /transcription/i.test(label) && !isActiveRef.current) {
+        // Any of the three gating models still downloading means recording
+        // cannot genuinely start yet, whoever kicked that download off. The
+        // banner alone was never a gate - it is rendered on the idle screen
+        // while the record button reads a separate flag - so a download this
+        // provider did not itself kick off (a tier change, a respawned
+        // worker reloading, a retry) could show progress next to a
+        // perfectly clickable mic button. Belt and braces alongside the
+        // setNativeModelsReady(false) in runNativePreload and the
+        // modelsUnloaded handler above: this one holds even for a download
+        // neither of those triggered. All three labels are included now that
+        // all three gate the button (see runNativePreload) - previously only
+        // transcription did, and this stayed transcription-only to match; a
+        // stale mismatch would have shown a clickable button while a term
+        // detection or translation download was genuinely in flight.
+        if (pct < 100 && /transcription|term.?detection|translation/i.test(label) && !isActiveRef.current) {
           setNativeModelsReady(false)
         }
         if (pct > 0 && pct < 100) partialProgressSeenRef.current.add(label)
