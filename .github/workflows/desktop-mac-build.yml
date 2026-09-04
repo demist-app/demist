@@ -63,3 +63,21 @@ jobs:
             desktop/dist/*.dmg
             desktop/dist/*.zip
           retention-days: 30
+
+      # Runs AFTER the artifact is already uploaded, deliberately: a failure
+      # here should not hide a build that otherwise succeeded and is worth
+      # downloading to investigate. This cannot replace the real-hardware
+      # checklist in MACOS_BUILD_PLAN.md section 7 - it never touches
+      # Gatekeeper, a mic permission dialog, or the packaged .app - but no
+      # environment available while writing this (no physical Mac, and a
+      # sandboxed dev machine that cannot even download this workflow's own
+      # artifacts over the network) could do that either, so this is the
+      # closest real signal obtainable: does transcription/term-detection/
+      # translation actually produce output, and which GPU backend
+      # node-llama-cpp picked, running for real on this runner's arm64
+      # macOS, not inferred from a green `electron-builder` exit code.
+      - name: Fast deterministic tests (npm test)
+        run: npm test
+
+      - name: Verify transcription, term detection and translation actually work on arm64 macOS
+        run: npm run test:mac-verify

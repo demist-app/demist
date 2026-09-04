@@ -21,7 +21,8 @@
     "test:preview": "node test/preview-budget.js",
     "test:electron": "node test/electron-vs-node.js",
     "test:contention": "node test/three-way-contention.js",
-    "test:vcredist": "node test/vcredist-bundled.js"
+    "test:vcredist": "node test/vcredist-bundled.js",
+    "test:mac-verify": "node test/mac-hardware-verify.js"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.2.0",
