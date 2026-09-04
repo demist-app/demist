@@ -14,6 +14,12 @@ on:
 jobs:
   build-mac:
     runs-on: macos-14   # Apple Silicon (arm64) runner
+    # contents: write is needed only for the release step below, which
+    # creates/updates a GitHub Release from the pushed tag. The default
+    # GITHUB_TOKEN is read-only in some org/repo settings, and this is the
+    # narrowest permission that covers it - nothing else in this job needs it.
+    permissions:
+      contents: write
     defaults:
       run:
         working-directory: desktop
@@ -107,3 +113,47 @@ jobs:
           else
             echo "::notice::Gatekeeper rejects this build as expected for an unsigned/ad-hoc app (see spctl output above for the exact reason) - the Open Anyway recovery path in MACOS_BUILD_PLAN.md section 4a is still what a real user needs, this just confirms the rejection itself is real and not merely assumed"
           fi
+
+      # Only on a tag push, and only once every earlier step has actually
+      # succeeded (a step with no `if:` only runs when the job is still
+      # green, which is exactly what's wanted here - a failed real-hardware
+      # verification step above should block this, not just get logged and
+      # ignored). GitHub Actions artifacts (the upload-artifact step above)
+      # require a logged-in GitHub session and expire in 30 days, which is
+      # why MAC_DOWNLOAD_URL in web/lib/links.ts cannot point at one - a
+      # Release asset is public with no login and is meant to be permanent.
+      # Runs on THIS runner deliberately: it already has the built files
+      # sitting on disk and full internet access, unlike the sandboxed dev
+      # machine this workflow was written from, which could not even
+      # download its own artifacts to do this step by hand (see
+      # MACOS_BUILD_PLAN.md's Status section).
+      - name: Publish a GitHub Release with the built .dmg/.zip attached
+        if: startsWith(github.ref, 'refs/tags/desktop-v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            desktop/dist/*.dmg
+            desktop/dist/*.zip
+          # Beta/prerelease: unsigned and ad-hoc-signed only (no Apple
+          # Developer Program membership - see MACOS_BUILD_PLAN.md section 5),
+          # and the real-hardware half of section 7's checklist (Gatekeeper's
+          # actual dialog, mic permission, launching the packaged .app) is
+          # still unverified - nobody involved in building this has a
+          # physical Mac yet. Marking prerelease keeps this out of "Latest
+          # release" on the repo's main page until that's closed out.
+          prerelease: true
+          name: "Demist for Mac ${{ github.ref_name }} (beta)"
+          body: |
+            **Beta build - not yet verified on physical Apple Silicon hardware.**
+
+            This is an unsigned, ad-hoc-signed build (no Apple Developer Program
+            membership yet). macOS Gatekeeper will block it on first launch with
+            "Demist can't be opened because Apple cannot verify it is free of
+            malware." That's expected, not a bug - see the install guide for the
+            exact steps to open it anyway:
+            https://demist.app/support#mac
+
+            Apple Silicon (M1 or newer) only. Built and verified against the
+            real on-device transcription/term-detection/translation pipeline on
+            GitHub's macOS CI runner - see desktop/MACOS_BUILD_PLAN.md in the
+            repo for exactly what has and hasn't been confirmed yet.
