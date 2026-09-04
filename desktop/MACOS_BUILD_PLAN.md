@@ -31,6 +31,21 @@ granted a mic permission, or opened the packaged `.app` even once. See §7 for
 exactly what is and isn't checked off, and the question at the bottom of this
 file for what's needed to close the gap.
 
+**Distribution is now live**: a tag push publishes a public GitHub Release
+automatically (`.github/workflows/desktop-mac-build.yml`'s new
+"Publish a GitHub Release" step, `softprops/action-gh-release`, running on
+the macOS runner itself so it never needs this dev environment's blocked
+network access to the file). Confirmed with a real unauthenticated request -
+[the current release](https://github.com/demist-app/demist/releases/tag/desktop-v0.1.3-mac)
+serves `Demist-1.0.2-arm64.dmg` (413.8MB) and a `.zip` with a clean 302, no
+login needed, unlike an Actions artifact. Marked `prerelease: true` since §7
+still isn't closed out. The home page now links to it (a "Mac app" section
+mirroring the Windows one, plus a hero CTA under the Windows button) and
+`/support#mac` walks through the Gatekeeper block-and-recover flow - see
+`web/lib/links.ts`'s `MAC_RELEASES_URL` and `MAC_SUPPORT_URL`. The Homebrew
+tap (§4b) is still deliberately not started, same reasoning as before: it's
+gated on real-hardware confirmation, not on distribution existing.
+
 **Real results from the third run**
 ([33887498327](https://github.com/demist-app/demist/actions/runs/33887498327),
 after fixing a real bug the second run caught - `test:mac-verify` had used
