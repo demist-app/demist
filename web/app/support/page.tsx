@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { MAC_RELEASES_URL } from '@/lib/links'
 
 export const metadata: Metadata = {
   title: 'Support',
@@ -13,7 +14,34 @@ const SUPPORT_EMAIL = 'hello@demist.app'
 // Grouped by what the person is actually trying to do, not by which part of
 // the system is at fault - someone whose transcript is empty does not know
 // whether that is the microphone, the models or the network.
-const SECTIONS: { title: string; items: { q: string; a: React.ReactNode }[] }[] = [
+//
+// `id` is optional and only set where something outside this page links to
+// that specific section by anchor (the landing page's Mac CTAs point at
+// /support#mac) - every other section is found by scrolling or Ctrl+F, so it
+// isn't worth giving all of them a slug that has to stay in sync forever.
+const SECTIONS: { title: string; id?: string; items: { q: string; a: React.ReactNode }[] }[] = [
+  {
+    title: 'Installing on Mac (beta)',
+    id: 'mac',
+    items: [
+      {
+        q: 'Where do I download it?',
+        a: <>From the <a href={MAC_RELEASES_URL} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">GitHub Releases page</a> - grab the newest release's <code className="text-[13px] px-1 py-0.5 rounded dark:bg-white/[0.08] bg-black/[0.06]">.dmg</code> file. Apple Silicon Macs only (M1 or newer) - there isn&apos;t an Intel build. It&apos;s a beta: expect the occasional rough edge, and see the security warning below before you open it.</>,
+      },
+      {
+        q: '"Demist can’t be opened because Apple cannot verify it is free of malware"',
+        a: <>Expected, not a bug. Demist for Mac doesn&apos;t have an Apple Developer Program subscription yet (that costs $99/year, and this build predates it), so it isn&apos;t notarized the way apps from the Mac App Store are - Gatekeeper blocks anything unnotarized on first launch by default. To open it anyway: go to <em>System Settings → Privacy &amp; Security</em>, scroll down to the Security section, and you&apos;ll see a line about Demist being blocked with an <em>Open Anyway</em> button next to it. Click it, confirm with your password or Touch ID, and Demist opens normally from then on - this is only needed the first time. If you don&apos;t see that line, try double-clicking the app in Finder once first (right-click → Open also works, and skips the wait for the line to appear in Settings); either one is what makes Gatekeeper actually register the block and offer the override. The exact wording and layout can shift slightly between macOS versions - if what you see doesn&apos;t match this description, search &quot;open a mac app from an unidentified developer&quot; on Apple&apos;s support site for the current steps, or email us and we&apos;ll help directly.</>,
+      },
+      {
+        q: 'Is my audio actually staying on my machine, same as Windows?',
+        a: <>Yes - same code, same models, same on-device transcription, term detection and translation as the Windows app. Nothing about running unsigned changes what the app does with your audio; it only changes what Gatekeeper shows you the first time you open it.</>,
+      },
+      {
+        q: 'Something’s not working right',
+        a: <>It&apos;s a beta, and real-hardware testing on it is still ongoing - if recording, term cards, or translation don&apos;t work as expected, that&apos;s genuinely useful for us to hear about. Email{' '}<a href={`mailto:${SUPPORT_EMAIL}`} className="dark:text-yellow-400 text-yellow-700 dark:hover:text-yellow-300 hover:text-yellow-600 transition-colors">{SUPPORT_EMAIL}</a>{' '}with what you saw, your macOS version, and whether it&apos;s Apple Silicon (it has to be), and we&apos;ll follow up.</>,
+      },
+    ],
+  },
   {
     title: 'Getting started (Windows app)',
     items: [
@@ -78,7 +106,7 @@ const SECTIONS: { title: string; items: { q: string; a: React.ReactNode }[] }[] 
     items: [
       {
         q: 'Where is my lecture audio sent?',
-        a: <>In the Windows app, nowhere. Transcription, term detection and translation all run on your computer, and your audio never leaves it. Your glossary, flashcards and session history do sync to your account so they’re available across devices. The <Link href="/privacy" className="underline underline-offset-2">privacy policy</Link> sets out exactly what is stored and what isn’t.</>,
+        a: <>In the Windows and Mac apps, nowhere. Transcription, term detection and translation all run on your computer, and your audio never leaves it. Your glossary, flashcards and session history do sync to your account so they’re available across devices. The <Link href="/privacy" className="underline underline-offset-2">privacy policy</Link> sets out exactly what is stored and what isn’t.</>,
       },
       {
         q: 'How do I delete my data?',
@@ -107,12 +135,12 @@ export default function Support() {
           {' '}and we’ll get back to you.
         </p>
         <p className="dark:text-gray-500 text-gray-600 text-[13px] leading-relaxed mb-12">
-          It helps if you say which version you’re using (the Windows app or the website), what you were doing, and what happened instead.
+          It helps if you say which version you’re using (the Windows app, the Mac app, or the website), what you were doing, and what happened instead.
         </p>
 
         <div className="space-y-12">
           {SECTIONS.map(section => (
-            <section key={section.title}>
+            <section key={section.title} id={section.id}>
               <h2 className="text-[17px] font-semibold mb-5">{section.title}</h2>
               <div className="space-y-6">
                 {section.items.map(item => (

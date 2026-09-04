@@ -62,17 +62,18 @@ export default function Dashboard() {
     retrySessionSummarize, toggleExpandSession,
   } = useRecordingSession()
 
-  // Only the TRANSCRIPTION model gates the record button. nativeModelProgress
-  // carries whichever model reported last, so while transcription was loading
-  // this panel happily announced "Downloading Hindi translation... 99%" under a
-  // heading that says the app is preparing and a button that will not click -
-  // naming a model that is holding nothing up, and implying the wait is for
-  // something the user could have skipped. Anything else in flight is genuinely
-  // background work and reports itself elsewhere (see translationReady in the
-  // transcript toggle bar, and modelWarning if it fails).
-  const gatingProgress = nativeModelProgress && /transcription/i.test(nativeModelProgress.label)
-    ? nativeModelProgress
-    : null
+  // All three on-device models now gate the record button (transcription,
+  // term detection, translation - see runNativePreload in
+  // lib/recordingSession.tsx), so nativeModelProgress is always genuinely
+  // about something the button is waiting on: whichever of the three
+  // reported progress most recently. This used to filter down to
+  // transcription only, back when it was the sole gate - showing progress
+  // for a model that wasn't holding up the button read as naming the wrong
+  // cause ("Downloading Hindi translation... 99%" under "preparing", next to
+  // a button that in fact just needed transcription). Left as its own
+  // variable, rather than inlining nativeModelProgress below, so a future
+  // reader finds this reasoning in one place instead of re-deriving it.
+  const gatingProgress = nativeModelProgress
 
   const [transcriptView, setTranscriptView] = useState<'both' | 'source' | 'translated'>('both')
   const [showSubjectInput, setShowSubjectInput] = useState(false)

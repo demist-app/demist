@@ -6,7 +6,7 @@ import { useTheme } from 'next-themes'
 import { createClient } from '@/lib/supabase'
 import { capture } from '@/lib/analytics'
 import { FAQ as FAQS } from '@/lib/faq'
-import { CHROME_STORE_URL, EXTENSION_DOWNLOAD_URL, MS_STORE_URL } from '@/lib/links'
+import { CHROME_STORE_URL, EXTENSION_DOWNLOAD_URL, MAC_SUPPORT_URL, MS_STORE_URL } from '@/lib/links'
 
 const SPRING = 'cubic-bezier(0.16, 1, 0.3, 1)'
 
@@ -117,6 +117,7 @@ export default function LandingClient() {
   const featuresRef = useInView()
   const stepsRef = useInView()
   const winRef = useInView()
+  const macRef = useInView()
   const extRef = useInView()
   const faqRef = useInView()
   const ctaRef = useInView()
@@ -399,18 +400,32 @@ export default function LandingClient() {
           </button>
           {/* Secondary, not primary. The browser app is still the shortest path
               for most visitors and the one that works on every device they
-              might be reading this on; the Store link is for the ones who
-              already know they want it installed. */}
-          <a
-            href={MS_STORE_URL}
-            target="_blank" rel="noopener noreferrer"
-            onClick={() => capture('ms_store_clicked', { placement: 'hero' })}
-            className="flex items-center gap-2.5 px-6 py-4 rounded-2xl font-semibold text-[15px] transition-all duration-200 active:scale-[0.97] select-none hover:brightness-[0.98]"
-            style={{ background: 'var(--surface)', border: '1px solid var(--border-strong)', color: 'var(--fg)' }}
-          >
-            <WindowsIcon />
-            Get it on Windows
-          </a>
+              might be reading this on; the Store and Mac-beta links are for
+              the ones who already know they want it installed. Grouped in
+              their own column so the Mac link sits directly under the
+              Windows one rather than beside it, on every breakpoint. */}
+          <div className="flex flex-col gap-3">
+            <a
+              href={MS_STORE_URL}
+              target="_blank" rel="noopener noreferrer"
+              onClick={() => capture('ms_store_clicked', { placement: 'hero' })}
+              className="flex items-center gap-2.5 px-6 py-4 rounded-2xl font-semibold text-[15px] transition-all duration-200 active:scale-[0.97] select-none hover:brightness-[0.98]"
+              style={{ background: 'var(--surface)', border: '1px solid var(--border-strong)', color: 'var(--fg)' }}
+            >
+              <WindowsIcon />
+              Get it on Windows
+            </a>
+            <a
+              href={MAC_SUPPORT_URL}
+              onClick={() => capture('mac_install_guide_clicked', { placement: 'hero' })}
+              className="flex items-center gap-2.5 px-6 py-4 rounded-2xl font-semibold text-[15px] transition-all duration-200 active:scale-[0.97] select-none hover:brightness-[0.98]"
+              style={{ background: 'var(--surface)', border: '1px solid var(--border-strong)', color: 'var(--fg)' }}
+            >
+              <AppleIcon />
+              Get it on Mac
+              <span className="text-[10px] font-bold tracking-[0.1em] uppercase px-1.5 py-0.5 rounded-md" style={{ background: 'var(--accent)', color: 'white', opacity: 0.85 }}>Beta</span>
+            </a>
+          </div>
         </div>
 
         <button
@@ -423,7 +438,7 @@ export default function LandingClient() {
 
         <p className="text-[13px] mb-12 -mt-8" style={{ color: 'var(--fg-faint)', ...anim(380).style }}>
           <span className="sm:hidden">Works instantly in your phone&apos;s browser, no install needed.</span>
-          <span className="hidden sm:inline">Free either way. The Windows app transcribes on your own machine, so your lecture audio never leaves it.</span>
+          <span className="hidden sm:inline">Free either way. The Windows and Mac apps transcribe on your own machine, so your lecture audio never leaves it.</span>
         </p>
 
         {/* Product mockup */}
@@ -674,6 +689,65 @@ export default function LandingClient() {
           <span>Audio stays on your device</span>
           <span aria-hidden>·</span>
           <span>No account required</span>
+        </div>
+      </section>
+
+      {/* ── Mac app ──
+          Beta, called that in the label and the CTA copy, not just implied.
+          Links to the support page's install guide rather than a direct
+          .dmg, unlike the Windows Store button above: the build is
+          unsigned/ad-hoc (no Apple Developer Program membership yet - see
+          desktop/MACOS_BUILD_PLAN.md section 5), so Gatekeeper blocks it on
+          first launch, and handing someone a file with no explanation of
+          that reads as a broken download, not a beta. */}
+      <section id="mac" ref={macRef.ref} className="relative z-10 px-6 sm:px-12 py-28 max-w-3xl mx-auto text-center">
+        <p className="text-[10px] font-bold tracking-[0.2em] uppercase mb-4" style={{ color: 'var(--fg-faint)', ...scrollAnim(macRef.visible, 0).style }}>
+          Mac app · Beta
+        </p>
+        <h2
+          className="text-[30px] sm:text-[42px] font-bold tracking-tight mb-4 leading-tight"
+          style={{ color: 'var(--fg)', ...scrollAnim(macRef.visible, 80).style }}
+        >
+          Now in beta for Apple Silicon.{' '}
+          <span style={{ color: 'var(--fg-muted)', fontWeight: 400 }}>Same on-device transcription.</span>
+        </h2>
+        <p
+          className="text-[15px] leading-relaxed mb-10 max-w-[490px] mx-auto"
+          style={{ color: 'var(--fg-muted)', ...scrollAnim(macRef.visible, 160).style }}
+        >
+          The same locally-run transcription, term detection, and translation as the Windows app, now on M1 and newer Macs. It&apos;s early: the build isn&apos;t notarized yet, so macOS shows a security warning the first time you open it. The install guide below walks through it - it takes one extra step, not a workaround.
+        </p>
+
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3" style={scrollAnim(macRef.visible, 240).style}>
+          <a
+            href={MAC_SUPPORT_URL}
+            onClick={() => capture('mac_install_guide_clicked', { placement: 'section' })}
+            className="flex items-center gap-2.5 px-6 py-3.5 rounded-2xl text-white font-semibold text-[15px] transition-all active:scale-[0.97] hover:brightness-[1.1]"
+            style={{ background: 'var(--accent)' }}
+          >
+            <AppleIcon />
+            Get the Mac beta
+          </a>
+          <button
+            onClick={cta}
+            className="px-6 py-3.5 rounded-2xl text-[15px] font-medium transition-all active:scale-[0.97]"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--fg-muted)' }}
+          >
+            Or use it in your browser
+          </button>
+        </div>
+
+        <div
+          className="mt-10 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[12px]"
+          style={{ color: 'var(--fg-faint)', ...scrollAnim(macRef.visible, 320).style }}
+        >
+          <span>Free</span>
+          <span aria-hidden>·</span>
+          <span>Apple Silicon (M1 or newer)</span>
+          <span aria-hidden>·</span>
+          <span>Audio stays on your device</span>
+          <span aria-hidden>·</span>
+          <span>Beta - unsigned build, one extra install step</span>
         </div>
       </section>
 
@@ -935,6 +1009,17 @@ function WindowsIcon() {
       <path d="M11.1 4.35 21.6 2.8v8.8h-10.5z" />
       <path d="M2.4 12.6H10v7.1L2.4 18.6z" />
       <path d="M11.1 12.6h10.5v8.8l-10.5-1.55z" />
+    </svg>
+  )
+}
+
+// The standard Apple glyph: body plus the notch bite top-right and the small
+// leaf, both needed or it reads as a generic apple rather than the logo.
+function AppleIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M16.365 1.43c0 1.14-.416 2.06-1.248 2.76-.832.7-1.813 1.09-2.86.99-.14-1.1.4-2.05 1.23-2.75.83-.7 1.9-1.06 2.878-1z" />
+      <path d="M20.5 17.14c-.55 1.27-.81 1.84-1.52 2.96-.99 1.56-2.39 3.5-4.12 3.52-1.54.02-1.94-1-4.02-.99-2.08.01-2.52 1.01-4.06.99-1.73-.02-3.06-1.77-4.05-3.33C.35 16.9-.35 12.24 1.02 9.06c.78-1.82 2.18-2.98 3.71-3 1.47-.02 2.85.99 3.75.99.9 0 2.58-1.22 4.35-1.04.74.03 2.82.3 4.15 2.24-.11.07-2.48 1.45-2.46 4.32.03 3.44 3.02 4.58 3.05 4.6-.03.08-.48 1.63-1.57 2.97z" />
     </svg>
   )
 }
