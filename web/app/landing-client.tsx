@@ -113,6 +113,20 @@ export default function LandingClient() {
   const [elapsed, setElapsed] = useState(154)
   const [cardVisible, setCardVisible] = useState(false)
   const [termHighlighted, setTermHighlighted] = useState(false)
+  // Defaults to Windows on the server and on first paint (most visitors, and
+  // it avoids a layout shift for the majority), then swaps to Mac after
+  // mount if the UA says so. A single platform-matched secondary button reads
+  // as one deliberate choice; two stacked buttons of unequal visual weight
+  // next to the primary CTA read as clutter, which is exactly what this
+  // replaced. The other platform is never hidden, just demoted to the small
+  // link underneath - both Windows and Mac sections further down the page
+  // still get equal, full-width treatment.
+  const [heroPlatform, setHeroPlatform] = useState<'windows' | 'mac'>('windows')
+  useEffect(() => {
+    if (/Macintosh|Mac OS X/.test(navigator.userAgent) && !/iPhone|iPad|iPod/.test(navigator.userAgent)) {
+      setHeroPlatform('mac')
+    }
+  }, [])
 
   const featuresRef = useInView()
   const stepsRef = useInView()
@@ -400,21 +414,14 @@ export default function LandingClient() {
           </button>
           {/* Secondary, not primary. The browser app is still the shortest path
               for most visitors and the one that works on every device they
-              might be reading this on; the Store and Mac-beta links are for
-              the ones who already know they want it installed. Grouped in
-              their own column so the Mac link sits directly under the
-              Windows one rather than beside it, on every breakpoint. */}
-          <div className="flex flex-col gap-3">
-            <a
-              href={MS_STORE_URL}
-              target="_blank" rel="noopener noreferrer"
-              onClick={() => capture('ms_store_clicked', { placement: 'hero' })}
-              className="flex items-center gap-2.5 px-6 py-4 rounded-2xl font-semibold text-[15px] transition-all duration-200 active:scale-[0.97] select-none hover:brightness-[0.98]"
-              style={{ background: 'var(--surface)', border: '1px solid var(--border-strong)', color: 'var(--fg)' }}
-            >
-              <WindowsIcon />
-              Get it on Windows
-            </a>
+              might be reading this on; this is for the ones who already know
+              they want it installed. One button, matched to the visitor's
+              own platform (see heroPlatform above) - showing Windows AND Mac
+              side by side or stacked here forced two visually unequal
+              buttons (Mac's beta pill, different link target) into the same
+              row as the primary CTA, reading as clutter rather than a clean
+              choice. Nothing is hidden: the other platform is one line below. */}
+          {heroPlatform === 'mac' ? (
             <a
               href={MAC_SUPPORT_URL}
               onClick={() => capture('mac_install_guide_clicked', { placement: 'hero' })}
@@ -425,8 +432,30 @@ export default function LandingClient() {
               Get it on Mac
               <span className="text-[10px] font-bold tracking-[0.1em] uppercase px-1.5 py-0.5 rounded-md" style={{ background: 'var(--accent)', color: 'white', opacity: 0.85 }}>Beta</span>
             </a>
-          </div>
+          ) : (
+            <a
+              href={MS_STORE_URL}
+              target="_blank" rel="noopener noreferrer"
+              onClick={() => capture('ms_store_clicked', { placement: 'hero' })}
+              className="flex items-center gap-2.5 px-6 py-4 rounded-2xl font-semibold text-[15px] transition-all duration-200 active:scale-[0.97] select-none hover:brightness-[0.98]"
+              style={{ background: 'var(--surface)', border: '1px solid var(--border-strong)', color: 'var(--fg)' }}
+            >
+              <WindowsIcon />
+              Get it on Windows
+            </a>
+          )}
         </div>
+
+        <a
+          href={heroPlatform === 'mac' ? MS_STORE_URL : MAC_SUPPORT_URL}
+          target={heroPlatform === 'mac' ? '_blank' : undefined}
+          rel={heroPlatform === 'mac' ? 'noopener noreferrer' : undefined}
+          onClick={() => capture(heroPlatform === 'mac' ? 'ms_store_clicked' : 'mac_install_guide_clicked', { placement: 'hero_secondary' })}
+          className="text-[13px] mb-8 -mt-1 hover:opacity-70 transition-opacity select-none"
+          style={{ color: 'var(--fg-faint)' }}
+        >
+          {heroPlatform === 'mac' ? 'Also on Windows' : <>Also on Mac <span className="opacity-60">(beta)</span></>} →
+        </a>
 
         <button
           onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })}
