@@ -81,3 +81,29 @@ jobs:
 
       - name: Verify transcription, term detection and translation actually work on arm64 macOS
         run: npm run test:mac-verify
+
+      # spctl is Gatekeeper's own command-line entry point - the actual
+      # decision engine behind the "can't be opened because Apple cannot
+      # verify it is free of malware" dialog, not a guess at what it does.
+      # This cannot reproduce the Finder dialog's exact wording or let
+      # anyone click "Open Anyway" (that needs a real GUI session - see
+      # MACOS_BUILD_PLAN.md section 7), but it confirms for real, on the
+      # same unsigned/ad-hoc build this workflow just produced, that
+      # Gatekeeper's policy engine actually rejects it the way the plan
+      # assumes - rather than that assumption going untested until someone
+      # with a physical Mac happens to try it.
+      - name: Check Gatekeeper's actual assessment of the unsigned build
+        run: |
+          APP=$(find dist -maxdepth 2 -name '*.app' -print -quit)
+          if [ -z "$APP" ]; then echo "::error::no .app bundle found under dist/ - packaging step did not produce one" && exit 1; fi
+          echo "app bundle: $APP"
+          echo ""
+          echo "codesign -dvv (expect ad-hoc: no Developer ID, this is correct until MACOS_BUILD_PLAN.md section 5 is implemented):"
+          codesign -dvv "$APP" 2>&1 || true
+          echo ""
+          echo "spctl --assess -vv (Gatekeeper's own verdict on this exact build):"
+          if spctl --assess -vv "$APP" 2>&1; then
+            echo "::warning::Gatekeeper ACCEPTED an unsigned/ad-hoc build - unexpected, re-check whether this still needs the Open Anyway workaround documented in section 4a"
+          else
+            echo "::notice::Gatekeeper rejects this build as expected for an unsigned/ad-hoc app (see spctl output above for the exact reason) - the Open Anyway recovery path in MACOS_BUILD_PLAN.md section 4a is still what a real user needs, this just confirms the rejection itself is real and not merely assumed"
+          fi

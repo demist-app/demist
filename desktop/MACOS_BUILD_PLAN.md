@@ -1,13 +1,35 @@
 # Demist for macOS — build & distribution plan
 
-Status: **configuration built and committed, not yet run.** Everything that
-could be written and syntax-checked from a Windows machine is done -
-`electron-builder.mac.yml`, entitlements, the icon, the CI workflow, the
-package.json script. What's left needs an actual macOS runner: triggering
-the workflow, and then the real-hardware verification in §7. Decisions
-confirmed by the user: Apple Silicon only for v1 (no Intel), reuse existing
-brand assets rather than commission new ones, ship independently of any
-change to the web version's trial/limits.
+Status: **CI build succeeds, real-hardware verification blocked - no Mac
+exists anywhere in this project's reach.** Updated 2026-09-04 after actually
+triggering the workflow (see below). `electron-builder.mac.yml` built
+cleanly on the first real run on a `macos-14` (Apple Silicon) GitHub Actions
+runner - no config bugs found, contrary to this plan's own expectation that
+a never-executed native-module packaging config would fail its first run.
+Produced an 827MB `.dmg`/`.zip` artifact (run
+[33886095755](https://github.com/demist-app/demist/actions/runs/33886095755),
+278s). A second run
+([33886991579](https://github.com/demist-app/demist/actions/runs/33886991579))
+added a CI step (`npm run test:mac-verify`, see `test/mac-hardware-verify.js`)
+that runs the real transcription/term-detection/translation pipeline against
+real cached models on that same runner - see the "what got verified through
+CI" note below §7 for what that can and cannot prove.
+
+**What's actually blocking §7 now is not engineering, it's hardware access:**
+neither this session nor the user has a physical Mac, and the sandboxed
+Windows dev environment this was built from cannot even download the
+workflow's own build artifacts (network egress to
+`productionresultssa2.blob.core.windows.net`, where GitHub redirects artifact
+and log downloads, is not reachable from here - confirmed by a 302 that
+then hangs). So the `.dmg` exists and CI says the native pipeline produces
+real output on arm64 macOS, but nobody has clicked through Gatekeeper,
+granted a mic permission, or opened the packaged `.app` even once. See §7 for
+exactly what is and isn't checked off, and the question at the bottom of this
+file for what's needed to close the gap.
+
+Decisions confirmed by the user: Apple Silicon only for v1 (no Intel), reuse
+existing brand assets rather than commission new ones, ship independently of
+any change to the web version's trial/limits.
 
 Written 2026-09-04 after auditing the actual Windows build
 (`electron-builder.yml`, `main.js`, `scripts/`) rather than assuming what it
@@ -336,29 +358,83 @@ there this session for the Windows Store rollout:
 
 CI proves the build *completes*. None of the following can be confirmed by a
 green CI run, and this project's own history says exactly that gap is where
-real bugs hid on Windows:
+real bugs hid on Windows.
+
+**What CI now additionally proves, as of the `test:mac-verify` step added
+2026-09-04** (`test/mac-hardware-verify.js`, runs on every mac build after the
+artifact upload): the real `native/whisper.js`, `native/llm.js` and
+`native/translate.js` code paths — the same ones the packaged app calls —
+actually produce real transcription text, a real term-detection LLM answer,
+and real OPUS-MT translations, on the same `macos-14` arm64 runner that
+built the package, plus which GPU backend `node-llama-cpp` picked
+(`llama.gpu`, logged and asserted through a `::notice::`/`::error::`
+annotation since this sandboxed dev environment cannot download full job
+logs — see the check-run annotations on the run instead). **What it does NOT
+prove**: whether that GPU backend is `'metal'` on a *physical* Mac — a
+virtualized CI runner's GPU passthrough is a separate question from a real
+machine's, not yet answered either way — and nothing below the OS-permission
+layer (Gatekeeper, the mic permission dialog, `/Applications` launch) is
+touched by a headless `node` process at all. Treat a pass here as "the engine
+runs", not as a substitute for anything below.
 
 - [ ] Downloaded `.dmg` via a real browser (not `curl`) on a Mac that has
       never had this app installed before, so quarantine is actually set and
       the real Gatekeeper flow can be observed end to end.
+      **NOT DONE — no Mac available to this session or the user; the .dmg is
+      built (see Status above) but nobody has downloaded it onto a Mac yet.**
 - [ ] Gatekeeper's "Open Anyway" recovery path (§4a) actually works as
-      documented on a current macOS version.
-- [ ] App launches from `/Applications` without crashing.
+      documented on a current macOS version. **NOT DONE**, same blocker.
+- [ ] App launches from `/Applications` without crashing. **NOT DONE**, same
+      blocker.
 - [ ] Microphone permission prompt appears and, once granted, live
       transcription actually produces text (not a silent no-op — this is the
       exact failure class the Windows Store rejection was, and mic access is
       the one macOS entitlement this build depends on most directly).
+      **PARTIALLY COVERED, not truly done**: `test:mac-verify` confirms
+      `native/whisper.js` transcribes real audio to real text on this
+      runner's arm64 macOS (see run 33886991579) — but that is a fixture WAV
+      fed directly to the module, not a real mic captured through the
+      packaged `.app`'s permission dialog and Electron's actual audio
+      capture path. The permission-dialog half is **NOT DONE**.
 - [ ] Term detection loads and runs — ideally confirm Metal is actually
       engaging (Activity Monitor's GPU history, or comparable timing to the
       "~4x faster with GPU offload" figure already measured on Windows) not
-      silently falling back to slow CPU-only inference.
-- [ ] Translation (OPUS-MT models) works.
+      silently falling back to slow CPU-only inference. **PARTIALLY
+      COVERED**: `test:mac-verify` logs `node-llama-cpp`'s actual
+      `llama.gpu` value and gets real answers from `llm.explain` on this
+      runner — check the run's annotations for the exact backend string.
+      Activity Monitor GPU history specifically requires a physical machine
+      and is **NOT DONE**.
+- [ ] Translation (OPUS-MT models) works. **COVERED** by `test:mac-verify`
+      (two real translations, en→es and en→fr, against the real bundled
+      model family) to the extent a headless run can cover it — no UI
+      involved either way, so this one item is about as done as CI can make
+      it.
 - [ ] Test on as clean a machine as realistically available — a fresh user
       account at minimum, ideally not the primary dev Mac, which will have
       Xcode Command Line Tools and other developer tooling already present
       that could mask a dependency a genuinely clean machine lacks. This is
       the direct Mac analogue of the Windows Store rejection: it passed on a
       dev machine and failed only on Microsoft's clean test hardware.
+      **NOT DONE** — arguably closer to satisfied than a random dev's Mac
+      would be, since a fresh GitHub Actions runner has no prior state at
+      all, but it is not a substitute for a real clean *physical* machine
+      (see the GPU-passthrough caveat above — virtualized and physical
+      hardware are not guaranteed to behave identically here).
 - [ ] `brew install --cask demist` (§4b) actually installs without a
       Gatekeeper prompt, confirming the quarantine-strip behavior holds for
-      this specific cask setup.
+      this specific cask setup. **NOT DONE, and deliberately not started**:
+      the plan's own §5 ordering is to stand up the Homebrew tap only once a
+      build is confirmed working end to end on real hardware, which hasn't
+      happened yet (see Status above). Setting up `demist-app/homebrew-demist`
+      now would be getting ahead of that.
+
+**Closing this gap needs one of:** the user (or anyone) with physical access
+to an Apple Silicon Mac downloading the `.dmg` from
+[the workflow artifact](https://github.com/demist-app/demist/actions/runs/33886991579)
+(requires being logged into GitHub — Actions artifacts, unlike Release
+assets, are never publicly downloadable) and working through this checklist
+by hand; or attaching the artifact to a GitHub Release (public, no login
+needed) once someone can actually test it, per §4a. Neither this session nor
+the user has that hardware right now — see the note at the end of this
+document.

@@ -65,7 +65,11 @@ function loadFixture() {
 
   // ── term detection LLM: does node-llama-cpp load and answer, and on what backend ──
   console.log('\nterm-detection LLM (native/llm.js, node-llama-cpp mac-arm64-metal binary):')
-  const { getLlama } = require('node-llama-cpp')
+  // node-llama-cpp is ESM with top-level await in its module graph, so
+  // require() throws ERR_REQUIRE_ASYNC_MODULE under Node 20's CJS-requires-ESM
+  // support (confirmed by an actual failed CI run) - native/llm.js already
+  // knows this and uses a dynamic import() for exactly this reason.
+  const { getLlama } = await import('node-llama-cpp')
   const llamaProbe = await getLlama({ gpu: 'auto' })
   // llama.gpu is falsy when node-llama-cpp fell back to CPU-only, or the
   // backend name ('metal' on Apple Silicon) when GPU offload is actually
