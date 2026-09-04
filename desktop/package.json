@@ -8,6 +8,7 @@
   "scripts": {
     "start": "node scripts/start.js",
     "dist": "electron-builder --win appx",
+    "dist:mac": "electron-builder --mac -c electron-builder.mac.yml",
     "test": "node test/run-all.js",
     "test:dedupe": "node test/term-dedupe.js",
     "test:quiet": "node test/quiet-audio.js",

@@ -1,0 +1,65 @@
+name: Build macOS desktop app
+
+# Builds an unsigned/ad-hoc Apple Silicon build. No Apple Developer Program
+# membership exists yet (see desktop/MACOS_BUILD_PLAN.md section 5 for the
+# additive change - an identity + notarize step - once one does), so this
+# produces a .dmg/.zip that Gatekeeper will block on first launch until the
+# user goes through System Settings -> Privacy & Security -> Open Anyway.
+# That's expected for now, not a bug in this workflow.
+on:
+  push:
+    tags: ['desktop-v*']
+  workflow_dispatch: {}
+
+jobs:
+  build-mac:
+    runs-on: macos-14   # Apple Silicon (arm64) runner
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Fetch bundled Whisper models
+        run: node scripts/fetch-models.mjs
+
+      - name: Verify the right native binaries actually installed
+        # Fails loudly here rather than shipping a package that looks healthy
+        # right up until a recording produces no text - npm's optionalDependencies
+        # mechanism should pull the mac-arm64-metal / darwin-arm64 binaries
+        # automatically on this runner, but "should" isn't "does".
+        run: |
+          test -d node_modules/@node-llama-cpp/mac-arm64-metal || (echo "::error::mac-arm64-metal binary missing - term detection would silently fail" && exit 1)
+          test -d node_modules/onnxruntime-node/bin/napi-v6/darwin/arm64 || (echo "::error::onnxruntime darwin/arm64 binary missing - transcription would silently fail" && exit 1)
+          echo "native binaries present"
+
+      - name: Build (unsigned / ad-hoc)
+        env:
+          # Prevents electron-builder from hunting for a local certificate
+          # that doesn't exist on a fresh runner and failing confusingly.
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+          # ONCE an Apple Developer Program membership exists, uncomment and
+          # add the matching repo Secrets - nothing else about this workflow
+          # needs to change:
+          # CSC_LINK: ${{ secrets.MAC_CERTIFICATE_P12_BASE64 }}
+          # CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
+          # APPLE_ID: ${{ secrets.APPLE_ID }}
+          # APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          # APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: npm run dist:mac
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: demist-mac-arm64
+          path: |
+            desktop/dist/*.dmg
+            desktop/dist/*.zip
+          retention-days: 30

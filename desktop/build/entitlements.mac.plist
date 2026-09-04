@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- Required for the native onnxruntime/llama.cpp .node addons to load
+       under Hardened Runtime: they are not signed by Apple or by a matching
+       Developer ID, and without these two entitlements Hardened Runtime
+       refuses to load them at all - the app would launch and then fail
+       silently the moment it tried to transcribe or detect a term. -->
+  <key>com.apple.security.cs.allow-jit</key>
+  <true/>
+  <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+  <true/>
+  <key>com.apple.security.cs.disable-library-validation</key>
+  <true/>
+  <!-- Live recording is the app's core feature. -->
+  <key>com.apple.security.device.audio-input</key>
+  <true/>
+  <!-- The app loads its interface from demist.app and calls Supabase - the
+       direct Mac equivalent of the `internetClient` capability the Windows
+       Store package declares. -->
+  <key>com.apple.security.network.client</key>
+  <true/>
+</dict>
+</plist>

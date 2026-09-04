@@ -1,0 +1,84 @@
+appId: app.demist.desktop
+productName: Demist
+files:
+  - main.js
+  - preload.js
+  - native/**/*
+  - licenses/**/*
+  - models/**/*
+  # Universal, not platform-specific - always exclude accidental model cache.
+  # Measured at 1.6GB in a real Windows build (more than half the package);
+  # see electron-builder.yml's comment on this exact exclusion for why it can
+  # silently reappear if a stray script forgets native/whisper.js's cacheDir
+  # override.
+  - "!node_modules/@huggingface/transformers/.cache${/*}"
+  # Defensive excludes for the OTHER platforms' native binaries. A clean
+  # `npm install` run natively on macOS never pulls these in the first place
+  # (npm's optionalDependencies mechanism only installs the platform match),
+  # so in the normal case these are no-ops - kept anyway so a build from a
+  # node_modules that WAS populated cross-platform (a shared CI cache, a
+  # monorepo install) can't accidentally ship Windows/Linux binaries in a Mac
+  # package. Verified against this repo's actual installed layout for
+  # node-llama-cpp v3.19.0: real per-platform binaries live under the
+  # separate `@node-llama-cpp/<platform>` packages, not under
+  # `node-llama-cpp/bins/<platform>` (the path the Windows config's mac/linux
+  # exclusions reference, which does not exist in this version - likely
+  # already dead weight there for the same reason).
+  - "!node_modules/@node-llama-cpp/win-*${/*}"
+  - "!node_modules/@node-llama-cpp/linux-*${/*}"
+  - "!node_modules/onnxruntime-node/bin/napi-v6/win32${/*}"
+  - "!node_modules/onnxruntime-node/bin/napi-v6/linux${/*}"
+  - "!node_modules/@huggingface/transformers/node_modules/onnxruntime-node/bin/napi-v6/win32${/*}"
+  - "!node_modules/@huggingface/transformers/node_modules/onnxruntime-node/bin/napi-v6/linux${/*}"
+
+# Same reasoning as electron-builder.yml: the worker.js child processes are
+# forked from outside the asar (a child process cannot execute a script from
+# inside one), and Node's module resolution walking up from there never looks
+# inside app.asar/node_modules - so everything the workers touch, including
+# every transitive dependency, has to live unpacked. Unpacking wholesale
+# rather than chasing the dependency closure by hand is deliberate: a single
+# missed transitive dependency is a package that looks healthy and produces
+# no transcript, not a build error.
+asarUnpack:
+  - native/**/*
+  - node_modules/**/*
+  - models/**/*
+
+# Reuses the Windows hook unchanged - it already guards itself with
+# `if (context.electronPlatformName !== 'win32') return`, so it no-ops here.
+# The problem it exists to fix (bundling the VC++ runtime) has no macOS
+# equivalent at all.
+afterPack: ./scripts/bundle-vcredist.js
+
+mac:
+  category: public.app-category.education
+  # Rendered fresh from web/app/icon.svg at 1024x1024 (see build/icon-1024.png)
+  # rather than reusing the smaller web/public/icon-512.png raster - same
+  # brand mark, better source for electron-builder's icns generation, which
+  # wants 1024 for full Retina quality. electron-builder converts a single
+  # PNG into the full .icns set automatically, the same way the Windows build
+  # points `icon:` straight at a PNG for .ico generation - no macOS-only
+  # tooling (iconutil) needed to produce this ahead of time.
+  icon: build/icon-1024.png
+  target:
+    - target: dmg
+      arch: [arm64]
+    - target: zip
+      arch: [arm64]
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  extendInfo:
+    NSMicrophoneUsageDescription: "Demist needs microphone access to transcribe your lecture."
+  # Deliberately no `identity:` key. Without a Developer ID certificate,
+  # electron-builder ad-hoc-signs automatically - required just for the
+  # binary to EXECUTE at all on Apple Silicon, NOT a trusted signature, and
+  # does not satisfy Gatekeeper. That's expected and fine for now: see
+  # MACOS_BUILD_PLAN.md section 5 for the exact additive change (an
+  # `identity:` key plus an afterSign notarize hook) once an Apple Developer
+  # Program membership exists. Nothing here needs to change shape to support
+  # that later - only to gain those two things.
+
+dmg:
+  sign: false

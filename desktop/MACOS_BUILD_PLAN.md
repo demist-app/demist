@@ -1,8 +1,17 @@
 # Demist for macOS — build & distribution plan
 
-Status: not started. This is a complete spec for a fresh agent to implement,
-written 2026-09-04 after auditing the actual Windows build (`electron-builder.yml`,
-`main.js`, `scripts/`) rather than assuming what it does.
+Status: **configuration built and committed, not yet run.** Everything that
+could be written and syntax-checked from a Windows machine is done -
+`electron-builder.mac.yml`, entitlements, the icon, the CI workflow, the
+package.json script. What's left needs an actual macOS runner: triggering
+the workflow, and then the real-hardware verification in §7. Decisions
+confirmed by the user: Apple Silicon only for v1 (no Intel), reuse existing
+brand assets rather than commission new ones, ship independently of any
+change to the web version's trial/limits.
+
+Written 2026-09-04 after auditing the actual Windows build
+(`electron-builder.yml`, `main.js`, `scripts/`) rather than assuming what it
+does.
 
 **Hard constraint driving every decision here: no Apple Developer Program
 membership ($99/year) until the product makes money.** That means no code
@@ -57,92 +66,54 @@ Don't "fix" these — they already work correctly:
 
 ### 2a. A separate electron-builder config, not a shared one
 
-Do **not** try to make the existing `electron-builder.yml` handle both
-platforms via electron-builder's per-platform `files` merging. That merge
-behavior (does a `mac.files` list replace or extend the top-level `files`
-list?) isn't something to guess at for a config this load-bearing — get it
-wrong and the *Windows* build (currently live on the Store) silently breaks
-too. Create a fully separate file instead: `desktop/electron-builder.mac.yml`.
-Zero risk of cross-contamination, and it's how most real multi-platform
+**Built: `desktop/electron-builder.mac.yml`.** Read that file directly rather
+than trusting a copy pasted here — this section explains the reasoning, not
+the config itself, so the two can't drift apart the way `review_log`'s
+undocumented migration did earlier in this project's history.
+
+Deliberately **not** the existing `electron-builder.yml` extended with
+per-platform `files` overrides. That merge behavior (does a `mac.files` list
+replace or extend the top-level `files` list?) isn't something to guess at
+for a config this load-bearing — get it wrong and the *Windows* build
+(currently live on the Store) silently breaks too. A fully separate file has
+zero risk of cross-contamination, and it's how most real multi-platform
 Electron projects with meaningfully different per-platform packaging needs
 (which this one clearly has — look at how much Windows-only material is in
 the current file) actually structure it.
 
-Draft content:
+What it does, at a glance:
 
-```yaml
-appId: app.demist.desktop
-productName: Demist
-files:
-  - main.js
-  - preload.js
-  - native/**/*
-  - licenses/**/*
-  - models/**/*
-  # Universal, not platform-specific - always exclude accidental model cache
-  # (measured at 1.6GB in a real Windows build; see electron-builder.yml's
-  # comment on this exact exclusion for why it can silently reappear).
-  - "!node_modules/@huggingface/transformers/.cache${/*}"
-  # Defensive excludes for the OTHER platforms' native binaries. These are
-  # likely NO-OPS in practice - see the note below - but keep them so a build
-  # from a node_modules that WAS populated cross-platform (a shared CI cache,
-  # a monorepo install, anyone who ran `npm install --include=optional`
-  # broadly) can't accidentally ship Windows/Linux binaries in a Mac package.
-  # VERIFY THESE EXACT PATHS on the actual mac CI runner before trusting them
-  # (`ls node_modules/@node-llama-cpp/` and `ls node_modules/onnxruntime-node/bin/napi-v6/`)
-  # - node-llama-cpp's on-disk layout has changed across major versions, and
-  # the CURRENT Windows electron-builder.yml already excludes a path
-  # (`node_modules/node-llama-cpp/bins/mac-*`) that doesn't exist in this
-  # repo's installed v3.19.0 layout at all (real per-platform binaries live
-  # under the separate `@node-llama-cpp/<platform>` packages, not
-  # `node-llama-cpp/bins/<platform>`) - meaning that specific Windows
-  # exclusion is likely already dead weight, not saving anything. Don't
-  # copy it uncritically; confirm the real layout first.
-  - "!node_modules/@node-llama-cpp/win-*${/*}"
-  - "!node_modules/@node-llama-cpp/linux-*${/*}"
-  - "!node_modules/onnxruntime-node/bin/napi-v6/win32${/*}"
-  - "!node_modules/onnxruntime-node/bin/napi-v6/linux${/*}"
-  - "!node_modules/@huggingface/transformers/node_modules/onnxruntime-node/bin/napi-v6/win32${/*}"
-  - "!node_modules/@huggingface/transformers/node_modules/onnxruntime-node/bin/napi-v6/linux${/*}"
-
-asarUnpack:
-  - native/**/*
-  - node_modules/**/*
-  - models/**/*
-  # Same reasoning as the Windows config: the worker.js child processes are
-  # forked from outside the asar and Node's module resolution never looks
-  # inside app.asar/node_modules from there. Unpacking everything wholesale
-  # (not chasing the dependency closure by hand) is deliberate for the same
-  # reason it was on Windows - a single miss is a silently broken build that
-  # looks healthy right up until a recording produces no text, and it isn't
-  # caught by reading the config.
-
-afterPack: ./scripts/bundle-vcredist.js  # no-ops on darwin, safe to keep as-is
-
-mac:
-  category: public.app-category.education
-  icon: build/icon.icns   # see §2c - needs creating, doesn't exist yet
-  target:
-    - target: dmg
-      arch: [arm64]
-    - target: zip
-      arch: [arm64]
-  hardenedRuntime: true
-  gatekeeperAssess: false
-  entitlements: build/entitlements.mac.plist
-  entitlementsInherit: build/entitlements.mac.plist
-  extendInfo:
-    NSMicrophoneUsageDescription: "Demist needs microphone access to transcribe your lecture."
-  # Deliberately no `identity:` key. Without one, electron-builder ad-hoc-signs
-  # automatically (required just for the binary to EXECUTE on Apple Silicon -
-  # NOT a trusted Developer ID signature, and does NOT satisfy Gatekeeper).
-  # ONCE PAID: add
-  #   identity: "Developer ID Application: <Name> (<TeamID>)"
-  # and wire scripts/notarize.js as the afterSign hook (see §5).
-
-dmg:
-  sign: false
-```
+- Reuses `scripts/bundle-vcredist.js` as the `afterPack` hook unchanged — it
+  already guards itself with `context.electronPlatformName !== 'win32'`, so
+  it no-ops on this build. No Mac equivalent of that Windows DLL problem
+  exists.
+- `mac.icon: build/icon-1024.png` — see §2c for where this came from.
+- `mac.target`: `dmg` + `zip`, **`arch: [arm64]` only** — see the note below
+  on why Intel isn't in v1.
+- `hardenedRuntime: true` and `entitlements: build/entitlements.mac.plist`
+  (§2b) from day one, even though neither is strictly required without
+  notarization — turning Hardened Runtime on *later*, only once paying for
+  Apple Developer, is exactly the kind of "worked fine unsigned, breaks the
+  day signing gets added" surprise worth avoiding by building this way from
+  the start.
+- Deliberately **no `identity:` key.** Without one, electron-builder ad-hoc
+  signs automatically — required just for the binary to *execute* at all on
+  Apple Silicon, not a trusted Developer ID signature, and does not satisfy
+  Gatekeeper. See §5 for the exact additive change once that's paid for.
+- The `!node_modules/@node-llama-cpp/win-*` / `linux-*` and
+  `onnxruntime-node/.../win32` / `linux` exclusions are defensive, not
+  load-bearing in the normal case: a clean `npm install` run natively on
+  macOS never pulls Windows/Linux optional-dependency binaries in the first
+  place. They guard against a node_modules that was populated
+  cross-platform (a shared CI cache, a monorepo install) shipping the wrong
+  binaries by accident. Worth knowing: the *existing* Windows config
+  excludes a path (`node_modules/node-llama-cpp/bins/mac-*`) that doesn't
+  exist in this repo's installed `node-llama-cpp` v3.19.0 layout at all —
+  real per-platform binaries live under the separate
+  `@node-llama-cpp/<platform>` packages now, not
+  `node-llama-cpp/bins/<platform>`. That Windows exclusion is very likely
+  already dead weight; the Mac config's exclusions were written against the
+  layout actually confirmed in this repo, not copied from the stale pattern.
 
 Notes on the choices above:
 
@@ -169,7 +140,7 @@ Notes on the choices above:
   signing gets added" surprise worth avoiding by just building with it from
   the start.
 
-### 2b. Entitlements file (new)
+### 2b. Entitlements file
 
 Native `.node` addons (onnxruntime, llama.cpp bindings) need explicit
 entitlements to load under Hardened Runtime, and mic access needs its own
@@ -177,132 +148,75 @@ entitlement separate from the `NSMicrophoneUsageDescription` string in `mac.exte
 above (that string is what shows in the permission dialog; this is what
 actually grants the capability).
 
-Create `desktop/build/entitlements.mac.plist`:
-
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>com.apple.security.cs.allow-jit</key>
-  <true/>
-  <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
-  <true/>
-  <key>com.apple.security.cs.disable-library-validation</key>
-  <true/>
-  <key>com.apple.security.device.audio-input</key>
-  <true/>
-  <key>com.apple.security.network.client</key>
-  <true/>
-</dict>
-</plist>
-```
-
-`disable-library-validation` and `allow-unsigned-executable-memory` matter
-specifically because the native `.node` binaries (onnxruntime, llama.cpp)
-aren't signed by Apple or by a matching Developer ID — without this,
-Hardened Runtime refuses to load them. `network.client` because the app
-loads its UI from demist.app and calls Supabase (matches the Windows
-`internetClient` capability declaration in the existing config, same
+**Built: `desktop/build/entitlements.mac.plist`.** `disable-library-validation`
+and `allow-unsigned-executable-memory` matter specifically because the native
+`.node` binaries (onnxruntime, llama.cpp) aren't signed by Apple or by a
+matching Developer ID — without those two entitlements, Hardened Runtime
+refuses to load them at all, and the app would launch fine and then fail
+silently the moment it tried to transcribe or detect a term. `network.client`
+because the app loads its UI from demist.app and calls Supabase (matches the
+Windows `internetClient` capability declaration in the existing config, same
 underlying requirement).
 
-### 2c. App icon (new — none exists yet)
+### 2c. App icon
 
-Only PNGs exist right now (`web/public/icon-512.png` at 512×512,
-`apple-touch-icon.png`). electron-builder can auto-generate a full `.icns`
-from a single source PNG, but wants **1024×1024** for best quality on Retina
-displays — 512 will technically work but isn't ideal. Either:
+**Built: `desktop/build/icon-1024.png`.** Not a reuse of the existing
+512×512 raster (`web/public/icon-512.png`) — rendered fresh at 1024×1024
+(electron-builder's recommended size for full Retina-quality `.icns`
+generation) straight from the real vector source, `web/app/icon.svg`, using
+`sharp` (already present as an electron-builder transitive dependency, no
+new tooling needed). One rejected option worth recording: `mobile/assets/icon.png`
+is also 1024×1024 and was the obvious first guess for "reuse what we have,"
+but it turned out to be a stale, unfinished placeholder — a completely
+different blue "A" mark with visible Figma guide lines still baked into the
+export, not the current amber-waveform Demist brand. Don't reuse it anywhere
+else either; it should probably be cleaned up or replaced next time the
+mobile app scaffold gets real attention.
 
-- Generate a 1024×1024 version of the existing icon artwork and point
-  `mac.icon` at that PNG directly (electron-builder auto-converts), or
-- Pre-build `desktop/build/icon.icns` with `iconutil` (macOS-only tool) from
-  a full `.iconset` folder, if precise control over each resolution matters.
-
-The PNG-in, auto-convert path is simpler and matches how the Windows build
-already handles its `.ico` (`icon: ../web/public/icon-512.png` directly, no
-manual `.ico` file). Do the same for consistency unless quality problems show
-up in testing.
+`mac.icon` in `electron-builder.mac.yml` points straight at this PNG —
+electron-builder auto-generates the full `.icns` set from it at build time,
+the same way the Windows config points `icon:` straight at a PNG for `.ico`
+generation. No macOS-only tooling (`iconutil`) needed to pre-build anything.
 
 ### 2d. `package.json` script
 
-```json
-"dist:mac": "electron-builder --mac -c electron-builder.mac.yml"
-```
-
-Leave the existing `"dist": "electron-builder --win appx"` untouched.
+**Built:** `"dist:mac": "electron-builder --mac -c electron-builder.mac.yml"`,
+added alongside the existing `"dist": "electron-builder --win appx"`
+(untouched).
 
 ## 3. CI: GitHub Actions macOS runner
 
-No Mac hardware in this session means no local build/test loop — everything
-here has to run on a macOS GitHub Actions runner instead. This also solves
-distribution: build artifacts can be published straight from CI.
+**Built: `.github/workflows/desktop-mac-build.yml`** (repo root, not under
+`desktop/` — GitHub only discovers workflows there). No Mac hardware in this
+session means no local build/test loop — everything here has to run on a
+macOS GitHub Actions runner instead. This also solves distribution: build
+artifacts can be published straight from CI. Both the workflow YAML and
+`electron-builder.mac.yml` were validated with `js-yaml` (already vendored
+as an electron-builder dependency) for syntax errors before committing —
+real coverage against electron-builder's own schema still only comes from an
+actual run, which needs the macOS runner this session doesn't have.
 
-Create `.github/workflows/desktop-mac-build.yml` (repo root, not under `desktop/`):
+Triggers on a `desktop-v*` tag push, or manually via `workflow_dispatch`.
+What it does, briefly (read the file for the exact steps):
 
-```yaml
-name: Build macOS desktop app
+- `npm ci`, then `node scripts/fetch-models.mjs` for the bundled Whisper models
+- A verification step that fails the build loudly if
+  `@node-llama-cpp/mac-arm64-metal` or `onnxruntime-node/.../darwin/arm64`
+  didn't actually get installed — the exact failure mode this project's own
+  history warns about repeatedly: a package that looks healthy and produces
+  no transcript, discovered only by running it, never by reading config.
+- `npm run dist:mac`, with `CSC_IDENTITY_AUTO_DISCOVERY: false` so
+  electron-builder doesn't hunt for a local certificate that doesn't exist on
+  a fresh runner and fail with a confusing error
+- Uploads the `.dmg`/`.zip` as a workflow artifact — **not** auto-published to
+  a Release yet. Attach it to a Release by hand for the first several builds
+  while the pipeline itself is being trusted; wiring up `--publish always` is
+  a good next step once a manual release or two has gone smoothly, not
+  before.
 
-on:
-  push:
-    tags: ['desktop-v*']
-  workflow_dispatch: {}
-
-jobs:
-  build-mac:
-    runs-on: macos-14   # Apple Silicon (arm64) runner
-    defaults:
-      run:
-        working-directory: desktop
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Fetch bundled Whisper models
-        run: node scripts/fetch-models.mjs
-
-      - name: Verify the right native binaries actually installed
-        # Fails loudly here rather than shipping a package that "looks
-        # healthy right up until a recording produces no text" - the exact
-        # failure mode this project's own history warns about repeatedly.
-        run: |
-          test -d node_modules/@node-llama-cpp/mac-arm64-metal || (echo "::error::mac-arm64-metal binary missing" && exit 1)
-          test -d node_modules/onnxruntime-node/bin/napi-v6/darwin/arm64 || (echo "::error::onnxruntime darwin/arm64 binary missing" && exit 1)
-
-      - name: Build (unsigned / ad-hoc)
-        env:
-          # Prevents electron-builder from hunting for a local certificate
-          # that doesn't exist on a fresh runner and failing confusingly.
-          CSC_IDENTITY_AUTO_DISCOVERY: "false"
-          # ONCE PAID, uncomment and add the matching GitHub Secrets:
-          # CSC_LINK: ${{ secrets.MAC_CERTIFICATE_P12_BASE64 }}
-          # CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
-          # APPLE_ID: ${{ secrets.APPLE_ID }}
-          # APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          # APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: npm run dist:mac
-
-      - name: Upload build artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: demist-mac-arm64
-          path: |
-            desktop/dist/*.dmg
-            desktop/dist/*.zip
-          retention-days: 30
-```
-
-**Start with `upload-artifact`, not auto-publish to a Release.** Attach the
-built `.dmg` to a Release by hand for the first several builds while the
-pipeline itself is being validated — one less moving part while debugging
-whether the *build* even works. Automating straight-to-Release (electron-builder's
-`--publish always` plus a `GH_TOKEN`) is a good next step once a manual
-release or two has gone smoothly, not before.
+The `ONCE PAID` env vars for `CSC_LINK` / `APPLE_ID` / etc. are already
+present in the file as commented-out lines in the build step, ready to
+uncomment alongside adding the matching GitHub Secrets — see §5.
 
 Trigger a build by tagging: `git tag desktop-v1.0.0-mac && git push origin desktop-v1.0.0-mac`.
 
