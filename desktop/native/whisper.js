@@ -73,6 +73,31 @@ const DTYPE = 'q8'
 
 const TOTAL_RAM_GB = os.totalmem() / (1024 ** 3)
 
+// Whether the bundled model for this tier is actually present on disk, so
+// getTranscriber can tell "used the bundle, as designed" apart from "the
+// bundle is missing and this is about to silently try the network" BEFORE
+// that network attempt happens, not after it fails. Checked directly against
+// the filesystem rather than trusting env.allowLocalModels/localModelPath to
+// have been set up correctly for this exact packaged layout - "should find
+// it" isn't "does", the same lesson the vcredist/models-bundling fixes in
+// electron-builder.yml were written for.
+function hasLocalModel(tier) {
+  try {
+    // Checks for an actual .onnx weight file under onnx/, not just that the
+    // model's directory is non-empty. A directory holding only config.json/
+    // tokenizer.json but missing the graph itself (a partial download, an
+    // interrupted Store install) would pass a bare non-empty check and still
+    // send this straight to the network for the one file that matters -
+    // confirmed against this repo's own scripts/fetch-models.mjs output:
+    // config.json and friends sit next to onnx/encoder_model_quantized.onnx
+    // and onnx/decoder_model_merged_quantized.onnx, not bundled together.
+    const dir = path.join(env.localModelPath, MODEL_BY_TIER[tier], 'onnx')
+    return fsSync.readdirSync(dir).some(f => f.endsWith('.onnx'))
+  } catch {
+    return false
+  }
+}
+
 // Which model a machine gets by default, on the machine's own terms. The
 // models are big enough that this cannot be one-size-fits-all: with the
 // accurate tier, Whisper + the term-detection LLM + translation come to
@@ -134,9 +159,39 @@ function getTranscriber(emitProgress) {
     // Kept: one line per app launch, and it records which model a machine
     // actually chose, which is the first thing to check on any quality report.
     console.log(`[demist] loading transcription model: tier=${tier} dtype=${DTYPE} (machine has ${TOTAL_RAM_GB.toFixed(1)}GB RAM)`)
+    // Confirmed in the wild: a Store install on a school-managed laptop threw
+    // "Error: fetch failed" here, from a network whose content filter blocks
+    // huggingface.co outright (categorised as "ai.generative", confirmed by
+    // the school's own block page). Bundling these models exists specifically
+    // so this app never depends on reaching huggingface.co at all - see the
+    // comment above env.allowLocalModels - so if the fallback fired, the
+    // bundled directory for this tier was not found on THIS install; logging
+    // that fact here, before the attempt, turns "why is a Store install with
+    // bundled models trying the network" from a guessing game into a one-line
+    // answer the next time this is reported.
+    const localAvailable = hasLocalModel(tier)
+    if (!localAvailable) {
+      console.error(`[demist] bundled transcription model NOT found for tier "${tier}" at ${path.join(env.localModelPath, MODEL_BY_TIER[tier])} - falling back to a network download from Hugging Face. This should not happen on a normal install; it will fail outright on any network that blocks huggingface.co (school/work content filters are a real, confirmed case of this).`)
+    }
     const loadPromise = pipeline('automatic-speech-recognition', MODEL_BY_TIER[tier], {
       dtype: DTYPE,
       progress_callback: makeProgressLogger(`transcription model (${tier})`, emitProgress),
+    }).catch((err) => {
+      // Re-thrown with an actionable explanation up front, not just "fetch
+      // failed" - that raw string sent a real user (and me, diagnosing it
+      // secondhand) down the wrong path entirely before a screenshot of the
+      // school's own block page made the real cause obvious. The user-facing
+      // message this feeds (recordingSession.tsx's setNativeModelsError)
+      // truncates to 200 characters, so the actionable part goes FIRST and
+      // the technical detail - already fully logged above, untruncated -
+      // goes last where truncation costs nothing. Only rewritten when the
+      // local bundle is confirmed missing, so a genuine remote-download
+      // failure with local models actually present (a future tier that
+      // isn't bundled yet, say) still surfaces its original error unmodified.
+      if (!localAvailable) {
+        throw new Error(`The bundled model wasn't found, and Hugging Face is unreachable - a school or work network may be blocking huggingface.co. Try a different network, or reinstall Demist. (expected the bundle at ${path.join(env.localModelPath, MODEL_BY_TIER[tier])}; underlying error: ${err?.message ?? err})`)
+      }
+      throw err
     }).then(async (transcriber) => {
       // The resolved pipeline has weights loaded but onnxruntime-node hasn't
       // built its inference session yet: that first build (buffer
