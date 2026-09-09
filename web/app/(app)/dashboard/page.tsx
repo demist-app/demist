@@ -13,6 +13,7 @@ import { useRecordingSession, LANGUAGE_NAMES, friendlyModelName, type LiveTerm }
 const SummaryViewer = dynamic(() => import('../summary-viewer').then(m => ({ default: m.SummaryViewer })), { ssr: false })
 const OnboardingOverlay = dynamic(() => import('@/components/OnboardingOverlay').then(m => ({ default: m.OnboardingOverlay })), { ssr: false })
 const SessionReview = dynamic(() => import('@/components/SessionReview').then(m => ({ default: m.SessionReview })), { ssr: false })
+const MicCheck = dynamic(() => import('@/components/MicCheck').then(m => ({ default: m.MicCheck })), { ssr: false })
 import { PaywallModal } from '@/components/PaywallModal'
 import { TranscriptBilingual } from '@/components/TranscriptBilingual'
 
@@ -77,6 +78,7 @@ export default function Dashboard() {
 
   const [transcriptView, setTranscriptView] = useState<'both' | 'source' | 'translated'>('both')
   const [showSubjectInput, setShowSubjectInput] = useState(false)
+  const [showMicCheck, setShowMicCheck] = useState(false)
   const [tabCaptureSupportedState, setTabCaptureSupportedState] = useState(false)
   const [isScrolledUp, setIsScrolledUp] = useState(false)
 
@@ -574,7 +576,13 @@ export default function Dashboard() {
                 <span className="absolute w-[194px] h-[194px] rounded-full bg-yellow-600/[0.025]" style={{ animation: 'glow-float 4s ease-in-out -2.7s infinite' }} />
                 <button
                   ref={btnRef}
-                  onClick={() => nativeModelsReady && startRecording(captureMode)}
+                  onClick={() => {
+                    if (!nativeModelsReady) return
+                    // Mic mode only: tab/system-audio capture has its own
+                    // source and picker, nothing here to test beforehand.
+                    if (captureMode === 'microphone') setShowMicCheck(true)
+                    else startRecording(captureMode)
+                  }}
                   disabled={!nativeModelsReady}
                   aria-label={nativeModelsReady ? 'Start recording' : nativeModelsError ? 'On-device models failed to load' : 'Preparing on-device models'}
                   className="relative z-10 w-[96px] h-[96px] rounded-full dark:bg-white/[0.08] bg-[#FAF9F6] border border-yellow-500/40 hover:bg-yellow-500/10 hover:border-yellow-500/60 hover:shadow-[0_0_48px_rgba(161,98,7,0.30)] dark:hover:shadow-[0_0_48px_rgba(251,191,36,0.30)] active:scale-[0.97] flex items-center justify-center transition-all duration-200 select-none shadow-sm disabled:opacity-40 disabled:pointer-events-none disabled:hover:shadow-none"
@@ -878,6 +886,13 @@ export default function Dashboard() {
           </div>
         )}
       </div>
+
+      {showMicCheck && (
+        <MicCheck
+          onStart={() => { setShowMicCheck(false); startRecording('microphone') }}
+          onCancel={() => setShowMicCheck(false)}
+        />
+      )}
 
       {paywall && <PaywallModal source={paywall} onClose={() => setPaywall(null)} />}
 
