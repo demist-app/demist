@@ -28,24 +28,8 @@ export const FAQ = [
     a: 'Go to your browser\'s site settings for demist.app and confirm microphone permission is set to Allow. In Chrome, click the padlock icon in the address bar → Site settings → Microphone → Allow, then reload the page.',
   },
   {
-    q: 'Why isn\'t the Chrome extension showing anything?',
-    a: 'Make sure you\'ve started recording in the Demist app first. The extension only shows terms once a session is active.',
-  },
-  {
-    q: 'Do concept cards follow me when I switch tabs?',
-    a: 'On the tab you were on when you started recording, yes. On any other tab, click the Demist extension icon once and cards will appear there too, and keep appearing for the rest of the session. The extension only adds itself to a page when you ask it to, which is why it does not need permission to read every site you visit.',
-  },
-  {
-    q: 'Concept cards aren\'t appearing on a tab',
-    a: 'Click the Demist extension icon while that tab is open. Some pages cannot be added to at all, including chrome:// settings pages, PDFs and the Chrome Web Store, which is a restriction Chrome puts on every extension rather than something specific to Demist.',
-  },
-  {
     q: 'Does it work during online lectures on Zoom or Teams?',
     a: 'Yes, as long as the audio is going through your microphone. Start recording in the Demist web app, join your Zoom or Teams call, and concept cards will appear on top of whatever tab you\'re viewing.',
-  },
-  {
-    q: '"Load unpacked" failed. What went wrong?',
-    a: 'Select the extracted folder named demist-extension, not the zip file itself. In Chrome\'s extensions page (chrome://extensions), enable Developer mode with the toggle in the top right, click Load unpacked, then navigate to and select the demist-extension folder.',
   },
   {
     q: 'Where is my data stored?',

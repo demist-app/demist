@@ -6,7 +6,7 @@ import { useTheme } from 'next-themes'
 import { createClient } from '@/lib/supabase'
 import { capture } from '@/lib/analytics'
 import { FAQ as FAQS } from '@/lib/faq'
-import { CHROME_STORE_URL, EXTENSION_DOWNLOAD_URL, MAC_SUPPORT_URL, MS_STORE_URL } from '@/lib/links'
+import { MAC_SUPPORT_URL, MS_STORE_URL } from '@/lib/links'
 
 const SPRING = 'cubic-bezier(0.16, 1, 0.3, 1)'
 
@@ -132,7 +132,6 @@ export default function LandingClient() {
   const stepsRef = useInView()
   const winRef = useInView()
   const macRef = useInView()
-  const extRef = useInView()
   const faqRef = useInView()
   const ctaRef = useInView()
 
@@ -780,93 +779,6 @@ export default function LandingClient() {
         </div>
       </section>
 
-      {/* ── Extension ── */}
-      <section ref={extRef.ref} className="relative z-10 px-6 sm:px-12 py-28 max-w-3xl mx-auto text-center">
-        <p className="text-[10px] font-bold tracking-[0.2em] uppercase mb-4" style={{ color: 'var(--fg-faint)', ...scrollAnim(extRef.visible, 0).style }}>
-          Chrome Extension
-        </p>
-        <h2
-          className="text-[30px] sm:text-[42px] font-bold tracking-tight mb-4 leading-tight"
-          style={{ color: 'var(--fg)', ...scrollAnim(extRef.visible, 80).style }}
-        >
-          Keep your notes open.{' '}
-          <span style={{ color: 'var(--fg-muted)', fontWeight: 400 }}>Terms show in a side panel.</span>
-        </h2>
-        <p
-          className="text-[15px] leading-relaxed mb-10 max-w-[480px] mx-auto"
-          style={{ color: 'var(--fg-muted)', ...scrollAnim(extRef.visible, 160).style }}
-        >
-          Start recording in Demist, then switch to your lecture slides or notes. The Chrome extension keeps a live panel open on the side showing every term as Demist detects it, without covering your screen.
-        </p>
-
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-3" style={scrollAnim(extRef.visible, 240).style}>
-          {CHROME_STORE_URL ? (
-            <a
-              href={CHROME_STORE_URL}
-              target="_blank" rel="noopener noreferrer"
-              className="flex items-center gap-2.5 px-6 py-3.5 rounded-2xl text-white font-semibold text-[15px] transition-all active:scale-[0.97]"
-              style={{ background: 'var(--accent)' }}
-            >
-              <ChromeIcon />
-              Add to Chrome
-            </a>
-          ) : (
-            <div className="relative">
-              <div className="flex items-center gap-2.5 px-6 py-3.5 rounded-2xl font-semibold text-[15px] cursor-not-allowed select-none" style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--fg-faint)' }}>
-                <ChromeIcon />
-                Add to Chrome
-              </div>
-              <span className="absolute -top-2.5 -right-2.5 text-[10px] font-bold tracking-[0.1em] rounded-full px-2 py-0.5 uppercase" style={{ color: 'var(--accent)', background: 'var(--accent-soft)', border: '1px solid var(--accent-border)' }}>
-                Soon
-              </span>
-            </div>
-          )}
-
-          {/* Named for what it actually is. "Download beta", sitting one
-              section below a Windows app that is also downloadable, was read
-              as the Windows app by at least one real person - who then
-              installed a Chrome extension and reasonably called it the wrong
-              version. The label has to survive being read on its own. */}
-          <a
-            href={EXTENSION_DOWNLOAD_URL}
-            download
-            onClick={() => capture('extension_zip_downloaded')}
-            className="flex items-center gap-2 px-6 py-3.5 rounded-2xl text-[15px] font-medium transition-all"
-            style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--fg-muted)' }}
-          >
-            <DownloadIcon />
-            Download the Chrome extension (beta)
-          </a>
-        </div>
-
-        <p className="mt-5 text-[12px]" style={{ color: 'var(--fg-faint)' }}>
-          This is the browser extension, not the Demist app. For the app, use{' '}
-          <a href={MS_STORE_URL} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">the Microsoft Store</a>
-          {' '}or open Demist in your browser.
-        </p>
-
-        {!CHROME_STORE_URL && (
-          <div className="mt-8 rounded-2xl px-6 py-5 max-w-sm mx-auto text-left" style={{ background: 'var(--surface)', border: '1px solid var(--border)', ...scrollAnim(extRef.visible, 320).style }}>
-            <p className="text-[11px] font-bold tracking-[0.16em] uppercase mb-3" style={{ color: 'var(--fg-faint)' }}>Install in 60 seconds (beta)</p>
-            <ol className="space-y-2.5">
-              {[
-                'Click Download the Chrome extension above and save the zip file',
-                'Unzip it. You will get a single folder called demist-extension',
-                'In Chrome, go to chrome://extensions',
-                'Turn on Developer mode using the toggle in the top right',
-                'Click Load unpacked and select the demist-extension folder',
-                'Pin the extension, start recording in Demist, then click the icon on any tab you want cards to appear on',
-              ].map((step, i) => (
-                <li key={i} className="flex items-start gap-2.5">
-                  <span className="text-[11px] font-bold mt-[3px] shrink-0 tabular-nums" style={{ color: 'var(--accent)', opacity: 0.5 }}>{String(i + 1).padStart(2, '0')}</span>
-                  <span className="text-[13px]" style={{ color: 'var(--fg-muted)' }}>{step}</span>
-                </li>
-              ))}
-            </ol>
-          </div>
-        )}
-      </section>
-
       {/* ── FAQ & Troubleshooting ── */}
       <section ref={faqRef.ref} className="relative z-10 px-6 sm:px-12 py-28 max-w-3xl mx-auto">
         <p
@@ -1015,18 +927,6 @@ function CardIcon() {
   )
 }
 
-function ChromeIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10" />
-      <circle cx="12" cy="12" r="4" />
-      <line x1="21.17" y1="8" x2="12" y2="8" />
-      <line x1="3.95" y1="6.06" x2="8.54" y2="14" />
-      <line x1="10.88" y1="21.94" x2="15.46" y2="14" />
-    </svg>
-  )
-}
-
 // The Windows logo is four panes with a slight perspective skew - the top edge
 // sits higher on the left than the right. Drawn as filled paths rather than
 // four rects because that skew is the whole thing that makes it read as the
@@ -1049,16 +949,6 @@ function AppleIcon() {
     <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
       <path d="M16.365 1.43c0 1.14-.416 2.06-1.248 2.76-.832.7-1.813 1.09-2.86.99-.14-1.1.4-2.05 1.23-2.75.83-.7 1.9-1.06 2.878-1z" />
       <path d="M20.5 17.14c-.55 1.27-.81 1.84-1.52 2.96-.99 1.56-2.39 3.5-4.12 3.52-1.54.02-1.94-1-4.02-.99-2.08.01-2.52 1.01-4.06.99-1.73-.02-3.06-1.77-4.05-3.33C.35 16.9-.35 12.24 1.02 9.06c.78-1.82 2.18-2.98 3.71-3 1.47-.02 2.85.99 3.75.99.9 0 2.58-1.22 4.35-1.04.74.03 2.82.3 4.15 2.24-.11.07-2.48 1.45-2.46 4.32.03 3.44 3.02 4.58 3.05 4.6-.03.08-.48 1.63-1.57 2.97z" />
-    </svg>
-  )
-}
-
-function DownloadIcon() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-      <polyline points="7 10 12 15 17 10" />
-      <line x1="12" y1="15" x2="12" y2="3" />
     </svg>
   )
 }
