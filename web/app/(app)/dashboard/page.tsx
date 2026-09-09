@@ -15,6 +15,7 @@ const OnboardingOverlay = dynamic(() => import('@/components/OnboardingOverlay')
 const SessionReview = dynamic(() => import('@/components/SessionReview').then(m => ({ default: m.SessionReview })), { ssr: false })
 const MicCheck = dynamic(() => import('@/components/MicCheck').then(m => ({ default: m.MicCheck })), { ssr: false })
 import { PaywallModal } from '@/components/PaywallModal'
+import { TrialLimitModal } from '@/components/TrialLimitModal'
 import { TranscriptBilingual } from '@/components/TranscriptBilingual'
 
 function fmtTime(s: number) {
@@ -57,7 +58,8 @@ export default function Dashboard() {
     recentSessions, sessionGenIds, sessionFailIds, sessionFailReasons, sessionTermLoading,
     recordingError, recordingWarning, sessionSyncWarning, modelWarning, wakeLockUnsupported, captureMode, setCaptureMode, capturedTabTitle,
     sentences, translatedSentences, reviewTerms, setReviewTerms, sessionSubject, setSessionSubject,
-    sessionSubjectRef, recentSubjects, addRecentSubject, paywall, setPaywall, localTranslate, liveTranslateAvailable, translationReady,
+    sessionSubjectRef, recentSubjects, addRecentSubject, paywall, setPaywall,
+    webTrialBlocked, setWebTrialBlocked, webTrialRemaining, localTranslate, liveTranslateAvailable, translationReady,
     nativeModelsReady, nativeModelProgress, nativeModelsError, retryNativeModelPreload,
     vizAnalyserRef, chunkPeakRef, startRecording, stopRecording, dismissTerm, pinTerm, markKnown,
     retrySessionSummarize, toggleExpandSession,
@@ -607,7 +609,16 @@ export default function Dashboard() {
                 )}
               </div>
               {nativeModelsReady ? (
-                <p className="text-gray-600 text-[13px] mt-1.5">Tap the mic before your next lecture</p>
+                <>
+                  <p className="text-gray-600 text-[13px] mt-1.5">Tap the mic before your next lecture</p>
+                  {/* Quiet, shown before the wall rather than as an ambush -
+                      null on desktop/Linux/mobile, where there's no cap. */}
+                  {webTrialRemaining !== null && (
+                    <p className="text-gray-500 text-[11px] mt-1">
+                      {webTrialRemaining} free browser recording{webTrialRemaining === 1 ? '' : 's'} left
+                    </p>
+                  )}
+                </>
               ) : nativeModelsError ? (
                 <div className="w-full max-w-[240px] mt-2.5 flex flex-col items-center gap-2">
                   <p className="text-red-400 text-[12px] text-center">{nativeModelsError}</p>
@@ -893,6 +904,8 @@ export default function Dashboard() {
           onCancel={() => setShowMicCheck(false)}
         />
       )}
+
+      {webTrialBlocked && <TrialLimitModal gate={webTrialBlocked} onClose={() => setWebTrialBlocked(null)} />}
 
       {paywall && <PaywallModal source={paywall} onClose={() => setPaywall(null)} />}
 

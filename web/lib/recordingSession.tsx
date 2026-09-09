@@ -20,6 +20,8 @@ import { capture, identify } from '@/lib/analytics'
 import { requestWakeLock, releaseWakeLock, reacquireWakeLockOnVisibility, wakeLockSupported } from '@/lib/wakeLock'
 import { startTabCapture } from '@/lib/tabCapture'
 import { checkRecordingLimit } from '@/lib/subscription'
+import { checkWebTrialLimit, WEB_TRIAL_ENABLED, WEB_TRIAL_RECORDING_LIMIT, type TrialGateResult } from '@/lib/webTrial'
+import { detectDesktopPlatform } from '@/lib/platform'
 import { useEntitlements } from '@/lib/entitlements'
 import { useNativeTranslate } from '@/lib/useNativeTranslate'
 import { extractCandidates } from '@/lib/extractTerms'
@@ -154,6 +156,9 @@ interface RecordingSessionValue {
   addRecentSubject: (subject: string) => void
   paywall: string | null
   setPaywall: (p: string | null) => void
+  webTrialBlocked: TrialGateResult | null
+  setWebTrialBlocked: (v: TrialGateResult | null) => void
+  webTrialRemaining: number | null
   localTranslate: ReturnType<typeof useNativeTranslate>
   localTranslateUsable: () => boolean
   liveTranslateAvailable: boolean
@@ -239,6 +244,15 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
   const [recentSubjects, setRecentSubjects] = useState<string[]>([])
   const { limits } = useEntitlements()
   const [paywall, setPaywall] = useState<string | null>(null)
+  // Set when checkWebTrialLimit blocks a NEW recording (web, Windows/Mac,
+  // over the lifetime cap) - a distinct thing from `paywall` above, which is
+  // the Pro-plan gate. Carries the platform so TrialLimitModal can point at
+  // the right download link.
+  const [webTrialBlocked, setWebTrialBlocked] = useState<TrialGateResult | null>(null)
+  // How many free browser recordings are left, shown as a quiet caption
+  // before anyone hits the wall - null on desktop/Linux/mobile, where there
+  // is no cap to show a count for at all.
+  const [webTrialRemaining, setWebTrialRemaining] = useState<number | null>(null)
   const [translatedSentences, setTranslatedSentences] = useState<(string | null)[]>([])
   // Gates the record button in the desktop app until its on-device models
   // have finished loading: true immediately outside Electron, since there's
@@ -667,6 +681,14 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
         supabase.from('sessions').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
       ])
       totalSessionCountRef.current = totalCount ?? 0
+      // Reuses the totalCount already fetched above rather than a second
+      // round trip through checkWebTrialLimit - same lifetime session count,
+      // same electron/platform exemptions, just computed inline. null (not
+      // 0) on desktop/Linux/mobile so the UI can tell "no cap here" apart
+      // from "cap hit".
+      if (WEB_TRIAL_ENABLED && !isElectronNative() && detectDesktopPlatform()) {
+        setWebTrialRemaining(Math.max(0, WEB_TRIAL_RECORDING_LIMIT - (totalCount ?? 0)))
+      }
 
       profileRef.current = prof as Profile
       setProfile(prof as Profile)
@@ -1246,6 +1268,16 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       if (!gate.allowed) {
         startingRef.current = false
         setRecordingError(gate.reason ?? 'Recording limit reached.')
+        return
+      }
+      // Separate from the Pro-plan gate above: this one caps web itself
+      // (Windows/Mac browser, lifetime), not a plan. A real download CTA
+      // belongs in a modal, not the inline recordingError text, so it's its
+      // own state - see TrialLimitModal.
+      const trialGate = await checkWebTrialLimit(createClient(), userIdRef.current)
+      if (!trialGate.allowed) {
+        startingRef.current = false
+        setWebTrialBlocked(trialGate)
         return
       }
     }
@@ -1986,7 +2018,8 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     recentSessions, setRecentSessions, sessionGenIds, sessionFailIds, sessionFailReasons, sessionTermLoading,
     recordingError, recordingWarning, sessionSyncWarning, modelWarning, wakeLockUnsupported, captureMode, setCaptureMode, capturedTabTitle,
     sentences, translatedSentences, liveSessionId, reviewTerms, setReviewTerms, sessionSubject, setSessionSubject,
-    sessionSubjectRef, recentSubjects, addRecentSubject, paywall, setPaywall, localTranslate, localTranslateUsable, liveTranslateAvailable, translationReady,
+    sessionSubjectRef, recentSubjects, addRecentSubject, paywall, setPaywall,
+    webTrialBlocked, setWebTrialBlocked, webTrialRemaining, localTranslate, localTranslateUsable, liveTranslateAvailable, translationReady,
     nativeModelsReady, nativeModelProgress, nativeModelsError, retryNativeModelPreload,
     vizAnalyserRef, chunkPeakRef, startRecording, stopRecording, dismissTerm, pinTerm, markKnown,
     maybeGenerateOnDashboard, retrySessionSummarize, toggleExpandSession,
