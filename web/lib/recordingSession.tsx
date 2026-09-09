@@ -1306,7 +1306,26 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
           audioCtx.close()
           audioProcessingCtxRef.current = null
           startingRef.current = false
-          alert('Microphone access is needed to use Demist.')
+          // This is the exact moment real usage data pointed at: roughly a
+          // third of people who finish onboarding never start a first
+          // recording, and this getUserMedia failure was previously both a
+          // bare alert() - the one raw alert left in this whole flow, every
+          // sibling failure (tab capture, session creation) already uses
+          // setRecordingError - AND invisible to analytics, so there was no
+          // way to tell "this is common" from "this never happens." Neither
+          // gap is acceptable at exactly the point a brand-new user decides
+          // whether to come back.
+          const name = (err as DOMException)?.name
+          capture('mic_permission_error', { name })
+          setRecordingError(
+            name === 'NotAllowedError'
+              ? 'Microphone access was blocked. Click the lock or camera icon in your browser’s address bar, allow microphone access, then try again.'
+              : name === 'NotFoundError'
+              ? 'No microphone was found. Check that one is connected and try again.'
+              : name === 'NotReadableError'
+              ? 'Your microphone couldn’t be accessed. Another app may be using it; close anything else using it and try again.'
+              : 'Microphone access is needed to use Demist.',
+          )
           return
         }
         stream = fallbackStream
