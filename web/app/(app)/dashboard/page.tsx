@@ -56,7 +56,7 @@ export default function Dashboard() {
     recentSessions, sessionGenIds, sessionFailIds, sessionFailReasons, sessionTermLoading,
     recordingError, recordingWarning, sessionSyncWarning, modelWarning, wakeLockUnsupported, captureMode, setCaptureMode, capturedTabTitle,
     sentences, translatedSentences, reviewTerms, setReviewTerms, sessionSubject, setSessionSubject,
-    sessionSubjectRef, paywall, setPaywall, localTranslate, liveTranslateAvailable, translationReady,
+    sessionSubjectRef, recentSubjects, addRecentSubject, paywall, setPaywall, localTranslate, liveTranslateAvailable, translationReady,
     nativeModelsReady, nativeModelProgress, nativeModelsError, retryNativeModelPreload,
     vizAnalyserRef, chunkPeakRef, startRecording, stopRecording, dismissTerm, pinTerm, markKnown,
     retrySessionSummarize, toggleExpandSession,
@@ -627,18 +627,51 @@ export default function Dashboard() {
                 </div>
               )}
 
-              {/* Subject picker: only shown while actively editing (or before any subject is set) */}
+              {/* Subject picker: only shown while actively editing (or before any subject is set).
+                  Quick-pick chips sit below the free-text input, populated from the user's own
+                  recent subjects - added because real usage data showed every user with sessions
+                  so far had used exactly ONE subject string across all of them, and a freeform
+                  box defaulting to "whatever was typed last" is a plausible reason someone
+                  studying more than one thing (a double major, several classes) never bothers
+                  switching. Chips use onMouseDown + preventDefault, not onClick alone: a plain
+                  click fires the input's onBlur first, which hides this whole block (and the
+                  chip with it) before the click can register. */}
               {(showSubjectInput || !sessionSubject) && (
                 <div className="w-full max-w-xs mt-4">
                   <input
                     type="text"
                     value={sessionSubject}
                     onChange={e => { sessionSubjectRef.current = e.target.value; setSessionSubject(e.target.value) }}
-                    onBlur={() => { setShowSubjectInput(false); capture('session_subject_selected', { source: showSubjectInput ? 'new' : 'default' }) }}
+                    onBlur={() => {
+                      setShowSubjectInput(false)
+                      addRecentSubject(sessionSubject)
+                      capture('session_subject_selected', { source: showSubjectInput ? 'new' : 'default' })
+                    }}
                     placeholder={profile?.course || 'Subject or module'}
                     className="w-full dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.10] border-black/[0.13] rounded-2xl px-4 py-2.5 text-[13px] dark:text-white text-gray-900 placeholder-gray-500 focus:outline-none focus:border-yellow-500/50 transition-colors"
                     autoFocus={showSubjectInput}
                   />
+                  {recentSubjects.filter(s => s !== sessionSubject).length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {recentSubjects.filter(s => s !== sessionSubject).map(s => (
+                        <button
+                          key={s}
+                          type="button"
+                          onMouseDown={e => e.preventDefault()}
+                          onClick={() => {
+                            sessionSubjectRef.current = s
+                            setSessionSubject(s)
+                            addRecentSubject(s)
+                            setShowSubjectInput(false)
+                            capture('session_subject_selected', { source: 'quick_pick' })
+                          }}
+                          className="text-[12px] px-2.5 py-1 rounded-full border transition-colors dark:bg-white/[0.04] bg-[#F3F1EC] dark:border-white/[0.08] border-black/[0.12] dark:text-gray-400 text-gray-600 hover:border-yellow-500/40"
+                        >
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 

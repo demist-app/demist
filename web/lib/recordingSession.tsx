@@ -150,6 +150,8 @@ interface RecordingSessionValue {
   sessionSubject: string
   setSessionSubject: (s: string) => void
   sessionSubjectRef: React.RefObject<string>
+  recentSubjects: string[]
+  addRecentSubject: (subject: string) => void
   paywall: string | null
   setPaywall: (p: string | null) => void
   localTranslate: ReturnType<typeof useNativeTranslate>
@@ -227,6 +229,14 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
   const [liveSessionId, setLiveSessionId] = useState<string | null>(null)
   const [reviewTerms, setReviewTerms] = useState<{ term: string; definition: string; dbId?: string }[] | null>(null)
   const [sessionSubject, setSessionSubject] = useState<string>('')
+  // The user's own last few distinct subjects (most recent first), so the
+  // subject-change input can offer them as one-tap chips instead of forcing
+  // a retyped exact match every time. Real usage data showed every user with
+  // sessions so far has used exactly ONE subject string across all of them -
+  // consistent with this friction (a freeform box defaulting to whatever was
+  // typed last) suppressing genuine multi-subject use (a double major, a
+  // high schooler with several classes) rather than nobody needing it.
+  const [recentSubjects, setRecentSubjects] = useState<string[]>([])
   const { limits } = useEntitlements()
   const [paywall, setPaywall] = useState<string | null>(null)
   const [translatedSentences, setTranslatedSentences] = useState<(string | null)[]>([])
@@ -255,6 +265,16 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
 
   const profileRef = useRef<Profile | null>(null)
   const sessionSubjectRef = useRef<string>('')
+  // Moves a just-committed subject to the front of recentSubjects (deduped,
+  // capped at 6), so switching to a genuinely new subject makes it available
+  // as a quick-pick chip immediately - not just after the next page load,
+  // which would otherwise mean the FIRST time someone tries a second subject
+  // is also the one time the chip row can't yet help them.
+  const addRecentSubject = (subject: string) => {
+    const trimmed = subject.trim()
+    if (!trimmed) return
+    setRecentSubjects(prev => [trimmed, ...prev.filter(s => s !== trimmed)].slice(0, 6))
+  }
   const userIdRef = useRef<string | null>(null)
   const totalSessionCountRef = useRef(0)
   const sessionIdRef = useRef<string | null>(null)
@@ -685,6 +705,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
         const tc = totalSessionCountRef.current
         setRecentSessions(sessionsRaw.map((s, i) => ({ id: s.id, name: (s as { name?: string | null }).name ?? null, subject: (s as { subject?: string | null }).subject ?? null, started_at: s.started_at, ended_at: s.ended_at, termCount: countMap[s.id] ?? 0, sessionNumber: tc - i, synopsis: (s as { synopsis?: string | null }).synopsis ?? null, transcript: (s as { transcript?: string | null }).transcript ?? null, capture_mode: (s as { capture_mode?: string | null }).capture_mode ?? null, expanded: false })))
         const recentSubjectsArr = [...new Set(sessionsRaw.map((s: { subject?: string | null }) => s.subject).filter(Boolean))].slice(0, 6) as string[]
+        setRecentSubjects(recentSubjectsArr)
         if (!sessionSubjectRef.current) {
           const defaultSubject = recentSubjectsArr[0] || (prof as Profile)?.course || ''
           sessionSubjectRef.current = defaultSubject
@@ -1946,7 +1967,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     recentSessions, setRecentSessions, sessionGenIds, sessionFailIds, sessionFailReasons, sessionTermLoading,
     recordingError, recordingWarning, sessionSyncWarning, modelWarning, wakeLockUnsupported, captureMode, setCaptureMode, capturedTabTitle,
     sentences, translatedSentences, liveSessionId, reviewTerms, setReviewTerms, sessionSubject, setSessionSubject,
-    sessionSubjectRef, paywall, setPaywall, localTranslate, localTranslateUsable, liveTranslateAvailable, translationReady,
+    sessionSubjectRef, recentSubjects, addRecentSubject, paywall, setPaywall, localTranslate, localTranslateUsable, liveTranslateAvailable, translationReady,
     nativeModelsReady, nativeModelProgress, nativeModelsError, retryNativeModelPreload,
     vizAnalyserRef, chunkPeakRef, startRecording, stopRecording, dismissTerm, pinTerm, markKnown,
     maybeGenerateOnDashboard, retrySessionSummarize, toggleExpandSession,
