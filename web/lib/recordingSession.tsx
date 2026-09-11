@@ -149,6 +149,7 @@ interface RecordingSessionValue {
   liveSessionId: string | null
   reviewTerms: { term: string; definition: string; dbId?: string }[] | null
   setReviewTerms: React.Dispatch<React.SetStateAction<{ term: string; definition: string; dbId?: string }[] | null>>
+  reviewSessionId: string | null
   sessionSubject: string
   setSessionSubject: (s: string) => void
   sessionSubjectRef: React.RefObject<string>
@@ -233,6 +234,11 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
   const [sentences, setSentences] = useState<string[]>([])
   const [liveSessionId, setLiveSessionId] = useState<string | null>(null)
   const [reviewTerms, setReviewTerms] = useState<{ term: string; definition: string; dbId?: string }[] | null>(null)
+  // The session these reviewTerms came from, so SessionReview's "Review
+  // these now" follow-up can deep-link into /flashcards scoped to exactly
+  // this lecture's cards (the deck-filter kind:'session' machinery already
+  // there for the manual filter chips - see flashcards/page.tsx).
+  const [reviewSessionId, setReviewSessionId] = useState<string | null>(null)
   const [sessionSubject, setSessionSubject] = useState<string>('')
   // The user's own last few distinct subjects (most recent first), so the
   // subject-change input can offer them as one-tap chips instead of forcing
@@ -1793,7 +1799,10 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     stoppingRef.current = false
     window.postMessage({ source: 'demist', type: 'recording-stopped' }, window.location.origin)
     capture('recording_stopped', { duration_seconds: elapsed })
-    if (allSessionTermsRef.current.length > 0) setReviewTerms([...allSessionTermsRef.current])
+    if (allSessionTermsRef.current.length > 0) {
+      setReviewTerms([...allSessionTermsRef.current])
+      setReviewSessionId(sid)
+    }
 
     const supabase = createClient()
     const now = new Date()
@@ -2017,7 +2026,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     loading, isRecording, elapsed, liveTerms, setLiveTerms, sessionGlossary, profile, setProfile, stats,
     recentSessions, setRecentSessions, sessionGenIds, sessionFailIds, sessionFailReasons, sessionTermLoading,
     recordingError, recordingWarning, sessionSyncWarning, modelWarning, wakeLockUnsupported, captureMode, setCaptureMode, capturedTabTitle,
-    sentences, translatedSentences, liveSessionId, reviewTerms, setReviewTerms, sessionSubject, setSessionSubject,
+    sentences, translatedSentences, liveSessionId, reviewTerms, setReviewTerms, reviewSessionId, sessionSubject, setSessionSubject,
     sessionSubjectRef, recentSubjects, addRecentSubject, paywall, setPaywall,
     webTrialBlocked, setWebTrialBlocked, webTrialRemaining, localTranslate, localTranslateUsable, liveTranslateAvailable, translationReady,
     nativeModelsReady, nativeModelProgress, nativeModelsError, retryNativeModelPreload,

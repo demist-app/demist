@@ -77,6 +77,7 @@ export default function Flashcards() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const fromStudy = searchParams.get('from') === 'study'
+  const fromSessionReview = searchParams.get('from') === 'session_review'
   const [phase, setPhase] = useState<Phase>('loading')
   const [queue, setQueue] = useState<FlashCard[]>([])
   const [current, setCurrent] = useState<FlashCard | null>(null)
@@ -141,7 +142,7 @@ export default function Flashcards() {
       const user = session?.user
       if (!user) return
       userIdRef.current = user.id
-      capture('flashcards_viewed')
+      capture('flashcards_viewed', { source: fromSessionReview ? 'session_review_nudge' : fromStudy ? 'study' : 'direct' })
 
       const now = new Date().toISOString()
 
@@ -206,6 +207,16 @@ export default function Flashcards() {
       setCurrent(cards[0])
       setPhase('review')
       initializedRef.current = true
+
+      // Deep-linked from SessionReview's "Review these now" nudge
+      // (?session=<id>&from=session_review): apply the same session
+      // deck-filter the manual filter chips already use, so this scopes to
+      // exactly the lecture just finished rather than the whole due queue.
+      // Has to happen AFTER initializedRef flips true, not before - the
+      // deckFilter-keyed effect below bails out early while that ref is
+      // still false, so setting it any earlier would be silently ignored.
+      const sessionParam = searchParams.get('session')
+      if (sessionParam) setDeckFilter({ kind: 'session', value: sessionParam, label: 'This lecture' })
     })()
   }, [])
 
@@ -440,6 +451,10 @@ export default function Flashcards() {
         cards_reviewed: reviewed,
         streak,
         good_easy_pct: goodEasyPct,
+        // So the post-session-review-nudge flag's effect is actually
+        // measurable: how many completions trace back to the nudge versus
+        // someone finding their own way here.
+        source: fromSessionReview ? 'session_review_nudge' : fromStudy ? 'study' : 'direct',
       })
     }
     if (streak === 0) { setDisplayStreak(0); return }

@@ -57,7 +57,7 @@ export default function Dashboard() {
     loading, isRecording, elapsed, liveTerms, setLiveTerms, sessionGlossary, profile, stats,
     recentSessions, sessionGenIds, sessionFailIds, sessionFailReasons, sessionTermLoading,
     recordingError, recordingWarning, sessionSyncWarning, modelWarning, wakeLockUnsupported, captureMode, setCaptureMode, capturedTabTitle,
-    sentences, translatedSentences, reviewTerms, setReviewTerms, sessionSubject, setSessionSubject,
+    sentences, translatedSentences, reviewTerms, setReviewTerms, reviewSessionId, sessionSubject, setSessionSubject,
     sessionSubjectRef, recentSubjects, addRecentSubject, paywall, setPaywall,
     webTrialBlocked, setWebTrialBlocked, webTrialRemaining, localTranslate, liveTranslateAvailable, translationReady,
     nativeModelsReady, nativeModelProgress, nativeModelsError, retryNativeModelPreload,
@@ -910,7 +910,7 @@ export default function Dashboard() {
       {paywall && <PaywallModal source={paywall} onClose={() => setPaywall(null)} />}
 
       {/* End-of-session flashcard review */}
-      {reviewTerms && <SessionReview terms={reviewTerms} onClose={() => setReviewTerms(null)} />}
+      {reviewTerms && <SessionReview terms={reviewTerms} sessionId={reviewSessionId} onClose={() => setReviewTerms(null)} />}
 
       {/* First-time onboarding */}
       <OnboardingOverlay />
