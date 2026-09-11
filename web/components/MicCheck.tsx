@@ -5,9 +5,7 @@
 // during a broader compliance-flow rollback - collateral damage, not a
 // decision made on the audio check's own merits. Brought back WITHOUT the
 // per-subject acknowledgment step the 2026-07-02 "compliance changes" commit
-// had bolted onto it (that wrote to mic_acknowledgments, which is why that
-// table exists with zero rows in production - nothing has written to it
-// since this was removed): just the level check.
+// had bolted onto it: just the level check.
 //
 // Real motivation for bringing it back: PostHog data showed roughly a third
 // of users who finish onboarding never start a first recording, and the
@@ -17,23 +15,68 @@
 // failed to start. This surfaces the same failure earlier and gentler: a
 // deliberate, low-stakes moment to grant mic access and see it's working,
 // before any session/recording state exists to unwind if it goes wrong.
+//
+// mic_acknowledgments re-added 2026-09-11, deliberately NOT as a gate this
+// time: explicit product decision was Terms of Service covers the legal
+// responsibility (see app/terms/page.tsx's "Acceptable use" section - you
+// obtaining consent from anyone you record is yours, not Demist's, to get),
+// and this only needs to surface a reminder at a sensible moment and leave a
+// real record that it was shown, not block anyone. Shown once per subject
+// (matches the table's existing (user_id, subject) key from migration 016)
+// rather than once per account: getting one lecturer's OK doesn't cover a
+// different course with a different lecturer, so re-surfacing per subject is
+// the right granularity, not leftover friction.
 import { useEffect, useRef, useState } from 'react'
+import { createClient } from '@/lib/supabase'
 
 type CheckState = 'sampling' | 'good' | 'quiet' | 'error'
 
 interface Props {
+  subject: string
   onStart: () => void
   onCancel: () => void
 }
 
 const SAMPLE_MS = 3000
 
-export function MicCheck({ onStart, onCancel }: Props) {
+export function MicCheck({ subject, onStart, onCancel }: Props) {
   const [checkState, setCheckState] = useState<CheckState>('sampling')
   const [bars, setBars] = useState<number[]>(Array(7).fill(0))
   const ctxRef = useRef<AudioContext | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const rafRef = useRef<number>(0)
+  // null while unknown (still checking), then true/false. Starts unknown so
+  // the reminder doesn't flash on screen for the common case (already
+  // acknowledged this subject) before the check resolves.
+  const [needsAck, setNeedsAck] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    createClient()
+      .from('mic_acknowledgments')
+      .select('user_id')
+      .eq('subject', subject || '')
+      .maybeSingle()
+      .then(({ data, error }) => { if (!cancelled) setNeedsAck(error ? true : !data) })
+    return () => { cancelled = true }
+  }, [subject])
+
+  const handleStart = () => {
+    if (needsAck) {
+      // Fire-and-forget: the point is a timestamped record that the
+      // reminder was on screen when they proceeded, not a gate blocking
+      // recording on a network round trip. onConflict makes a double-click
+      // (e.g. Skip check clicked twice) harmless rather than an error.
+      const sb = createClient()
+      sb.auth.getSession().then(({ data: { session } }) => {
+        if (!session?.user) return
+        sb.from('mic_acknowledgments')
+          .upsert({ user_id: session.user.id, subject: subject || '' }, { onConflict: 'user_id,subject' })
+          .then(({ error }) => { if (error) console.error('mic_acknowledgments upsert failed:', error.message) })
+      })
+    }
+    onStart()
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -169,6 +212,19 @@ export function MicCheck({ onStart, onCancel }: Props) {
           </div>
         )}
 
+        {/* Non-blocking: informational only, never disables either button
+            below. Terms of Service (app/terms/page.tsx) covers the actual
+            legal responsibility; this is a reminder, not a gate, per
+            explicit product direction after the 2026-07-02 version of this
+            made it one. Shown once per subject - see the (user_id, subject)
+            key on mic_acknowledgments. */}
+        {needsAck && (
+          <p className="text-[11px] dark:text-white/40 text-gray-500 mb-4 leading-relaxed text-center">
+            Remember to get permission from anyone you record, like your lecturer. See our{' '}
+            <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 dark:hover:text-white/60 hover:text-gray-700 transition-colors">Terms</a>.
+          </p>
+        )}
+
         <div className="flex gap-2">
           <button
             onClick={onCancel}
@@ -177,7 +233,7 @@ export function MicCheck({ onStart, onCancel }: Props) {
             Cancel
           </button>
           <button
-            onClick={onStart}
+            onClick={handleStart}
             disabled={checkState === 'error'}
             className="flex-1 py-3 rounded-2xl bg-yellow-600 hover:brightness-110 text-white text-[14px] font-semibold active:scale-[0.97] transition-[filter,transform] duration-150 disabled:opacity-40"
           >

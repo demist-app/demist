@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 }
 
 export default function Terms() {
-  const updated = '7 July 2026'
+  const updated = '11 September 2026'
 
   return (
     <main className="min-h-dvh bg-[#080810] text-white px-6 py-16">
@@ -33,6 +33,9 @@ export default function Terms() {
             <h2 className="text-[17px] font-semibold mb-3">Acceptable use</h2>
             <p className="text-gray-400">
               Demist is for your personal study only. You are responsible for ensuring you have any permissions required to record or process lectures at your institution: in microphone mode, transcripts are only saved if you've declared a support need in your profile or your lecturer has given written consent. Do not use Demist to redistribute others&apos; lecture content publicly or in any way that infringes copyright or performers&apos; rights.
+            </p>
+            <p className="text-gray-400 mt-4">
+              Separately from that: it is your own responsibility, not Demist&apos;s, to obtain any consent required by law before recording another person, including a lecturer or other speakers, in your jurisdiction and at your institution. Demist does not verify or enforce this on your behalf, whatever your device or account settings say about what happens to a transcript afterward.
             </p>
           </section>
 

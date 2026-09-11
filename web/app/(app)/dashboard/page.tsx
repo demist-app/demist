@@ -900,6 +900,7 @@ export default function Dashboard() {
 
       {showMicCheck && (
         <MicCheck
+          subject={sessionSubject}
           onStart={() => { setShowMicCheck(false); startRecording('microphone') }}
           onCancel={() => setShowMicCheck(false)}
         />
