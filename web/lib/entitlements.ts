@@ -24,18 +24,29 @@ export const LIMITS: Record<Plan, {
 
 export function useEntitlements() {
   const [plan, setPlan] = useState<Plan>('free')
+  const [periodEnd, setPeriodEnd] = useState<string | null>(null)
   const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
     createClient()
       .from('subscriptions')
-      .select('plan')
+      .select('plan, current_period_end')
       .maybeSingle()
-      .then(({ data }: { data: { plan: string } | null }) => {
-        setPlan(data?.plan === 'pro' ? 'pro' : 'free')
+      .then(({ data }: { data: { plan: string; current_period_end: string | null } | null }) => {
+        // current_period_end is the actual source of truth (migration 030),
+        // not the plan column alone: a row can say plan='pro' while its
+        // period has already lapsed (a cancelled subscription Stripe hasn't
+        // gotten around to flipping back to 'free' yet, or the tail end of
+        // a waitlist-granted free month) - checking the date here means
+        // every caller gets the right answer immediately, with no cron job
+        // required to "expire" anyone and nothing that can silently fail to
+        // run.
+        const stillCurrent = !data?.current_period_end || new Date(data.current_period_end) > new Date()
+        setPlan(data?.plan === 'pro' && stillCurrent ? 'pro' : 'free')
+        setPeriodEnd(data?.current_period_end ?? null)
         setLoaded(true)
       })
   }, [])
 
-  return { plan, limits: LIMITS[plan], loaded, isPro: plan === 'pro' }
+  return { plan, limits: LIMITS[plan], loaded, isPro: plan === 'pro', periodEnd }
 }

@@ -1,10 +1,16 @@
 'use client'
 
-// Not a checkout. A waitlist. Shown when a free-plan user hits a Pro gate.
+// Two different jobs depending on PRO_LIVE (subscription.ts): pre-launch,
+// this is a waitlist. Once Pro actually has real Stripe checkout wired up
+// and PRO_LIVE flips true, it's a real upgrade prompt - kept in one
+// component because every existing call site (Anki export, history cap,
+// packs cap, the post-session nudge) just wants "show the Pro pitch here"
+// and shouldn't need to know or care which era it's showing.
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
 import { capture } from '@/lib/analytics'
+import { PRO_LIVE } from '@/lib/subscription'
 
 const PRO_POINTS = [
   'Unlimited session history',
@@ -22,9 +28,17 @@ export function PaywallModal({
 }) {
   const [email, setEmail] = useState('')
   const [state, setState] = useState<'idle' | 'saving' | 'done' | 'already'>('idle')
+  const [checkoutInterval, setCheckoutInterval] = useState<'month' | 'year'>('year')
+  const [checkoutLoading, setCheckoutLoading] = useState(false)
+  const [checkoutError, setCheckoutError] = useState(false)
 
   useEffect(() => {
-    capture('paywall_shown', { source })
+    // Distinct event name once this is a real purchase opportunity, per the
+    // P2 brief's own instrumentation ask - paywall_shown (pre-launch) keeps
+    // its existing history rather than being silently renamed out from
+    // under it.
+    capture(PRO_LIVE ? 'paywall_viewed' : 'paywall_shown', { source })
+    if (PRO_LIVE) return
     const sb = createClient()
     Promise.all([
       sb.auth.getSession(),
@@ -34,6 +48,22 @@ export function PaywallModal({
       if (row) setState('already')
     })
   }, [source])
+
+  const startCheckout = async (interval: 'month' | 'year') => {
+    if (checkoutLoading) return
+    setCheckoutLoading(true)
+    setCheckoutError(false)
+    try {
+      const sb = createClient()
+      const { data, error } = await sb.functions.invoke('stripe-checkout', { body: { interval } })
+      if (error || !data?.url) { setCheckoutError(true); setCheckoutLoading(false); return }
+      capture('paywall_checkout_started', { source, interval })
+      window.location.href = data.url
+    } catch {
+      setCheckoutError(true)
+      setCheckoutLoading(false)
+    }
+  }
 
   // Same endpoint as the landing page, so a join from here is confirmed the
   // same way. It used to upsert directly with the anon key; that grant is gone
@@ -67,13 +97,17 @@ export function PaywallModal({
     >
       <div className="w-full max-w-md dark:bg-[#0d0d1c] bg-[#FDFCF9] border dark:border-white/[0.08] border-black/[0.12] rounded-[24px] p-6 space-y-4">
         <div className="flex items-start justify-between gap-2">
-          <p className="text-[17px] font-bold dark:text-white text-gray-900 leading-snug">This one&apos;s part of Pro</p>
+          <p className="text-[17px] font-bold dark:text-white text-gray-900 leading-snug">
+            {PRO_LIVE ? 'Upgrade to Pro' : "This one's part of Pro"}
+          </p>
           <button onClick={onClose} className="text-gray-500 hover:dark:text-white/60 hover:text-gray-900 text-[22px] leading-none shrink-0 mt-[-2px] transition-colors">×</button>
         </div>
 
-        <p className="text-[13px] dark:text-white/60 text-gray-600 leading-relaxed">
-          Pro isn&apos;t live yet. Everything you already use stays free. Join the list and you&apos;ll get Pro free for a month when it launches.
-        </p>
+        {!PRO_LIVE && (
+          <p className="text-[13px] dark:text-white/60 text-gray-600 leading-relaxed">
+            Pro isn&apos;t live yet. Everything you already use stays free. Join the list and you&apos;ll get Pro free for a month when it launches.
+          </p>
+        )}
 
         <ul className="space-y-1.5">
           {PRO_POINTS.map(p => (
@@ -83,7 +117,34 @@ export function PaywallModal({
           ))}
         </ul>
 
-        {state === 'done' || state === 'already' ? (
+        {PRO_LIVE ? (
+          <div className="space-y-2.5">
+            {/* Amounts are deliberately not hardcoded here - whatever the
+                Stripe Price objects behind these two intervals actually
+                charge is what Stripe's own checkout page shows next. */}
+            <div className="flex dark:bg-white/[0.04] bg-black/[0.04] rounded-full p-1">
+              {(['year', 'month'] as const).map(i => (
+                <button
+                  key={i}
+                  onClick={() => setCheckoutInterval(i)}
+                  className={`flex-1 py-1.5 rounded-full text-[12px] font-medium transition-colors ${checkoutInterval === i ? 'bg-amber-600 text-white' : 'dark:text-gray-400 text-gray-600'}`}
+                >
+                  {i === 'year' ? 'Annual (save more)' : 'Monthly'}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => startCheckout(checkoutInterval)}
+              disabled={checkoutLoading}
+              className="w-full py-3 rounded-2xl bg-amber-600 hover:brightness-110 text-white text-[14px] font-semibold active:scale-[0.97] transition-[filter,transform] duration-150 disabled:opacity-50"
+            >
+              {checkoutLoading ? 'Redirecting to checkout…' : `Upgrade ${checkoutInterval === 'year' ? 'annually' : 'monthly'}`}
+            </button>
+            {checkoutError && (
+              <p className="text-[12px] text-red-400 text-center">Couldn&apos;t start checkout. Try again in a moment.</p>
+            )}
+          </div>
+        ) : state === 'done' || state === 'already' ? (
           <p className="text-[13px] dark:text-white/70 text-gray-700 py-2">
             {state === 'done'
               ? 'Check your inbox and confirm your email to save your place.'

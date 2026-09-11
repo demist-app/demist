@@ -3,6 +3,18 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 // Flip this to activate the paywall. Until then every check returns allowed.
 export const PAYWALL_ENABLED = false
 
+// Separate from PAYWALL_ENABLED above, which gates the free-tier recording/
+// terms LIMITS (a different, still-unused lever - see PLANS below). This one
+// controls whether PaywallModal shows real Stripe checkout buttons or the
+// pre-launch "join the waitlist" copy. Flip to true only once
+// STRIPE_SECRET_KEY, STRIPE_PRICE_ID_MONTHLY, STRIPE_PRICE_ID_ANNUAL, and
+// STRIPE_WEBHOOK_SECRET are actually set as Supabase Edge Function secrets
+// and the stripe-checkout/stripe-webhook/stripe-portal functions are
+// deployed (migration 030 has the DB side) - flipping it before that makes
+// every "Upgrade" button fail with a real, confusing error instead of
+// nothing happening.
+export const PRO_LIVE = false
+
 export const PLANS = {
   free: {
     recordings_per_month: 10,

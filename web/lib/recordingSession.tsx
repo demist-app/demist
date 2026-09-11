@@ -248,7 +248,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
   // typed last) suppressing genuine multi-subject use (a double major, a
   // high schooler with several classes) rather than nobody needing it.
   const [recentSubjects, setRecentSubjects] = useState<string[]>([])
-  const { limits } = useEntitlements()
+  const { limits, isPro } = useEntitlements()
   const [paywall, setPaywall] = useState<string | null>(null)
   // Set when checkWebTrialLimit blocks a NEW recording (web, Windows/Mac,
   // over the lifetime cap) - a distinct thing from `paywall` above, which is
@@ -1829,6 +1829,27 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       supabase.from('sessions').select('id', { count: 'exact', head: true }).eq('user_id', userIdRef.current!),
     ])
     totalSessionCountRef.current = newTotal ?? totalSessionCountRef.current
+    // Proactive Pro nudge: after the user's 2nd or 3rd session ever, not
+    // gated behind hitting an actual limit like every other paywall trigger
+    // - by then they've had a real chance to feel the value (a first session
+    // alone doesn't show it), which is the whole point per the P2 brief.
+    // Same trigger on every platform (web, Mac, Windows) deliberately - Pro
+    // itself isn't a web-only concern, only the separate web-trial
+    // recording cap is (see webTrial.ts). Once-ever via localStorage rather
+    // than re-showing at both session 2 AND 3, or every session after.
+    //
+    // Skipped when this session detected any terms: SessionReview is about
+    // to render (below), and stacking it under a second modal fighting for
+    // the same screen is worse than occasionally missing this exact session
+    // count - it just tries again, unmarked, next time the count matches.
+    if (
+      !isPro && [2, 3].includes(totalSessionCountRef.current) &&
+      allSessionTermsRef.current.length === 0 &&
+      !localStorage.getItem('demist_pro_nudge_shown')
+    ) {
+      localStorage.setItem('demist_pro_nudge_shown', '1')
+      setPaywall('post_session_nudge')
+    }
     if (sessionsRaw?.length) {
       const ids = sessionsRaw.map((s: { id: string }) => s.id)
       const { data: termRows } = await supabase.from('terms').select('session_id').in('session_id', ids)

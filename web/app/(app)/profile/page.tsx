@@ -1,7 +1,7 @@
 ﻿'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { capture, reset } from '@/lib/analytics'
 import { ConsentManager } from '@/components/ConsentUnlock'
@@ -59,6 +59,7 @@ const TRANSLATE_OPTIONS: { value: TranslateTo; label: string }[] = [
 
 export default function Profile() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   // The layout-level RecordingSessionProvider fetches the profile once at
   // mount and reads it via a ref inside startRecording/stopRecording (for the
   // mic-mode summary eligibility gate, term-detection subject/year, and
@@ -81,8 +82,10 @@ export default function Profile() {
   const [userId, setUserId] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
   const [exported, setExported] = useState(false)
-  const { limits } = useEntitlements()
+  const { limits, isPro, periodEnd } = useEntitlements()
   const [paywall, setPaywall] = useState<string | null>(null)
+  const [checkoutNotice, setCheckoutNotice] = useState<'success' | 'cancelled' | null>(null)
+  const [portalLoading, setPortalLoading] = useState(false)
   const localTranslate = useNativeTranslate()
   const [textSize, setTextSize] = useState<FontScale>('md')
   const [micDevices, setMicDevices] = useState<MediaDeviceInfo[]>([])
@@ -106,6 +109,36 @@ export default function Profile() {
   const [linkCode, setLinkCode] = useState('')
   const [linkBusy, setLinkBusy] = useState(false)
   const [linkError, setLinkError] = useState<string | null>(null)
+
+  // Landed back here from stripe-checkout's success_url/cancel_url. The
+  // actual plan flip already happened via the webhook (which can race this
+  // page load - Stripe sends it independently), so this is purely the
+  // user-facing confirmation and the paywall_converted analytics event, not
+  // what makes the upgrade real. Cleans the query param via replaceState so
+  // refreshing this page doesn't re-fire the event.
+  useEffect(() => {
+    const checkout = searchParams.get('checkout')
+    if (checkout !== 'success' && checkout !== 'cancelled') return
+    setCheckoutNotice(checkout)
+    if (checkout === 'success') capture('paywall_converted')
+    const url = new URL(window.location.href)
+    url.searchParams.delete('checkout')
+    window.history.replaceState({}, '', url.toString())
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const openBillingPortal = async () => {
+    if (portalLoading) return
+    setPortalLoading(true)
+    try {
+      const sb = createClient()
+      const { data, error } = await sb.functions.invoke('stripe-portal')
+      if (error || !data?.url) { setPortalLoading(false); return }
+      window.location.href = data.url
+    } catch {
+      setPortalLoading(false)
+    }
+  }
 
   // Attaches an email to an EXISTING anonymous user rather than creating a
   // second account, so nothing has to be migrated: same auth.uid(), so every
@@ -476,6 +509,41 @@ export default function Profile() {
             </p>
           </div>
         </div>
+
+        {checkoutNotice && (
+          <div className={`rounded-2xl px-4 py-3 border animate-step opacity-0 ${checkoutNotice === 'success' ? 'dark:bg-emerald-500/[0.07] bg-emerald-50 dark:border-emerald-500/20 border-emerald-300/70' : 'dark:bg-white/[0.03] bg-black/[0.03] dark:border-white/[0.08] border-black/[0.10]'}`} style={{ animationFillMode: 'forwards' }}>
+            <p className="text-[13px] font-medium">
+              {checkoutNotice === 'success' ? "You're on Pro. Welcome aboard." : 'Checkout cancelled — you weren\'t charged.'}
+            </p>
+          </div>
+        )}
+
+        {/* Pro status: only worth a section once there is something to show
+            or manage. Free users see the upsell through PaywallModal at the
+            gates below and the post-session nudge, not a permanent slot
+            here. */}
+        {isPro && (
+          <div className="rounded-2xl px-4 py-4 dark:bg-amber-500/[0.05] bg-amber-50/60 border dark:border-amber-500/20 border-amber-300/50 flex items-center justify-between gap-3 animate-step opacity-0" style={{ animationFillMode: 'forwards' }}>
+            <div className="min-w-0">
+              <p className="text-[14px] font-semibold">Demist Pro</p>
+              <p className="text-[12px] text-gray-600 mt-0.5">
+                {periodEnd ? `Renews ${new Date(periodEnd).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}` : 'Active'}
+              </p>
+            </div>
+            {/* Silently no-ops for a waitlist-granted free month (no
+                Stripe customer exists yet - see migration 030): nothing to
+                manage until they'd actually subscribe. Known simplification,
+                not worth its own state just to hide one button for a small,
+                temporary cohort. */}
+            <button
+              onClick={openBillingPortal}
+              disabled={portalLoading}
+              className="shrink-0 text-[12px] font-medium px-3 py-1.5 rounded-full border dark:border-amber-500/30 border-amber-600/30 text-amber-700 dark:text-amber-400 hover:opacity-80 transition-opacity disabled:opacity-40"
+            >
+              {portalLoading ? '…' : 'Manage'}
+            </button>
+          </div>
+        )}
 
         {/* Anonymous users have no way back in if this device's storage is
             cleared, so this is the one prompt worth making unmissable. It
