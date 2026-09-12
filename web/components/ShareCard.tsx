@@ -175,7 +175,7 @@ export function ShareCard({ termCount, onClose }: Props) {
       <div className="w-full max-w-sm dark:bg-[#0f0f17] bg-[#FDFCF9] border dark:border-white/[0.08] border-black/[0.10] rounded-t-[24px] sm:rounded-[24px] shadow-2xl px-6 py-7 animate-step opacity-0" style={{ animationFillMode: 'forwards' }}>
         <div className="flex items-center justify-between mb-5">
           <p className="text-[16px] font-bold dark:text-white text-gray-900">Share your stats</p>
-          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center dark:text-white/30 text-gray-400 dark:hover:text-white/60 hover:text-gray-600 transition-colors text-[20px] leading-none">×</button>
+          <button onClick={onClose} aria-label="Close" className="w-7 h-7 flex items-center justify-center dark:text-white/30 text-gray-400 dark:hover:text-white/60 hover:text-gray-600 transition-colors text-[20px] leading-none">×</button>
         </div>
 
         {/* Preview */}

@@ -296,6 +296,12 @@ function getWorkerState(role) {
     // renderer instead of letting it find out never.
     if (role === 'transcribe' && transcribeSessionActive) {
       transcribeSessionActive = false
+      // Otherwise this timer keeps draining pcmQueue and spawning a fresh,
+      // session-less transcribe worker every tick purely to swallow audio
+      // that has nowhere left to go, until the user manually stops the
+      // recording - previously only stopped from the demist:stopSession IPC
+      // handler, which a crash never reaches.
+      stopPcmFlushing()
       mainWindow?.webContents.send('demist:event', {
         event: 'sessionLost',
         payload: { message: 'On-device transcription stopped unexpectedly. Stop and restart the recording to resume.' },
@@ -793,6 +799,15 @@ app.whenReady().then(() => {
 })
 
 app.on('window-all-closed', () => {
+  // On macOS this does NOT quit the app (window-all-closed is a no-op there
+  // by convention) - but with no window left, nothing can be recording, so a
+  // wake lock started before the window closed would otherwise run
+  // indefinitely with no way to stop it short of force-quitting from the
+  // dock. Safe to call unconditionally: stopWakeLock no-ops if none is held.
+  if (wakeLockId !== null && powerSaveBlocker.isStarted(wakeLockId)) {
+    powerSaveBlocker.stop(wakeLockId)
+    wakeLockId = null
+  }
   if (process.platform !== 'darwin') app.quit()
 })
 

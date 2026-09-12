@@ -61,7 +61,7 @@ export function TrialLimitModal({
       <div className="w-full max-w-md dark:bg-[#0d0d1c] bg-[#FDFCF9] border dark:border-white/[0.08] border-black/[0.12] rounded-[24px] p-6 space-y-4">
         <div className="flex items-start justify-between gap-2">
           <p className="text-[17px] font-bold dark:text-white text-gray-900 leading-snug">You&apos;ve used your free trial in the browser</p>
-          <button onClick={onClose} className="text-gray-500 hover:dark:text-white/60 hover:text-gray-900 text-[22px] leading-none shrink-0 mt-[-2px] transition-colors">×</button>
+          <button onClick={onClose} aria-label="Close" className="text-gray-500 hover:dark:text-white/60 hover:text-gray-900 text-[22px] leading-none shrink-0 mt-[-2px] transition-colors">×</button>
         </div>
 
         <p className="text-[13px] dark:text-white/60 text-gray-600 leading-relaxed">

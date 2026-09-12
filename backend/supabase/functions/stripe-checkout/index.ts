@@ -94,7 +94,35 @@ serve(async (req) => {
       // write goes through the admin client instead, same pattern as
       // stripe-webhook.
       const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
-      await admin.from('subscriptions').update({ stripe_customer_id: customerId }).eq('user_id', user.id)
+      // Compare-and-swap, not a bare update: two concurrent requests (a
+      // double-click, or a retry after a network blip) can both read
+      // stripe_customer_id as null above and both reach here, each having
+      // already created its OWN Stripe customer. Scoping this write to
+      // `.is('stripe_customer_id', null)` means only the first one to land
+      // actually claims the row - the second gets back zero updated rows
+      // and knows to fall back to whatever the first one wrote, rather than
+      // silently overwriting it. Without this, the loser's checkout session
+      // is bound to a customer id that never made it into the database, so
+      // when it pays, stripe-webhook's `.eq('stripe_customer_id', ...)`
+      // matches nothing and the plan never flips to 'pro' - with nothing in
+      // the logs to explain why.
+      const { data: claimed } = await admin
+        .from('subscriptions')
+        .update({ stripe_customer_id: customerId })
+        .eq('user_id', user.id)
+        .is('stripe_customer_id', null)
+        .select('stripe_customer_id')
+      if (!claimed || claimed.length === 0) {
+        const { data: existing } = await admin
+          .from('subscriptions')
+          .select('stripe_customer_id')
+          .eq('user_id', user.id)
+          .maybeSingle()
+        if (existing?.stripe_customer_id) customerId = existing.stripe_customer_id
+        // else: genuinely no row for this user, which existing product
+        // invariants say can't happen (handle_new_user creates one) - fall
+        // through with our own customerId rather than blocking checkout on it.
+      }
     }
 
     // Embedded, not hosted: the frontend renders this session's client_secret

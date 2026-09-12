@@ -1,7 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const ALLOWED_ORIGINS = ['https://demist.app', 'https://www.demist.app']
+const ALLOWED_ORIGINS = ['https://demist.app', 'https://www.demist.app', 'http://localhost:3000', 'http://localhost:3001']
 const SAFE_AUDIO_EXTS = new Set(['webm', 'mp4', 'mp3', 'ogg', 'm4a', 'wav', 'flac'])
 
 const _rl = new Map<string, number[]>()

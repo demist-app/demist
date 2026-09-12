@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase'
 import { capture } from '@/lib/analytics'
 import { FAQ as FAQS } from '@/lib/faq'
 import { MAC_SUPPORT_URL, MS_STORE_URL } from '@/lib/links'
+import { PRO_LIVE } from '@/lib/subscription'
 
 const SPRING = 'cubic-bezier(0.16, 1, 0.3, 1)'
 
@@ -207,6 +208,25 @@ export default function LandingClient() {
     try { localStorage.setItem('demist_pro_banner_dismissed', '1') } catch { /* private mode */ }
   }
 
+  // Real price for the PRO_LIVE pitch below, not a hardcoded figure that can
+  // drift from what Stripe actually charges - same reasoning as
+  // PaywallModal's own fetch. No auth needed (stripe-prices is public); a
+  // logged-out landing page visitor is exactly who this display is for.
+  const [proPriceText, setProPriceText] = useState<string | null>(null)
+  useEffect(() => {
+    if (!PRO_LIVE) return
+    createClient().functions.invoke('stripe-prices').then(({ data }) => {
+      const month = data?.month
+      if (!month?.unitAmount) return
+      try {
+        setProPriceText(
+          new Intl.NumberFormat(undefined, { style: 'currency', currency: month.currency, minimumFractionDigits: 2 })
+            .format(month.unitAmount / 100),
+        )
+      } catch { /* Intl threw on an unexpected currency code - just skip the price */ }
+    }).catch(() => {})
+  }, [])
+
   const joinWaitlist = async () => {
     const email = waitEmail.trim()
     if (!email || waitState === 'saving') return
@@ -261,12 +281,28 @@ export default function LandingClient() {
               className="hidden sm:inline-block w-1.5 h-1.5 rounded-full shrink-0"
               style={{ background: 'var(--accent)' }}
             />
-            {waitState === 'sent' || waitState === 'already' ? (
+            {!PRO_LIVE && (waitState === 'sent' || waitState === 'already') ? (
               <p className="flex-1 text-[13px] font-medium truncate" style={{ color: 'var(--accent)' }}>
                 {waitState === 'already'
                   ? 'You’re already on the Pro waitlist. We’ll email you once, when it’s ready.'
                   : 'Check your inbox and confirm your email to save your place.'}
               </p>
+            ) : PRO_LIVE ? (
+              <>
+                <p className="flex-1 min-w-0 text-[13px] truncate">
+                  <span className="font-semibold">Demist Pro is here.</span>
+                  <span className="hidden sm:inline" style={{ color: 'var(--fg-muted)' }}>
+                    {' '}Unlimited history, summaries, and Anki export{proPriceText ? ` — ${proPriceText}/mo` : ''}.
+                  </span>
+                </p>
+                <button
+                  onClick={cta}
+                  className="px-4 py-1.5 rounded-xl text-[13px] font-semibold text-white whitespace-nowrap transition-all active:scale-[0.97]"
+                  style={{ background: 'var(--accent)' }}
+                >
+                  {authed ? 'Upgrade →' : 'Get started →'}
+                </button>
+              </>
             ) : (
               <>
                 <p className="flex-1 min-w-0 text-[13px] truncate">
@@ -837,48 +873,69 @@ export default function LandingClient() {
           // does not land with the heading tucked underneath.
           style={{ borderTop: '1px solid var(--border)', scrollMarginTop: '72px' }}
         >
-          <p className="text-[13px] font-semibold mb-1.5">Demist Pro is coming</p>
-          <p className="text-[13px] mb-4 leading-relaxed" style={{ color: 'var(--fg-muted)' }}>
-            Longer lectures, unlimited flashcard exports and priority on new features.
-            Join the waitlist and we&apos;ll email you once, when it&apos;s ready.
-          </p>
-          {waitState === 'sent' || waitState === 'already' ? (
-            <div>
-              <p className="text-[14px] font-medium mb-1.5" style={{ color: 'var(--accent)' }}>
-                {waitState === 'already' ? 'You’re already on the list.' : 'Check your inbox.'}
+          {PRO_LIVE ? (
+            <>
+              <p className="text-[13px] font-semibold mb-1.5">
+                Demist Pro is here{proPriceText ? ` — ${proPriceText}/mo` : ''}
               </p>
-              <p className="text-[13px] leading-relaxed" style={{ color: 'var(--fg-muted)' }}>
-                {waitState === 'already'
-                  ? 'Nothing more to do. We’ll be in touch when Pro is ready.'
-                  : 'We’ve sent a confirmation link to that address. Click it and your place is saved. It can take a minute to arrive, and it’s worth a look in spam.'}
+              <p className="text-[13px] mb-4 leading-relaxed" style={{ color: 'var(--fg-muted)' }}>
+                Unlimited session history, unlimited AI summaries, and Anki export. Everything else
+                stays free, same as always.
               </p>
-            </div>
+              <button
+                onClick={cta}
+                className="px-6 py-3 rounded-2xl font-semibold text-[14px] text-white transition-all duration-200 active:scale-[0.97] whitespace-nowrap"
+                style={{ background: 'var(--accent)' }}
+              >
+                {authed ? 'Upgrade to Pro →' : 'Get started →'}
+              </button>
+            </>
           ) : (
             <>
-              <div className="flex flex-col sm:flex-row gap-2">
-                <input
-                  type="email"
-                  value={waitEmail}
-                  onChange={e => { setWaitEmail(e.target.value); if (waitState === 'error') setWaitState('idle') }}
-                  onKeyDown={e => { if (e.key === 'Enter') joinWaitlist() }}
-                  placeholder="your@email.com"
-                  aria-label="Email address for the Pro waitlist"
-                  className="flex-1 rounded-2xl px-4 py-3 text-[14px] focus:outline-none"
-                  style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--fg)' }}
-                />
-                <button
-                  onClick={joinWaitlist}
-                  disabled={waitState === 'saving' || !waitEmail.trim()}
-                  className="px-6 py-3 rounded-2xl font-semibold text-[14px] transition-all duration-200 active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
-                  style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--fg)' }}
-                >
-                  {waitState === 'saving' ? 'Joining…' : 'Join the waitlist'}
-                </button>
-              </div>
-              {waitState === 'error' && (
-                <p className="text-[12px] mt-2" style={{ color: '#ef4444' }}>
-                  That didn&apos;t work. Check the address and try again.
-                </p>
+              <p className="text-[13px] font-semibold mb-1.5">Demist Pro is coming</p>
+              <p className="text-[13px] mb-4 leading-relaxed" style={{ color: 'var(--fg-muted)' }}>
+                Longer lectures, unlimited flashcard exports and priority on new features.
+                Join the waitlist and we&apos;ll email you once, when it&apos;s ready.
+              </p>
+              {waitState === 'sent' || waitState === 'already' ? (
+                <div>
+                  <p className="text-[14px] font-medium mb-1.5" style={{ color: 'var(--accent)' }}>
+                    {waitState === 'already' ? 'You’re already on the list.' : 'Check your inbox.'}
+                  </p>
+                  <p className="text-[13px] leading-relaxed" style={{ color: 'var(--fg-muted)' }}>
+                    {waitState === 'already'
+                      ? 'Nothing more to do. We’ll be in touch when Pro is ready.'
+                      : 'We’ve sent a confirmation link to that address. Click it and your place is saved. It can take a minute to arrive, and it’s worth a look in spam.'}
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <input
+                      type="email"
+                      value={waitEmail}
+                      onChange={e => { setWaitEmail(e.target.value); if (waitState === 'error') setWaitState('idle') }}
+                      onKeyDown={e => { if (e.key === 'Enter') joinWaitlist() }}
+                      placeholder="your@email.com"
+                      aria-label="Email address for the Pro waitlist"
+                      className="flex-1 rounded-2xl px-4 py-3 text-[14px] focus:outline-none"
+                      style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--fg)' }}
+                    />
+                    <button
+                      onClick={joinWaitlist}
+                      disabled={waitState === 'saving' || !waitEmail.trim()}
+                      className="px-6 py-3 rounded-2xl font-semibold text-[14px] transition-all duration-200 active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+                      style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--fg)' }}
+                    >
+                      {waitState === 'saving' ? 'Joining…' : 'Join the waitlist'}
+                    </button>
+                  </div>
+                  {waitState === 'error' && (
+                    <p className="text-[12px] mt-2" style={{ color: '#ef4444' }}>
+                      That didn&apos;t work. Check the address and try again.
+                    </p>
+                  )}
+                </>
               )}
             </>
           )}

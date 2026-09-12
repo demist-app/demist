@@ -25,18 +25,42 @@ async function syncFromSubscription(sub: Stripe.Subscription) {
   const plan = ACTIVE_STATUSES.has(status) ? 'pro' : 'free'
   const periodEnd = new Date(sub.current_period_end * 1000).toISOString()
   const interval = sub.items.data[0]?.price?.recurring?.interval ?? null
+  const customerId = typeof sub.customer === 'string' ? sub.customer : sub.customer.id
 
-  const { error } = await admin
+  const update = { plan, stripe_subscription_id: sub.id, current_period_end: periodEnd, price_interval: interval }
+  const { data, error } = await admin
     .from('subscriptions')
-    .update({
-      plan,
-      stripe_subscription_id: sub.id,
-      current_period_end: periodEnd,
-      price_interval: interval,
-    })
-    .eq('stripe_customer_id', typeof sub.customer === 'string' ? sub.customer : sub.customer.id)
+    .update(update)
+    .eq('stripe_customer_id', customerId)
+    .select('user_id')
 
-  if (error) console.error('subscriptions update failed:', error.message, 'for customer', sub.customer)
+  if (error) {
+    console.error('subscriptions update failed:', error.message, 'for customer', customerId)
+    return
+  }
+
+  // Matched zero rows without erroring is the dangerous case, not the loud
+  // one: a paying customer whose plan silently never flips to 'pro', with
+  // nothing here to explain why. Falls back to the supabase_user_id that
+  // stripe-checkout always stamps into subscription_data.metadata - if the
+  // row's stripe_customer_id ever drifts from what this event carries (a
+  // customer created but never persisted, a customer merged/replaced in
+  // Stripe), this still finds the right user instead of losing the sync.
+  if (data.length === 0) {
+    const userId = sub.metadata?.supabase_user_id
+    console.error(
+      `subscriptions update matched 0 rows for customer ${customerId} (event for sub ${sub.id}) - `
+      + `falling back to metadata.supabase_user_id=${userId ?? 'MISSING'}`,
+    )
+    if (!userId) return
+    const { error: fallbackError, data: fallbackData } = await admin
+      .from('subscriptions')
+      .update({ ...update, stripe_customer_id: customerId })
+      .eq('user_id', userId)
+      .select('user_id')
+    if (fallbackError) console.error('fallback update failed:', fallbackError.message, 'for user', userId)
+    else if (fallbackData.length === 0) console.error('fallback update ALSO matched 0 rows for user', userId, '- no subscriptions row exists for them at all')
+  }
 }
 
 serve(async (req) => {

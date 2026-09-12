@@ -18,7 +18,6 @@ const PRO_POINTS = [
   'Unlimited session history',
   'Unlimited AI summaries',
   'Export flashcards to Anki',
-  'Unlimited course packs',
 ]
 
 // Loaded once at module scope, same pattern Stripe's own docs use - calling

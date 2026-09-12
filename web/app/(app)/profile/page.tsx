@@ -86,6 +86,7 @@ export default function Profile() {
   const [paywall, setPaywall] = useState<string | null>(null)
   const [checkoutNotice, setCheckoutNotice] = useState<'success' | 'cancelled' | null>(null)
   const [portalLoading, setPortalLoading] = useState(false)
+  const [portalError, setPortalError] = useState(false)
   const localTranslate = useNativeTranslate()
   const [textSize, setTextSize] = useState<FontScale>('md')
   const [micDevices, setMicDevices] = useState<MediaDeviceInfo[]>([])
@@ -130,13 +131,15 @@ export default function Profile() {
   const openBillingPortal = async () => {
     if (portalLoading) return
     setPortalLoading(true)
+    setPortalError(false)
     try {
       const sb = createClient()
       const { data, error } = await sb.functions.invoke('stripe-portal')
-      if (error || !data?.url) { setPortalLoading(false); return }
+      if (error || !data?.url) { setPortalLoading(false); setPortalError(true); return }
       window.location.href = data.url
     } catch {
       setPortalLoading(false)
+      setPortalError(true)
     }
   }
 
@@ -528,26 +531,31 @@ export default function Profile() {
             gates below and the post-session nudge, not a permanent slot
             here. */}
         {isPro && (
-          <div className="rounded-2xl px-4 py-4 dark:bg-amber-500/[0.05] bg-amber-50/60 border dark:border-amber-500/20 border-amber-300/50 flex items-center justify-between gap-3 animate-step opacity-0" style={{ animationFillMode: 'forwards' }}>
-            <div className="min-w-0">
-              <p className="text-[14px] font-semibold">Demist Pro</p>
-              <p className="text-[12px] text-gray-600 mt-0.5">
-                {periodEnd
-                  ? `${hasStripeCustomer ? 'Renews' : 'Free access until'} ${new Date(periodEnd).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`
-                  : 'Active'}
-              </p>
+          <div className="rounded-2xl px-4 py-4 dark:bg-amber-500/[0.05] bg-amber-50/60 border dark:border-amber-500/20 border-amber-300/50 animate-step opacity-0" style={{ animationFillMode: 'forwards' }}>
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[14px] font-semibold">Demist Pro</p>
+                <p className="text-[12px] text-gray-600 mt-0.5">
+                  {periodEnd
+                    ? `${hasStripeCustomer ? 'Renews' : 'Free access until'} ${new Date(periodEnd).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`
+                    : 'Active'}
+                </p>
+              </div>
+              {/* A waitlist-granted free month (migration 030) has no Stripe
+                  customer behind it - nothing to manage or cancel, so the
+                  button that would otherwise silently no-op is hidden instead. */}
+              {hasStripeCustomer && (
+                <button
+                  onClick={openBillingPortal}
+                  disabled={portalLoading}
+                  className="shrink-0 text-[12px] font-medium px-3 py-1.5 rounded-full border dark:border-amber-500/30 border-amber-600/30 text-amber-700 dark:text-amber-400 hover:opacity-80 transition-opacity disabled:opacity-40"
+                >
+                  {portalLoading ? '…' : 'Manage'}
+                </button>
+              )}
             </div>
-            {/* A waitlist-granted free month (migration 030) has no Stripe
-                customer behind it - nothing to manage or cancel, so the
-                button that would otherwise silently no-op is hidden instead. */}
-            {hasStripeCustomer && (
-              <button
-                onClick={openBillingPortal}
-                disabled={portalLoading}
-                className="shrink-0 text-[12px] font-medium px-3 py-1.5 rounded-full border dark:border-amber-500/30 border-amber-600/30 text-amber-700 dark:text-amber-400 hover:opacity-80 transition-opacity disabled:opacity-40"
-              >
-                {portalLoading ? '…' : 'Manage'}
-              </button>
+            {portalError && (
+              <p className="text-[12px] text-red-400 mt-2">Couldn&apos;t open billing. Try again in a moment.</p>
             )}
           </div>
         )}

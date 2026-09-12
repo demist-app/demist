@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 }
 
 export default function Terms() {
-  const updated = '11 September 2026'
+  const updated = '12 September 2026'
 
   return (
     <main className="min-h-dvh bg-[#080810] text-white px-6 py-16">
@@ -61,9 +61,11 @@ export default function Terms() {
           </section>
 
           <section>
-            <h2 className="text-[17px] font-semibold mb-3">Beta features and the Pro waitlist</h2>
+            <h2 className="text-[17px] font-semibold mb-3">Demist Pro</h2>
             <ul className="space-y-3 text-gray-400">
-              <li>Pro is not yet purchasable. Joining the waitlist creates no payment obligation. Waitlist members receive one free month of Pro when it launches.</li>
+              <li>Demist Pro is a paid monthly or annual subscription, billed automatically until cancelled. Payments are processed by Stripe; we never see or store your card details.</li>
+              <li>You can cancel anytime from your profile page, which opens Stripe&apos;s billing portal. Cancelling stops future billing; access continues until the end of the period already paid for.</li>
+              <li>Everyone who confirmed their email on the Pro waitlist before launch received one free month of Pro automatically, at no cost and with no card required.</li>
             </ul>
           </section>
 

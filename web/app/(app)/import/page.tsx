@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { capture } from '@/lib/analytics'
 import { nativeImportSupported, nativeImportAudio, nativeImportText } from '@/lib/nativeImport'
+import { checkWebTrialLimit, type TrialGateResult } from '@/lib/webTrial'
+import { TrialLimitModal } from '@/components/TrialLimitModal'
 
 const FETCH_TIMEOUT_MS = 300_000 // 5 min: long audio files take time
 
@@ -147,6 +149,18 @@ export default function ImportPage() {
   const [notionPullResult, setNotionPullResult] = useState<UploadResult | null>(null)
   const [notionPullError, setNotionPullError] = useState<string | null>(null)
 
+  // Same gate recordingSession.tsx applies before a live recording starts -
+  // Import inserts into the same `sessions` table the trial counter reads,
+  // so without this check it was a wide-open bypass of the wall meant to
+  // push a capped browser user toward the desktop app.
+  const [trialBlocked, setTrialBlocked] = useState<TrialGateResult | null>(null)
+  const checkTrial = useCallback(async () => {
+    if (!userId) return true
+    const gate = await checkWebTrialLimit(createClient(), userId)
+    if (!gate.allowed) { setTrialBlocked(gate); return false }
+    return true
+  }, [userId])
+
   useEffect(() => {
     const supabase = createClient()
     supabase.auth.getSession().then(async ({ data }) => {
@@ -265,6 +279,7 @@ export default function ImportPage() {
 
   const handleAudioUpload = async () => {
     if (!audioFile || !userId) return
+    if (!(await checkTrial())) return
 
     const ALLOWED_AUDIO = /\.(mp3|wav|mp4|m4a|webm|ogg)$/i
     if (!ALLOWED_AUDIO.test(audioFile.name)) {
@@ -401,6 +416,7 @@ export default function ImportPage() {
 
   const handleTextUpload = async () => {
     if (!textFile || !userId) return
+    if (!(await checkTrial())) return
 
     const ALLOWED_TEXT = /\.(pptx|docx|txt)$/i
     if (!ALLOWED_TEXT.test(textFile.name)) {
@@ -523,6 +539,7 @@ export default function ImportPage() {
 
   const handleNotionImport = async () => {
     if (!selectedPageId) return
+    if (!(await checkTrial())) return
     setNotionPullStatus('importing')
     setNotionPullError(null)
     setNotionPullResult(null)
@@ -1148,6 +1165,7 @@ export default function ImportPage() {
         </section>
 
       </div>
+      {trialBlocked && <TrialLimitModal gate={trialBlocked} onClose={() => setTrialBlocked(null)} />}
     </div>
   )
 }

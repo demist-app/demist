@@ -12,11 +12,10 @@ export type Plan = 'free' | 'pro'
 export const LIMITS: Record<Plan, {
   historyDays: number | null      // null = unlimited
   summariesPerWeek: number | null
-  packsOwned: number | null
   ankiExport: boolean
 }> = {
-  free: { historyDays: 30, summariesPerWeek: 10, packsOwned: 1, ankiExport: false },
-  pro:  { historyDays: null, summariesPerWeek: null, packsOwned: null, ankiExport: true },
+  free: { historyDays: 30, summariesPerWeek: 10, ankiExport: false },
+  pro:  { historyDays: null, summariesPerWeek: null, ankiExport: true },
 }
 
 // Everything not listed above is free for everyone, permanently:

@@ -721,7 +721,10 @@ export default function History() {
                                 </div>
                               )}
 
-                              <button onClick={() => { setConfirmingId(null); toggleExpand(s.id) }}>
+                              <button
+                                onClick={() => { setConfirmingId(null); toggleExpand(s.id) }}
+                                aria-label={s.expanded ? 'Collapse session' : 'Expand session'}
+                              >
                                 <ChevronIcon expanded={s.expanded} />
                               </button>
                             </>
