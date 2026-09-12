@@ -1,0 +1,9 @@
+project_id = "bsjcdvhiuxtyvbnrcbwg"
+
+# Stripe calls this endpoint directly with a Stripe-Signature header, never a
+# Supabase user JWT - the function verifies authenticity itself via
+# constructEventAsync + STRIPE_WEBHOOK_SECRET. Every call was being rejected
+# with a platform-level 401 before that verification ever ran, because
+# verify_jwt defaults to true and nothing had disabled it for this function.
+[functions.stripe-webhook]
+verify_jwt = false
