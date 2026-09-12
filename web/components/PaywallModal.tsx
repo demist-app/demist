@@ -8,7 +8,6 @@
 // and shouldn't need to know or care which era it's showing.
 
 import { useState, useEffect, useMemo } from 'react'
-import { useRouter } from 'next/navigation'
 import { loadStripe } from '@stripe/stripe-js'
 import { EmbeddedCheckoutProvider, EmbeddedCheckout } from '@stripe/react-stripe-js'
 import { createClient } from '@/lib/supabase'
@@ -49,7 +48,6 @@ export function PaywallModal({
   source: string          // which gate triggered this, e.g. 'anki_export'
   onClose: () => void
 }) {
-  const router = useRouter()
   const [email, setEmail] = useState('')
   const [state, setState] = useState<'idle' | 'saving' | 'done' | 'already'>('idle')
   const [checkoutInterval, setCheckoutInterval] = useState<'month' | 'year'>('year')
@@ -109,7 +107,12 @@ export function PaywallModal({
   const handleComplete = () => {
     capture('paywall_converted', { source, interval: checkoutInterval })
     onClose()
-    router.push('/profile?checkout=success')
+    // A hard navigation, not router.push: AppNav's useEntitlements() fetches
+    // once on mount with no refresh trigger, so a client-side SPA navigation
+    // would leave it (and the upgrade pill it renders) reading stale
+    // pre-purchase state until something else remounted it. Same reasoning
+    // as the existing window.location.replace calls on sign-in/out.
+    window.location.href = '/profile?checkout=success'
   }
 
   // Same endpoint as the landing page, so a join from here is confirmed the
@@ -146,7 +149,10 @@ export function PaywallModal({
       aria-modal="true"
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className="w-full max-w-md dark:bg-[#0d0d1c] bg-[#FDFCF9] border dark:border-white/[0.08] border-black/[0.12] rounded-[28px] shadow-2xl overflow-hidden">
+      <div
+        className="w-full max-w-md dark:bg-[#0d0d1c] bg-[#FDFCF9] border dark:border-white/[0.08] border-black/[0.12] rounded-[28px] shadow-2xl overflow-y-auto overscroll-contain"
+        style={{ maxHeight: '90vh' }}
+      >
         <div className="p-6 space-y-5">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3">
