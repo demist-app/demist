@@ -206,3 +206,41 @@ export function welcomeEmail() {
     ].join('\n'),
   }
 }
+
+// The one email the waitlist welcome message explicitly promised
+// ("we'll email you once, when Pro is ready. No newsletter, no drip
+// campaign.") - sent once, to the waitlist and to everyone with a Demist
+// account, when PRO_LIVE actually flips true. Two variants because the
+// waitlist already has their free month; existing users don't and are
+// being asked to actually pay.
+export function proLaunchedEmail(monthlyPriceText: string | null, onWaitlist: boolean) {
+  const priceLine = monthlyPriceText ? ` Plans start at ${monthlyPriceText}/month.` : ''
+  return {
+    subject: 'Demist Pro is here',
+    html: shell(
+      H('Demist Pro is live') +
+        P(
+          onWaitlist
+            ? 'You were on the waitlist, so your free month of Pro is already active on your account - nothing to do, nothing to pay yet.'
+            : `Unlimited session history, unlimited AI summaries, and Anki export.${priceLine} Everything you already use stays free, same as always.`,
+        ) +
+        button(`${APP_URL}/profile`, onWaitlist ? 'See your Pro account' : 'Upgrade to Pro') +
+        P(
+          'This is the one email we said we’d send. No newsletter, no drip campaign.',
+          `font-size:13px;color:${FAINT};margin-bottom:0;`,
+        ),
+      onWaitlist ? 'Your free month is already active.' : 'Unlimited history, summaries, and Anki export.',
+    ),
+    text: [
+      'Demist Pro is live',
+      '',
+      onWaitlist
+        ? 'You were on the waitlist, so your free month of Pro is already active on your account - nothing to do, nothing to pay yet.'
+        : `Unlimited session history, unlimited AI summaries, and Anki export.${priceLine} Everything you already use stays free, same as always.`,
+      '',
+      `${APP_URL}/profile`,
+      '',
+      'This is the one email we said we’d send. No newsletter, no drip campaign.',
+    ].join('\n'),
+  }
+}
