@@ -11,6 +11,8 @@
     "prebuild": "node scripts/build-extension.mjs"
   },
   "dependencies": {
+    "@stripe/react-stripe-js": "^6.10.0",
+    "@stripe/stripe-js": "^9.16.0",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.106.1",
     "jszip": "^3.10.1",

@@ -97,17 +97,29 @@ serve(async (req) => {
       await admin.from('subscriptions').update({ stripe_customer_id: customerId }).eq('user_id', user.id)
     }
 
+    // Embedded, not hosted: the frontend renders this session's client_secret
+    // inline via @stripe/react-stripe-js instead of redirecting the page to
+    // checkout.stripe.com. Matters most in the desktop app, whose window
+    // treats any top-level navigation off its own origin as "leaving the
+    // app" (main.js's will-navigate handler hands it to the OS browser
+    // instead) - a full-page redirect there looked like checkout dumping the
+    // user out to a different website entirely. Embedded Checkout's iframe
+    // is same-page content, not a navigation, so none of that ever fires.
+    // redirect_on_completion defaults to 'if_required': a normal card
+    // payment completes via the onComplete callback with no redirect at
+    // all; return_url only gets used for the rare payment method that
+    // inherently requires one (some bank redirects).
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
+      ui_mode: 'embedded',
       customer: customerId,
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${APP_ORIGIN}/profile?checkout=success`,
-      cancel_url: `${APP_ORIGIN}/profile?checkout=cancelled`,
+      return_url: `${APP_ORIGIN}/profile?checkout=success`,
       client_reference_id: user.id,
       subscription_data: { metadata: { supabase_user_id: user.id } },
     })
 
-    return new Response(JSON.stringify({ url: session.url }), {
+    return new Response(JSON.stringify({ clientSecret: session.client_secret }), {
       headers: { ...CORS, 'Content-Type': 'application/json' },
     })
   } catch (e) {
