@@ -7,16 +7,6 @@ const MAX_CANDIDATES = 24
 const MAX_CANDIDATE_TERM_CHARS = 64
 const MAX_CANDIDATE_SENTENCE_CHARS = 300
 
-const _rl = new Map<string, number[]>()
-function rateLimit(key: string, max: number, windowMs = 3_600_000): boolean {
-  const now = Date.now()
-  const hits = (_rl.get(key) ?? []).filter(t => now - t < windowMs)
-  if (hits.length >= max) return false
-  hits.push(now)
-  _rl.set(key, hits)
-  return true
-}
-
 function corsHeaders(origin: string | null) {
   const allowed = origin && ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0]
   return {
@@ -65,8 +55,11 @@ serve(async (req) => {
     })
   }
 
-  // Rate limit: 500 requests/hour (covers ~2hr lecture at 15s batching)
-  if (!rateLimit(user.id, 500)) {
+  // Rate limit: 500 requests/hour (covers ~2hr lecture at 15s batching).
+  // Backed by Postgres (migration 032) instead of an in-process Map, which
+  // was never actually shared across this function's concurrent isolates.
+  const { data: rateOk } = await supabase.rpc('check_rate_limit', { p_key: `detect-terms:${user.id}`, p_max: 500, p_window_minutes: 60 })
+  if (!rateOk) {
     return new Response(JSON.stringify({ error: 'rate_limited' }), {
       status: 429,
       headers: { ...CORS, 'Content-Type': 'application/json', 'Retry-After': '3600' },

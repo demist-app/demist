@@ -4,16 +4,6 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const ALLOWED_ORIGINS = ['https://demist.app', 'https://www.demist.app', 'http://localhost:3000', 'http://localhost:3001']
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-const _rl = new Map<string, number[]>()
-function rateLimit(key: string, max: number, windowMs = 3_600_000): boolean {
-  const now = Date.now()
-  const hits = (_rl.get(key) ?? []).filter(t => now - t < windowMs)
-  if (hits.length >= max) return false
-  hits.push(now)
-  _rl.set(key, hits)
-  return true
-}
-
 function corsHeaders(origin: string | null) {
   const allowed = origin && ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0]
   return {
@@ -52,8 +42,11 @@ serve(async (req) => {
     })
   }
 
-  // Rate limit: 30/hour, one per session end, very generous
-  if (!rateLimit(user.id, 30)) {
+  // Rate limit: 30/hour, one per session end, very generous. Backed by
+  // Postgres (migration 032) instead of an in-process Map, which was never
+  // actually shared across this function's concurrent isolates.
+  const { data: rateOk } = await userClient.rpc('check_rate_limit', { p_key: `summarize-session:${user.id}`, p_max: 30, p_window_minutes: 60 })
+  if (!rateOk) {
     return new Response(JSON.stringify({ error: 'rate_limited' }), {
       status: 429,
       headers: { ...CORS, 'Content-Type': 'application/json', 'Retry-After': '3600' },

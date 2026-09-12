@@ -4,16 +4,6 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const ALLOWED_ORIGINS = ['https://demist.app', 'https://www.demist.app', 'http://localhost:3000', 'http://localhost:3001']
 const SAFE_AUDIO_EXTS = new Set(['webm', 'mp4', 'mp3', 'ogg', 'm4a', 'wav', 'flac'])
 
-const _rl = new Map<string, number[]>()
-function rateLimit(key: string, max: number, windowMs = 3_600_000): boolean {
-  const now = Date.now()
-  const hits = (_rl.get(key) ?? []).filter(t => now - t < windowMs)
-  if (hits.length >= max) return false
-  hits.push(now)
-  _rl.set(key, hits)
-  return true
-}
-
 // Audio limits
 // Each Whisper request must be ≤ 25 MB. We send 20 MB slices with 5 MB headroom
 // so a corrupted boundary (WebM cluster wrap) never pushes us over.
@@ -212,8 +202,12 @@ serve(async (req) => {
     })
   }
 
-  // Rate limit: 5 audio imports/hour, since each can burn significant Whisper credits
-  if (!rateLimit(user.id, 5)) {
+  // Rate limit: 5 audio imports/hour, since each can burn significant Whisper
+  // credits. Backed by Postgres (migration 032) instead of an in-process
+  // Map, which was never actually shared across this function's concurrent
+  // isolates.
+  const { data: rateOk } = await userClient.rpc('check_rate_limit', { p_key: `transcribe-audio:${user.id}`, p_max: 5, p_window_minutes: 60 })
+  if (!rateOk) {
     return new Response(JSON.stringify({ error: 'rate_limited' }), {
       status: 429,
       headers: { ...CORS, 'Content-Type': 'application/json', 'Retry-After': '3600' },

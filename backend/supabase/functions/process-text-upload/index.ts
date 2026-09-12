@@ -5,15 +5,6 @@ const ALLOWED_ORIGINS = ['https://demist.app', 'https://www.demist.app', 'http:/
 const CHUNK_SIZE = 3500      // chars per GPT detection pass
 const VALID_SOURCES = new Set(['audio_import', 'text_upload', 'notion', 'pptx', 'docx', 'transcript_upload'])
 
-const _rl = new Map<string, number[]>()
-function rateLimit(key: string, max: number, windowMs = 3_600_000): boolean {
-  const now = Date.now()
-  const hits = (_rl.get(key) ?? []).filter(t => now - t < windowMs)
-  if (hits.length >= max) return false
-  hits.push(now)
-  _rl.set(key, hits)
-  return true
-}
 const MAX_CHUNKS = 30        // cap: 105k chars ~= 15,000 words (~2 hr lecture)
 const MAX_TERMS = 80         // hard cap on saved terms per import
 const MAX_TEXT_BYTES = 5_000_000 // 5 MB of extracted text (generous for large PPTX)
@@ -142,8 +133,11 @@ serve(async (req) => {
     })
   }
 
-  // Rate limit: 10 text imports/hour
-  if (!rateLimit(user.id, 10)) {
+  // Rate limit: 10 text imports/hour. Backed by Postgres (migration 032)
+  // instead of an in-process Map, which was never actually shared across
+  // this function's concurrent isolates.
+  const { data: rateOk } = await userClient.rpc('check_rate_limit', { p_key: `process-text-upload:${user.id}`, p_max: 10, p_window_minutes: 60 })
+  if (!rateOk) {
     return new Response(JSON.stringify({ error: 'rate_limited' }), {
       status: 429,
       headers: { ...CORS, 'Content-Type': 'application/json', 'Retry-After': '3600' },

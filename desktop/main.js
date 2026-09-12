@@ -313,10 +313,7 @@ function getWorkerState(role) {
 }
 
 // Control messages that must be near-instant once their model is loaded, and
-// the ceiling we give each before declaring the worker unhealthy. Deliberately
-// NOT applied to preloads or inference (detectTerms/summarize/translate): a
-// first-run model download legitimately takes minutes and a llama.cpp
-// generation many seconds, so a timeout there would break working features.
+// the ceiling we give each before declaring the worker unhealthy.
 //
 // This exists because a worker thread can die from a native crash without
 // ever firing 'error' or 'exit' (see the exit handler above - that was
@@ -334,6 +331,21 @@ function getWorkerState(role) {
 // tighter 30s ceiling was confirmed in real testing to fire against a
 // perfectly healthy worker mid-load and throw away the model it had just
 // spent that time loading, which is worse than the hang it was added for.
+//
+// Preloads and inference (detectTerms/summarize/translate/transcribeBuffer)
+// used to have NO entry here at all, on the reasoning that a first-run model
+// download legitimately takes minutes and a llama.cpp generation many
+// seconds. True, but it also meant a hang with no crash signal - the exact
+// failure mode this whole mechanism exists for - waited forever with nothing
+// to surface it: an ipcMain.handle promise that never settles is invisible to
+// the renderer, which just sits at its own `await` indefinitely. The ceilings
+// below are wide enough that they should never fire against real, working
+// downloads or generations (all measured in seconds to low tens of seconds -
+// see whisper.js/llm.js/translate.js's own comments), and even when one does
+// fire it still goes through the SAME quietFor/WORKER_SILENT_MS check below:
+// a worker that is still emitting progress only gets its current call
+// rejected ("still busy, try again"), never killed. Only a worker that has
+// ALSO gone completely silent gets torn down.
 const CALL_TIMEOUT_MS = {
   startSession: 120_000,
   stopSession: 120_000,
@@ -341,6 +353,14 @@ const CALL_TIMEOUT_MS = {
   setTranscribeTier: 60_000,
   getModelTier: 60_000,
   setModelTier: 60_000,
+  preloadWhisper: 600_000,
+  preloadTermDetection: 600_000,
+  preloadTranslation: 600_000,
+  transcribeBuffer: 300_000,
+  detectTerms: 300_000,
+  explain: 300_000,
+  summarize: 300_000,
+  translate: 300_000,
 }
 // How long a worker must be COMPLETELY silent - no progress events, no
 // replies - before a timeout is treated as death rather than slowness.

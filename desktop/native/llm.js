@@ -268,11 +268,6 @@ function setTier(tier) {
 async function ensureLoaded(emitProgress, calledBy = 'unknown') {
   const tier = getTier()
   if (session && loadedTier === tier) return
-  // Names the operation that triggered a load. A real run loaded 'small' and
-  // then loaded 'tiny' as well with nothing in the log to say what asked for
-  // the second one, which left the cause unidentifiable after the fact.
-  console.log(`[demist] term-detection: loading tier '${tier}' because ${calledBy} asked for it`
-    + `${loadedTier ? ` (previously loaded: '${loadedTier}')` : ''}`)
   // Without this, overlapping detectTerms() calls (e.g. several buffered
   // audio chunks resolving in a burst right after startup, before the first
   // load finishes) each saw `session` still unset and started their own
@@ -282,7 +277,36 @@ async function ensureLoaded(emitProgress, calledBy = 'unknown') {
   // that arrive mid-load now just await the same in-flight load instead.
   if (loadingPromise) return loadingPromise
 
-  loadingPromise = (async () => {
+  // Chained onto `queue` - the same promise chain runDetectOnce/explain/
+  // summarize use to serialize session.prompt() calls - rather than run
+  // immediately. A tier switch (setTier() nulls `session`, so the very next
+  // ensureLoaded lands here on the mismatch) used to dispose the model/
+  // context completely outside that queue: if a detectTerms() call's
+  // session.prompt() was still mid-generation on the OLD context (measured
+  // at 40-60s on the tiny tier) when the switch landed, the dispose() calls
+  // inside doLoad freed native memory that in-flight generation was still
+  // reading from - a use-after-dispose inside llama.cpp's native binding,
+  // not a JS-catchable error, and the likely cause of the terms worker
+  // crashing mid-lecture on a tier change. Queuing the load means it simply
+  // waits its turn behind whatever generation is already running, the same
+  // as any other caller of session.prompt() has to.
+  loadingPromise = queue.then(() => doLoad(tier, emitProgress, calledBy))
+  queue = loadingPromise.catch(() => {})
+
+  try {
+    await loadingPromise
+  } finally {
+    loadingPromise = null
+  }
+}
+
+async function doLoad(tier, emitProgress, calledBy) {
+  // Names the operation that triggered a load. A real run loaded 'small' and
+  // then loaded 'tiny' as well with nothing in the log to say what asked for
+  // the second one, which left the cause unidentifiable after the fact.
+  console.log(`[demist] term-detection: loading tier '${tier}' because ${calledBy} asked for it`
+    + `${loadedTier ? ` (previously loaded: '${loadedTier}')` : ''}`)
+  {
     const { getLlama, LlamaChatSession, resolveModelFile } = await import('node-llama-cpp')
 
     // This step was previously silent, so a multi-GB first-run download and
@@ -376,12 +400,6 @@ async function ensureLoaded(emitProgress, calledBy = 'unknown') {
 
     loadedTier = tier
     logger({ status: 'ready' })
-  })()
-
-  try {
-    await loadingPromise
-  } finally {
-    loadingPromise = null
   }
 }
 

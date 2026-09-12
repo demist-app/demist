@@ -4,18 +4,6 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const ALLOWED_ORIGINS = ['https://demist.app', 'https://www.demist.app', 'http://localhost:3000', 'http://localhost:3001']
 const MAX_AUDIO_BYTES = 25 * 1024 * 1024 // 25 MB
 
-// In-memory sliding-window rate limiter.
-// Resets on cold start; effective against burst abuse within a warm instance.
-const _rl = new Map<string, number[]>()
-function rateLimit(key: string, max: number, windowMs = 3_600_000): boolean {
-  const now = Date.now()
-  const hits = (_rl.get(key) ?? []).filter(t => now - t < windowMs)
-  if (hits.length >= max) return false
-  hits.push(now)
-  _rl.set(key, hits)
-  return true
-}
-
 function corsHeaders(origin: string | null) {
   const allowed = origin && ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0]
   return {
@@ -54,8 +42,13 @@ serve(async (req) => {
     })
   }
 
-  // Rate limit: 900 requests/hour (covers ~75-min recording at 5s chunks)
-  if (!rateLimit(user.id, 900)) {
+  // Rate limit: 900 requests/hour (covers ~75-min recording at 5s chunks).
+  // Backed by Postgres (migration 032), not an in-process Map: this function
+  // can run as several concurrent isolates, and each one having its own
+  // separate 900/hour counter meant the real ceiling was 900 times however
+  // many happened to be warm, not 900.
+  const { data: rateOk } = await supabase.rpc('check_rate_limit', { p_key: `transcribe:${user.id}`, p_max: 900, p_window_minutes: 60 })
+  if (!rateOk) {
     return new Response(JSON.stringify({ error: 'rate_limited' }), {
       status: 429,
       headers: { ...CORS, 'Content-Type': 'application/json', 'Retry-After': '3600' },

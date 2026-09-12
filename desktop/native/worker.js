@@ -164,6 +164,12 @@ let badFrames = 0
 let lastBadReason = ''
 const typeTally = new Map()
 
+// Serializes non-PCM control messages (startSession, stopSession, and every
+// request/response call in `handlers`) in arrival order. See the dispatch
+// below for why this exists: an async 'message' listener does not pause
+// Node's delivery of the next message on its own.
+let controlQueue = Promise.resolve()
+
 port.on('message', async (msg) => {
   rawMessages++
   const t = msg && typeof msg === 'object' ? String(msg.type) : `NOT-AN-OBJECT(${typeof msg})`
@@ -244,10 +250,19 @@ port.on('message', async (msg) => {
     })
     return
   }
-  try {
-    const result = await handlers[type](...(args ?? []))
-    port.postMessage({ id, result })
-  } catch (err) {
-    port.postMessage({ id, error: err?.message ?? String(err) })
-  }
+  // Chained onto controlQueue, not awaited directly: `port.on('message', ...)`
+  // is an async listener, and Node does not wait for one call to finish
+  // before delivering the next 'message' event - it just fires the callback
+  // again. A fast stop/restart click sends stopSession immediately followed
+  // by startSession, and without this they ran concurrently against the same
+  // module-level session state (activeSession in whisper.js, model/context in
+  // llm.js) instead of one completing before the next began. PCM frames are
+  // deliberately NOT routed through this: they're fire-and-forget and
+  // high-frequency by design, and queuing them here would reintroduce the
+  // exact backlog this file's PCM branch already exists to avoid.
+  controlQueue = controlQueue.then(() => handlers[type](...(args ?? [])))
+    .then(
+      (result) => port.postMessage({ id, result }),
+      (err) => port.postMessage({ id, error: err?.message ?? String(err) }),
+    )
 })
