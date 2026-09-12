@@ -4,6 +4,8 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { useTheme } from 'next-themes'
+import { useEntitlements } from '@/lib/entitlements'
+import { PaywallModal } from '@/components/PaywallModal'
 
 const NAV = [
   { href: '/dashboard', label: 'Home',     icon: HomeIcon },
@@ -46,14 +48,22 @@ function isStudyActive(pathname: string) {
 export function AppNav() {
   const pathname = usePathname()
   const [moreOpen, setMoreOpen] = useState(false)
+  const [upgradeOpen, setUpgradeOpen] = useState(false)
+  const { isPro, loaded } = useEntitlements()
+  // loaded gate: without it, a free AND a Pro user see the identical "not
+  // Pro yet" flash for one render while the subscriptions row is still being
+  // fetched, which is a worse look for a Pro user than just not showing it
+  // for a beat.
+  const showUpgrade = loaded && !isPro
 
   // Close More sheet on route change
   useEffect(() => { setMoreOpen(false) }, [pathname])
 
   return (
     <>
-      {/* ── Mobile: theme toggle fixed top-right ── */}
-      <div className="sm:hidden fixed top-3 right-4 z-50">
+      {/* ── Mobile: theme toggle + upgrade pill fixed top-right ── */}
+      <div className="sm:hidden fixed top-3 right-4 z-50 flex items-center gap-2">
+        {showUpgrade && <UpgradePill onClick={() => setUpgradeOpen(true)} compact />}
         <ThemeToggle />
       </div>
 
@@ -87,10 +97,13 @@ export function AppNav() {
           )
         })}
 
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-3">
+          {showUpgrade && <UpgradePill onClick={() => setUpgradeOpen(true)} />}
           <ThemeToggle />
         </div>
       </nav>
+
+      {upgradeOpen && <PaywallModal source="nav_upgrade" onClose={() => setUpgradeOpen(false)} />}
 
       {/* ── Mobile bottom nav ── */}
       <nav
@@ -190,6 +203,27 @@ export function AppNav() {
         </>
       )}
     </>
+  )
+}
+
+/* ── Upgrade pill: a persistent but quiet nudge for free users, everywhere
+   the nav renders, rather than only at the few hard gates (Anki export,
+   history cap, packs cap) and the one-time post-session nudge. Amber-on-
+   amber-tint matches the same "Pro" visual language as the profile page's
+   status card, so it reads as part of the same feature rather than a new
+   ad slot. ── */
+function UpgradePill({ onClick, compact }: { onClick: () => void; compact?: boolean }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex items-center gap-1 rounded-full font-medium transition-opacity hover:opacity-80 active:scale-[0.97] dark:bg-amber-500/[0.12] bg-amber-500/[0.14] border dark:border-amber-500/25 border-amber-600/25 text-amber-700 dark:text-amber-400 ${compact ? 'w-8 h-8 justify-center' : 'text-[12px] px-3 py-1.5'}`}
+      aria-label="Upgrade to Pro"
+    >
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <path d="M12 1.5l2.6 6.6 7.1.5-5.5 4.5 1.9 6.9L12 15.9l-6.1 4.1 1.9-6.9-5.5-4.5 7.1-.5z" />
+      </svg>
+      {!compact && 'Upgrade'}
+    </button>
   )
 }
 

@@ -82,7 +82,7 @@ export default function Profile() {
   const [userId, setUserId] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
   const [exported, setExported] = useState(false)
-  const { limits, isPro, periodEnd } = useEntitlements()
+  const { limits, isPro, periodEnd, hasStripeCustomer } = useEntitlements()
   const [paywall, setPaywall] = useState<string | null>(null)
   const [checkoutNotice, setCheckoutNotice] = useState<'success' | 'cancelled' | null>(null)
   const [portalLoading, setPortalLoading] = useState(false)
@@ -347,7 +347,10 @@ export default function Profile() {
       if (error) throw error
       await supabase.auth.signOut()
       reset()
-      window.location.replace('/')
+      // Desktop's window has no address bar or back button, so sending it to
+      // the marketing home page - a pitch for the app it's already running -
+      // is a dead end. /login gets it straight back to a usable screen.
+      window.location.replace(isElectronNative() ? '/login' : '/')
     } catch (e) {
       console.error('handleDeleteAccount error:', e)
       setDeleteError('Could not delete your account. Please try again or email hello@demist.app.')
@@ -387,7 +390,9 @@ export default function Profile() {
   const handleSignOut = async () => {
     await createClient().auth.signOut()
     reset()
-    window.location.replace('/')
+    // See handleDeleteAccount: desktop has no way back from the marketing
+    // home page, so it goes to /login instead.
+    window.location.replace(isElectronNative() ? '/login' : '/')
   }
 
   const togglePublic = async () => {
@@ -527,21 +532,23 @@ export default function Profile() {
             <div className="min-w-0">
               <p className="text-[14px] font-semibold">Demist Pro</p>
               <p className="text-[12px] text-gray-600 mt-0.5">
-                {periodEnd ? `Renews ${new Date(periodEnd).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}` : 'Active'}
+                {periodEnd
+                  ? `${hasStripeCustomer ? 'Renews' : 'Free access until'} ${new Date(periodEnd).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`
+                  : 'Active'}
               </p>
             </div>
-            {/* Silently no-ops for a waitlist-granted free month (no
-                Stripe customer exists yet - see migration 030): nothing to
-                manage until they'd actually subscribe. Known simplification,
-                not worth its own state just to hide one button for a small,
-                temporary cohort. */}
-            <button
-              onClick={openBillingPortal}
-              disabled={portalLoading}
-              className="shrink-0 text-[12px] font-medium px-3 py-1.5 rounded-full border dark:border-amber-500/30 border-amber-600/30 text-amber-700 dark:text-amber-400 hover:opacity-80 transition-opacity disabled:opacity-40"
-            >
-              {portalLoading ? '…' : 'Manage'}
-            </button>
+            {/* A waitlist-granted free month (migration 030) has no Stripe
+                customer behind it - nothing to manage or cancel, so the
+                button that would otherwise silently no-op is hidden instead. */}
+            {hasStripeCustomer && (
+              <button
+                onClick={openBillingPortal}
+                disabled={portalLoading}
+                className="shrink-0 text-[12px] font-medium px-3 py-1.5 rounded-full border dark:border-amber-500/30 border-amber-600/30 text-amber-700 dark:text-amber-400 hover:opacity-80 transition-opacity disabled:opacity-40"
+              >
+                {portalLoading ? '…' : 'Manage'}
+              </button>
+            )}
           </div>
         )}
 

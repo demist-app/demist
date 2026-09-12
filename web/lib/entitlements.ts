@@ -25,14 +25,15 @@ export const LIMITS: Record<Plan, {
 export function useEntitlements() {
   const [plan, setPlan] = useState<Plan>('free')
   const [periodEnd, setPeriodEnd] = useState<string | null>(null)
+  const [hasStripeCustomer, setHasStripeCustomer] = useState(false)
   const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
     createClient()
       .from('subscriptions')
-      .select('plan, current_period_end')
+      .select('plan, current_period_end, stripe_customer_id')
       .maybeSingle()
-      .then(({ data }: { data: { plan: string; current_period_end: string | null } | null }) => {
+      .then(({ data }: { data: { plan: string; current_period_end: string | null; stripe_customer_id: string | null } | null }) => {
         // current_period_end is the actual source of truth (migration 030),
         // not the plan column alone: a row can say plan='pro' while its
         // period has already lapsed (a cancelled subscription Stripe hasn't
@@ -44,9 +45,13 @@ export function useEntitlements() {
         const stillCurrent = !data?.current_period_end || new Date(data.current_period_end) > new Date()
         setPlan(data?.plan === 'pro' && stillCurrent ? 'pro' : 'free')
         setPeriodEnd(data?.current_period_end ?? null)
+        // A waitlist-granted free month (migration 030) has no Stripe object
+        // behind it at all, so there's nothing to manage or auto-renew -
+        // callers use this to distinguish that case from a real subscription.
+        setHasStripeCustomer(!!data?.stripe_customer_id)
         setLoaded(true)
       })
   }, [])
 
-  return { plan, limits: LIMITS[plan], loaded, isPro: plan === 'pro', periodEnd }
+  return { plan, limits: LIMITS[plan], loaded, isPro: plan === 'pro', periodEnd, hasStripeCustomer }
 }

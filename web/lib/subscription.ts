@@ -13,7 +13,7 @@ export const PAYWALL_ENABLED = false
 // deployed (migration 030 has the DB side) - flipping it before that makes
 // every "Upgrade" button fail with a real, confusing error instead of
 // nothing happening.
-export const PRO_LIVE = false
+export const PRO_LIVE = true
 
 export const PLANS = {
   free: {
