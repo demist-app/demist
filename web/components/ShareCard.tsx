@@ -5,13 +5,44 @@ import { capture } from '@/lib/analytics'
 
 interface Props {
   termCount: number
+  featuredTerm?: { term: string; definition: string } | null
   onClose: () => void
 }
 
 const W = 1080
 const H = 1920
 
-function drawCard(canvas: HTMLCanvasElement, termCount: number) {
+// Canvas text doesn't wrap on its own, and unlike the old hardcoded example
+// string, a real term/definition can be any length. Greedy word-wrap, with
+// an ellipsis on the last allowed line if it still doesn't fit - the same
+// tradeoff line-clamping in the DOM elsewhere in this app makes.
+function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number, maxLines: number): string[] {
+  const words = text.split(/\s+/).filter(Boolean)
+  const lines: string[] = []
+  let line = ''
+  for (const word of words) {
+    const candidate = line ? `${line} ${word}` : word
+    if (ctx.measureText(candidate).width > maxWidth && line) {
+      lines.push(line)
+      line = word
+      if (lines.length === maxLines) { line = ''; break }
+    } else {
+      line = candidate
+    }
+  }
+  if (line) lines.push(line)
+  if (lines.length > maxLines) lines.length = maxLines
+  const last = lines[lines.length - 1]
+  if (last && ctx.measureText(last).width > maxWidth) {
+    while (last.length > 1 && ctx.measureText(last + '…').width > maxWidth) {
+      lines[lines.length - 1] = last.slice(0, -1)
+    }
+    lines[lines.length - 1] += '…'
+  }
+  return lines
+}
+
+function drawCard(canvas: HTMLCanvasElement, termCount: number, featuredTerm?: { term: string; definition: string } | null) {
   const ctx = canvas.getContext('2d')
   if (!ctx) return
 
@@ -75,11 +106,16 @@ function drawCard(canvas: HTMLCanvasElement, termCount: number) {
   ctx.fillStyle = 'rgba(255,255,255,0.25)'
   ctx.fillText('from your lectures', W / 2, H / 2 + 116)
 
-  // Term card preview
+  // Term card preview - only drawn when there's a real term to show. The
+  // card exists to make the share believable as THIS person's work, so a
+  // placeholder here would be worse than no card at all.
+  if (!featuredTerm) return
   const cardX = 88
   const cardY = H / 2 + 260
   const cardW = W - 176
-  const cardH = 280
+  // Tall enough for a 2-line definition (the old fixed height only ever had
+  // to fit one hardcoded sentence) plus breathing room below it.
+  const cardH = 330
   const r = 40
 
   ctx.beginPath()
@@ -105,23 +141,28 @@ function drawCard(canvas: HTMLCanvasElement, termCount: number) {
   ctx.roundRect(cardX + 44, cardY + 52, 8, cardH - 104, 4)
   ctx.fill()
 
-  // Card label
+  // Card label. This card is opened from the glossary's lifetime total, not
+  // a single fresh detection, so "JUST DETECTED" was claiming something the
+  // moment it's shown doesn't back up.
   ctx.font = 'bold 28px -apple-system, system-ui, sans-serif'
   ctx.letterSpacing = '0.18em'
   ctx.fillStyle = 'rgba(217,119,6,0.7)'
   ctx.textAlign = 'left'
-  ctx.fillText('JUST DETECTED', cardX + 80, cardY + 100)
+  ctx.fillText('RECENTLY LEARNED', cardX + 80, cardY + 100)
   ctx.letterSpacing = '0px'
 
-  // Card term
+  // Card term - wrapped, not clipped, since a real term can run longer than
+  // the two-word placeholder this replaced.
   ctx.font = 'bold 52px -apple-system, system-ui, sans-serif'
   ctx.fillStyle = 'rgba(255,255,255,0.92)'
-  ctx.fillText('Elasticity of Demand', cardX + 80, cardY + 165)
+  const termLines = wrapText(ctx, featuredTerm.term, cardW - 160, 1)
+  ctx.fillText(termLines[0], cardX + 80, cardY + 165)
 
   // Card definition
   ctx.font = '400 38px -apple-system, system-ui, sans-serif'
   ctx.fillStyle = 'rgba(255,255,255,0.45)'
-  ctx.fillText('How sensitive demand is to a price change.', cardX + 80, cardY + 218)
+  const defLines = wrapText(ctx, featuredTerm.definition, cardW - 160, 2)
+  defLines.forEach((line, i) => ctx.fillText(line, cardX + 80, cardY + 218 + i * 48))
 
   // CTA
   ctx.textAlign = 'center'
@@ -130,14 +171,14 @@ function drawCard(canvas: HTMLCanvasElement, termCount: number) {
   ctx.fillText('demist.app', W / 2, H - 140)
 }
 
-export function ShareCard({ termCount, onClose }: Props) {
+export function ShareCard({ termCount, featuredTerm, onClose }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [rendered, setRendered] = useState(false)
   const [sharing, setSharing] = useState(false)
 
   const render = () => {
     if (!canvasRef.current) return
-    drawCard(canvasRef.current, termCount)
+    drawCard(canvasRef.current, termCount, featuredTerm)
     setRendered(true)
   }
 

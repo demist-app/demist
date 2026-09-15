@@ -33,6 +33,17 @@ function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
+// The most recently created term across sessions and orphans, for the share
+// card - real content instead of a hardcoded example, regardless of which
+// sort order the glossary itself happens to be displayed in right now.
+function mostRecentTerm(sessions: GlossarySession[], orphanTerms: Term[]): Term | null {
+  let best: Term | null = null
+  for (const t of [...sessions.flatMap(s => s.terms), ...orphanTerms]) {
+    if (!best || t.created_at > best.created_at) best = t
+  }
+  return best
+}
+
 function TrashIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -810,7 +821,11 @@ export default function Glossary() {
       )}
 
       {showShareCard && (
-        <ShareCard termCount={totalCount} onClose={() => setShowShareCard(false)} />
+        <ShareCard
+          termCount={totalCount}
+          featuredTerm={mostRecentTerm(sessions, orphanTerms)}
+          onClose={() => setShowShareCard(false)}
+        />
       )}
     </main>
   )
