@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 }
 
 export default function Terms() {
-  const updated = '12 September 2026'
+  const updated = '16 September 2026'
 
   return (
     <main className="min-h-dvh bg-[#080810] text-white px-6 py-16">
@@ -26,6 +26,16 @@ export default function Terms() {
             <h2 className="text-[17px] font-semibold mb-3">About Demist</h2>
             <p className="text-gray-400">
               Demist transcribes lectures, reads them back, and explains and translates unfamiliar terminology in real time for university students, including those who find lectures harder to follow. It is provided as-is to support personal learning. By using Demist, you agree to these terms.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-[17px] font-semibold mb-3">Who can use Demist</h2>
+            <p className="text-gray-400">
+              You must be 18 or over to use Demist. We ask for your date of birth when you set up your account and check it against this requirement.
+            </p>
+            <p className="text-gray-400 mt-4">
+              This is because recording a lecture also records other people, including your lecturer, and the section below makes obtaining any consent that requires your own responsibility. That is not something we are willing to ask of a child. If you are under 18, please do not create an account, and if you already have one, contact us at hello@demist.app and we will remove it.
             </p>
           </section>
 

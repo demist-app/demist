@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { capture, identify } from '@/lib/analytics'
+import { MINIMUM_AGE, meetsMinimumAge } from '@/lib/age'
 
 const YEARS = [
   { value: 1, label: '1st Year' },
@@ -62,6 +63,13 @@ export default function Onboarding() {
 
   const handleFinish = async () => {
     if (!year || saving) return
+    // Enforced here as well as on the button's disabled state: the date input
+    // can be populated by autofill or a paste after the last render, and this
+    // is the only place the profile actually gets written.
+    if (meetsMinimumAge(dob) !== true) {
+      setSaveError(`You need to be ${MINIMUM_AGE} or over to use Demist.`)
+      return
+    }
     setSaving(true)
     setSaveError(null)
     try {
@@ -220,15 +228,24 @@ export default function Onboarding() {
               When&apos;s your<br />birthday?
             </h1>
             <p className="dark:text-gray-500 text-gray-600 mb-1">
-              We use this to keep Demist age-appropriate. We never share it.
+              Demist is for users aged {MINIMUM_AGE} and over, so we need to check. We never share this.
             </p>
-            <p className="text-[12px] dark:text-gray-600 text-gray-500 mb-6">Optional: you can skip this.</p>
+            <p className="text-[12px] dark:text-gray-600 text-gray-500 mb-6">
+              Recording a lecture captures your lecturer too, and our Terms make that your responsibility.
+            </p>
             <input
               type="date"
               value={dob}
-              onChange={e => setDob(e.target.value)}
+              onChange={e => { setDob(e.target.value); if (saveError) setSaveError(null) }}
+              max={new Date().toISOString().slice(0, 10)}
+              aria-label="Date of birth"
               className="w-full dark:bg-white/[0.05] bg-[#FAF9F6] border dark:border-white/[0.1] border-black/[0.15] rounded-2xl px-5 py-4 dark:text-white text-gray-900 text-[15px] placeholder-gray-500 focus:outline-none focus:border-amber-500/50 transition-all"
             />
+            {meetsMinimumAge(dob) === false && (
+              <p className="text-[13px] text-red-400 mt-3">
+                Sorry, you need to be {MINIMUM_AGE} or over to use Demist.
+              </p>
+            )}
             <p className="text-[12px] dark:text-gray-500 text-gray-600 mt-3 leading-relaxed">
               Demist&apos;s explanations are AI-generated and occasionally imperfect. Always check anything important against your course materials.
             </p>
@@ -241,10 +258,10 @@ export default function Onboarding() {
               </button>
               <button
                 onClick={handleFinish}
-                disabled={saving}
+                disabled={saving || meetsMinimumAge(dob) !== true}
                 className="flex-1 py-4 rounded-2xl text-[15px] font-semibold bg-amber-600 hover:brightness-[1.1] disabled:opacity-25 disabled:cursor-not-allowed text-white transition-all"
               >
-                {saving ? 'Setting up…' : dob ? 'Done →' : 'Skip →'}
+                {saving ? 'Setting up…' : 'Done →'}
               </button>
             </div>
           </div>
