@@ -335,6 +335,20 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
   const zeroTermChunksRef = useRef(0)     // consecutive detect-terms calls with 0 terms
   const chunkPeakRef = useRef(0)           // max audio level seen during current chunk
   const webSpeechFinalRef = useRef('')     // accumulated final Web Speech results (fallback transcript)
+  // Transcript autosave. The transcript used to exist ONLY in transcriptRef
+  // for the whole lecture and was written once, in a setTimeout 6 seconds
+  // after the user stopped. Anything that ended the page inside that window -
+  // closing the laptop, quitting the app, walking out - lost the entire
+  // transcript, permanently. Measured on live data: 75 of 171 sessions (44%)
+  // had no transcript at all, including one where 61 terms were detected and
+  // saved (terms are written incrementally as they're found, which is exactly
+  // why they survived and the transcript did not).
+  //
+  // Eligibility is cached per session because the periodic save must apply
+  // the SAME mic-mode gate as the end-of-session write - a transcript that is
+  // not allowed to be stored must not be stored by the autosave either.
+  const transcriptEligibleRef = useRef<boolean | null>(null)
+  const lastPersistedTranscriptRef = useRef('')
   const allSessionTermsRef = useRef<{ term: string; definition: string; dbId?: string }[]>([])
   // Every term name this session has already shown, in order, used both to tell
   // the on-device model what not to find again and to reject a rephrasing of
@@ -416,6 +430,20 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     }
   }, [liveSessionId])
 
+  // Autosave the transcript while recording, so the end-of-session write is
+  // no longer the only chance to persist a whole lecture. Caps worst-case
+  // loss at one interval instead of everything. Cheap: one UPDATE, skipped
+  // entirely when the text has not changed or the session is not eligible to
+  // store a transcript at all.
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (!isActiveRef.current) return
+      persistTranscript(sessionIdRef.current)
+    }, 20_000)
+    return () => clearInterval(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // Stop Web Speech and the recording session cleanly if the user closes the
   // tab/app mid-recording. Mounted once here (not per-page), so this only
   // fires on a real app close, not on in-app route navigation.
@@ -423,6 +451,10 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     const handleUnload = () => {
       if (!isActiveRef.current) return
       try { recognitionRef.current?.stop() } catch { /* ignore */ }
+      // Best effort only. The browser will usually kill an in-flight request
+      // here, which is precisely why the interval above exists rather than
+      // this being the safety net.
+      persistTranscript(sessionIdRef.current)
       stopRecordingRef.current()
     }
     window.addEventListener('beforeunload', handleUnload)
@@ -1401,6 +1433,9 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     sentTermsRef.current = new Set()
     sentenceCountRef.current = 0
     transcriptRef.current = ''
+    // Per-session, not global: eligibility depends on this session's subject.
+    transcriptEligibleRef.current = null
+    lastPersistedTranscriptRef.current = ''
     chunkIndexRef.current = 0
     detectionBufferRef.current = ''
     recentContextRef.current = ''
@@ -1665,6 +1700,51 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     capture('recording_started', { subject: sessionSubjectRef.current || profileRef.current?.course, mode: recordingMode })
   }
 
+  // Whichever engine produced more text. Same rule the end-of-session write
+  // has always used, extracted so the autosave cannot drift from it.
+  const currentTranscriptText = () => {
+    const whisperTx = transcriptRef.current.trim()
+    const speechTx = webSpeechFinalRef.current.trim()
+    return speechTx.length > whisperTx.length ? speechTx : whisperTx
+  }
+
+  // Writes the transcript so far, applying the mic-mode retention gate once
+  // per session and caching the answer. Safe to call repeatedly: it is a
+  // plain UPDATE and skips when nothing has changed since the last write.
+  const persistTranscript = async (sessionId: string | null) => {
+    if (!sessionId) return
+    const tx = currentTranscriptText()
+    if (!tx || tx === lastPersistedTranscriptRef.current) return
+    try {
+      const sb = createClient()
+      if (transcriptEligibleRef.current === null) {
+        if (captureModeRef.current !== 'microphone') {
+          transcriptEligibleRef.current = true
+        } else {
+          const supportNeed = profileRef.current?.support_need
+          if (supportNeed && supportNeed !== 'none') {
+            transcriptEligibleRef.current = true
+          } else {
+            const subject = sessionSubjectRef.current || profileRef.current?.course || ''
+            const { data: consent } = await sb
+              .from('lecturer_consents')
+              .select('id')
+              .ilike('module_name', subject.trim().replace(/[%_]/g, c => '\\' + c))
+              .maybeSingle()
+            transcriptEligibleRef.current = !!consent
+          }
+        }
+      }
+      if (!transcriptEligibleRef.current) return
+      const { error } = await sb.from('sessions').update({ transcript: tx }).eq('id', sessionId)
+      if (!error) lastPersistedTranscriptRef.current = tx
+    } catch (e) {
+      // Never surfaced to the user: this is a background safety net running
+      // mid-lecture, and the end-of-session write is still to come.
+      console.error('transcript autosave failed:', e)
+    }
+  }
+
   const stopRecording = async () => {
     // Read BEFORE clearing it: the recovery below must only run for a
     // recording that was genuinely live, not for the unmount-time and
@@ -1866,6 +1946,13 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       const capturedMode = captureModeRef.current
       const capturedTranslation = translatedSentences.filter(Boolean).join(' ')
       const capturedTranslateLang = profileRef.current?.translate_to || null
+      // Immediately, not in six seconds. The deferred block below still runs
+      // and still has the last word (it picks up trailing segments that land
+      // after stop, plus the translation and synopsis), but it is no longer
+      // the first opportunity to persist anything: by this point the bulk of
+      // the lecture is already saved, so a user who closes the laptop the
+      // second they stop keeps their transcript instead of losing all of it.
+      await persistTranscript(capturedSid)
       setTimeout(async () => {
         try {
           const sb = createClient()
