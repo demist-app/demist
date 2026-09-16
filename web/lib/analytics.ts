@@ -25,9 +25,11 @@ export function reset(): void {
 }
 
 // Session recording is opted OUT by default in instrumentation-client.ts
-// (disable_session_recording: true) and turned on only for the exact public
-// pages listed in SessionReplayGate (app/providers.tsx) - never inside (app)/,
-// which renders real lecture transcripts and term definitions as DOM text.
+// (disable_session_recording: true) and turned on only for the exact paths
+// allowlisted in SessionReplayGate (app/providers.tsx), and never at all in
+// the desktop app. In-app routes are recordable only because every text node
+// is masked at the recorder (session_recording.maskTextSelector: '*'), so a
+// replay carries interactions, not lecture content.
 export function startSessionRecording(): void {
   if (typeof window === 'undefined') return
   get().then(ph => ph.startSessionRecording())

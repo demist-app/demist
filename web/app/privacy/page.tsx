@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 }
 
 export default function Privacy() {
-  const updated = '29 July 2026'
+  const updated = '16 September 2026'
 
   return (
     <main className="min-h-dvh dark:bg-[#080810] bg-[#EDEAE3] dark:text-white text-gray-900 px-6 py-16">
@@ -49,6 +49,7 @@ export default function Privacy() {
               <li><span className="dark:text-white text-gray-900 font-medium">Session data</span>: timestamps and duration of recording sessions. Used to calculate your streak and weekly stats.</li>
               <li><span className="dark:text-white text-gray-900 font-medium">Flashcard history</span>: your grading responses (Again / Hard / Good / Easy) used to schedule spaced repetition reviews.</li>
               <li><span className="dark:text-white text-gray-900 font-medium">Usage analytics</span>: product events (e.g. &quot;recording started&quot;, &quot;flashcard graded&quot;) collected via PostHog to help us improve Demist. Once you sign in these events are linked to your account&apos;s user ID, so they are pseudonymous rather than anonymous: we can tell one person&apos;s activity apart from another&apos;s, but the events themselves carry no email, name, transcript text or term content. PostHog also automatically records unhandled errors, which may include technical details of what the app was doing when something went wrong.</li>
+              <li><span className="dark:text-white text-gray-900 font-medium">Session replay</span>: on the <span className="dark:text-white text-gray-900 font-medium">web app only</span>, PostHog records how you move through a page: clicks, scrolling, navigation between pages, and where things go wrong (for example a button pressed repeatedly because nothing happened). <span className="dark:text-white text-gray-900 font-medium">All on-screen text is masked before anything leaves your browser</span>, so transcripts, term definitions, and anything you type are never captured as readable text. A replay shows the shape of a page and what was clicked, not what it said. This is used to find places people get stuck, such as steps in the flashcard review flow. It is never enabled in the desktop app, on any screen.</li>
               <li><span className="dark:text-white text-gray-900 font-medium">Pro waitlist</span>: if you join the waitlist we store your email, which part of the product prompted you, and whether you have confirmed the address. Joining sends you a confirmation link, and we only treat you as being on the list once you click it. We store a one-way hash of that link&apos;s token, never the token itself. This is used only to contact you about Pro, once, when it is ready. You can join without an account.</li>
             </ul>
           </section>

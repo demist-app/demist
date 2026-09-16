@@ -4,24 +4,45 @@ import { useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import { ThemeProvider, useTheme } from 'next-themes'
 import { startSessionRecording, stopSessionRecording } from '@/lib/analytics'
+import { isElectronNative } from '@/lib/electronNative'
 
 const THEME_COLOR = { light: '#EDEAE3', dark: '#080810' }
 
 // Session recording is off by default (disable_session_recording: true in
-// instrumentation-client.ts) and enabled ONLY on this exact set of public,
-// logged-out, static-content pages - deliberately an allowlist, not a
-// blocklist of (app)/ routes. A blocklist fails open: a new authenticated
-// page that forgets to add itself gets recorded by default. An allowlist
-// fails closed: anything not explicitly listed here, including every current
-// and future (app)/ route (dashboard, history, flashcards, glossary, import,
-// leaderboard, profile, quiz, stats, study - all of them render real lecture
-// transcript or term-definition text as DOM content) and /onboarding and
-// /u/[userId] (post-auth or another user's data), simply never records.
-const RECORDABLE_PATHS = new Set(['/', '/login', '/about', '/privacy', '/terms', '/support'])
+// instrumentation-client.ts) and enabled ONLY on the exact paths listed
+// here - deliberately an allowlist, not a blocklist. A blocklist fails
+// open: a new page that forgets to add itself gets recorded by default. An
+// allowlist fails closed: anything not named here never records, including
+// /onboarding, /profile, /import, /stats, /leaderboard and /u/[userId].
+const RECORDABLE_PATHS = new Set([
+  // Public, logged-out, static content. No user data on screen at all.
+  '/', '/login', '/about', '/privacy', '/terms', '/support',
+  // In-app routes. These DO render real lecture transcript and term text,
+  // and are recordable only because every text node is masked at the
+  // recorder itself (session_recording.maskTextSelector: '*' in
+  // instrumentation-client.ts) - the replay carries interactions, not
+  // content. Scoped to the study loop specifically, because that is the
+  // open question: 42 of 635 terms have ever been reviewed, and only 4 of
+  // 53 recording users have ever reviewed a single card. Routes that
+  // answer no current question are left out rather than swept in.
+  '/dashboard', '/flashcards', '/study', '/glossary', '/history', '/quiz',
+])
 
+// The desktop app is excluded outright, on every route.
+//
+// Not because masking is weaker there - it is identical - but because the
+// promise is. The Store listing and privacy policy tell desktop users their
+// lecture audio and its transcript never leave their computer, with no
+// qualifier, and that claim is worth more than this data. Web is where the
+// trial funnel and the drop-off question actually live anyway.
+//
+// isElectronNative() reads window.demistNative, injected by the preload
+// script before page scripts run (see desktop/preload.js), so it is already
+// set by the time this effect fires.
 function SessionReplayGate() {
   const pathname = usePathname()
   useEffect(() => {
+    if (isElectronNative()) { stopSessionRecording(); return }
     if (RECORDABLE_PATHS.has(pathname)) startSessionRecording()
     else stopSessionRecording()
   }, [pathname])
