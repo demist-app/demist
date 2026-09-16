@@ -14,6 +14,7 @@
 const path = require('path')
 const os = require('os')
 const { makeProgressLogger } = require('./progressLog')
+const { explainModelDownloadFailure } = require('./networkBlock')
 
 let cacheDirSet = false
 async function importTransformers() {
@@ -73,10 +74,15 @@ async function getTranslator(lang, emitProgress) {
     // sentence in the background, well off the critical path, so a few
     // hundred milliseconds there is not something a user can perceive - and
     // it is a far better trade than the multi-second stalls paging causes.
+    // Also fetched from Hugging Face on first use, so this fails on the same
+    // filtered networks llm.js does - see native/networkBlock.js.
     const loadPromise = importTransformers().then(({ pipeline }) => pipeline('translation', modelId, {
       dtype: 'q8',
       progress_callback: makeProgressLogger(`translation model (${lang})`, emitProgress),
-    }))
+    })).catch(err => {
+      console.error(`[demist] translation model download failed (${modelId}):`, err?.message ?? err)
+      throw explainModelDownloadFailure(err, 'Translation')
+    })
     // A failed load must not stay cached: confirmed in practice that a
     // truncated Hugging Face download throws "Error: terminated" partway
     // through, and without this every future translate() call for this

@@ -31,6 +31,7 @@ const os = require('os')
 const fs = require('fs')
 const { makeProgressLogger } = require('./progressLog')
 const { isEverydayWord } = require('./common-words')
+const { explainModelDownloadFailure } = require('./networkBlock')
 
 const MODEL_DIR = path.join(os.homedir(), '.demist', 'llm-models')
 const MODEL_URI = {
@@ -317,13 +318,22 @@ async function doLoad(tier, emitProgress, calledBy) {
     const label = `term-detection model (${tier})`
     const logger = makeProgressLogger(label, emitProgress)
     logger({ status: 'initiate', file: MODEL_URI[tier] })
-    const modelPath = await resolveModelFile(MODEL_URI[tier], {
-      directory: MODEL_DIR,
-      onProgress: ({ totalSize, downloadedSize }) => {
-        const progress = totalSize ? (downloadedSize / totalSize) * 100 : 0
-        logger({ status: 'progress', file: MODEL_URI[tier], progress })
-      },
-    })
+    // Unlike whisper.js's models, these are NOT bundled - they are fetched
+    // from Hugging Face on first use, so this is the call that dies on a
+    // filtered school network and leaves the record button locked forever.
+    let modelPath
+    try {
+      modelPath = await resolveModelFile(MODEL_URI[tier], {
+        directory: MODEL_DIR,
+        onProgress: ({ totalSize, downloadedSize }) => {
+          const progress = totalSize ? (downloadedSize / totalSize) * 100 : 0
+          logger({ status: 'progress', file: MODEL_URI[tier], progress })
+        },
+      })
+    } catch (err) {
+      console.error(`[demist] term-detection model download failed (${MODEL_URI[tier]}):`, err?.message ?? err)
+      throw explainModelDownloadFailure(err, 'Term detection')
+    }
     console.log('[demist] term-detection model downloaded, loading into memory...')
 
     // Try GPU first: direct testing measured ~4x faster inference on a
