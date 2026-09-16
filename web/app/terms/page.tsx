@@ -32,10 +32,10 @@ export default function Terms() {
           <section>
             <h2 className="text-[17px] font-semibold mb-3">Who can use Demist</h2>
             <p className="text-gray-400">
-              You must be 18 or over to use Demist. We ask for your date of birth when you set up your account and check it against this requirement.
+              You must be 16 or over to use Demist. We ask for your date of birth when you set up your account and check it against this requirement.
             </p>
             <p className="text-gray-400 mt-4">
-              This is because recording a lecture also records other people, including your lecturer, and the section below makes obtaining any consent that requires your own responsibility. That is not something we are willing to ask of a child. If you are under 18, please do not create an account, and if you already have one, contact us at hello@demist.app and we will remove it.
+              This is because recording a lecture also records other people, including your lecturer, and the section below makes obtaining any consent that requires your own responsibility. That is a reasonable thing to ask of a student in sixth form or above, and not something we are willing to ask of a younger child. If you are under 16, please do not create an account. If you already have one, contact us at hello@demist.app and we will remove it and send you a copy of anything stored against it.
             </p>
           </section>
 

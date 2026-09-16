@@ -19,25 +19,36 @@ import { createClient } from '@/lib/supabase'
 import { capture } from '@/lib/analytics'
 import { MINIMUM_AGE, meetsMinimumAge } from '@/lib/age'
 
+type Mode = 'none' | 'ask' | 'blocked'
+
 export function AgeCheck() {
-  const [needed, setNeeded] = useState(false)
+  const [mode, setMode] = useState<Mode>('none')
   const [dob, setDob] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (sessionStorage.getItem('demist_age_check_dismissed') === '1') return
     const sb = createClient()
     sb.auth.getSession().then(async ({ data }) => {
       const user = data.session?.user
       if (!user) return
       const { data: profile } = await sb
         .from('profiles').select('date_of_birth').eq('id', user.id).maybeSingle()
-      // Only asks when we genuinely have nothing. An account that already
-      // has a date is not re-interrogated, whatever that date says - see the
-      // note in the commit about what to do with those.
-      if (profile && !profile.date_of_birth) {
-        setNeeded(true)
+      if (!profile) return
+      const meets = meetsMinimumAge(profile.date_of_birth)
+      if (meets === false) {
+        // Known to be under the minimum. Not dismissible: once the Terms
+        // state a minimum age, continuing to serve an account we know is
+        // below it is a decision rather than an oversight. Nothing is
+        // deleted here - the account and its data stay put until they ask.
+        setMode('blocked')
+        capture('age_check_blocked')
+        return
+      }
+      // Dismiss only applies to the "we don't know" case.
+      if (sessionStorage.getItem('demist_age_check_dismissed') === '1') return
+      if (meets === null) {
+        setMode('ask')
         capture('age_check_shown')
       }
     })
@@ -60,7 +71,7 @@ export function AgeCheck() {
         .from('profiles').update({ date_of_birth: dob }).eq('id', session.user.id)
       if (saveError) throw saveError
       capture('age_check_completed')
-      setNeeded(false)
+      setMode('none')
     } catch (e) {
       console.error('age check save failed:', e)
       setError('Could not save that. Check your connection and try again.')
@@ -71,10 +82,37 @@ export function AgeCheck() {
   const dismiss = () => {
     sessionStorage.setItem('demist_age_check_dismissed', '1')
     capture('age_check_dismissed')
-    setNeeded(false)
+    setMode('none')
   }
 
-  if (!needed) return null
+  if (mode === 'none') return null
+
+  if (mode === 'blocked') {
+    return (
+      <div
+        className="fixed inset-0 z-[70] flex items-center justify-center px-4 dark:bg-[#080810] bg-[#EDEAE3]"
+        role="dialog"
+        aria-modal="true"
+      >
+        <div className="w-full max-w-sm text-center space-y-4">
+          <p className="text-[11px] font-bold tracking-[0.22em] uppercase" style={{ color: 'var(--accent)' }}>Demist</p>
+          <p className="text-[20px] font-bold dark:text-white text-gray-900 leading-snug">
+            Demist is for ages {MINIMUM_AGE} and over
+          </p>
+          <p className="text-[14px] dark:text-white/60 text-gray-600 leading-relaxed">
+            Recording a lecture also records your lecturer, and our Terms make getting their
+            permission your responsibility. That is not something we are willing to ask of someone
+            under {MINIMUM_AGE}, so we have paused access to this account.
+          </p>
+          <p className="text-[13px] dark:text-white/50 text-gray-500 leading-relaxed">
+            Nothing has been deleted. Email <span className="dark:text-white/80 text-gray-800">hello@demist.app</span> and
+            we will send you a copy of everything saved to this account, remove it, or both.
+            If this is wrong and your date of birth was entered incorrectly, tell us and we will fix it.
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div
