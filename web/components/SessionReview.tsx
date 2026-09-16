@@ -7,17 +7,22 @@ import posthog from 'posthog-js'
 
 interface ReviewTerm { term: string; definition: string; dbId?: string }
 
-// Feature-flagged per the P0 flashcard-drop-off investigation: this modal
-// already existed and already fired correctly (session_review_completed is
-// NOT the same event as flashcard_session_completed - that one lives in
-// flashcards/page.tsx and was confirmed correctly wired too). The real gap
-// was that this modal's whole job is curation ("which terms become
-// flashcards"), and it never bridged into an actual review - the user picks
-// terms, the sheet closes, and reviewing them is left to a later, easy-to-
-// forget visit. flashcard_session_completed being ~0% was a genuine product
-// gap, not a broken event. Key so this can be compared on real traffic
-// before deciding whether to keep it on for everyone.
-const REVIEW_NOW_FLAG = 'post-session-review-nudge'
+// The review bridge, on for everyone. It previously sat behind
+// posthog.isFeatureEnabled('post-session-review-nudge') at 50% rollout,
+// which is why shipping it moved nothing: isFeatureEnabled() returns
+// undefined when flags haven't resolved, and undefined is falsy, so the gate
+// failed CLOSED. PostHog here initialises only after window 'load' and then
+// lazy-imports posthog-js (see instrumentation-client.ts), so a user
+// finishing their end-of-session review before flags land got no bridge at
+// all - on top of the half who were bucketed out by the rollout anyway.
+//
+// A core retention mechanic must not depend on an analytics SDK having
+// loaded. The A/B test also had nothing left to protect: five days at 50%
+// produced no measurable signal, while the database showed only 4 of 53
+// recording users had ever reviewed a single card. Impact is still fully
+// measurable without the flag - nudge_shown/accepted/dismissed still fire,
+// and flashcard_session_completed still carries source:'session_review_nudge'
+// - just as before/after rather than A/B.
 
 // End-of-session sheet: the user chooses which detected terms become
 // flashcards. Unticked terms are marked known (kept in glossary, excluded
@@ -63,7 +68,7 @@ export function SessionReview({ terms, sessionId, onClose }: {
         kept: kept.size,
         dropped: dropped.length,
       })
-      if (kept.size > 0 && sessionId && posthog.isFeatureEnabled(REVIEW_NOW_FLAG)) {
+      if (kept.size > 0 && sessionId) {
         posthog.capture('post_session_review_nudge_shown', { kept: kept.size })
         showReviewOffer = true
         setOfferReview(true)

@@ -70,9 +70,28 @@ export function MicCheck({ subject, onStart, onCancel }: Props) {
       const sb = createClient()
       sb.auth.getSession().then(({ data: { session } }) => {
         if (!session?.user) return
+        // Plain insert, NOT upsert. This used to upsert with
+        // onConflict:'user_id,subject', which PostgREST issues as
+        // INSERT ... ON CONFLICT DO UPDATE - and that needs UPDATE on the
+        // table, which migration 016 deliberately never granted (it grants
+        // SELECT/INSERT/DELETE only). So every single acknowledgment since
+        // this shipped failed with 42501 permission denied, silently: the
+        // handler below logs to a console nobody reads in production, and
+        // the table sat at zero rows under real mic-mode usage.
+        //
+        // Insert is also the semantically right operation. These rows are an
+        // append-only record of "the reminder was on screen when they
+        // proceeded" - an upsert would overwrite acknowledged_at on a repeat,
+        // destroying the timestamp of the FIRST acknowledgment, which is the
+        // one that actually matters. 23505 (unique_violation) means they've
+        // already acknowledged this subject, which is a success, not an error.
         sb.from('mic_acknowledgments')
-          .upsert({ user_id: session.user.id, subject: subject || '' }, { onConflict: 'user_id,subject' })
-          .then(({ error }) => { if (error) console.error('mic_acknowledgments upsert failed:', error.message) })
+          .insert({ user_id: session.user.id, subject: subject || '' })
+          .then(({ error }) => {
+            if (error && error.code !== '23505') {
+              console.error('mic_acknowledgments insert failed:', error.code, error.message)
+            }
+          })
       })
     }
     onStart()
