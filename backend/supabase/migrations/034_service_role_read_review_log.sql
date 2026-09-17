@@ -1,0 +1,31 @@
+-- Migration 034: make the last two unreadable tables observable.
+--
+-- Probed every table in the schema as service_role. Two refuse reads:
+--
+--   review_log       42501 permission denied
+--   rate_limit_hits  42501 permission denied
+--
+-- Both for different reasons, both with the same effect: data the product
+-- writes that nobody can look at afterwards.
+--
+-- review_log: migration 029 granted SELECT/INSERT/UPDATE/DELETE to
+-- `authenticated` and stopped there. So the app writes a row for every
+-- flashcard grading and no analytics query can ever read one. This actively
+-- produced a wrong answer: a query against it came back empty, was read as
+-- "nobody has reviewed a card in two weeks", and became a headline finding.
+-- The table may well have had rows the whole time. An analytics gap that
+-- returns empty rather than erroring is worse than one that fails loudly,
+-- because it looks like a result.
+--
+-- rate_limit_hits: my own doing, in migration 032. Access deliberately goes
+-- through check_rate_limit() (SECURITY DEFINER) so no client can write to
+-- someone else's bucket, and I gave the table no direct grants at all. That
+-- is still right for `authenticated` and `anon` - but it also locked out
+-- service_role, which is a server-side admin role that bypasses RLS anyway
+-- and is the only way anyone would inspect abuse or usage patterns.
+--
+-- SELECT only, for both. Neither needs writing from service_role: the app
+-- writes review_log as the user, rate_limit_hits is written by the RPC, and
+-- delete_user_data runs as its owner rather than as this role.
+GRANT SELECT ON review_log TO service_role;
+GRANT SELECT ON rate_limit_hits TO service_role;
