@@ -104,10 +104,17 @@ serve(async (req) => {
 
     if (!response.ok) {
       const err = await response.text()
-      console.error('Whisper error:', err)
-      return new Response(JSON.stringify({ text: '' }), {
-        headers: { ...CORS, 'Content-Type': 'application/json' },
-      })
+      console.error('Whisper error:', response.status, err)
+      // Same reasoning as detect-terms: 200 {text: ''} is the shape of a silent
+      // chunk, so a dead transcription provider looked exactly like a student
+      // who wasn't talking. Groq is primary here and stayed healthy through the
+      // 2026 OpenAI outage, which is the only reason transcription survived it -
+      // the swallow was always there, it just never got exercised.
+      const rateLimited = response.status === 429
+      return new Response(
+        JSON.stringify({ text: '', error: rateLimited ? 'ai_rate_limited' : 'ai_unavailable' }),
+        { status: rateLimited ? 429 : 503, headers: { ...CORS, 'Content-Type': 'application/json' } }
+      )
     }
 
     const data = await response.json()
@@ -167,7 +174,7 @@ serve(async (req) => {
     })
   } catch (e) {
     console.error('transcribe error:', e)
-    return new Response(JSON.stringify({ text: '' }), {
+    return new Response(JSON.stringify({ text: '', error: 'ai_error' }), {
       status: 500,
       headers: { ...CORS, 'Content-Type': 'application/json' },
     })

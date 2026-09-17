@@ -3,13 +3,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { createClient } from '@/lib/supabase'
-import { explainSelection } from '@/lib/explainSelection'
+import { explainSelection, ExplainUnavailableError } from '@/lib/explainSelection'
 import { useReadAloud } from '@/lib/readAloud'
 
 interface Popup {
   term: string
   definition: string | null
   context?: string | null
+  unavailable?: boolean
   loading: boolean
   saving: boolean
   saved: boolean
@@ -113,8 +114,12 @@ export function TranscriptViewer({
     try {
       const def = await explainSelection(text, subject ?? null, year ?? null)
       setPopup(prev => prev ? { ...prev, definition: def, loading: false } : null)
-    } catch {
-      setPopup(null)
+    } catch (e) {
+      // Dismissing the popup on failure made this the most silent surface of
+      // all: tapping a word did nothing at all, indistinguishable from a
+      // missed tap. Keep it open and say what happened.
+      const unavailable = e instanceof ExplainUnavailableError
+      setPopup(prev => prev ? { ...prev, definition: null, unavailable, loading: false } : null)
     }
   }
 
@@ -314,7 +319,11 @@ export function TranscriptViewer({
               )}
             </>
           ) : (
-            <p className="text-[12px] text-gray-600">Couldn't fetch an explanation. Try again.</p>
+            <p className="text-[12px] text-gray-600">
+              {popup.unavailable
+                ? "Can't reach the definition service right now. This isn't your connection - try again later."
+                : "Couldn't fetch an explanation. Try again."}
+            </p>
           )}
         </div>,
         document.body

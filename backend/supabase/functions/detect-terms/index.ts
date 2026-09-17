@@ -182,10 +182,20 @@ Return JSON: {"terms": [{"term": "...", "definition": "...", "context": "..."}]}
     })
 
     if (!response.ok) {
-      console.error('OpenAI error:', await response.text())
-      return new Response(JSON.stringify({ terms: [] }), {
-        headers: { ...CORS, 'Content-Type': 'application/json' },
-      })
+      const body = await response.text()
+      console.error('OpenAI error:', response.status, body)
+      // NOT 200 {terms: []}. That shape says "this excerpt had no jargon worth
+      // flagging", which is a legitimate and common answer - so for 25 days
+      // (2026-08-27 to 2026-09-17) an exhausted OpenAI balance was reported to
+      // every web user as a quiet lecture. 44 recordings by 23 people produced
+      // zero terms and not one person could tell anything was broken, because
+      // nothing WAS reported as broken. An upstream failure and an empty result
+      // are different answers and must not share a status code.
+      const rateLimited = response.status === 429
+      return new Response(
+        JSON.stringify({ terms: [], error: rateLimited ? 'ai_rate_limited' : 'ai_unavailable' }),
+        { status: rateLimited ? 429 : 503, headers: { ...CORS, 'Content-Type': 'application/json' } }
+      )
     }
 
     const data = await response.json()
@@ -209,7 +219,7 @@ Return JSON: {"terms": [{"term": "...", "definition": "...", "context": "..."}]}
     )
   } catch (e) {
     console.error('detect-terms error:', e)
-    return new Response(JSON.stringify({ terms: [] }), {
+    return new Response(JSON.stringify({ terms: [], error: 'ai_error' }), {
       status: 500,
       headers: { ...CORS, 'Content-Type': 'application/json' },
     })

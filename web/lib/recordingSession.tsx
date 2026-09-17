@@ -866,6 +866,15 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
         } else if (dtRes.status === 401) {
           setRecordingError('Session expired. Sign in again to continue recording.')
           stopRecordingRef.current()
+        } else {
+          // Anything else means the definition service is down, not that the
+          // lecture is jargon-free. Without this branch the failure is
+          // invisible: no cards appear and the recording looks like it is
+          // working, which is exactly how a 25-day outage went unreported.
+          // A warning, not an error - the transcript is still being captured
+          // and saved, so stopping the recording would destroy more than it
+          // protects.
+          setRecordingWarning("Can't reach the definition service, so no term cards will appear. Your recording and transcript are still being saved.")
         }
         return
       }

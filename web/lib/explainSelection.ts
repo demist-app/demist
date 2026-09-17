@@ -34,6 +34,18 @@ function nativeExplain() {
 // waiting.
 export const EXPLAIN_TIMEOUT_MS = 30_000
 
+// Distinguishes "the service is down" from "no definition came back", which
+// used to be the same null. Both rendered "Couldn't fetch an explanation. Try
+// again." - accurate for a one-off blip, actively misleading during the
+// 2026-08-27 to 2026-09-17 outage, when trying again could not have worked for
+// 25 days. The popups now say which one it is.
+export class ExplainUnavailableError extends Error {
+  constructor() {
+    super('The definition service is unreachable')
+    this.name = 'ExplainUnavailableError'
+  }
+}
+
 export async function explainSelection(
   text: string,
   subject: string | null,
@@ -53,7 +65,7 @@ export async function explainSelection(
   }
 
   const supabase = createClient()
-  const { data } = await supabase.functions.invoke('detect-terms', {
+  const { data, error } = await supabase.functions.invoke('detect-terms', {
     body: {
       transcript: text,
       subject: subject ?? 'general',
@@ -62,5 +74,11 @@ export async function explainSelection(
       explain_mode: true,
     },
   })
-  return (data as { terms?: { definition?: string }[] } | null)?.terms?.[0]?.definition ?? null
+  // invoke() reports any non-2xx as `error`, and detect-terms now answers an
+  // upstream model failure with 503 + {error: 'ai_unavailable'} rather than
+  // 200 {terms: []}. Check the body too: a 200 carrying an error code should
+  // never be read as an empty result.
+  const payload = data as { terms?: { definition?: string }[]; error?: string } | null
+  if (error || payload?.error) throw new ExplainUnavailableError()
+  return payload?.terms?.[0]?.definition ?? null
 }

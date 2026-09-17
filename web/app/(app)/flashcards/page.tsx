@@ -5,14 +5,14 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
-import { explainSelection } from '@/lib/explainSelection'
+import { explainSelection, ExplainUnavailableError } from '@/lib/explainSelection'
 import { capture } from '@/lib/analytics'
 import { TermContext } from '@/components/TermContext'
 
 const NEW_CARDS_PER_DAY = 15
 
 type DeckFilter = null | { kind: 'subject'; value: string } | { kind: 'session'; value: string; label: string }
-interface DefPopup { text: string; explanation: string | null; loading: boolean; x: number; y: number; flipDown: boolean }
+interface DefPopup { text: string; explanation: string | null; unavailable?: boolean; loading: boolean; x: number; y: number; flipDown: boolean }
 type FilterChip = { label: string; f: DeckFilter }
 
 interface FlashCard {
@@ -345,8 +345,11 @@ export default function Flashcards() {
       const def = await explainSelection(text, null, null)
       setDefPopup(prev => prev ? { ...prev, explanation: def, loading: false } : null)
       if (def) capture('flashcard_word_defined', { term: text })
-    } catch {
-      setDefPopup(null)
+    } catch (e) {
+      // Keep the popup open rather than dismissing it: a vanishing popup reads
+      // as a missed tap, not as a failure.
+      const unavailable = e instanceof ExplainUnavailableError
+      setDefPopup(prev => prev ? { ...prev, explanation: null, unavailable, loading: false } : null)
     }
   }
 
@@ -1029,7 +1032,9 @@ export default function Flashcards() {
             ? <p className="text-[12px] text-gray-300">Explaining…</p>
             : defPopup.explanation
               ? <p className="text-[12px] text-gray-300 leading-relaxed">{defPopup.explanation}</p>
-              : <p className="text-[12px] text-gray-600">Couldn't fetch an explanation. Try again.</p>
+              : <p className="text-[12px] text-gray-600">{defPopup.unavailable
+                  ? "Can't reach the definition service right now. This isn't your connection - try again later."
+                  : "Couldn't fetch an explanation. Try again."}</p>
           }
         </div>
       )}

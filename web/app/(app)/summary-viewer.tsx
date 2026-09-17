@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase'
-import { explainSelection, EXPLAIN_TIMEOUT_MS } from '@/lib/explainSelection'
+import { explainSelection, ExplainUnavailableError, EXPLAIN_TIMEOUT_MS } from '@/lib/explainSelection'
 
 const POPUP_WIDTH = 280
 const POPUP_HALF  = POPUP_WIDTH / 2
@@ -10,6 +10,7 @@ const POPUP_HALF  = POPUP_WIDTH / 2
 interface Popup {
   text: string
   explanation: string | null
+  unavailable?: boolean
   loading: boolean
   saving: boolean
   saved: boolean
@@ -66,8 +67,9 @@ export function SummaryViewer({
     try {
       const explanation = await explainSelection(text, subject ?? null, year ?? null)
       setPopup(prev => prev ? { ...prev, explanation, loading: false } : null)
-    } catch {
-      setPopup(prev => prev ? { ...prev, loading: false, explanation: null } : null)
+    } catch (e) {
+      const unavailable = e instanceof ExplainUnavailableError
+      setPopup(prev => prev ? { ...prev, loading: false, explanation: null, unavailable } : null)
     } finally {
       if (abortRef.current) { clearTimeout(abortRef.current); abortRef.current = null }
     }
@@ -161,7 +163,11 @@ export function SummaryViewer({
               </button>
             </>
           ) : (
-            <p className="text-[12px] text-gray-300">Couldn't fetch an explanation. Try again.</p>
+            <p className="text-[12px] text-gray-300">
+              {popup.unavailable
+                ? "Can't reach the definition service right now. This isn't your connection - try again later."
+                : "Couldn't fetch an explanation. Try again."}
+            </p>
           )}
         </div>
       )}
