@@ -14,7 +14,19 @@ export const LIMITS: Record<Plan, {
   summariesPerWeek: number | null
   ankiExport: boolean
 }> = {
-  free: { historyDays: 30, summariesPerWeek: 10, ankiExport: false },
+  // 7 days, not 30. Measured against real usage: at 30 days only 9 of 55
+  // active users had anything locked behind Pro, and the median account is
+  // 11 days old, so almost nobody ever reached the wall. At 7 it reaches 36
+  // of 55. History is also the only lever that works on this user base -
+  // every volume-based cap (recordings per month, summaries per week) keys
+  // on usage nobody has yet: a 10/month recording cap would currently affect
+  // two accounts, both internal.
+  //
+  // It is the safe lever to be aggressive with, too: shortening history
+  // blocks nobody from recording, so activation is untouched. Only looking
+  // backwards costs money, which is exactly the "keep your whole semester"
+  // pitch landing at the moment a student wants last week's lecture back.
+  free: { historyDays: 7, summariesPerWeek: 10, ankiExport: false },
   pro:  { historyDays: null, summariesPerWeek: null, ankiExport: true },
 }
 

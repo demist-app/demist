@@ -875,12 +875,24 @@ export default function History() {
               </div>
             </div>
           ))}
+          {/* The wall people actually meet. This was a 12px grey link at the
+              bottom of the list, which reads as a footnote rather than a
+              locked door - and it now has to do real work, since shortening
+              the window to 7 days puts 36 of 55 active users behind it. Says
+              how much is locked, because "14 more sessions" is a concrete
+              loss and "older than 7 days" is an abstraction. */}
           {limits.historyDays != null && totalCount > sessions.length && (
             <button
               onClick={() => setPaywall('history_depth')}
-              className="w-full text-center text-[12px] text-gray-600 hover:dark:text-white/70 hover:text-gray-800 transition-colors py-2"
+              className="w-full mt-2 rounded-2xl px-5 py-4 text-left border dark:border-amber-500/25 border-amber-600/25 dark:bg-amber-500/[0.06] bg-amber-500/[0.08] hover:brightness-105 active:scale-[0.99] transition-all"
             >
-              Sessions older than {limits.historyDays} days are part of Pro
+              <p className="text-[14px] font-semibold dark:text-amber-300 text-amber-800">
+                {totalCount - sessions.length} older {totalCount - sessions.length === 1 ? 'lecture is' : 'lectures are'} waiting in Pro
+              </p>
+              <p className="text-[12.5px] mt-1 leading-relaxed dark:text-white/55 text-gray-600">
+                Free keeps the last {limits.historyDays} days. Pro keeps everything, so your whole
+                term is still here at revision time.
+              </p>
             </button>
           )}
         </div>

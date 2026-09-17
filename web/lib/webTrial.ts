@@ -13,12 +13,16 @@ import { detectDesktopPlatform, type DesktopPlatform } from '@/lib/platform'
 export const WEB_TRIAL_ENABLED = true
 
 // Lifetime, not monthly: the point is "try it, then install the real app",
-// not "come back next month for five more". Real usage data (2026-09) shows
-// ~4 sessions/user lifetime average already, so 5 is generous enough to
-// reach the glossary/flashcard payoff (which needs more than one session)
-// before the wall appears. Lives in code, not the database, so tuning this
-// is a deploy, same reasoning as subscription.ts's LIMITS.
-export const WEB_TRIAL_RECORDING_LIMIT = 5
+// not "come back next month for more". Lives in code, not the database, so
+// tuning this is a deploy, same reasoning as subscription.ts's LIMITS.
+//
+// Lowered from 5 to 3 (2026-09-17) to push desktop conversion sooner. Not
+// lower than 3, deliberately: unlike the history limit, this one blocks
+// recording outright, and only 16 of 44 users who record ever produce a
+// single term. Cutting to 1-2 would wall people off before the product has
+// demonstrably worked for them, which loses the marginal user rather than
+// converting them.
+export const WEB_TRIAL_RECORDING_LIMIT = 3
 
 export interface TrialGateResult {
   allowed: boolean

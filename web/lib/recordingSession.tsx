@@ -715,7 +715,15 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
         supabase.from('sessions').select('started_at').eq('user_id', user.id).order('started_at', { ascending: false }),
         supabase.from('terms').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('known', false).gt('sm2_review_count', 0).lte('sm2_due_at', now.toISOString()),
         supabase.from('terms').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('known', false).eq('sm2_review_count', 0),
-        supabase.from('sessions').select('id, name, subject, started_at, ended_at, synopsis, transcript, capture_mode').eq('user_id', user.id).order('started_at', { ascending: false }).limit(5),
+        // Bounded by the plan's history window, not just "the newest 5".
+        // Without this the dashboard was a hole straight through the history
+        // paywall: it took the 5 most recent sessions regardless of age, and
+        // 48 of 55 active users have fewer than 5 sessions in total, so for
+        // almost everyone the entire archive stayed visible here no matter
+        // what History was allowed to show.
+        (limits.historyDays == null
+          ? supabase.from('sessions').select('id, name, subject, started_at, ended_at, synopsis, transcript, capture_mode').eq('user_id', user.id).order('started_at', { ascending: false }).limit(5)
+          : supabase.from('sessions').select('id, name, subject, started_at, ended_at, synopsis, transcript, capture_mode').eq('user_id', user.id).gte('started_at', new Date(Date.now() - limits.historyDays * 86400000).toISOString()).order('started_at', { ascending: false }).limit(5)),
         supabase.from('sessions').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
       ])
       totalSessionCountRef.current = totalCount ?? 0
