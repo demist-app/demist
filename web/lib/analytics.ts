@@ -14,6 +14,34 @@ export function capture(event: string, props?: Props): void {
   get().then(ph => ph.capture(event, props))
 }
 
+// Supabase mutations RESOLVE with an { error } object rather than throwing, so
+// `await supabase.from(x).insert(y)` inside a try/catch looks handled and is
+// not: the catch never runs and the next line reports success. An audit on
+// 2026-09-19 found 20 writes in this shape. Two were measurable in production:
+// 29 of 61 sessions had no transcript, and 12 had no ended_at.
+//
+// Returns true when there WAS an error, so a call site reads:
+//   const { error } = await sb.from('sessions').update(...)
+//   if (reportWriteFailure('session.transcript', error)) setWarning(...)
+//
+// Everything lands on one `write_failed` event keyed by `op`, so a new class of
+// failure shows up in one PostHog breakdown instead of needing its own event.
+export function reportWriteFailure(
+  op: string,
+  error: { code?: string | null; message?: string | null } | null | undefined,
+  extra?: Props,
+): boolean {
+  if (!error) return false
+  console.error(`[demist] write failed (${op}):`, error.message)
+  capture('write_failed', {
+    op,
+    code: error.code ?? null,
+    message: error.message?.slice(0, 200) ?? null,
+    ...extra,
+  })
+  return true
+}
+
 export function identify(userId: string): void {
   if (typeof window === 'undefined') return
   get().then(ph => ph.identify(userId))

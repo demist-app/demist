@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
-import { capture, reset } from '@/lib/analytics'
+import { capture, reset, reportWriteFailure } from '@/lib/analytics'
 import { ConsentManager } from '@/components/ConsentUnlock'
 import { useEntitlements } from '@/lib/entitlements'
 import { PaywallModal } from '@/components/PaywallModal'
@@ -75,6 +75,7 @@ export default function Profile() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [isPublic, setIsPublic] = useState(false)
+  const [publicToggleError, setPublicToggleError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [totalTerms, setTotalTerms] = useState(0)
   const [recordingMins, setRecordingMins] = useState(0)
@@ -402,7 +403,17 @@ export default function Profile() {
     if (!userId) return
     const next = !isPublic
     setIsPublic(next)
-    await createClient().from('profiles').update({ is_public: next }).eq('id', userId)
+    const { error } = await createClient().from('profiles').update({ is_public: next }).eq('id', userId)
+    // Not merely a lost setting. The toggle was optimistic and unchecked, so a
+    // failed write left the switch reading "private" while the profile stayed
+    // public - the app actively asserting a privacy state that isn't real.
+    // Roll the UI back to the truth and say so.
+    if (reportWriteFailure('profile.is_public', error, { attempted: next })) {
+      setIsPublic(!next)
+      setPublicToggleError("Couldn't change your profile visibility. It is still " + (next ? 'private' : 'public') + '.')
+      return
+    }
+    setPublicToggleError(null)
   }
 
   const exportToAnki = async () => {
@@ -980,6 +991,10 @@ export default function Profile() {
                 <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 ${isPublic ? 'translate-x-5' : 'translate-x-0'}`} />
               </button>
             </div>
+
+            {publicToggleError && (
+              <p className="text-[12px] text-red-400 mb-2">{publicToggleError}</p>
+            )}
 
             {isPublic && (
               <div className="flex items-center gap-2 dark:bg-white/[0.04] bg-[#FAF9F6] rounded-xl px-3 py-2">

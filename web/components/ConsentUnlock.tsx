@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { createClient } from '@/lib/supabase'
-import { capture } from '@/lib/analytics'
+import { capture, reportWriteFailure } from '@/lib/analytics'
 
 interface Consent {
   id: string
@@ -55,6 +55,7 @@ export function ConsentModal({
 }) {
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const module = subject || 'my module'
   const template = emailTemplate(module)
@@ -76,12 +77,20 @@ export function ConsentModal({
       // the case-insensitive-but-still-exact match against a session's
       // subject later (see recordingSession.tsx/summarize-session's ilike
       // lookups, which trim their side too).
-      await supabase.from('lecturer_consents').upsert({
+      const { error } = await supabase.from('lecturer_consents').upsert({
         user_id: session.user.id,
         module_name: module.trim(),
         notes: notes.trim() || null,
         granted_at: new Date().toISOString(),
       }, { onConflict: 'user_id,module_name' })
+      // This is a consent record, so a write that fails while the UI reports
+      // success is worse than a lost setting: the modal closed, the analytics
+      // said consent_granted, and no record existed. Never claim consent was
+      // captured unless the row is actually there.
+      if (reportWriteFailure('consent.grant', error)) {
+        setSaveError("Couldn't record your consent. Please try again.")
+        return
+      }
       capture('consent_granted', { subject: module })
       onGranted?.()
       onClose()
@@ -139,6 +148,9 @@ export function ConsentModal({
           />
         </div>
 
+        {saveError && (
+          <p className="text-[12px] text-red-400 pt-1">{saveError}</p>
+        )}
         <div className="flex gap-2 pt-1">
           <button
             onClick={onClose}

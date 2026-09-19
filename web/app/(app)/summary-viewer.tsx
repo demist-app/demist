@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { explainSelection, ExplainUnavailableError, EXPLAIN_TIMEOUT_MS } from '@/lib/explainSelection'
+import { reportWriteFailure } from '@/lib/analytics'
 
 const POPUP_WIDTH = 280
 const POPUP_HALF  = POPUP_WIDTH / 2
@@ -11,6 +12,7 @@ interface Popup {
   text: string
   explanation: string | null
   unavailable?: boolean
+  saveFailed?: boolean
   loading: boolean
   saving: boolean
   saved: boolean
@@ -84,13 +86,19 @@ export function SummaryViewer({
       const user = session?.user
       if (!user) return
       const term = popup.text.length > 80 ? popup.text.slice(0, 77) + '...' : popup.text
-      await supabase.from('terms').insert({
+      // Resolves with { error }, never throws - so the catch below could not
+      // see a failure and the tick appeared for a card that was never written.
+      const { error } = await supabase.from('terms').insert({
         user_id: user.id,
         session_id: sessionId,
         term,
         definition: popup.explanation,
         subject: subject ?? null,
       })
+      if (reportWriteFailure('term.save_from_summary', error)) {
+        setPopup(prev => prev ? { ...prev, saving: false, saveFailed: true } : null)
+        return
+      }
       setPopup(prev => prev ? { ...prev, saving: false, saved: true } : null)
       setTimeout(() => setPopup(null), 1600)
     } catch {
@@ -159,7 +167,7 @@ export function SummaryViewer({
                 disabled={popup.saving || popup.saved}
                 className="w-full text-[12px] font-medium py-1.5 rounded-lg bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 hover:text-amber-300 transition-all disabled:opacity-50"
               >
-                {popup.saved ? 'Saved ✓' : popup.saving ? 'Saving…' : '+ Save as flashcard'}
+                {popup.saveFailed ? "Couldn't save, tap to retry" : popup.saved ? 'Saved ✓' : popup.saving ? 'Saving…' : '+ Save as flashcard'}
               </button>
             </>
           ) : (

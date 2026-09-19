@@ -16,7 +16,7 @@
 
 import { createContext, useContext, useEffect, useRef, useState, ReactNode } from 'react'
 import { createClient } from '@/lib/supabase'
-import { capture, identify } from '@/lib/analytics'
+import { capture, identify, reportWriteFailure } from '@/lib/analytics'
 import { requestWakeLock, releaseWakeLock, reacquireWakeLockOnVisibility, wakeLockSupported } from '@/lib/wakeLock'
 import { startTabCapture } from '@/lib/tabCapture'
 import { checkRecordingLimit } from '@/lib/subscription'
@@ -1276,7 +1276,9 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
   // on without one. Three attempts: the failure this exists for is a momentary
   // one (a laptop that has just woken, a campus network mid-handover), and
   // those clear in seconds.
-  const createSessionRow = async (mode: CaptureMode): Promise<string | null> => {
+  const createSessionRow = async (mode: CaptureMode, phase: 'start' | 'recovery' = 'start'): Promise<string | null> => {
+    let lastCode: string | null = null
+    let lastMessage: string | null = null
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
         const { data, error } = await createClient()
@@ -1289,12 +1291,33 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
           })
           .select('id').single()
         if (!error && data?.id) return data.id as string
-        console.warn(`[demist] session insert attempt ${attempt} failed:`, error?.message ?? 'no row returned')
+        lastCode = error?.code ?? 'no_row'
+        lastMessage = error?.message ?? 'no row returned'
+        console.warn(`[demist] session insert attempt ${attempt} failed:`, lastMessage)
       } catch (e) {
+        lastCode = 'threw'
+        lastMessage = e instanceof Error ? e.message : String(e)
         console.warn(`[demist] session insert attempt ${attempt} threw:`, e)
       }
       if (attempt < 3) await new Promise(r => setTimeout(r, attempt * 800))
     }
+    // The user already gets told (setSessionSyncWarning at both call sites).
+    // This is the half that was missing: for 14 days in Sep 2026, 75 recordings
+    // started and only 61 `sessions` rows existed, and the 19% gap was visible
+    // NOWHERE except each user's own browser console. Three people lost every
+    // recording they ever made and the first anyone knew of it was a manual
+    // PostHog-to-Postgres diff. A console.warn is not monitoring.
+    //
+    // `phase` matters more than it looks: a 'start' failure is usually
+    // transient and recoverable on stop, while a 'recovery' failure means the
+    // lecture is genuinely gone. They need to be countable separately, because
+    // only the second one is data loss.
+    capture(phase === 'recovery' ? 'session_lost' : 'session_create_failed', {
+      mode,
+      code: lastCode,
+      message: lastMessage?.slice(0, 200) ?? null,
+      native: isElectronNative(),
+    })
     return null
   }
 
@@ -1828,7 +1851,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     // back. Everything downstream - the ended_at update, the transcript, the
     // terms, the summary - then behaves exactly as it does normally.
     if (!sessionIdRef.current && wasRecording) {
-      const recovered = await createSessionRow(captureModeRef.current)
+      const recovered = await createSessionRow(captureModeRef.current, 'recovery')
       if (recovered) {
         sessionIdRef.current = recovered
         console.warn('[demist] session row created on stop; saving the recording now')
@@ -1886,7 +1909,10 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     const sid = sessionIdRef.current
     if (sid) {
       const supabase = createClient()
-      await supabase.from('sessions').update({ ended_at: new Date().toISOString() }).eq('id', sid)
+      // 12 of 61 sessions had a null ended_at, which makes a lecture look like
+      // it is still running and breaks every duration calculation downstream.
+      const { error: endErr } = await supabase.from('sessions').update({ ended_at: new Date().toISOString() }).eq('id', sid)
+      reportWriteFailure('session.ended_at', endErr)
     }
     setRecordingWarning(null)
     setCapturedTabTitle(null)
@@ -2002,12 +2028,21 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
           const speechTx = webSpeechFinalRef.current.trim()
           const tx = speechTx.length > whisperTx.length ? speechTx : whisperTx
           if (tx) {
-            await sb.from('sessions').update({
+            const { error: txErr } = await sb.from('sessions').update({
               transcript: tx,
               transcript_translation: capturedTranslation || null,
               translation_lang: capturedTranslation ? capturedTranslateLang : null,
             }).eq('id', capturedSid)
-            setRecentSessions(prev => prev.map(s => s.id === capturedSid ? { ...s, transcript: tx } : s))
+            // This write had no error check at all, and the optimistic
+            // setRecentSessions below ran regardless - so a failed transcript
+            // save rendered as a saved one. 29 of 61 sessions in the first
+            // half of September had no transcript; this is the most likely
+            // place they went.
+            if (reportWriteFailure('session.transcript', txErr, { chars: tx.length })) {
+              setSessionSyncWarning('Your transcript could not be saved. It is still on screen, so copy anything you need before leaving this page.')
+            } else {
+              setRecentSessions(prev => prev.map(s => s.id === capturedSid ? { ...s, transcript: tx } : s))
+            }
           }
           // Eligibility (above) already passed by this point either way.
           // On-device when available, so the synopsis never leaves the

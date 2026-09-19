@@ -21,6 +21,7 @@
 // This deliberately mirrors the edge functions' behaviour and response shape so
 // the Import page can use either without branching on anything but the platform.
 
+import { reportWriteFailure } from '@/lib/analytics'
 import { createClient } from '@/lib/supabase'
 import { getDemistNative } from '@/lib/electronNative'
 import { collidesWith } from '@/lib/termSimilarity'
@@ -271,7 +272,10 @@ async function finishImport(opts: {
   }
 
   if (all.length) {
-    await supabase.from('terms').insert(all.map(t => ({
+    // The whole point of an import is these rows. Unchecked, a failed insert
+    // still ran to "done" with a progress bar at 100% and an empty glossary:
+    // 19 imports were started in 60 days and only 11 reported complete.
+    const { error } = await supabase.from('terms').insert(all.map(t => ({
       user_id: opts.userId,
       session_id: sessionId,
       term: t.term,
@@ -279,6 +283,9 @@ async function finishImport(opts: {
       context: t.context ?? null,
       subject: opts.subject ?? null,
     })))
+    if (reportWriteFailure('import.terms_bulk', error, { count: all.length })) {
+      throw new Error(`Found ${all.length} terms but could not save them. Nothing was imported.`)
+    }
   }
 
   opts.onProgress?.(96, 'summarising')

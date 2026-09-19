@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { createClient } from '@/lib/supabase'
 import { explainSelection, ExplainUnavailableError } from '@/lib/explainSelection'
+import { reportWriteFailure } from '@/lib/analytics'
 import { useReadAloud } from '@/lib/readAloud'
 
 interface Popup {
@@ -11,6 +12,7 @@ interface Popup {
   definition: string | null
   context?: string | null
   unavailable?: boolean
+  saveFailed?: boolean
   loading: boolean
   saving: boolean
   saved: boolean
@@ -140,13 +142,20 @@ export function TranscriptViewer({
       const user = session?.user
       if (!user) return
       const term = popup.term.length > 80 ? popup.term.slice(0, 77) + '...' : popup.term
-      await supabase.from('terms').insert({
+      // A Supabase mutation resolves with { error }; it does not throw. So the
+      // catch below never fired on a real failure and "Saved to flashcards ✓"
+      // appeared for a card that was never written.
+      const { error } = await supabase.from('terms').insert({
         user_id: user.id,
         session_id: sessionId,
         term,
         definition: popup.definition,
         subject: subject ?? null,
       })
+      if (reportWriteFailure('term.save_from_transcript', error)) {
+        setPopup(prev => prev ? { ...prev, saving: false, saveFailed: true } : null)
+        return
+      }
       setPopup(prev => prev ? { ...prev, saving: false, saved: true } : null)
       setTimeout(() => setPopup(null), 1600)
     } catch {
@@ -314,7 +323,7 @@ export function TranscriptViewer({
                   disabled={popup.saving || popup.saved}
                   className="w-full text-[12px] font-medium py-1.5 rounded-lg bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 hover:text-amber-300 transition-all disabled:opacity-50"
                 >
-                  {popup.saved ? 'Saved to flashcards ✓' : popup.saving ? 'Saving...' : '+ Save as flashcard'}
+                  {popup.saveFailed ? "Couldn't save, tap to retry" : popup.saved ? 'Saved to flashcards ✓' : popup.saving ? 'Saving...' : '+ Save as flashcard'}
                 </button>
               )}
             </>
