@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
-import { capture, identify } from '@/lib/analytics'
+import { capture, identify, reportWriteFailure } from '@/lib/analytics'
 import { MINIMUM_AGE, meetsMinimumAge } from '@/lib/age'
 
 const YEARS = [
@@ -37,14 +37,31 @@ const SUPPORT_NEEDS: { value: SupportNeed; label: string }[] = [
   { value: 'other', label: 'Prefer not to say' },
 ]
 
+// Deliberately not a free-text box: 111 users will produce 111 spellings of
+// "tiktok" and nothing countable. The list is drawn from what referrer data
+// already shows (search, ChatGPT, Instagram) plus the two channels it
+// structurally CANNOT see - word of mouth, and Microsoft Store installs,
+// which arrive with no referrer at all.
+const HEARD_FROM: { value: string; label: string }[] = [
+  { value: 'search', label: 'Google or another search engine' },
+  { value: 'ai_assistant', label: 'ChatGPT or another AI assistant' },
+  { value: 'microsoft_store', label: 'The Microsoft Store' },
+  { value: 'friend', label: 'A friend or classmate' },
+  { value: 'instagram', label: 'Instagram' },
+  { value: 'tiktok', label: 'TikTok' },
+  { value: 'youtube_reddit', label: 'YouTube or Reddit' },
+  { value: 'other', label: 'Somewhere else' },
+]
+
 export default function Onboarding() {
   const router = useRouter()
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(1)
+  const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1)
   const [course, setCourse] = useState('')
   const [year, setYear] = useState<number | null>(null)
   const [supportNeed, setSupportNeed] = useState<SupportNeed | null>(null)
   const [dob, setDob] = useState('')
   const [saving, setSaving] = useState(false)
+  const [heardFrom, setHeardFrom] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -83,12 +100,39 @@ export default function Onboarding() {
       if (error) throw error
       identify(user.id)
       capture('onboarding_completed', { course: course.trim() || null, year_of_study: year, support_need: supportNeed, has_dob: !!dob })
-      router.replace('/dashboard')
+      // The profile is saved. Everything from here is optional and cannot
+      // cost a signup: if they close the tab on step 5, the account exists
+      // and onboarding_completed has already fired.
+      setSaving(false)
+      setStep(5)
     } catch (e) {
       console.error('onboarding save failed:', e)
       setSaveError('Could not save your profile. Check your connection and try again.')
       setSaving(false)
     }
+  }
+
+  // Never blocks the dashboard. A failed write here loses one analytics
+  // answer; making the user sit on a spinner for it would be a worse trade,
+  // so it reports the failure and moves on either way.
+  const finishHeardFrom = async (value: string | null) => {
+    if (saving) return
+    setHeardFrom(value)
+    setSaving(true)
+    capture('heard_about_us', { source: value ?? 'skipped' })
+    if (value) {
+      try {
+        const supabase = createClient()
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session?.user) {
+          const { error } = await supabase.from('profiles').update({ heard_from: value }).eq('id', session.user.id)
+          reportWriteFailure('profile.heard_from', error, { source: value })
+        }
+      } catch (e) {
+        console.error('heard_from save failed:', e)
+      }
+    }
+    router.replace('/dashboard')
   }
 
   return (
@@ -267,6 +311,43 @@ export default function Onboarding() {
           </div>
         )}
 
+        {/* Step 5 - optional, after the profile is already written */}
+        {step === 5 && (
+          <div key="step5" className="animate-step">
+            <h1 className="text-[32px] sm:text-[38px] font-bold tracking-tight leading-tight mb-2">
+              One last thing.<br />How did you find us?
+            </h1>
+            <p className="dark:text-gray-500 text-gray-600 mb-8">
+              Optional, and it genuinely helps us know where to put our effort.
+            </p>
+
+            <div className="space-y-2.5">
+              {HEARD_FROM.map(({ value, label }) => (
+                <button
+                  key={value}
+                  onClick={() => finishHeardFrom(value)}
+                  disabled={saving}
+                  className={`w-full py-4 px-5 rounded-2xl text-[15px] font-medium text-left transition-all disabled:opacity-40 ${
+                    heardFrom === value
+                      ? 'bg-amber-600 border border-amber-400/40 text-white shadow-[0_0_24px_rgba(245,158,11,0.35)]'
+                      : 'dark:bg-white/[0.05] bg-[#FAF9F6] border dark:border-white/[0.08] border-black/[0.12] dark:text-gray-300 text-gray-700 dark:hover:bg-white/[0.09] hover:bg-white hover:border-black/[0.2] dark:hover:border-white/[0.15]'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={() => finishHeardFrom(null)}
+              disabled={saving}
+              className="w-full mt-4 py-4 rounded-2xl text-[15px] font-medium dark:text-gray-500 text-gray-600 dark:hover:text-gray-300 hover:text-gray-900 transition-all disabled:opacity-40"
+            >
+              Skip
+            </button>
+          </div>
+        )}
+
         {saveError && (
           <p className="mt-4 text-sm text-red-400 text-center" role="alert">{saveError}</p>
         )}
@@ -277,6 +358,7 @@ export default function Onboarding() {
           <div className={`h-1 rounded-full transition-all duration-400 ${step === 2 ? 'w-8 bg-amber-500' : 'w-2 dark:bg-white/20 bg-black/15'}`} />
           <div className={`h-1 rounded-full transition-all duration-400 ${step === 3 ? 'w-8 bg-amber-500' : 'w-2 dark:bg-white/20 bg-black/15'}`} />
           <div className={`h-1 rounded-full transition-all duration-400 ${step === 4 ? 'w-8 bg-amber-500' : 'w-2 dark:bg-white/20 bg-black/15'}`} />
+          <div className={`h-1 rounded-full transition-all duration-400 ${step === 5 ? 'w-8 bg-amber-500' : 'w-2 dark:bg-white/20 bg-black/15'}`} />
         </div>
       </div>
     </main>
