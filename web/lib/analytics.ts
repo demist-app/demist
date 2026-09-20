@@ -32,11 +32,21 @@ export function reportWriteFailure(
   extra?: Props,
 ): boolean {
   if (!error) return false
+  // Always logged locally in full - the console is on the user's own machine.
   console.error(`[demist] write failed (${op}):`, error.message)
+  // A Postgres error message routinely embeds the offending value, e.g.
+  // 'duplicate key value violates unique constraint ... Key (term)=(chemiosmosis)
+  // already exists'. That is lecture content, and the desktop app promises it
+  // never leaves the machine, so the message is sent only from the browser -
+  // where the same data already round-trips to Supabase anyway. `code` is a
+  // fixed SQLSTATE and carries nothing of the user's, so it always goes and
+  // is enough to classify a failure.
+  const native = typeof window !== 'undefined' && !!(window as { demistNative?: unknown }).demistNative
   capture('write_failed', {
     op,
     code: error.code ?? null,
-    message: error.message?.slice(0, 200) ?? null,
+    native,
+    ...(native ? {} : { message: error.message?.slice(0, 200) ?? null }),
     ...extra,
   })
   return true

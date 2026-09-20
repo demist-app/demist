@@ -825,6 +825,22 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
 
   // ── Shared: detect terms, save to DB, update UI ──────────────────────────────
 
+  // The term itself is lecture content. On the cloud path it has already been
+  // sent to detect-terms, so reporting it back adds no exposure and makes the
+  // filter debuggable. In the desktop app it has never left the machine, and
+  // the app tells the user exactly that, so only the SHAPE goes - enough to
+  // tune the gate, nothing anyone said.
+  const captureRejectedTerm = (term: string, reason: string) => {
+    const native = isElectronNative()
+    capture('term_rejected_low_quality', {
+      reason,
+      native,
+      chars: term.length,
+      words: term.trim().split(/\s+/).length,
+      ...(native ? {} : { term: term.slice(0, 60) }),
+    })
+  }
+
   const runDetection = async (transcript: string, sessionId: string | null, token: string, context = '') => {
     const supabase = createClient()
     const base = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -945,7 +961,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       // and neither model obeys, so the judgement cannot live in the prompt.
       if (!isLikelyJargon(t.term)) {
         dlog(`[demist] dropped "${t.term}": not subject jargon`)
-        capture('term_rejected_low_quality', { term: t.term.slice(0, 60), reason: 'not_jargon', native: isElectronNative() })
+        captureRejectedTerm(t.term, 'not_jargon')
         return false
       }
       // Separate failure from the one above: the term looked fine but the
@@ -956,7 +972,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       // detectable without paying for another model call.
       if (!isConfidentDefinition(t.term, t.definition)) {
         dlog(`[demist] dropped "${t.term}": model was not confident in the definition`)
-        capture('term_rejected_low_quality', { term: t.term.slice(0, 60), reason: 'unconfident_definition', native: isElectronNative() })
+        captureRejectedTerm(t.term, 'unconfident_definition')
         return false
       }
       if (knownTermsRef.current.has(key)) return false
@@ -1016,7 +1032,14 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     }))
     setLiveTerms(prev => [...prev, ...incoming].slice(-3))
     incoming.forEach(({ id, term }) => {
-      capture('term_card_shown', { term })
+      // Count, not content. A detected term is a word from the user's lecture,
+      // and the desktop app tells them their lecture stays on the machine -
+      // shipping it to a third-party analytics provider is exactly the leak
+      // the 2026-07 privacy audit went looking for. No analytical loss: every
+      // term is already in the `terms` table, which IS disclosed as syncing to
+      // the user's own account, so any question about which terms were shown
+      // is answered better in Postgres than in PostHog.
+      capture('term_card_shown', { chars: term.length })
       scheduleCardDismiss(id, term)
     })
 
@@ -1083,7 +1106,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
   const scheduleCardDismiss = (id: string, term: string) => {
     const timer = setTimeout(() => {
       cardTimersRef.current.delete(id)
-      capture('term_card_auto_dismissed', { term })
+      capture('term_card_auto_dismissed', { chars: term.length })
       setLiveTerms(prev => prev.map(t => t.id === id ? { ...t, dismissing: true } : t))
       setTimeout(() => setLiveTerms(prev => prev.filter(t => t.id !== id)), 380)
     }, 10_000)
@@ -1097,7 +1120,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     clearTimeout(timer)
     cardTimersRef.current.delete(id)
     setLiveTerms(prev => prev.map(t => {
-      if (t.id === id && !t.pinned) capture('term_card_expanded', { term: t.term })
+      if (t.id === id && !t.pinned) capture('term_card_expanded', { chars: t.term.length })
       return t.id === id ? { ...t, pinned: true } : t
     }))
   }

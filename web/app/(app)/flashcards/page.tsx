@@ -344,7 +344,7 @@ export default function Flashcards() {
     try {
       const def = await explainSelection(text, null, null)
       setDefPopup(prev => prev ? { ...prev, explanation: def, loading: false } : null)
-      if (def) capture('flashcard_word_defined', { term: text })
+      if (def) capture('flashcard_word_defined', { chars: text.length })
     } catch (e) {
       // Keep the popup open rather than dismissing it: a vanishing popup reads
       // as a missed tap, not as a failure.

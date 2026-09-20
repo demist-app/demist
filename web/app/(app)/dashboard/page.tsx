@@ -258,7 +258,7 @@ export default function Dashboard() {
 
   const reportDefinition = async (term: string, definition: string) => {
     await createClient().from('definition_reports').insert({ term, definition })
-    capture('definition_reported', { term })
+    capture('definition_reported', { chars: term.length })
   }
 
   if (loading) return (
