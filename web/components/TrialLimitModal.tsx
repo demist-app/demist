@@ -46,6 +46,10 @@ export function TrialLimitModal({
     capture('web_trial_blocked', { platform: gate.platform })
   }, [gate.platform])
 
+  // A phone cannot run either build, so offering it a download is a dead end.
+  // The pitch still works, it just has to point at the other device they
+  // already own rather than the one in their hand.
+  const isMobile = gate.platform === 'mobile'
   const isMac = gate.platform === 'mac'
   const href = isMac ? MAC_SUPPORT_URL : MS_STORE_URL
   const external = !isMac
@@ -65,19 +69,47 @@ export function TrialLimitModal({
         </div>
 
         <p className="text-[13px] dark:text-white/60 text-gray-600 leading-relaxed">
-          {gate.reason} Your glossary, flashcards and history are still here. The {isMac ? 'Mac' : 'Windows'} app runs entirely on your own machine, so recording, transcription and term detection are unlimited, free, and your audio never leaves your computer.
+          {gate.reason} Your glossary, flashcards and history are still here.{' '}
+          {isMobile
+            ? 'On a laptop, Demist runs entirely on your own machine: recording, transcription and term detection are unlimited and free, and your audio never leaves the computer. A phone browser also stops recording whenever you switch apps, so a laptop is the better place for a full lecture anyway.'
+            : `The ${isMac ? 'Mac' : 'Windows'} app runs entirely on your own machine, so recording, transcription and term detection are unlimited, free, and your audio never leaves your computer.`}
         </p>
 
-        <a
-          href={href}
-          target={external ? '_blank' : undefined}
-          rel={external ? 'noopener noreferrer' : undefined}
-          onClick={() => capture(isMac ? 'mac_install_guide_clicked' : 'ms_store_clicked', { placement: 'trial_limit_modal' })}
-          className="flex items-center justify-center gap-2.5 py-3 rounded-2xl bg-yellow-600 hover:brightness-110 text-white text-[14px] font-semibold active:scale-[0.97] transition-all"
-        >
-          {isMac ? <AppleIcon /> : <WindowsIcon />}
-          {isMac ? 'Get the Mac beta' : 'Get it on the Microsoft Store'}
-        </a>
+        {isMobile ? (
+          <div className="space-y-2">
+            <p className="text-[12px] dark:text-white/40 text-gray-500">Open this on your laptop:</p>
+            <div className="flex gap-2">
+              <a
+                href={MS_STORE_URL}
+                target="_blank" rel="noopener noreferrer"
+                onClick={() => capture('ms_store_clicked', { placement: 'trial_limit_modal_mobile' })}
+                className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl bg-yellow-600 hover:brightness-110 text-white text-[13px] font-semibold active:scale-[0.97] transition-all"
+              >
+                <WindowsIcon />
+                Windows
+              </a>
+              <a
+                href={MAC_SUPPORT_URL}
+                onClick={() => capture('mac_install_guide_clicked', { placement: 'trial_limit_modal_mobile' })}
+                className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-[13px] font-semibold active:scale-[0.97] transition-all dark:bg-white/[0.06] bg-[#F6F5F2] border dark:border-white/[0.08] border-black/[0.12] dark:text-white text-gray-900"
+              >
+                <AppleIcon />
+                Mac
+              </a>
+            </div>
+          </div>
+        ) : (
+          <a
+            href={href}
+            target={external ? '_blank' : undefined}
+            rel={external ? 'noopener noreferrer' : undefined}
+            onClick={() => capture(isMac ? 'mac_install_guide_clicked' : 'ms_store_clicked', { placement: 'trial_limit_modal' })}
+            className="flex items-center justify-center gap-2.5 py-3 rounded-2xl bg-yellow-600 hover:brightness-110 text-white text-[14px] font-semibold active:scale-[0.97] transition-all"
+          >
+            {isMac ? <AppleIcon /> : <WindowsIcon />}
+            {isMac ? 'Get the Mac beta' : 'Get it on the Microsoft Store'}
+          </a>
+        )}
 
         <button
           onClick={onClose}

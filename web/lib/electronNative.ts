@@ -109,3 +109,30 @@ export function isElectronNative(): boolean {
 export function getDemistNative(): DemistNative | null {
   return isElectronNative() ? window.demistNative! : null
 }
+
+// Every on-device path in the app is chosen by FEATURE detection, not platform
+// detection - nativeImportSupported() checks for transcribeBuffer,
+// nativeExplain() checks for explain, and so on. That is correct: the desktop
+// shell loads whatever is deployed at demist.app, so the site is always newer
+// than the installed build and must not call a method that isn't there.
+//
+// The side effect is that a stale shell silently falls back to the CLOUD for
+// whatever it lacks, while the app still tells the user their lectures never
+// leave their computer. That is the one fallback that must not be quiet,
+// because it is the difference between the privacy claim being true and being
+// true except on your build. This names what's missing so the app can say so
+// and point at an update.
+const ON_DEVICE_CAPABILITIES: { key: keyof DemistNative; label: string }[] = [
+  { key: 'transcribeBuffer', label: 'importing audio' },
+  { key: 'detectTerms', label: 'detecting terms' },
+  { key: 'explain', label: 'explaining a highlighted word' },
+  { key: 'summarize', label: 'summarising a lecture' },
+]
+
+export function missingOnDeviceCapabilities(): string[] {
+  const native = getDemistNative()
+  if (!native) return []
+  return ON_DEVICE_CAPABILITIES
+    .filter(({ key }) => typeof (native as unknown as Record<string, unknown>)[key] !== 'function')
+    .map(({ label }) => label)
+}

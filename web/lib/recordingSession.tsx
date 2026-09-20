@@ -25,7 +25,7 @@ import { detectDesktopPlatform, isMobileUA } from '@/lib/platform'
 import { useEntitlements } from '@/lib/entitlements'
 import { useNativeTranslate } from '@/lib/useNativeTranslate'
 import { extractCandidates } from '@/lib/extractTerms'
-import { isElectronNative, getDemistNative, dlog, type DemistNative } from '@/lib/electronNative'
+import { isElectronNative, getDemistNative, missingOnDeviceCapabilities, dlog, type DemistNative } from '@/lib/electronNative'
 import { startNativeSession, type NativeSessionHandle } from '@/lib/nativeSession'
 import { isEligibleForSummary } from '@/lib/summaryEligibility'
 import { collidesWith } from '@/lib/termSimilarity'
@@ -140,6 +140,7 @@ interface RecordingSessionValue {
   recordingWarning: string | null
   sessionSyncWarning: string | null
   modelWarning: string | null
+  staleShellWarning: string | null
   wakeLockUnsupported: boolean
   captureMode: CaptureMode
   setCaptureMode: (mode: CaptureMode) => void
@@ -215,6 +216,18 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
   // model host gets a perfect transcript and no term cards, and "why are there
   // no cards" is a question they will ask after they stop, not during.
   const [modelWarning, setModelWarning] = useState<string | null>(null)
+  const [staleShellWarning, setStaleShellWarning] = useState<string | null>(null)
+
+  // A desktop build older than the features the site now uses falls back to
+  // the cloud for whatever it lacks. Say so, because the app claims elsewhere
+  // that nothing leaves the machine, and on this build that is not true.
+  useEffect(() => {
+    const missing = missingOnDeviceCapabilities()
+    if (!missing.length) return
+    const list = missing.length === 1 ? missing[0] : missing.slice(0, -1).join(', ') + ' and ' + missing[missing.length - 1]
+    setStaleShellWarning(`This version of the Demist app is out of date, so ${list} still runs in the cloud instead of on your device. Update the app to keep everything local.`)
+    capture('stale_shell_cloud_fallback', { missing })
+  }, [])
   // Whether the desktop app's bundled translation model is loaded and can
   // actually translate a sentence.
   //
@@ -2216,7 +2229,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
   const value: RecordingSessionValue = {
     loading, isRecording, elapsed, liveTerms, setLiveTerms, sessionGlossary, profile, setProfile, stats,
     recentSessions, setRecentSessions, sessionGenIds, sessionFailIds, sessionFailReasons, sessionTermLoading,
-    recordingError, recordingWarning, sessionSyncWarning, modelWarning, wakeLockUnsupported, captureMode, setCaptureMode, capturedTabTitle,
+    recordingError, recordingWarning, sessionSyncWarning, modelWarning, staleShellWarning, wakeLockUnsupported, captureMode, setCaptureMode, capturedTabTitle,
     sentences, translatedSentences, liveSessionId, reviewTerms, setReviewTerms, reviewSessionId, sessionSubject, setSessionSubject,
     sessionSubjectRef, recentSubjects, addRecentSubject, paywall, setPaywall,
     webTrialBlocked, setWebTrialBlocked, webTrialRemaining, localTranslate, localTranslateUsable, liveTranslateAvailable, translationReady,

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { createClient } from '@/lib/supabase'
 import { explainSelection, ExplainUnavailableError } from '@/lib/explainSelection'
-import { reportWriteFailure } from '@/lib/analytics'
+import { capture, reportWriteFailure } from '@/lib/analytics'
 import { useReadAloud } from '@/lib/readAloud'
 
 interface Popup {
@@ -81,6 +81,8 @@ export function TranscriptViewer({
 }) {
   const [popup, setPopup] = useState<Popup | null>(null)
   const [bilingual, setBilingual] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const [copyError, setCopyError] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const readAloud = useReadAloud(transcript)
 
@@ -133,6 +135,27 @@ export function TranscriptViewer({
     window.speechSynthesis.speak(new SpeechSynthesisUtterance(parts.join('. ')))
   }
 
+  const copyTranscript = async () => {
+    const text = bilingual && translation ? `${transcript}
+
+---
+
+${translation}` : transcript
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopied(true)
+      capture('transcript_copied', { chars: text.length, bilingual: bilingual && !!translation })
+      setTimeout(() => setCopied(false), 1600)
+    } catch (e) {
+      // Clipboard access can be refused outright (insecure context, Safari
+      // without a user gesture, a locked-down school device). Say so rather
+      // than leaving the button looking like it worked.
+      console.error('copy transcript failed:', e)
+      setCopyError(true)
+      setTimeout(() => setCopyError(false), 2400)
+    }
+  }
+
   const saveFlashcard = async () => {
     if (!popup?.definition || !sessionId) return
     setPopup(prev => prev ? { ...prev, saving: true } : null)
@@ -179,8 +202,7 @@ export function TranscriptViewer({
 
   return (
     <div ref={containerRef} className="relative">
-      {(readAloud.supported || translation) && (
-        <div className="flex items-center gap-2 mb-2.5">
+      <div className="flex items-center gap-2 mb-2.5">
           {readAloud.supported && (
             <button
               onClick={() => (readAloud.speaking ? (readAloud.paused ? readAloud.resume() : readAloud.pause()) : readAloud.play())}
@@ -207,8 +229,17 @@ export function TranscriptViewer({
               Bilingual
             </button>
           )}
+          {/* Free for everyone, deliberately. Anki export is the Pro feature;
+              getting your own words out of the app is not, and a note-taking
+              tool you cannot copy out of is worth very little. The closest
+              competitor's only public review is one star for exactly this. */}
+          <button
+            onClick={copyTranscript}
+            className="ml-auto flex items-center gap-1.5 text-[12px] font-medium rounded-full px-3 py-1.5 transition-colors dark:text-gray-400 text-gray-600 dark:hover:text-white hover:text-gray-900 dark:bg-white/[0.05] bg-black/[0.04] dark:hover:bg-white/[0.09] hover:bg-black/[0.07]"
+          >
+            {copyError ? "Couldn't copy" : copied ? 'Copied ✓' : 'Copy transcript'}
+          </button>
         </div>
-      )}
 
       {bilingual && translation ? (
         <div className="space-y-2.5">

@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { isElectronNative } from '@/lib/electronNative'
-import { detectDesktopPlatform, type DesktopPlatform } from '@/lib/platform'
+import { detectDesktopPlatform, isMobileUA, type DesktopPlatform } from '@/lib/platform'
 
 // Gates recording on PLATFORM, not payment - deliberately separate from
 // subscription.ts, which already has a similarly-shaped (currently disabled)
@@ -24,11 +24,16 @@ export const WEB_TRIAL_ENABLED = true
 // converting them.
 export const WEB_TRIAL_RECORDING_LIMIT = 3
 
+// 'mobile' is not a DesktopPlatform (there is no phone build to send anyone
+// to) but it IS a distinct wall: the CTA has to say "on your laptop" rather
+// than offering a download the device cannot run.
+export type TrialPlatform = DesktopPlatform | 'mobile'
+
 export interface TrialGateResult {
   allowed: boolean
   reason?: string
   remaining?: number
-  platform?: DesktopPlatform
+  platform?: TrialPlatform
 }
 
 // Counts existing `sessions` rows directly - no schema change needed. Counts
@@ -40,9 +45,16 @@ export async function checkWebTrialLimit(supabase: SupabaseClient, userId: strin
   if (!WEB_TRIAL_ENABLED) return { allowed: true }
   // The desktop app itself: never limited, regardless of plan.
   if (isElectronNative()) return { allowed: true }
-  const platform = detectDesktopPlatform()
-  // Linux, mobile, or unknown: no desktop app exists to send them to, so
-  // walling them off here would just lose them for nothing.
+  // Mobile is capped (2026-09-20). It was previously exempt on the grounds
+  // that there is nowhere to send a phone user, which is true but was the
+  // wrong conclusion: it made phones the LEAST restricted surface on the one
+  // path that bills per use, for a platform that is explicitly not a target.
+  // A phone user still has a laptop, so the download pitch survives; it just
+  // has to be phrased for a different device.
+  //
+  // Linux and unknown stay exempt. Same "nowhere to send them" reasoning, but
+  // unlike mobile they are not a declined target, just an unserved one.
+  const platform: TrialPlatform | null = isMobileUA() ? 'mobile' : detectDesktopPlatform()
   if (!platform) return { allowed: true }
 
   const { count } = await supabase
@@ -56,7 +68,9 @@ export async function checkWebTrialLimit(supabase: SupabaseClient, userId: strin
       allowed: false,
       platform,
       remaining: 0,
-      reason: `You've used all ${WEB_TRIAL_RECORDING_LIMIT} free recordings in the browser.`,
+      reason: platform === 'mobile'
+        ? `You've used all ${WEB_TRIAL_RECORDING_LIMIT} free recordings in your phone's browser.`
+        : `You've used all ${WEB_TRIAL_RECORDING_LIMIT} free recordings in the browser.`,
     }
   }
   return { allowed: true, platform, remaining: WEB_TRIAL_RECORDING_LIMIT - used }
