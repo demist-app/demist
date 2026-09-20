@@ -1379,6 +1379,39 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
   const createSessionRow = async (mode: CaptureMode, phase: 'start' | 'recovery' = 'start'): Promise<string | null> => {
     let lastCode: string | null = null
     let lastMessage: string | null = null
+
+    // Resolve the user here rather than trusting userIdRef, which is populated
+    // by the dashboard's mount effect - a completely unrelated code path. If
+    // that effect has not finished, or the component mounted in a state where
+    // it never ran, the insert went out with user_id: null, which fails the
+    // RLS WITH CHECK (auth.uid() = user_id) because NULL is not true. The row
+    // never existed, the recording carried on, and the lecture was lost.
+    //
+    // Observed repeatedly in production: a user on 2026-09-20 signed up,
+    // recorded, saw four term cards, and had zero sessions and zero terms
+    // written. An insert that needs the user id should fetch the user id.
+    if (!userIdRef.current) {
+      try {
+        const { data: { session } } = await createClient().auth.getSession()
+        if (session?.user?.id) {
+          userIdRef.current = session.user.id
+          console.warn('[demist] userIdRef was empty at session creation; resolved it from the auth session')
+          capture('session_user_id_recovered', { phase })
+        }
+      } catch (e) {
+        console.error('[demist] could not resolve the user for the session row:', e)
+      }
+    }
+    if (!userIdRef.current) {
+      // Genuinely signed out. Distinct from an insert that was rejected, and
+      // worth its own signal: retrying cannot help and the cause is different.
+      console.error('[demist] no authenticated user, cannot create a session row')
+      capture(phase === 'recovery' ? 'session_lost' : 'session_create_failed', {
+        mode, code: 'no_user', message: null, native: isElectronNative(),
+      })
+      return null
+    }
+
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
         const { data, error } = await createClient()
@@ -2005,7 +2038,11 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
         sessionIdRef.current = recovered
         console.warn('[demist] session row created on stop; saving the recording now')
         if (allSessionTermsRef.current.length) {
-          const { data: saved } = await createClient().from('terms').insert(
+          // Unchecked until now, and it is the write that saves an entire
+          // lecture's terms after the session row was recovered on stop. If
+          // this fails the recording is lost at the last possible moment,
+          // having survived everything else.
+          const { data: saved, error: recoveredTermsErr } = await createClient().from('terms').insert(
             allSessionTermsRef.current.map(t => ({
               user_id: userIdRef.current,
               session_id: recovered,
@@ -2016,6 +2053,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
           ).select('id, term')
           // Give the review sheet the real ids, so ticking a card to keep it
           // updates the row that was just written rather than nothing at all.
+          reportWriteFailure('terms.recovered_on_stop', recoveredTermsErr, { count: allSessionTermsRef.current.length })
           const idByTerm = Object.fromEntries((saved ?? []).map((s: { id: string; term: string }) => [s.term.toLowerCase(), s.id]))
           allSessionTermsRef.current = allSessionTermsRef.current.map(t => ({ ...t, dbId: idByTerm[t.term.toLowerCase()] }))
         }
