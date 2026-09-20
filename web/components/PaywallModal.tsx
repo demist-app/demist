@@ -251,7 +251,7 @@ export function PaywallModal({
                 disabled={checkoutLoading}
                 className="w-full py-3.5 rounded-2xl bg-amber-600 hover:brightness-110 text-white text-[14px] font-semibold active:scale-[0.97] transition-[filter,transform] duration-150 disabled:opacity-50"
               >
-                {checkoutLoading ? 'Loading checkout…' : `Continue${selectedPriceText ? ` — ${selectedPriceText}/${checkoutInterval === 'year' ? 'year' : 'month'}` : ''}`}
+                {checkoutLoading ? 'Loading checkout…' : `Continue${selectedPriceText ? ` · ${selectedPriceText}/${checkoutInterval === 'year' ? 'year' : 'month'}` : ''}`}
               </button>
               {checkoutError && (
                 <p className="text-[12px] text-red-400 text-center">Couldn&apos;t start checkout. Try again in a moment.</p>

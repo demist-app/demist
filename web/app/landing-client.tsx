@@ -292,7 +292,7 @@ export default function LandingClient() {
                 <p className="flex-1 min-w-0 text-[13px] truncate">
                   <span className="font-semibold">Demist Pro is here.</span>
                   <span className="hidden sm:inline" style={{ color: 'var(--fg-muted)' }}>
-                    {' '}Unlimited history, summaries, and Anki export{proPriceText ? ` — ${proPriceText}/mo` : ''}.
+                    {' '}Unlimited history, summaries, and Anki export{proPriceText ? ` · ${proPriceText}/mo` : ''}.
                   </span>
                 </p>
                 <button
@@ -876,7 +876,7 @@ export default function LandingClient() {
           {PRO_LIVE ? (
             <>
               <p className="text-[13px] font-semibold mb-1.5">
-                Demist Pro is here{proPriceText ? ` — ${proPriceText}/mo` : ''}
+                Demist Pro is here{proPriceText ? ` · ${proPriceText}/mo` : ''}
               </p>
               <p className="text-[13px] mb-4 leading-relaxed" style={{ color: 'var(--fg-muted)' }}>
                 Unlimited session history, unlimited AI summaries, and Anki export. Everything else

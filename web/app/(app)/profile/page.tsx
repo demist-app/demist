@@ -532,7 +532,7 @@ export default function Profile() {
         {checkoutNotice && (
           <div className={`rounded-2xl px-4 py-3 border animate-step opacity-0 ${checkoutNotice === 'success' ? 'dark:bg-emerald-500/[0.07] bg-emerald-50 dark:border-emerald-500/20 border-emerald-300/70' : 'dark:bg-white/[0.03] bg-black/[0.03] dark:border-white/[0.08] border-black/[0.10]'}`} style={{ animationFillMode: 'forwards' }}>
             <p className="text-[13px] font-medium">
-              {checkoutNotice === 'success' ? "You're on Pro. Welcome aboard." : 'Checkout cancelled — you weren\'t charged.'}
+              {checkoutNotice === 'success' ? "You're on Pro. Welcome aboard." : 'Checkout cancelled. You weren\'t charged.'}
             </p>
           </div>
         )}
