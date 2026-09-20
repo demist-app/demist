@@ -57,10 +57,21 @@ export async function checkWebTrialLimit(supabase: SupabaseClient, userId: strin
   const platform: TrialPlatform | null = isMobileUA() ? 'mobile' : detectDesktopPlatform()
   if (!platform) return { allowed: true }
 
-  const { count } = await supabase
-    .from('sessions')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', userId)
+  // Both in parallel: the exemption is rare, so making every normal user wait
+  // on a second round trip to discover they are not exempt would be the wrong
+  // trade.
+  const [{ count }, { data: profile }] = await Promise.all([
+    supabase.from('sessions').select('id', { count: 'exact', head: true }).eq('user_id', userId),
+    supabase.from('profiles').select('web_trial_exempt').eq('id', userId).maybeSingle(),
+  ])
+
+  // Internal testing only (migration 036). Every internal account is over the
+  // cap, including the ones on Pro, which meant the web recording path could
+  // not be smoke-tested at all. Deliberately NOT tied to the Pro plan: Pro
+  // does not unlock web recording, and this must not become the thing that
+  // quietly does.
+  if (profile?.web_trial_exempt) return { allowed: true }
+
   const used = count ?? 0
 
   if (used >= WEB_TRIAL_RECORDING_LIMIT) {
