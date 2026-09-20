@@ -437,7 +437,7 @@ export default function LandingClient() {
           className="text-[16px] sm:text-[18px] leading-relaxed mb-10 max-w-[480px]"
           style={{ color: 'var(--fg-muted)', ...anim(240).style }}
         >
-          Record a live lecture or import a slide deck or audio file. Demist transcribes it, reads it back, explains and translates unfamiliar terms, and builds your glossary, summaries, and flashcards automatically, for students who find lectures harder to follow.
+          Record a live lecture and Demist explains the jargon on screen as your lecturer says it, translates it if English isn't your first language, and builds your glossary, summaries and flashcards automatically. The Windows and Mac apps do all of it on your own device, so your lectures never leave your computer, and your transcript is always yours to copy or export.
         </p>
 
         <div className="flex flex-col sm:flex-row items-center gap-3 mb-4" {...anim(320)}>

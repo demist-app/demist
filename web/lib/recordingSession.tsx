@@ -21,7 +21,7 @@ import { requestWakeLock, releaseWakeLock, reacquireWakeLockOnVisibility, wakeLo
 import { startTabCapture } from '@/lib/tabCapture'
 import { checkRecordingLimit } from '@/lib/subscription'
 import { checkWebTrialLimit, WEB_TRIAL_ENABLED, WEB_TRIAL_RECORDING_LIMIT, type TrialGateResult } from '@/lib/webTrial'
-import { detectDesktopPlatform } from '@/lib/platform'
+import { detectDesktopPlatform, isMobileUA } from '@/lib/platform'
 import { useEntitlements } from '@/lib/entitlements'
 import { useNativeTranslate } from '@/lib/useNativeTranslate'
 import { extractCandidates } from '@/lib/extractTerms'
@@ -368,6 +368,8 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
   // The on-device capture worklet branches off THIS node rather than building
   // its own AudioContext - see the comment at its connect site below.
   const micSourceRef = useRef<MediaStreamAudioSourceNode | null>(null)
+  const backgroundedDuringRecordingRef = useRef(false)
+  const visibilityCleanupRef = useRef<(() => void) | null>(null)
   const webLockReleaseRef = useRef<(() => void) | null>(null)
   const nativeSessionRef = useRef<NativeSessionHandle | null>(null)
   // Bumped on every start and every stop. startNativeSession can be pending
@@ -1484,6 +1486,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     zeroTermChunksRef.current = 0
     chunkPeakRef.current = 0
     recordingStartedAtRef.current = Date.now()
+    backgroundedDuringRecordingRef.current = false
     firstDetectionDoneRef.current = false
     firstTranscriptLoggedRef.current = false
     webSpeechFinalRef.current = ''
@@ -1508,6 +1511,32 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       navigator.locks.request('demist-recording', () => new Promise<void>(resolve => {
         webLockReleaseRef.current = resolve
       })).catch(() => {})
+    }
+
+    // The wake lock above stops the screen locking, which is the easy half.
+    // The half it cannot solve is the student switching to another app:
+    // mobile browsers suspend a backgrounded tab's audio pipeline outright,
+    // so the recording quietly stops producing chunks while the UI still says
+    // "recording". A 50-minute lecture comes back as six minutes and nothing
+    // ever said so.
+    //
+    // Not capped and not blocked, deliberately. A phone user has nowhere to
+    // be sent (the desktop app cannot run on their phone), and capping a
+    // surface this unreliable would just spend their free recordings on
+    // sessions that were never going to work. Telling them is the honest
+    // intervention: say it up front, and say it again if it actually happens.
+    if (isMobileUA() && !isElectronNative()) {
+      setRecordingWarning('Recording in a phone browser: keep this tab open and in the foreground, or the recording will stop. For a whole lecture, the Windows or Mac app is far more reliable.')
+      const onVisibility = () => {
+        if (document.visibilityState === 'hidden' && isActiveRef.current) {
+          backgroundedDuringRecordingRef.current = true
+          capture('mobile_recording_backgrounded', { elapsed_s: Math.round((Date.now() - recordingStartedAtRef.current) / 1000) })
+        } else if (document.visibilityState === 'visible' && backgroundedDuringRecordingRef.current && isActiveRef.current) {
+          setRecordingWarning('This tab was in the background, so part of your lecture may be missing. Phone browsers pause recording when you switch apps.')
+        }
+      }
+      document.addEventListener('visibilitychange', onVisibility)
+      visibilityCleanupRef.current = () => document.removeEventListener('visibilitychange', onVisibility)
     }
 
     // Covers both capture modes in Electron, not just the microphone:
@@ -1893,6 +1922,8 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     // Release the Web Lock so Chrome can resume normal background throttling
     webLockReleaseRef.current?.()
     webLockReleaseRef.current = null
+    visibilityCleanupRef.current?.()
+    visibilityCleanupRef.current = null
 
     // Let the screen lock again now that recording has stopped
     await releaseWakeLock()
