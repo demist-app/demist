@@ -1,6 +1,14 @@
 // Client-side candidate spotting so detect-terms receives isolated terms plus one
-// sentence each, never transcript windows. Recall-tuned: false positives are fine,
-// the LLM filters. False negatives are the only real failure.
+// sentence each, never transcript windows.
+//
+// This was written recall-tuned, on the stated assumption that "false positives
+// are fine, the LLM filters". That assumption turned out to be wrong: an audit
+// of all 692 production terms on 2026-09-20 found gpt-4o-mini defining
+// "toothpaste", "surveillance" and "presentation" rather than dropping them,
+// because a list the client has already labelled "possible technical terms"
+// reads to the model as an instruction to define. So the client now applies the
+// same precision gate the results are judged by (termQuality.ts), which both
+// raises precision and cuts the payload and per-call cost.
 
 const COMMON = new Set([
   // ~350 highest-frequency English words. Enough to reject filler; the affix and
@@ -25,6 +33,8 @@ const COMMON = new Set([
 
 const TECHNICAL_AFFIXES = /(?:osis|itis|aemia|emia|ology|olysis|otomy|ectomy|opathy|plasia|trophy|genesis|kinesis|philia|phobia|centesis|scopy|graphy|gram$|ase$|ide$|ate$|yl$|oid$|eous$|ferous$|ism$|tion$|sion$|ance$|ence$|ivity$|isation$|ization$|^hyper|^hypo|^intra|^inter|^peri|^endo|^exo|^anti|^poly|^macro|^micro|^neuro|^cardio|^hepato|^nephro|^gastro|^haema|^hema|^osteo|^myo|^derm|^pseudo|^meta|^iso|^electro|^thermo|^photo|^juris|^tort)/i
 
+import { isLikelyJargon } from '@/lib/termQuality'
+
 export interface Candidate { term: string; sentence: string }
 
 export function extractCandidates(
@@ -41,7 +51,7 @@ export function extractCandidates(
   for (const m of clean.matchAll(phraseRe)) {
     const t = m[1].trim()
     const key = t.toLowerCase()
-    if (t.split(/\s+/).length >= 2 && !knownTerms.has(key) && !alreadySent.has(key)) {
+    if (t.split(/\s+/).length >= 2 && !knownTerms.has(key) && !alreadySent.has(key) && isLikelyJargon(t)) {
       out.push({ term: t, sentence: clean }); alreadySent.add(key)
     }
   }
@@ -51,8 +61,14 @@ export function extractCandidates(
     if (w.length < 5) continue
     const key = w.toLowerCase()
     if (COMMON.has(key) || knownTerms.has(key) || alreadySent.has(key)) continue
+    // Length alone was the single worst signal here: >=9 characters admitted
+    // toothpaste, surveillance, presentation, transformation, preferences and
+    // structured, all of which became real flashcards. It is kept only as one
+    // of three ways to look technical, and every route now has to clear the
+    // shared jargon gate as well.
     const technical = TECHNICAL_AFFIXES.test(w) || w.includes('-') || w.length >= 9
     if (!technical) continue
+    if (!isLikelyJargon(w)) continue
     out.push({ term: w, sentence: clean })
     alreadySent.add(key)
     if (out.length >= 6) break   // per-sentence cap, keeps payloads tiny

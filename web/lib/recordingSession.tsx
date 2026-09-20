@@ -29,6 +29,7 @@ import { isElectronNative, getDemistNative, missingOnDeviceCapabilities, dlog, t
 import { startNativeSession, type NativeSessionHandle } from '@/lib/nativeSession'
 import { isEligibleForSummary } from '@/lib/summaryEligibility'
 import { collidesWith } from '@/lib/termSimilarity'
+import { isLikelyJargon } from '@/lib/termQuality'
 
 export type CaptureMode = 'microphone' | 'tab'
 
@@ -921,6 +922,17 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       if (!t?.term || !t?.definition) return false
       const key = t.term.toLowerCase()
       if (!isLatinTerm(t.term)) return false
+      // Precision gate, covering BOTH detection paths because they converge
+      // here. An audit of all 692 production terms on 2026-09-20 found about
+      // one in seven worth keeping: "toothpaste", "toilet", "puppy", "party"
+      // and "Tutankhamen" were all live flashcards, alongside fragments like
+      // "sy" and "sis". Both prompts already tell the model to drop non-terms
+      // and neither model obeys, so the judgement cannot live in the prompt.
+      if (!isLikelyJargon(t.term)) {
+        dlog(`[demist] dropped "${t.term}": not subject jargon`)
+        capture('term_rejected_low_quality', { term: t.term.slice(0, 60), native: isElectronNative() })
+        return false
+      }
       if (knownTermsRef.current.has(key)) return false
       if ((termFrequencyRef.current.get(key) ?? 0) >= 3) return false
       // Exact-key checks above cannot see "proton motive" and "proton motive

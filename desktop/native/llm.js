@@ -523,7 +523,25 @@ const MIN_FUZZY_LENGTH = 6
 function saidInTranscript(haystack, term) {
   const needle = normalize(term)
   if (!needle) return false
-  if (haystack.includes(needle)) return true
+  // Word-boundary, NOT bare substring. `haystack.includes(needle)` meant any
+  // short fragment the model invented found a host word and passed: production
+  // shipped cards for "sy" (inside "system"), "sis" (inside "analysis"),
+  // "ials" (inside "materials") and "orum" (inside "forum"). The whole point of
+  // this check is to prove the lecturer said the term, and a substring of some
+  // other word is not the term being said.
+  //
+  // Matched on the word array rather than with a regex so the needle needs no
+  // escaping: both sides are already normalized to lowercase words separated
+  // by single spaces.
+  const hayWords = haystack.split(' ').filter(Boolean)
+  const needleWords = needle.split(' ').filter(Boolean)
+  for (let i = 0; i + needleWords.length <= hayWords.length; i++) {
+    let hit = true
+    for (let j = 0; j < needleWords.length; j++) {
+      if (hayWords[i + j] !== needleWords[j]) { hit = false; break }
+    }
+    if (hit) return true
+  }
   // Short terms get no slack at all - see MIN_FUZZY_LENGTH.
   if (needle.replace(/\s/g, '').length < MIN_FUZZY_LENGTH) return false
   const words = haystack.split(' ').filter(Boolean)
