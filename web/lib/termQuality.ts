@@ -170,3 +170,53 @@ export function isLikelyJargon(rawTerm: string): boolean {
 export function rejectedTerms(terms: { term: string }[]): string[] {
   return terms.filter(t => !isLikelyJargon(t.term)).map(t => t.term)
 }
+
+// ── Definition confidence ───────────────────────────────────────────────────
+//
+// The second half of the quality problem. isLikelyJargon judges the TERM;
+// this judges the DEFINITION, and catches a different failure: the model was
+// handed a mis-transcription and wrote a confident-sounding definition for a
+// word nobody said.
+//
+// Whisper mis-hears technical vocabulary constantly, and what it produces is
+// word-shaped and technical-sounding, so every "is this jargon?" test passes
+// it. Real production examples, with what was actually said:
+//
+//   "Patriarchs"                <- Purkinje (fibres)
+//   "S-mode"                    <- SA node
+//   "Spontaneous dechloridation" <- spontaneous depolarization
+//
+// When the model half-recognises the garble it hedges, and the hedge is
+// detectable without another model call. These patterns are deliberately
+// narrow: each one describes the WORD or the model's own uncertainty rather
+// than the concept. Broad markers like "a term used to describe" are NOT
+// here, because they appear in perfectly good definitions too.
+const UNCONFIDENT = [
+  /\b(?:appears|seems) to (?:be|refer|mean|describe)\b/i,
+  /\b(?:likely|possibly|probably|may|might|could) (?:refer|mean|be a term|be an?)\b/i,
+  /\bnot a (?:recognized|recognised|standard|real|known|common|valid) (?:term|word|concept)\b/i,
+  /\b(?:unclear|uncertain|ambiguous|not clear) (?:what|whether|why|how|if)\b/i,
+  /\bmetaphorical (?:expression|phrase|term)\b/i,
+  /\bthere is no (?:standard|widely|commonly|clear|single)\b/i,
+  /\bdoes not (?:appear|seem) to be\b/i,
+  /\b(?:cannot|can't|unable to) (?:be )?(?:define|determine|establish)\b/i,
+  /\bin this context,? (?:it )?(?:may|might|could|appears|seems)\b/i,
+  /\bno (?:clear|specific|established) (?:meaning|definition)\b/i,
+]
+
+// A definition that is mostly the term again, or barely says anything, is not
+// a definition. Measured against real output: genuine definitions in
+// production run 60 to 200 characters ("a hormone produced by the kidneys
+// that stimulates red blood cell production"), so the floor is set well below
+// the shortest real one.
+const MIN_DEFINITION_CHARS = 25
+
+export function isConfidentDefinition(term: string, definition: string): boolean {
+  const def = (definition ?? '').trim()
+  if (def.length < MIN_DEFINITION_CHARS) return false
+  if (UNCONFIDENT.some(re => re.test(def))) return false
+  // Circular: strip the term out and see whether anything is left.
+  const withoutTerm = def.toLowerCase().split(term.toLowerCase()).join(' ').replace(/\s+/g, ' ').trim()
+  if (withoutTerm.length < MIN_DEFINITION_CHARS) return false
+  return true
+}

@@ -687,7 +687,15 @@ If nothing in the excerpt qualifies, respond with exactly: NONE`
 // produced "enthalpy change" so nothing was missed outright. Paying a little
 // recall to stop ordinary conversation reaching a flashcard deck is the right
 // trade on the weak model and the wrong one on a model that does not need it.
-const NEEDS_VERIFICATION = new Set(['tiny'])
+// Was new Set(['tiny']), on the measurement that the larger tiers do not need
+// help DECLINING ordinary speech. That measurement stands, but it answered a
+// different question from the one this pass now asks. Mis-transcribed jargon
+// ("Patriarchs" for Purkinje, "Epikartic" for nothing at all) sounds technical
+// by construction, so it sails past every tier's own judgement, and the 2026-09
+// production audit found the garbled cards spread across tiers rather than
+// concentrated on tiny. Recognising a real term is knowledge, not capacity to
+// refuse, so every tier is asked.
+const NEEDS_VERIFICATION = new Set(['tiny', 'small', 'large'])
 
 // Ask the model whether a candidate is really jargon, one term at a time,
 // with the answer constrained to a single boolean.
@@ -710,9 +718,9 @@ async function verifyTerm(term, sentence, subject) {
 
 Sentence from a lecture: "${sentence}"
 
-Is "${term}" a specialist technical term from ${who} that a student would need defined to follow the lecture?
+Is "${term}" a real, established term in ${who}, spelled the way a specialist would spell it?
 
-Ordinary English words and everyday phrases are NOT technical terms, even when a lecturer says them. Answer {"technical": false} for those.`
+This sentence came from speech recognition, which mis-hears specialist vocabulary often. A mis-heard term still SOUNDS technical, so "does it sound technical" is the wrong test: "Patriarchs" (for Purkinje) and "S-mode" (for SA node) both sound technical and are both wrong. Answer {"technical": false} if you do not recognise it as a real term in this subject, if it looks like a mis-transcription of a different word, or if it is an ordinary English word or everyday phrase.`
   try {
     session.resetChatHistory()
     const response = await session.prompt(prompt, { grammar: verdictGrammar })

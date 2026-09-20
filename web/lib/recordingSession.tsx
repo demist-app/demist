@@ -29,7 +29,7 @@ import { isElectronNative, getDemistNative, missingOnDeviceCapabilities, dlog, t
 import { startNativeSession, type NativeSessionHandle } from '@/lib/nativeSession'
 import { isEligibleForSummary } from '@/lib/summaryEligibility'
 import { collidesWith } from '@/lib/termSimilarity'
-import { isLikelyJargon } from '@/lib/termQuality'
+import { isLikelyJargon, isConfidentDefinition } from '@/lib/termQuality'
 
 export type CaptureMode = 'microphone' | 'tab'
 
@@ -930,7 +930,18 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       // and neither model obeys, so the judgement cannot live in the prompt.
       if (!isLikelyJargon(t.term)) {
         dlog(`[demist] dropped "${t.term}": not subject jargon`)
-        capture('term_rejected_low_quality', { term: t.term.slice(0, 60), native: isElectronNative() })
+        capture('term_rejected_low_quality', { term: t.term.slice(0, 60), reason: 'not_jargon', native: isElectronNative() })
+        return false
+      }
+      // Separate failure from the one above: the term looked fine but the
+      // model plainly did not know it. Whisper mis-hears technical vocabulary
+      // into technical-SOUNDING nonsense ("Patriarchs" for Purkinje, "S-mode"
+      // for SA node), which every is-this-jargon test passes by construction.
+      // When the model half-recognises the garble it hedges, and the hedge is
+      // detectable without paying for another model call.
+      if (!isConfidentDefinition(t.term, t.definition)) {
+        dlog(`[demist] dropped "${t.term}": model was not confident in the definition`)
+        capture('term_rejected_low_quality', { term: t.term.slice(0, 60), reason: 'unconfident_definition', native: isElectronNative() })
         return false
       }
       if (knownTermsRef.current.has(key)) return false
