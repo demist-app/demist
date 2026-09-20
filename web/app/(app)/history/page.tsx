@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import dynamic from 'next/dynamic'
-import { capture } from '@/lib/analytics'
+import { capture, reportWriteFailure } from '@/lib/analytics'
 import { useEntitlements } from '@/lib/entitlements'
 import { PaywallModal } from '@/components/PaywallModal'
 import { summaryFailureMessage } from '@/lib/summaryFailure'
@@ -315,7 +315,8 @@ export default function History() {
         }
         const synopsis = await native.summarize(termRows, s.subject)
         if (synopsis) {
-          await supabase.from('sessions').update({ synopsis }).eq('id', s.id)
+          const { error: synErr } = await supabase.from('sessions').update({ synopsis }).eq('id', s.id)
+      reportWriteFailure('session.synopsis_history', synErr)
           setSessions(prev => prev.map(x => x.id === s.id ? { ...x, synopsis } : x))
           setRecentSessions(prev => prev.map(x => x.id === s.id ? { ...x, synopsis } : x))
           succeeded = true
@@ -414,7 +415,8 @@ export default function History() {
     if (!newTerm || !newDef) { cancelEditTerm(); return }
     setSavingTermId(termId)
     try {
-      await createClient().from('terms').update({ term: newTerm, definition: newDef }).eq('id', termId)
+      const { error: editErr } = await createClient().from('terms').update({ term: newTerm, definition: newDef }).eq('id', termId)
+    reportWriteFailure('term.edit', editErr)
       setSessions(prev =>
         prev.map(s => ({
           ...s,

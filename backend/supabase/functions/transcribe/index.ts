@@ -94,7 +94,15 @@ serve(async (req) => {
     const form = new FormData()
     form.append('file', file)
     form.append('model', WHISPER_MODEL)
-    form.append('response_format', 'json')
+    // verbose_json, not json, purely for segments[].avg_logprob. Whisper's own
+    // confidence is the only honest signal for "did the transcriber actually
+    // understand this audio", and without it the downstream term detector
+    // cannot tell a clearly-heard technical word from a confident guess at
+    // mush. A 2026-09 audit found cards for "Patriarchs" (Purkinje), "S-mode"
+    // (SA node) and "Spontaneous dechloridation" (spontaneous depolarization):
+    // real terms the transcriber mangled, then the detector defined verbatim.
+    // Costs nothing extra; the field is already computed.
+    form.append('response_format', 'verbose_json')
 
     const response = await fetch(WHISPER_URL, {
       method: 'POST',
@@ -119,6 +127,27 @@ serve(async (req) => {
 
     const data = await response.json()
     const text: string = data.text ?? ''
+
+    // Duration-weighted mean of the per-segment average log probability, so a
+    // long clear passage is not dragged under by one short mumble. Null when
+    // the provider omits segments (Groq and OpenAI both return them for
+    // verbose_json, but this must not become a hard dependency: a missing
+    // value means "unknown", and unknown is treated as confident downstream
+    // rather than silently suppressing every card).
+    let confidence: number | null = null
+    const segments = Array.isArray(data.segments) ? data.segments : []
+    if (segments.length) {
+      let weighted = 0
+      let totalDur = 0
+      for (const seg of segments) {
+        const lp = typeof seg?.avg_logprob === 'number' ? seg.avg_logprob : null
+        if (lp === null) continue
+        const dur = Math.max(0.1, (Number(seg?.end) || 0) - (Number(seg?.start) || 0))
+        weighted += lp * dur
+        totalDur += dur
+      }
+      if (totalDur > 0) confidence = weighted / totalDur
+    }
 
     // Server-side hallucination filter: Whisper invents filler phrases on silence
     const HALLUCINATION_PATTERNS = [
@@ -169,7 +198,7 @@ serve(async (req) => {
       if (insertErr) console.error('transcript_chunks insert error:', insertErr.message)
     }
 
-    return new Response(JSON.stringify({ text: cleanText }), {
+    return new Response(JSON.stringify({ text: cleanText, confidence }), {
       headers: { ...CORS, 'Content-Type': 'application/json' },
     })
   } catch (e) {

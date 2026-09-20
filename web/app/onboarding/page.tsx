@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { capture, identify, reportWriteFailure } from '@/lib/analytics'
 import { MINIMUM_AGE, meetsMinimumAge } from '@/lib/age'
+import { LIMITS } from '@/lib/entitlements'
 
 const YEARS = [
   { value: 1, label: '1st Year' },
@@ -52,6 +53,8 @@ const HEARD_FROM: { value: string; label: string }[] = [
   { value: 'youtube_reddit', label: 'YouTube or Reddit' },
   { value: 'other', label: 'Somewhere else' },
 ]
+
+const FREE_HISTORY_DAYS = LIMITS.free.historyDays
 
 export default function Onboarding() {
   const router = useRouter()
@@ -345,6 +348,16 @@ export default function Onboarding() {
             >
               Skip
             </button>
+
+            {/* Stated up front, before the first recording, rather than at the
+                moment a lecture disappears. Microsoft Store policy 10.8.4
+                requires notice in advance where access to a user's own content
+                is restricted, and more plainly: finding out your notes expired
+                only when you go looking for them is a bad way to learn it. */}
+            <p className="text-[12px] dark:text-gray-600 text-gray-500 mt-8 leading-relaxed text-center">
+              Recording, live definitions, your glossary and flashcards are free and unlimited.
+              Free accounts keep lecture history for {FREE_HISTORY_DAYS} days; Pro keeps everything.
+            </p>
           </div>
         )}
 

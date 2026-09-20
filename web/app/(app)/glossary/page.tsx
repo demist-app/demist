@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
-import { capture } from '@/lib/analytics'
+import { capture, reportWriteFailure } from '@/lib/analytics'
 import { TermContext } from '@/components/TermContext'
 
 const ShareCard = dynamic(() => import('@/components/ShareCard').then(m => ({ default: m.ShareCard })), { ssr: false })
@@ -335,7 +335,8 @@ export default function Glossary() {
     setDeletingId(termId)
     try {
       const supabase = createClient()
-      await supabase.from('terms').delete().eq('id', termId)
+      const { error: delErr } = await supabase.from('terms').delete().eq('id', termId)
+    reportWriteFailure('term.delete', delErr)
       setSessions(prev =>
         prev
           .map(s => ({ ...s, terms: s.terms.filter(t => t.id !== termId) }))

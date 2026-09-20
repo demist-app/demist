@@ -1,5 +1,6 @@
 'use client'
 
+import { reportWriteFailure } from '@/lib/analytics'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
@@ -61,7 +62,8 @@ export function SessionReview({ terms, sessionId, onClose }: {
     try {
       const dropped = withIds.filter(t => !kept.has(t.dbId!)).map(t => t.dbId!)
       if (dropped.length) {
-        await createClient().from('terms').update({ known: true }).in('id', dropped)
+        const { error: knownErr } = await createClient().from('terms').update({ known: true }).in('id', dropped)
+      reportWriteFailure('term.mark_known_review', knownErr)
       }
       posthog.capture('session_review_completed', {
         total: withIds.length,

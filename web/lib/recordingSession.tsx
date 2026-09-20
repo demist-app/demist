@@ -55,6 +55,21 @@ export function friendlyModelName(raw: string): string {
   return raw
 }
 
+// Whisper's duration-weighted mean segment log probability, below which a
+// chunk is shown as text but not mined for terms.
+//
+// Scale: roughly -0.1 is a clearly-heard sentence and -1.0 is mush. OpenAI's
+// own reference decoder treats -1.0 as outright decode failure, so -0.6 sits
+// deliberately well above that: the goal is not to catch only total failures
+// but to stop the detector being handed audio it half-heard, which is exactly
+// where mangled-but-technical-sounding candidates come from.
+export const TRANSCRIPT_CONFIDENCE_FLOOR = -0.6
+
+// Nudge at three hours, hard stop at four. Longer than any lecture, short
+// enough that a forgotten recording is not left running all day.
+const RECORDING_WARN_SECONDS = 3 * 60 * 60
+const RECORDING_MAX_SECONDS = 4 * 60 * 60
+
 export const LANGUAGE_NAMES: Record<string, string> = {
   zh: 'Mandarin',
   ar: 'Arabic',
@@ -1143,9 +1158,15 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
   // created still transcribes, still shows term cards, and still builds the
   // transcript in memory (see createSessionRow). Only the DB writes are
   // skipped, and stopRecording retries the row and saves everything then.
-  const accumulateAndMaybeDetect = (chunkText: string, sessionId: string | null, replaceLast = false) => {
+  const accumulateAndMaybeDetect = (chunkText: string, sessionId: string | null, replaceLast = false, skipDetection = false) => {
     transcriptRef.current = transcriptRef.current ? transcriptRef.current + ' ' + chunkText : chunkText
     if (!speechModeRef.current || !webSpeechHasFiredRef.current) appendSentence(chunkText, replaceLast)
+
+    // The transcript is always kept and shown. Only term detection is skipped,
+    // and only when the transcriber itself reported low confidence in this
+    // chunk: a rough transcript the student can see and judge is worth having,
+    // a confident definition of a word nobody said is not.
+    if (skipDetection) return
 
     // Accumulate text; only call detect-terms periodically. The 10s window
     // exists to bound cloud API cost; that reasoning doesn't apply to the
@@ -1233,6 +1254,24 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       }
       const tx = await txRes.json()
       if (!tx?.text?.trim()) return
+      // Whisper's own confidence in this chunk, as a duration-weighted mean
+      // log probability (transcribe returns it; see that function for why).
+      // Below the floor the transcript is still shown, because a rough
+      // transcript is far better than a gap and the user can see for
+      // themselves that it is rough - but it is NOT fed to term detection,
+      // because the detector cannot tell mangled jargon from real jargon and
+      // will write a confident definition for whatever it is handed. That is
+      // where "Patriarchs" (Purkinje) and "S-mode" (SA node) came from.
+      //
+      // null means the provider gave no segments, which is treated as
+      // confident: unknown must not silently switch term detection off.
+      const conf: number | null = typeof tx.confidence === 'number' ? tx.confidence : null
+      if (conf !== null && conf < TRANSCRIPT_CONFIDENCE_FLOOR) {
+        accumulateAndMaybeDetect(tx.text.trim(), sessionId, false, true)
+        capture('chunk_too_unclear_for_terms', { confidence: Math.round(conf * 100) / 100 })
+        dlog(`[demist] chunk transcribed at confidence ${conf.toFixed(2)}, below ${TRANSCRIPT_CONFIDENCE_FLOOR}: showing text, skipping term detection`)
+        return
+      }
       accumulateAndMaybeDetect(tx.text.trim(), sessionId)
     } catch (e) {
       console.error('processChunk error:', e)
@@ -1534,7 +1573,29 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     setLiveSessionId(sessionId)
     setWakeLockUnsupported(!wakeLockSupported())
     window.postMessage({ source: 'demist', type: 'recording-started' }, window.location.origin)
-    timerRef.current = setInterval(() => setElapsed(t => t + 1), 1000)
+    timerRef.current = setInterval(() => setElapsed(t => {
+      const next = t + 1
+      // A real session on 2026-09-16 ran for 6.8 hours: someone started a
+      // recording and walked away. Nothing stopped it. On the web path that
+      // bills per chunk for hours of an empty room, on every path it produces
+      // a transcript too long to be useful, and it silently poisons every
+      // duration average in the product's own analytics.
+      //
+      // Warn rather than stop first, because a genuine all-day workshop is
+      // rare but not impossible and losing it would be far worse than the
+      // waste. The hard stop is a normal stopRecording(), so the transcript,
+      // terms and summary are all saved exactly as if the user had pressed it.
+      if (next === RECORDING_WARN_SECONDS) {
+        setRecordingWarning('This recording has been running for three hours. If you have finished, press stop so Demist can save and summarise it.')
+        capture('recording_length_warning', { hours: 3 })
+      }
+      if (next >= RECORDING_MAX_SECONDS) {
+        capture('recording_auto_stopped', { hours: RECORDING_MAX_SECONDS / 3600 })
+        setRecordingWarning('Demist stopped this recording after four hours and saved it. Start a new one if your lecture is still going.')
+        stopRecordingRef.current()
+      }
+      return next
+    }), 1000)
 
     // Keep the screen on for the duration of the recording so audio capture
     // isn't interrupted when the device locks.
@@ -2118,7 +2179,8 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
           if (native) {
             const synopsis = await native.summarize(capturedGlossary.map(t => ({ term: t.term, definition: t.definition })), capturedSubject)
             if (synopsis) {
-              await sb.from('sessions').update({ synopsis }).eq('id', capturedSid)
+              const { error: synErr } = await sb.from('sessions').update({ synopsis }).eq('id', capturedSid)
+              reportWriteFailure('session.synopsis_native', synErr)
               setRecentSessions(prev => prev.map(s => s.id === capturedSid ? { ...s, synopsis } : s))
             }
           } else {
@@ -2150,7 +2212,8 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     knownTermsRef.current.add(key)
     if (liveTerm.dbId) {
       const supabase = createClient()
-      await supabase.from('terms').update({ known: true }).eq('id', liveTerm.dbId)
+      const { error: knownErr } = await supabase.from('terms').update({ known: true }).eq('id', liveTerm.dbId)
+      reportWriteFailure('term.mark_known_live', knownErr)
     }
   }
 
@@ -2185,7 +2248,8 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
         }
         const synopsis = await native.summarize(s.terms.map(t => ({ term: t.term, definition: t.definition })), s.subject)
         if (synopsis) {
-          await createClient().from('sessions').update({ synopsis }).eq('id', s.id)
+          const { error: synErr2 } = await createClient().from('sessions').update({ synopsis }).eq('id', s.id)
+      reportWriteFailure('session.synopsis_retry', synErr2)
           setRecentSessions(prev => prev.map(x => x.id === s.id ? { ...x, synopsis } : x))
           succeeded = true
         }
