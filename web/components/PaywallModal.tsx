@@ -23,8 +23,12 @@ const PRO_POINTS = [
 // Loaded once at module scope, same pattern Stripe's own docs use - calling
 // loadStripe() again on every render/reopen would inject a second copy of
 // Stripe.js.
+// .catch(() => null) rather than letting it reject: loadStripe() rejects when
+// js.stripe.com cannot be fetched, and at module scope that is an unhandled
+// rejection before any component has mounted to catch it. Resolving to null is
+// also the shape EmbeddedCheckoutProvider already understands as "no Stripe".
 const stripePromise = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
-  ? loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
+  ? loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY).catch(() => null)
   : null
 
 type PriceInfo = { unitAmount: number; currency: string } | null
@@ -53,7 +57,27 @@ export function PaywallModal({
   const [checkoutLoading, setCheckoutLoading] = useState(false)
   const [checkoutError, setCheckoutError] = useState(false)
   const [clientSecret, setClientSecret] = useState<string | null>(null)
+  // Ad blockers and privacy extensions block js.stripe.com on common
+  // blocklists. Before this, the guard below was `stripePromise && ...` - and
+  // a Promise object is always truthy, rejected or not - so a blocked user got
+  // a client secret, mounted the provider, and stared at a 420px blank white
+  // box at the exact moment they were trying to pay. Silent failure on the one
+  // screen where it costs money.
+  const [stripeBlocked, setStripeBlocked] = useState(false)
   const [prices, setPrices] = useState<Prices | null>(null)
+
+  // Resolve once, on mount: did Stripe.js actually load? A null means the
+  // script never arrived, which in practice means it was blocked.
+  useEffect(() => {
+    if (!stripePromise) return
+    let cancelled = false
+    stripePromise.then(stripe => {
+      if (cancelled || stripe) return
+      setStripeBlocked(true)
+      capture('stripe_js_blocked', { source })
+    })
+    return () => { cancelled = true }
+  }, [source])
 
   useEffect(() => {
     // Distinct event name once this is a real purchase opportunity, per the
@@ -269,7 +293,7 @@ export function PaywallModal({
             top-level navigation off-origin gets kicked out to the OS
             browser (main.js's will-navigate handler) - a redirect there
             looked like checkout abandoning the app entirely. */}
-        {PRO_LIVE && clientSecret && stripePromise && (
+        {PRO_LIVE && clientSecret && stripePromise && !stripeBlocked && (
           <div className="dark:bg-white bg-white" style={{ minHeight: 420 }}>
             <EmbeddedCheckoutProvider
               stripe={stripePromise}
@@ -277,6 +301,17 @@ export function PaywallModal({
             >
               <EmbeddedCheckout />
             </EmbeddedCheckoutProvider>
+          </div>
+        )}
+
+        {PRO_LIVE && stripeBlocked && (
+          <div className="px-5 py-6 text-center space-y-2">
+            <p className="text-[14px] font-semibold dark:text-white text-gray-900">The payment form could not load</p>
+            <p className="text-[13px] dark:text-white/60 text-gray-600 leading-relaxed">
+              This is almost always an ad blocker or privacy extension: several common
+              blocklists block Stripe, which we use to take payment. Pause it for this
+              page and reopen, or open demist.app in another browser.
+            </p>
           </div>
         )}
       </div>
