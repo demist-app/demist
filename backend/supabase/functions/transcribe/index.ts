@@ -148,6 +148,15 @@ serve(async (req) => {
       }
       if (totalDur > 0) confidence = weighted / totalDur
     }
+    // The confidence gate degrades silently by design: a null means "unknown"
+    // and the renderer treats unknown as confident, so term detection is never
+    // switched off by a provider quirk. The cost of that safety is that a
+    // provider which stops returning segments would disable the feature with
+    // no symptom at all - exactly the failure mode this whole audit has been
+    // about. So say it once per occurrence rather than never.
+    if (confidence === null) {
+      console.warn(`transcribe: no usable avg_logprob (segments=${segments.length}, provider=${GROQ_KEY ? 'groq' : 'openai'}); term detection will not be confidence-gated for this chunk`)
+    }
 
     // Server-side hallucination filter: Whisper invents filler phrases on silence
     const HALLUCINATION_PATTERNS = [
