@@ -1919,7 +1919,21 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       }
     }
 
-    capture('recording_started', { subject: sessionSubjectRef.current || profileRef.current?.course, mode: recordingMode })
+    // has_session_row closes a diagnostic loop that cost hours twice. Comparing
+    // recording_started in PostHog against rows in Postgres is the only way to
+    // notice a lost recording, and it needs a cross-system join, a matching
+    // time window and an assumption that distinct_id maps to user_id - and on
+    // 2026-09-21 that comparison showed 7 starts against 5 rows with NO
+    // session_create_failed event to explain the gap, which left the cause
+    // genuinely unknown. Carrying the answer on the event itself means the
+    // next gap is one breakdown, not an investigation.
+    capture('recording_started', {
+      subject: sessionSubjectRef.current || profileRef.current?.course,
+      mode: recordingMode,
+      capture_mode: mode,
+      has_session_row: !!sessionIdRef.current,
+      native: isElectronNative(),
+    })
   }
 
   // Whichever engine produced more text. Same rule the end-of-session write
