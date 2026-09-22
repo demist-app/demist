@@ -14,6 +14,7 @@ const SummaryViewer = dynamic(() => import('../summary-viewer').then(m => ({ def
 const OnboardingOverlay = dynamic(() => import('@/components/OnboardingOverlay').then(m => ({ default: m.OnboardingOverlay })), { ssr: false })
 const SessionReview = dynamic(() => import('@/components/SessionReview').then(m => ({ default: m.SessionReview })), { ssr: false })
 const MicCheck = dynamic(() => import('@/components/MicCheck').then(m => ({ default: m.MicCheck })), { ssr: false })
+import { GuestBackupPrompt } from '@/components/GuestBackupPrompt'
 import { PaywallModal } from '@/components/PaywallModal'
 import { TrialLimitModal } from '@/components/TrialLimitModal'
 import { TranscriptBilingual } from '@/components/TranscriptBilingual'
@@ -341,6 +342,9 @@ export default function Dashboard() {
 
       {/* Body */}
       <div className="flex-1 flex flex-col overflow-y-auto relative z-10">
+        {/* Guests only, and never mid-recording: the one moment this must not
+            appear is while someone is trying to follow a lecture. */}
+        {!isRecording && <GuestBackupPrompt />}
         {isRecording ? (
           <>
             {/* Red ambient glow during recording */}

@@ -595,7 +595,7 @@ export default function Profile() {
             type 'email_change'), so every card, session and streak carries
             over and there is nothing to migrate. */}
         {isAnonymous && (
-          <div className="rounded-2xl px-4 py-4 dark:bg-amber-500/[0.07] bg-amber-50 border dark:border-amber-500/20 border-amber-300/70 animate-step opacity-0" style={{ animationDelay: '10ms', animationFillMode: 'forwards' }}>
+          <div id="backup" className="scroll-mt-6 rounded-2xl px-4 py-4 dark:bg-amber-500/[0.07] bg-amber-50 border dark:border-amber-500/20 border-amber-300/70 animate-step opacity-0" style={{ animationDelay: '10ms', animationFillMode: 'forwards' }}>
             <p className="text-[14px] font-semibold mb-1">Back up your account</p>
             <p className="text-[13px] text-gray-700 leading-relaxed mb-3">
               You&apos;re using Demist without an account, so everything lives on this
