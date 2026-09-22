@@ -29,6 +29,31 @@ export const WEB_TRIAL_RECORDING_LIMIT = 3
 // than offering a download the device cannot run.
 export type TrialPlatform = DesktopPlatform | 'mobile'
 
+/**
+ * How many free browser recordings are left, or null when this visitor has no
+ * cap at all.
+ *
+ * Exported and used by BOTH the gate below and the dashboard's counter,
+ * because they drifted three separate ways while they were two copies of the
+ * same rule: the counter was computed once on mount and never again (so it
+ * still said "3 left" after a recording), it did not know about
+ * web_trial_exempt (migration 036, so exempt testers watched a countdown that
+ * meant nothing), and it hid itself on mobile, which is capped. One function,
+ * no round trips, nothing to keep in sync.
+ *
+ * null means "no cap": the desktop app, Linux, an unknown platform, or an
+ * exempt account. The UI uses that to tell "unlimited here" apart from "none
+ * left", which 0 would not distinguish.
+ */
+export function trialRemaining(sessionCount: number, exempt: boolean): number | null {
+  if (!WEB_TRIAL_ENABLED) return null
+  if (isElectronNative()) return null
+  if (exempt) return null
+  const platform: TrialPlatform | null = isMobileUA() ? 'mobile' : detectDesktopPlatform()
+  if (!platform) return null
+  return Math.max(0, WEB_TRIAL_RECORDING_LIMIT - sessionCount)
+}
+
 export interface TrialGateResult {
   allowed: boolean
   reason?: string
@@ -70,11 +95,12 @@ export async function checkWebTrialLimit(supabase: SupabaseClient, userId: strin
   // not be smoke-tested at all. Deliberately NOT tied to the Pro plan: Pro
   // does not unlock web recording, and this must not become the thing that
   // quietly does.
-  if (profile?.web_trial_exempt) return { allowed: true }
-
   const used = count ?? 0
+  const remaining = trialRemaining(used, !!profile?.web_trial_exempt)
+  // null means no cap applies to this visitor at all.
+  if (remaining === null) return { allowed: true }
 
-  if (used >= WEB_TRIAL_RECORDING_LIMIT) {
+  if (remaining <= 0) {
     return {
       allowed: false,
       platform,
@@ -84,5 +110,5 @@ export async function checkWebTrialLimit(supabase: SupabaseClient, userId: strin
         : `You've used all ${WEB_TRIAL_RECORDING_LIMIT} free recordings in the browser.`,
     }
   }
-  return { allowed: true, platform, remaining: WEB_TRIAL_RECORDING_LIMIT - used }
+  return { allowed: true, platform, remaining }
 }

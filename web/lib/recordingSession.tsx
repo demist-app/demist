@@ -20,7 +20,7 @@ import { capture, identify, reportWriteFailure } from '@/lib/analytics'
 import { requestWakeLock, releaseWakeLock, reacquireWakeLockOnVisibility, wakeLockSupported } from '@/lib/wakeLock'
 import { startTabCapture } from '@/lib/tabCapture'
 import { checkRecordingLimit } from '@/lib/subscription'
-import { checkWebTrialLimit, WEB_TRIAL_ENABLED, WEB_TRIAL_RECORDING_LIMIT, type TrialGateResult } from '@/lib/webTrial'
+import { checkWebTrialLimit, trialRemaining, type TrialGateResult } from '@/lib/webTrial'
 import { detectDesktopPlatform, isMobileUA } from '@/lib/platform'
 import { useEntitlements } from '@/lib/entitlements'
 import { useNativeTranslate } from '@/lib/useNativeTranslate'
@@ -326,6 +326,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
   }
   const userIdRef = useRef<string | null>(null)
   const totalSessionCountRef = useRef(0)
+  const webTrialExemptRef = useRef(false)
   const sessionIdRef = useRef<string | null>(null)
   const isActiveRef = useRef(false)
   const streamRef = useRef<MediaStream | null>(null)
@@ -741,7 +742,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
         { data: sessionsRaw },
         { count: totalCount },
       ] = await Promise.all([
-        supabase.from('profiles').select('course, year_of_study, support_need, translate_to').eq('id', user.id).maybeSingle(),
+        supabase.from('profiles').select('course, year_of_study, support_need, translate_to, web_trial_exempt').eq('id', user.id).maybeSingle(),
         supabase.from('terms').select('term, known, created_at').eq('user_id', user.id),
         supabase.from('sessions').select('started_at').eq('user_id', user.id).order('started_at', { ascending: false }),
         supabase.from('terms').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('known', false).gt('sm2_review_count', 0).lte('sm2_due_at', now.toISOString()),
@@ -758,14 +759,14 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
         supabase.from('sessions').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
       ])
       totalSessionCountRef.current = totalCount ?? 0
-      // Reuses the totalCount already fetched above rather than a second
-      // round trip through checkWebTrialLimit - same lifetime session count,
-      // same electron/platform exemptions, just computed inline. null (not
-      // 0) on desktop/Linux/mobile so the UI can tell "no cap here" apart
-      // from "cap hit".
-      if (WEB_TRIAL_ENABLED && !isElectronNative() && detectDesktopPlatform()) {
-        setWebTrialRemaining(Math.max(0, WEB_TRIAL_RECORDING_LIMIT - (totalCount ?? 0)))
-      }
+      // Same rule the gate itself applies (trialRemaining in webTrial.ts),
+      // reusing the totalCount already fetched rather than a second round
+      // trip. This used to be an inline copy of the rule and drifted from it
+      // three ways: it ignored web_trial_exempt, it hid on mobile even after
+      // mobile was capped, and it was never recomputed after a recording, so
+      // it still read "3 left" once you had used one.
+      webTrialExemptRef.current = !!(prof as { web_trial_exempt?: boolean } | null)?.web_trial_exempt
+      setWebTrialRemaining(trialRemaining(totalCount ?? 0, webTrialExemptRef.current))
 
       profileRef.current = prof as Profile
       setProfile(prof as Profile)
@@ -2155,6 +2156,10 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       supabase.from('sessions').select('id', { count: 'exact', head: true }).eq('user_id', userIdRef.current!),
     ])
     totalSessionCountRef.current = newTotal ?? totalSessionCountRef.current
+    // The count the user is shown has to move when the count it describes
+    // does. Without this the trial counter was only ever correct until the
+    // first recording of a page load.
+    setWebTrialRemaining(trialRemaining(totalSessionCountRef.current, webTrialExemptRef.current))
     // Proactive Pro nudge: after the user's 2nd or 3rd session ever, not
     // gated behind hitting an actual limit like every other paywall trigger
     // - by then they've had a real chance to feel the value (a first session
