@@ -106,6 +106,7 @@ export default function Profile() {
   // Supabase exposes it as a real claim on the user, so it stays correct after
   // an email is linked without anything here having to track state.
   const [isAnonymous, setIsAnonymous] = useState(false)
+  const [confirmingSignOut, setConfirmingSignOut] = useState(false)
   const [linkStep, setLinkStep] = useState<'email' | 'code' | 'done'>('email')
   const [linkEmail, setLinkEmail] = useState('')
   const [linkCode, setLinkCode] = useState('')
@@ -392,6 +393,23 @@ export default function Profile() {
   }
 
   const handleSignOut = async () => {
+    // For a guest there is no email, so there is no way back in: signing out
+    // destroys the account and everything in it, exactly as clearing site data
+    // would. This app already knows that - see the comment on handleGuestStart
+    // in login/page.tsx - but sign out never checked, and it is presented as
+    // an ordinary, reversible action.
+    //
+    // Seen in production on 2026-09-22: a guest recorded a lecture, then six
+    // minutes later appeared as a brand new email account with zero sessions.
+    // Same date of birth, same course, same support need, same acquisition
+    // answer. They signed out, lost the account, and signed up again. Their
+    // recording is still stranded on an account nobody can reach.
+    if (isAnonymous && !confirmingSignOut) {
+      setConfirmingSignOut(true)
+      capture('guest_sign_out_warned')
+      return
+    }
+    if (isAnonymous) capture('guest_sign_out_confirmed')
     await createClient().auth.signOut()
     reset()
     // See handleDeleteAccount: desktop has no way back from the marketing
@@ -1051,14 +1069,40 @@ export default function Profile() {
           </div>
         </div>
 
-        {/* Sign out */}
-        <button
-          onClick={handleSignOut}
-          className="w-full py-4 rounded-2xl text-[15px] font-medium dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] text-gray-700 hover:text-red-400 hover:border-red-500/20 transition-all animate-step opacity-0"
-          style={{ animationDelay: '180ms', animationFillMode: 'forwards' }}
-        >
-          Sign out
-        </button>
+        {/* Sign out. For a guest this is destructive and irreversible, so it
+            asks first and points at the one action that makes it safe. */}
+        {confirmingSignOut ? (
+          <div className="rounded-2xl px-4 py-4 dark:bg-red-500/[0.07] bg-red-50 border dark:border-red-500/20 border-red-300/70 animate-step opacity-0" style={{ animationDelay: '180ms', animationFillMode: 'forwards' }}>
+            <p className="text-[14px] font-semibold mb-1">This will delete your account</p>
+            <p className="text-[13px] text-gray-700 leading-relaxed mb-3">
+              You are signed in without an email, so there is no way to sign back in.
+              Your lectures, glossary, flashcards and streak go with it. Add an email
+              above first and none of that happens.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setConfirmingSignOut(false)}
+                className="flex-1 py-3 rounded-xl text-[14px] font-semibold dark:bg-white/[0.06] bg-white border dark:border-white/[0.1] border-black/[0.12] dark:text-white text-gray-900 transition-all active:scale-[0.97]"
+              >
+                Keep my account
+              </button>
+              <button
+                onClick={handleSignOut}
+                className="flex-1 py-3 rounded-xl text-[14px] font-semibold bg-red-600/90 hover:bg-red-600 text-white transition-all active:scale-[0.97]"
+              >
+                Sign out anyway
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={handleSignOut}
+            className="w-full py-4 rounded-2xl text-[15px] font-medium dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] text-gray-700 hover:text-red-400 hover:border-red-500/20 transition-all animate-step opacity-0"
+            style={{ animationDelay: '180ms', animationFillMode: 'forwards' }}
+          >
+            Sign out
+          </button>
+        )}
 
         {/* Danger zone */}
         <div className="pt-8 mt-2 border-t dark:border-white/[0.05] border-black/[0.07] animate-step opacity-0" style={{ animationDelay: '220ms', animationFillMode: 'forwards' }}>
