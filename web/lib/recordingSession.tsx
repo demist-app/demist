@@ -277,7 +277,12 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
   // typed last) suppressing genuine multi-subject use (a double major, a
   // high schooler with several classes) rather than nobody needing it.
   const [recentSubjects, setRecentSubjects] = useState<string[]>([])
-  const { limits, isPro } = useEntitlements()
+  const { limits, isPro, loaded: entitlementsLoaded } = useEntitlements()
+  // Pro lifts the browser recording cap, and entitlements load independently
+  // of the dashboard's own data, so the counter must be recomputed when either
+  // side changes. A ref for the value, an effect for the timing.
+  const webUnlimitedRef = useRef(false)
+  webUnlimitedRef.current = limits.webRecordingUnlimited
   const [paywall, setPaywall] = useState<string | null>(null)
   // Set when checkWebTrialLimit blocks a NEW recording (web, Windows/Mac,
   // over the lifetime cap) - a distinct thing from `paywall` above, which is
@@ -327,6 +332,14 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
   const userIdRef = useRef<string | null>(null)
   const totalSessionCountRef = useRef(0)
   const webTrialExemptRef = useRef(false)
+  useEffect(() => {
+    if (!entitlementsLoaded) return
+    setWebTrialRemaining(prev => prev === null && !limits.webRecordingUnlimited && !webTrialExemptRef.current
+      // Still unknown until the dashboard load has counted sessions; that load
+      // sets it itself, reading the ref above.
+      ? prev
+      : trialRemaining(totalSessionCountRef.current, webTrialExemptRef.current || limits.webRecordingUnlimited))
+  }, [entitlementsLoaded, limits.webRecordingUnlimited])
   const sessionIdRef = useRef<string | null>(null)
   const isActiveRef = useRef(false)
   const streamRef = useRef<MediaStream | null>(null)
@@ -766,7 +779,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       // mobile was capped, and it was never recomputed after a recording, so
       // it still read "3 left" once you had used one.
       webTrialExemptRef.current = !!(prof as { web_trial_exempt?: boolean } | null)?.web_trial_exempt
-      setWebTrialRemaining(trialRemaining(totalCount ?? 0, webTrialExemptRef.current))
+      setWebTrialRemaining(trialRemaining(totalCount ?? 0, webTrialExemptRef.current || webUnlimitedRef.current))
 
       profileRef.current = prof as Profile
       setProfile(prof as Profile)
@@ -2159,7 +2172,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     // The count the user is shown has to move when the count it describes
     // does. Without this the trial counter was only ever correct until the
     // first recording of a page load.
-    setWebTrialRemaining(trialRemaining(totalSessionCountRef.current, webTrialExemptRef.current))
+    setWebTrialRemaining(trialRemaining(totalSessionCountRef.current, webTrialExemptRef.current || webUnlimitedRef.current))
     // Proactive Pro nudge: after the user's 2nd or 3rd session ever, not
     // gated behind hitting an actual limit like every other paywall trigger
     // - by then they've had a real chance to feel the value (a first session

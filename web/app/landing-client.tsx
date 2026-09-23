@@ -292,7 +292,7 @@ export default function LandingClient() {
                 <p className="flex-1 min-w-0 text-[13px] truncate">
                   <span className="font-semibold">Demist Pro is here.</span>
                   <span className="hidden sm:inline" style={{ color: 'var(--fg-muted)' }}>
-                    {' '}Unlimited history, summaries, and Anki export{proPriceText ? ` · ${proPriceText}/mo` : ''}.
+                    {' '}Your whole term, not just last week{proPriceText ? ` · ${proPriceText}/mo` : ''}. New accounts get their first 30 days free.
                   </span>
                 </p>
                 <button
@@ -879,8 +879,10 @@ export default function LandingClient() {
                 Demist Pro is here{proPriceText ? ` · ${proPriceText}/mo` : ''}
               </p>
               <p className="text-[13px] mb-4 leading-relaxed" style={{ color: 'var(--fg-muted)' }}>
-                Unlimited session history, unlimited AI summaries, and Anki export. Everything else
-                stays free, same as always.
+                Every lecture from your term kept and sorted by module, recording in the browser
+                with no limit, unlimited AI summaries and Anki export. New accounts get Pro free for
+                their first 30 days, with no card. Live definitions, your glossary and flashcards
+                stay free, same as always.
               </p>
               <button
                 onClick={cta}

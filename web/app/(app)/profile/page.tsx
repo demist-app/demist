@@ -83,7 +83,7 @@ export default function Profile() {
   const [userId, setUserId] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
   const [exported, setExported] = useState(false)
-  const { limits, isPro, periodEnd, hasStripeCustomer } = useEntitlements()
+  const { limits, isPro, source, periodEnd, hasStripeCustomer } = useEntitlements()
   const [paywall, setPaywall] = useState<string | null>(null)
   const [checkoutNotice, setCheckoutNotice] = useState<'success' | 'cancelled' | null>(null)
   const [portalLoading, setPortalLoading] = useState(false)
@@ -566,14 +566,25 @@ export default function Profile() {
                 <p className="text-[14px] font-semibold">Demist Pro</p>
                 <p className="text-[12px] text-gray-600 mt-0.5">
                   {periodEnd
-                    ? `${hasStripeCustomer ? 'Renews' : 'Free access until'} ${new Date(periodEnd).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`
+                    // source, not hasStripeCustomer: stripe-checkout creates the
+                    // customer when checkout OPENS, so a trial user who looked at
+                    // checkout and left would otherwise be told their plan renews.
+                    ? `${source === 'paid' ? 'Renews' : source === 'trial' ? 'Free trial until' : 'Free access until'} ${new Date(periodEnd).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`
                     : 'Active'}
                 </p>
               </div>
               {/* A waitlist-granted free month (migration 030) has no Stripe
                   customer behind it - nothing to manage or cancel, so the
                   button that would otherwise silently no-op is hidden instead. */}
-              {hasStripeCustomer && (
+              {source !== 'paid' && (
+                <button
+                  onClick={() => setPaywall('profile_pro_countdown')}
+                  className="shrink-0 text-[12px] font-semibold px-3 py-1.5 rounded-full bg-amber-600 text-white hover:brightness-[1.1] transition-all"
+                >
+                  Keep Pro
+                </button>
+              )}
+              {source === 'paid' && hasStripeCustomer && (
                 <button
                   onClick={openBillingPortal}
                   disabled={portalLoading}

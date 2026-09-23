@@ -1,15 +1,22 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { fetchEntitlement, LIMITS } from '@/lib/entitlements'
 import { isElectronNative } from '@/lib/electronNative'
 import { detectDesktopPlatform, isMobileUA, type DesktopPlatform } from '@/lib/platform'
 
-// Gates recording on PLATFORM, not payment - deliberately separate from
-// subscription.ts, which already has a similarly-shaped (currently disabled)
-// recordings_per_month gate for the Pro paywall. Conflating the two would
-// mean "give web a trial cap" and "gate a feature behind payment" fight over
-// one flag and one number, when they're different questions: this one is
-// about where recording HAPPENS (browser, paying real per-use OpenAI/Groq
-// cost - see detect-terms/transcribe edge functions - vs the desktop app,
-// on-device and free), not what plan the user is on.
+// Caps FREE recording in the browser. The cap exists because browser
+// recording pays real per-use OpenAI/Groq cost (see the detect-terms and
+// transcribe edge functions) while the desktop app is on-device and free, so
+// a free user is pointed at the desktop app once the trial is used up.
+//
+// Pro lifts it (LIMITS.webRecordingUnlimited in entitlements.ts). Originally
+// this was platform-only and independent of plan, and that turned out to be a
+// dead end at exactly the wrong moment: the trial wall is where someone most
+// wants to keep recording, and it could only offer a free download because Pro
+// did not solve their problem. A paying user covers their own usage many times
+// over at the measured ~$0.023 per lecture-hour.
+//
+// Still separate from subscription.ts's dormant recordings_per_month gate,
+// which is a different lever (a monthly cap on everyone) and stays off.
 export const WEB_TRIAL_ENABLED = true
 
 // Lifetime, not monthly: the point is "try it, then install the real app",
@@ -85,18 +92,24 @@ export async function checkWebTrialLimit(supabase: SupabaseClient, userId: strin
   // Both in parallel: the exemption is rare, so making every normal user wait
   // on a second round trip to discover they are not exempt would be the wrong
   // trade.
-  const [{ count }, { data: profile }] = await Promise.all([
+  const [{ count }, { data: profile }, entitlement] = await Promise.all([
     supabase.from('sessions').select('id', { count: 'exact', head: true }).eq('user_id', userId),
     supabase.from('profiles').select('web_trial_exempt').eq('id', userId).maybeSingle(),
+    // The same resolver the UI uses, so the gate and the upgrade prompt can
+    // never disagree about whether someone has Pro.
+    fetchEntitlement(supabase, userId),
   ])
 
   // Internal testing only (migration 036). Every internal account is over the
-  // cap, including the ones on Pro, which meant the web recording path could
-  // not be smoke-tested at all. Deliberately NOT tied to the Pro plan: Pro
-  // does not unlock web recording, and this must not become the thing that
-  // quietly does.
+  // cap, including the ones on Pro at the time, which meant the web recording
+  // path could not be smoke-tested at all. Kept separate from Pro on purpose:
+  // an internal testing flag should not depend on anyone's plan.
   const used = count ?? 0
-  const remaining = trialRemaining(used, !!profile?.web_trial_exempt)
+  // Pro (paid, comped or reverse trial) lifts the browser cap, exactly like
+  // the testing exemption does. Before 2026-09-23 it did not, which meant the
+  // trial wall - the moment someone most wants to keep recording - could only
+  // offer a free download, because Pro did not solve their problem.
+  const remaining = trialRemaining(used, !!profile?.web_trial_exempt || LIMITS[entitlement.plan].webRecordingUnlimited)
   // null means no cap applies to this visitor at all.
   if (remaining === null) return { allowed: true }
 

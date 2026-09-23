@@ -49,12 +49,18 @@ export function AppNav() {
   const pathname = usePathname()
   const [moreOpen, setMoreOpen] = useState(false)
   const [upgradeOpen, setUpgradeOpen] = useState(false)
-  const { isPro, loaded } = useEntitlements()
+  const { isPro, loaded, source, daysLeft } = useEntitlements()
   // loaded gate: without it, a free AND a Pro user see the identical "not
   // Pro yet" flash for one render while the subscriptions row is still being
   // fetched, which is a worse look for a Pro user than just not showing it
   // for a beat.
-  const showUpgrade = loaded && !isPro
+  //
+  // Trial and comped Pro show the pill too, as a countdown. Pro that ends on a
+  // date nobody can see is Pro that lapses by surprise, and the lapse is the
+  // decision moment (see ProExpiryNotice).
+  const expiring = loaded && (source === 'trial' || source === 'comped') && daysLeft !== null
+  const showUpgrade = loaded && (!isPro || expiring)
+  const pillLabel = expiring ? `Pro · ${daysLeft === 1 ? '1 day' : `${daysLeft} days`} left` : 'Upgrade'
 
   // Close More sheet on route change
   useEffect(() => { setMoreOpen(false) }, [pathname])
@@ -63,7 +69,7 @@ export function AppNav() {
     <>
       {/* ── Mobile: theme toggle + upgrade pill fixed top-right ── */}
       <div className="sm:hidden fixed top-3 right-4 z-50 flex items-center gap-2">
-        {showUpgrade && <UpgradePill onClick={() => setUpgradeOpen(true)} compact />}
+        {showUpgrade && <UpgradePill onClick={() => setUpgradeOpen(true)} compact label={pillLabel} />}
         <ThemeToggle />
       </div>
 
@@ -98,12 +104,12 @@ export function AppNav() {
         })}
 
         <div className="ml-auto flex items-center gap-3">
-          {showUpgrade && <UpgradePill onClick={() => setUpgradeOpen(true)} />}
+          {showUpgrade && <UpgradePill onClick={() => setUpgradeOpen(true)} label={pillLabel} />}
           <ThemeToggle />
         </div>
       </nav>
 
-      {upgradeOpen && <PaywallModal source="nav_upgrade" onClose={() => setUpgradeOpen(false)} />}
+      {upgradeOpen && <PaywallModal source={expiring ? 'nav_pro_countdown' : 'nav_upgrade'} onClose={() => setUpgradeOpen(false)} />}
 
       {/* ── Mobile bottom nav ── */}
       <nav
@@ -212,17 +218,17 @@ export function AppNav() {
    amber-tint matches the same "Pro" visual language as the profile page's
    status card, so it reads as part of the same feature rather than a new
    ad slot. ── */
-function UpgradePill({ onClick, compact }: { onClick: () => void; compact?: boolean }) {
+function UpgradePill({ onClick, compact, label }: { onClick: () => void; compact?: boolean; label: string }) {
   return (
     <button
       onClick={onClick}
       className={`flex items-center gap-1 rounded-full font-medium transition-opacity hover:opacity-80 active:scale-[0.97] dark:bg-amber-500/[0.12] bg-amber-500/[0.14] border dark:border-amber-500/25 border-amber-600/25 text-amber-700 dark:text-amber-400 ${compact ? 'w-8 h-8 justify-center' : 'text-[12px] px-3 py-1.5'}`}
-      aria-label="Upgrade to Pro"
+      aria-label={label === 'Upgrade' ? 'Upgrade to Pro' : label}
     >
       <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
         <path d="M12 1.5l2.6 6.6 7.1.5-5.5 4.5 1.9 6.9L12 15.9l-6.1 4.1 1.9-6.9-5.5-4.5 7.1-.5z" />
       </svg>
-      {!compact && 'Upgrade'}
+      {!compact && label}
     </button>
   )
 }

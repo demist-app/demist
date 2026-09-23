@@ -13,11 +13,20 @@ import { EmbeddedCheckoutProvider, EmbeddedCheckout } from '@stripe/react-stripe
 import { createClient } from '@/lib/supabase'
 import { capture } from '@/lib/analytics'
 import { PRO_LIVE } from '@/lib/subscription'
+import { useEntitlements } from '@/lib/entitlements'
 
+// Led by what builds up over a term, not by volume. "Unlimited summaries" sold
+// a cap nobody was near (4 summary calls across all users in two days), and
+// UK students have NotebookLM free until 31 December, which covers the
+// after-the-lecture study tools. What nothing else does is keep the whole term
+// together from the live lecture onwards, so that is the pitch. Every claim
+// here is something that exists: history filters by module, the glossary
+// searches, browser recording is uncapped for Pro (entitlements.ts).
 const PRO_POINTS = [
-  'Unlimited session history',
-  'Unlimited AI summaries',
-  'Export flashcards to Anki',
+  'Every lecture from your term, kept and sorted by module',
+  'Record in the browser with no limit',
+  'Unlimited AI summaries of each lecture',
+  'Export your flashcards to Anki',
 ]
 
 // Loaded once at module scope, same pattern Stripe's own docs use - calling
@@ -54,6 +63,7 @@ export function PaywallModal({
   const [email, setEmail] = useState('')
   const [state, setState] = useState<'idle' | 'saving' | 'done' | 'already'>('idle')
   const [checkoutInterval, setCheckoutInterval] = useState<'month' | 'year'>('year')
+  const { source: source_, daysLeft } = useEntitlements()
   const [checkoutLoading, setCheckoutLoading] = useState(false)
   const [checkoutError, setCheckoutError] = useState(false)
   const [clientSecret, setClientSecret] = useState<string | null>(null)
@@ -191,7 +201,14 @@ export function PaywallModal({
                   {PRO_LIVE ? 'Demist Pro' : "This one's part of Pro"}
                 </p>
                 {PRO_LIVE && (
-                  <p className="text-[12px] dark:text-white/40 text-gray-500 mt-0.5">Everything, unlimited</p>
+                  <p className="text-[12px] dark:text-white/40 text-gray-500 mt-0.5">
+                    {/* Someone already on a trial or a comped month is not
+                        deciding whether to try Pro, they are deciding whether
+                        to keep it, and should be told when it ends. */}
+                    {(source_ === 'trial' || source_ === 'comped') && daysLeft !== null
+                      ? `Your Pro ends in ${daysLeft} ${daysLeft === 1 ? 'day' : 'days'}. Keep it for your whole term.`
+                      : 'Your whole term, not just last week'}
+                  </p>
                 )}
               </div>
             </div>

@@ -7,6 +7,7 @@ import { capture } from '@/lib/analytics'
 import { nativeImportSupported, nativeImportAudio, nativeImportText } from '@/lib/nativeImport'
 import { checkWebTrialLimit, type TrialGateResult } from '@/lib/webTrial'
 import { TrialLimitModal } from '@/components/TrialLimitModal'
+import { PaywallModal } from '@/components/PaywallModal'
 
 const FETCH_TIMEOUT_MS = 300_000 // 5 min: long audio files take time
 
@@ -153,6 +154,7 @@ export default function ImportPage() {
   // Import inserts into the same `sessions` table the trial counter reads,
   // so without this check it was a wide-open bypass of the wall meant to
   // push a capped browser user toward the desktop app.
+  const [importPaywall, setImportPaywall] = useState(false)
   const [trialBlocked, setTrialBlocked] = useState<TrialGateResult | null>(null)
   const checkTrial = useCallback(async () => {
     if (!userId) return true
@@ -1165,7 +1167,14 @@ export default function ImportPage() {
         </section>
 
       </div>
-      {trialBlocked && <TrialLimitModal gate={trialBlocked} onClose={() => setTrialBlocked(null)} />}
+      {trialBlocked && (
+        <TrialLimitModal
+          gate={trialBlocked}
+          onClose={() => setTrialBlocked(null)}
+          onUpgrade={() => { setTrialBlocked(null); setImportPaywall(true) }}
+        />
+      )}
+      {importPaywall && <PaywallModal source="web_trial_limit_import" onClose={() => setImportPaywall(false)} />}
     </div>
   )
 }

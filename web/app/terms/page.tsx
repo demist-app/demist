@@ -75,6 +75,7 @@ export default function Terms() {
             <ul className="space-y-3 text-gray-400">
               <li>Demist Pro is a paid monthly or annual subscription, billed automatically until cancelled. Payments are processed by Stripe; we never see or store your card details.</li>
               <li>You can cancel anytime from your profile page, which opens Stripe&apos;s billing portal. Cancelling stops future billing; access continues until the end of the period already paid for.</li>
+              <li>Accounts created from 23 September 2026 get Pro free for their first 30 days, with no card required. When those 30 days end the account moves to the free plan automatically; nothing is charged and nothing is deleted, but lectures older than the free history window are hidden until you upgrade.</li>
               <li>Everyone who confirmed their email on the Pro waitlist before launch received one free month of Pro automatically, at no cost and with no card required.</li>
             </ul>
           </section>

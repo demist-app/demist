@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { capture, identify, reportWriteFailure } from '@/lib/analytics'
 import { MINIMUM_AGE, meetsMinimumAge } from '@/lib/age'
-import { LIMITS } from '@/lib/entitlements'
+import { LIMITS, useEntitlements, REVERSE_TRIAL_DAYS } from '@/lib/entitlements'
 
 const YEARS = [
   { value: 1, label: '1st Year' },
@@ -58,6 +58,9 @@ const FREE_HISTORY_DAYS = LIMITS.free.historyDays
 
 export default function Onboarding() {
   const router = useRouter()
+  // Only true for accounts inside the reverse trial; older accounts re-shown
+  // onboarding for the date-of-birth prompt never had one and must not be told so.
+  const { isTrial } = useEntitlements()
   const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1)
   const [course, setCourse] = useState('')
   const [year, setYear] = useState<number | null>(null)
@@ -355,6 +358,7 @@ export default function Onboarding() {
                 is restricted, and more plainly: finding out your notes expired
                 only when you go looking for them is a bad way to learn it. */}
             <p className="text-[12px] dark:text-gray-600 text-gray-500 mt-8 leading-relaxed text-center">
+              {isTrial && <>Your first {REVERSE_TRIAL_DAYS} days are Pro, free and with no card. </>}
               Recording, live definitions, your glossary and flashcards are free and unlimited.
               Free accounts keep lecture history for {FREE_HISTORY_DAYS} days; Pro keeps everything.
             </p>

@@ -15,6 +15,7 @@ const OnboardingOverlay = dynamic(() => import('@/components/OnboardingOverlay')
 const SessionReview = dynamic(() => import('@/components/SessionReview').then(m => ({ default: m.SessionReview })), { ssr: false })
 const MicCheck = dynamic(() => import('@/components/MicCheck').then(m => ({ default: m.MicCheck })), { ssr: false })
 import { GuestBackupPrompt } from '@/components/GuestBackupPrompt'
+import { ProExpiryNotice } from '@/components/ProExpiryNotice'
 import { PaywallModal } from '@/components/PaywallModal'
 import { TrialLimitModal } from '@/components/TrialLimitModal'
 import { TranscriptBilingual } from '@/components/TranscriptBilingual'
@@ -345,6 +346,7 @@ export default function Dashboard() {
         {/* Guests only, and never mid-recording: the one moment this must not
             appear is while someone is trying to follow a lecture. */}
         {!isRecording && <GuestBackupPrompt />}
+        {!isRecording && <ProExpiryNotice onUpgrade={() => setPaywall('pro_expiry_notice')} />}
         {isRecording ? (
           <>
             {/* Red ambient glow during recording */}
@@ -910,7 +912,13 @@ export default function Dashboard() {
         />
       )}
 
-      {webTrialBlocked && <TrialLimitModal gate={webTrialBlocked} onClose={() => setWebTrialBlocked(null)} />}
+      {webTrialBlocked && (
+        <TrialLimitModal
+          gate={webTrialBlocked}
+          onClose={() => setWebTrialBlocked(null)}
+          onUpgrade={() => { setWebTrialBlocked(null); setPaywall('web_trial_limit') }}
+        />
+      )}
 
       {paywall && <PaywallModal source={paywall} onClose={() => setPaywall(null)} />}
 

@@ -138,8 +138,9 @@ export default async function SubjectLanding(props: PageProps<'/for/[subject]'>)
             <p className="dark:text-gray-400 text-gray-700">
               Recording, live explanations, translation, your glossary and your flashcards are free
               and unlimited in the app, with no advertising. Free accounts keep lecture history for
-              seven days. Demist Pro keeps everything, adds unlimited weekly summaries and Anki
-              export, and costs £4.99 a month.
+              seven days. Demist Pro keeps your whole term, records in the browser with no limit,
+              and adds unlimited summaries and Anki export for £4.99 a month. New accounts get Pro
+              free for their first 30 days, with no card.
             </p>
           </section>
 

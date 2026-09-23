@@ -1,10 +1,9 @@
 'use client'
 
-// Distinct from PaywallModal: that one is the Pro-plan gate (a waitlist,
-// since Pro isn't purchasable yet). This one is the web-trial wall from
-// webTrial.ts - there's a real, already-live thing to send someone to here
-// (the Windows Store app, the Mac beta), so the CTA is a download link, not
-// an email capture.
+// The web-trial wall from webTrial.ts: shown when a free user has used their
+// browser recordings. Offers both ways to keep going - Pro, which lifts the
+// browser cap, and the free desktop app - ordered by which actually works on
+// this device (see the component body).
 
 import { useEffect } from 'react'
 import { capture } from '@/lib/analytics'
@@ -38,21 +37,74 @@ function AppleIcon() {
 export function TrialLimitModal({
   gate,
   onClose,
+  onUpgrade,
 }: {
   gate: TrialGateResult
   onClose: () => void
+  // Opens Pro checkout. Pro lifts the browser cap (entitlements.ts), so this
+  // is a real answer to "I want to keep recording", not an upsell beside it.
+  onUpgrade: () => void
 }) {
   useEffect(() => {
     capture('web_trial_blocked', { platform: gate.platform })
   }, [gate.platform])
 
-  // A phone cannot run either build, so offering it a download is a dead end.
-  // The pitch still works, it just has to point at the other device they
-  // already own rather than the one in their hand.
   const isMobile = gate.platform === 'mobile'
   const isMac = gate.platform === 'mac'
-  const href = isMac ? MAC_SUPPORT_URL : MS_STORE_URL
-  const external = !isMac
+
+  // Which route leads depends on which one actually works on this device,
+  // not on which one earns money:
+  //
+  // - Windows: the free Store app is solid, on-device and unlimited. It leads,
+  //   and Pro is offered for people who cannot or would rather not install
+  //   (a school laptop, a shared machine).
+  // - Mac: the beta is an unsigned .dmg behind a Gatekeeper warning, and as of
+  //   2026-09-23 nobody has ever recorded with it (13 install-guide clicks,
+  //   0 recordings). Leading with it sends people into a dead end, so Pro leads.
+  // - Mobile: a phone cannot install either build, so Pro is the only way to
+  //   keep recording on the device in their hand. The laptop apps follow.
+  const proLeads = isMac || isMobile
+
+  const goPro = () => {
+    capture('trial_wall_pro_clicked', { platform: gate.platform })
+    onUpgrade()
+  }
+
+  const proButton = (primary: boolean) => (
+    <button
+      onClick={goPro}
+      className={primary
+        ? 'w-full py-3 rounded-2xl bg-yellow-600 hover:brightness-110 text-white text-[14px] font-semibold active:scale-[0.97] transition-all'
+        : 'w-full py-3 rounded-2xl text-[14px] font-semibold active:scale-[0.97] transition-all dark:bg-white/[0.06] bg-[#F6F5F2] border dark:border-white/[0.08] border-black/[0.12] dark:text-white text-gray-900'}
+    >
+      Keep recording in the browser with Pro
+    </button>
+  )
+
+  const windowsLink = (primary: boolean, placement: string) => (
+    <a
+      href={MS_STORE_URL}
+      target="_blank" rel="noopener noreferrer"
+      onClick={() => capture('ms_store_clicked', { placement })}
+      className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-[13px] font-semibold active:scale-[0.97] transition-all ${primary
+        ? 'bg-yellow-600 hover:brightness-110 text-white'
+        : 'dark:bg-white/[0.06] bg-[#F6F5F2] border dark:border-white/[0.08] border-black/[0.12] dark:text-white text-gray-900'}`}
+    >
+      <WindowsIcon />
+      {primary ? 'Get the free Windows app' : 'Windows'}
+    </a>
+  )
+
+  const macLink = (placement: string) => (
+    <a
+      href={MAC_SUPPORT_URL}
+      onClick={() => capture('mac_install_guide_clicked', { placement })}
+      className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-[13px] font-semibold active:scale-[0.97] transition-all dark:bg-white/[0.06] bg-[#F6F5F2] border dark:border-white/[0.08] border-black/[0.12] dark:text-white text-gray-900"
+    >
+      <AppleIcon />
+      Mac (beta)
+    </a>
+  )
 
   return (
     <div
@@ -64,51 +116,40 @@ export function TrialLimitModal({
     >
       <div className="w-full max-w-md dark:bg-[#0d0d1c] bg-[#FDFCF9] border dark:border-white/[0.08] border-black/[0.12] rounded-[24px] p-6 space-y-4">
         <div className="flex items-start justify-between gap-2">
-          <p className="text-[17px] font-bold dark:text-white text-gray-900 leading-snug">You&apos;ve used your free trial in the browser</p>
+          <p className="text-[17px] font-bold dark:text-white text-gray-900 leading-snug">You&apos;ve used your free recordings in the browser</p>
           <button onClick={onClose} aria-label="Close" className="text-gray-500 hover:dark:text-white/60 hover:text-gray-900 text-[22px] leading-none shrink-0 mt-[-2px] transition-colors">×</button>
         </div>
 
         <p className="text-[13px] dark:text-white/60 text-gray-600 leading-relaxed">
-          {gate.reason} Your glossary, flashcards and history are still here.{' '}
-          {isMobile
-            ? 'On a laptop, Demist runs entirely on your own machine: recording, transcription and term detection are unlimited and free, and your audio never leaves the computer. A phone browser also stops recording whenever you switch apps, so a laptop is the better place for a full lecture anyway.'
-            : `The ${isMac ? 'Mac' : 'Windows'} app runs entirely on your own machine, so recording, transcription and term detection are unlimited, free, and your audio never leaves your computer.`}
+          {gate.reason} Your glossary, flashcards and history are all still here. There are two ways to keep going:
         </p>
 
-        {isMobile ? (
+        <ul className="text-[13px] dark:text-white/60 text-gray-600 leading-relaxed space-y-1.5 pl-4 list-disc">
+          <li>
+            <span className="dark:text-white text-gray-900 font-medium">Pro</span>: keep recording right here in the
+            browser with no limit, plus every lecture from your term kept for exams.
+          </li>
+          <li>
+            <span className="dark:text-white text-gray-900 font-medium">The free app</span>: install Demist on a Windows
+            or Mac laptop and record as much as you like, with your audio never leaving the computer.
+            {isMobile && ' It cannot be installed on a phone.'}
+          </li>
+        </ul>
+
+        {proLeads ? (
           <div className="space-y-2">
-            <p className="text-[12px] dark:text-white/40 text-gray-500">Open this on your laptop:</p>
+            {proButton(true)}
+            <p className="text-[12px] dark:text-white/40 text-gray-500 pt-1">Or install the free app on a laptop:</p>
             <div className="flex gap-2">
-              <a
-                href={MS_STORE_URL}
-                target="_blank" rel="noopener noreferrer"
-                onClick={() => capture('ms_store_clicked', { placement: 'trial_limit_modal_mobile' })}
-                className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl bg-yellow-600 hover:brightness-110 text-white text-[13px] font-semibold active:scale-[0.97] transition-all"
-              >
-                <WindowsIcon />
-                Windows
-              </a>
-              <a
-                href={MAC_SUPPORT_URL}
-                onClick={() => capture('mac_install_guide_clicked', { placement: 'trial_limit_modal_mobile' })}
-                className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-[13px] font-semibold active:scale-[0.97] transition-all dark:bg-white/[0.06] bg-[#F6F5F2] border dark:border-white/[0.08] border-black/[0.12] dark:text-white text-gray-900"
-              >
-                <AppleIcon />
-                Mac
-              </a>
+              {windowsLink(false, isMobile ? 'trial_limit_modal_mobile' : 'trial_limit_modal')}
+              {macLink(isMobile ? 'trial_limit_modal_mobile' : 'trial_limit_modal')}
             </div>
           </div>
         ) : (
-          <a
-            href={href}
-            target={external ? '_blank' : undefined}
-            rel={external ? 'noopener noreferrer' : undefined}
-            onClick={() => capture(isMac ? 'mac_install_guide_clicked' : 'ms_store_clicked', { placement: 'trial_limit_modal' })}
-            className="flex items-center justify-center gap-2.5 py-3 rounded-2xl bg-yellow-600 hover:brightness-110 text-white text-[14px] font-semibold active:scale-[0.97] transition-all"
-          >
-            {isMac ? <AppleIcon /> : <WindowsIcon />}
-            {isMac ? 'Get the Mac beta' : 'Get it on the Microsoft Store'}
-          </a>
+          <div className="space-y-2">
+            <div className="flex">{windowsLink(true, 'trial_limit_modal')}</div>
+            {proButton(false)}
+          </div>
         )}
 
         <button
