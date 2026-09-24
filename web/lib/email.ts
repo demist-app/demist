@@ -244,3 +244,76 @@ export function proLaunchedEmail(monthlyPriceText: string | null, onWaitlist: bo
     ].join('\n'),
   }
 }
+
+// ── Pro expiry (web/app/api/cron/pro-expiry) ────────────────────────────────
+// Three stages around the day a trial or comped month ends. Every line is
+// about THEIR account: their own counts, what changes, the date. No claims
+// about other students, no urgency that is not real. Copy must be approved
+// before PRO_EXPIRY_EMAILS_ENABLED is turned on.
+
+import type { ExpiryStage } from './proExpiryStage'
+export type { ExpiryStage }
+
+export interface ExpiryEmailData {
+  stage: ExpiryStage
+  source: 'comped' | 'trial'
+  endDate: string          // already formatted, e.g. "Sat 11 Oct"
+  sessions: number
+  terms: number
+  locked: number           // lectures older than the free history window
+  historyDays: number
+}
+
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
+
+export function proExpiryEmail(d: ExpiryEmailData) {
+  const kind = d.source === 'trial' ? 'free Pro trial' : 'free month of Pro'
+  const link = `${APP_URL}/dashboard?upgrade=pro_expiry&via=email_${d.stage}`
+  const have = `You have ${plural(d.sessions, 'lecture', 'lectures')} and ${plural(d.terms, 'term', 'terms')} in Demist.`
+  const lockLine = d.locked > 0
+    ? `${d.locked === d.sessions ? 'All of them are' : `${d.locked} of those lectures are`} older than ${d.historyDays} days, so they will lock when it ends.`
+    : `When it ends, the free plan keeps the last ${d.historyDays} days, so older lectures lock. By the end of term that is most of them.`
+  const staysFree = 'Nothing is deleted, and live definitions, your glossary and your flashcards stay free either way.'
+  const price = 'Pro is £4.99 a month, or £29.99 a year.'
+
+  let subject: string, heading: string, paras: string[], cta: string, preheader: string
+  if (d.stage === 'minus7') {
+    subject = `Your ${kind} ends on ${d.endDate}`
+    heading = `Your ${kind} ends on ${d.endDate}`
+    paras = [have, lockLine, staysFree, `If you want your whole term kept for revision, ${price}`]
+    cta = 'Keep Pro'
+    preheader = d.locked > 0 ? `${plural(d.locked, 'lecture', 'lectures')} will lock when it ends.` : 'What changes, and what stays free.'
+  } else if (d.stage === 'minus1') {
+    subject = `Your ${kind} ends tomorrow`
+    heading = `Your ${kind} ends tomorrow`
+    paras = [
+      d.locked > 0
+        ? `${plural(d.locked, 'lecture', 'lectures')} will lock when it does. ${staysFree}`
+        : `After tomorrow, lectures older than ${d.historyDays} days lock. ${staysFree}`,
+      price,
+    ]
+    cta = 'Keep Pro'
+    preheader = 'A last reminder, then nothing more about it.'
+  } else {
+    subject = 'You are on the free plan now'
+    heading = d.locked > 0 ? `${plural(d.locked, 'lecture is', 'lectures are')} now locked` : 'You are on the free plan now'
+    paras = [
+      `Your ${kind} has ended. ${d.locked > 0 ? 'Those lectures have not been deleted: they are still in your history, locked, and Pro unlocks all of them straight away.' : `From now on, lectures older than ${d.historyDays} days lock. Nothing is deleted.`}`,
+      'Live definitions, your glossary and your flashcards are still free.',
+      price,
+    ]
+    cta = d.locked > 0 ? 'Unlock them' : 'Get Pro'
+    preheader = d.locked > 0 ? 'Nothing has been deleted.' : 'What changed today.'
+  }
+
+  const footer = 'You are getting this because your Demist Pro ends on a set date. This is about your account, not a newsletter.'
+  return {
+    subject,
+    html: shell(
+      H(heading) + paras.map(p => P(p)).join('') + button(link, cta)
+        + P(footer, `font-size:13px;color:${FAINT};margin-bottom:0;`),
+      preheader,
+    ),
+    text: [heading, '', ...paras.flatMap(p => [p, '']), `${cta}: ${link}`, '', footer].join('\n'),
+  }
+}

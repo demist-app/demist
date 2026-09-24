@@ -16,13 +16,13 @@
 
 import { createContext, useContext, useEffect, useRef, useState, ReactNode } from 'react'
 import { createClient } from '@/lib/supabase'
-import { capture, identify, reportWriteFailure } from '@/lib/analytics'
+import { capture, reportError, identify, reportWriteFailure } from '@/lib/analytics'
 import { requestWakeLock, releaseWakeLock, reacquireWakeLockOnVisibility, wakeLockSupported } from '@/lib/wakeLock'
 import { startTabCapture } from '@/lib/tabCapture'
 import { checkRecordingLimit } from '@/lib/subscription'
 import { checkWebTrialLimit, trialRemaining, type TrialGateResult } from '@/lib/webTrial'
 import { detectDesktopPlatform, isMobileUA } from '@/lib/platform'
-import { useEntitlements } from '@/lib/entitlements'
+import { useEntitlements, fetchEntitlement, LIMITS } from '@/lib/entitlements'
 import { useNativeTranslate } from '@/lib/useNativeTranslate'
 import { extractCandidates } from '@/lib/extractTerms'
 import { isElectronNative, getDemistNative, missingOnDeviceCapabilities, dlog, type DemistNative } from '@/lib/electronNative'
@@ -30,6 +30,8 @@ import { startNativeSession, type NativeSessionHandle } from '@/lib/nativeSessio
 import { isEligibleForSummary } from '@/lib/summaryEligibility'
 import { collidesWith } from '@/lib/termSimilarity'
 import { isLikelyJargon, isConfidentDefinition } from '@/lib/termQuality'
+import { classifySession, type SessionOutcome } from '@/lib/sessionOutcome'
+import { SURVEY_ID, SURVEY_DONE_KEY } from '@/lib/survey'
 
 export type CaptureMode = 'microphone' | 'tab'
 
@@ -166,6 +168,10 @@ interface RecordingSessionValue {
   liveSessionId: string | null
   reviewTerms: { term: string; definition: string; dbId?: string }[] | null
   setReviewTerms: React.Dispatch<React.SetStateAction<{ term: string; definition: string; dbId?: string }[] | null>>
+  sessionSummary: SessionOutcome | null
+  surveyDue: boolean
+  setSurveyDue: React.Dispatch<React.SetStateAction<boolean>>
+  setSessionSummary: React.Dispatch<React.SetStateAction<SessionOutcome | null>>
   reviewSessionId: string | null
   sessionSubject: string
   setSessionSubject: (s: string) => void
@@ -268,6 +274,13 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
   // this lecture's cards (the deck-filter kind:'session' machinery already
   // there for the manual filter chips - see flashcards/page.tsx).
   const [reviewSessionId, setReviewSessionId] = useState<string | null>(null)
+  // The end-of-session outcome when nothing was caught: 'empty' (detection
+  // ran, the lecture had nothing) or 'failed' (it did not work). A session
+  // with terms goes to SessionReview instead. See sessionOutcome.ts.
+  const [sessionSummary, setSessionSummary] = useState<SessionOutcome | null>(null)
+  // The one-time survey (SurveyModal) is due. The dashboard shows it only once
+  // every other end-of-session sheet has closed.
+  const [surveyDue, setSurveyDue] = useState(false)
   const [sessionSubject, setSessionSubject] = useState<string>('')
   // The user's own last few distinct subjects (most recent first), so the
   // subject-change input can offer them as one-tap chips instead of forcing
@@ -376,6 +389,18 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
   const cardTimersRef = useRef(new Map<string, ReturnType<typeof setTimeout>>())  // live term card auto-dismiss timers, cancellable by pin
   const chunkIntervalRef = useRef(5_000)  // adaptive: 5s default, 10s during silence
   const zeroTermChunksRef = useRef(0)     // consecutive detect-terms calls with 0 terms
+  // Per-session detection health, for the end-of-session summary: it is what
+  // lets "this lecture had no jargon" be told apart from "detection broke"
+  // (see sessionOutcome.ts). Counts only, nothing from the lecture.
+  const detectionStatsRef = useRef({ ok: 0, failed: 0, lastFailure: null as string | null, unclearChunks: 0, clearChunks: 0 })
+  // Detection calls still in flight. Stop waits for these (briefly) before
+  // deciding what the session caught, or the final flush's terms would arrive
+  // after the summary had already said there were none.
+  const inflightDetectionsRef = useRef(new Set<Promise<unknown>>())
+  const trackDetection = (p: Promise<unknown>) => {
+    inflightDetectionsRef.current.add(p)
+    p.finally(() => inflightDetectionsRef.current.delete(p))
+  }
   const chunkPeakRef = useRef(0)           // max audio level seen during current chunk
   const webSpeechFinalRef = useRef('')     // accumulated final Web Speech results (fallback transcript)
   // Transcript autosave. The transcript used to exist ONLY in transcriptRef
@@ -745,6 +770,10 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
 
       const now = new Date()
       const weekAgo = new Date(now.getTime() - 7 * 86400000).toISOString()
+      // Resolved here, not read from useEntitlements' `limits`: this runs on
+      // mount, before the hook has loaded, when `limits` is still the free
+      // default, so Pro users' recent lectures were cut to 7 days as well.
+      const mountHistoryDays = LIMITS[(await fetchEntitlement(supabase, user.id)).plan].historyDays
 
       const [
         { data: prof },
@@ -766,9 +795,9 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
         // 48 of 55 active users have fewer than 5 sessions in total, so for
         // almost everyone the entire archive stayed visible here no matter
         // what History was allowed to show.
-        (limits.historyDays == null
+        (mountHistoryDays == null
           ? supabase.from('sessions').select('id, name, subject, started_at, ended_at, synopsis, transcript, capture_mode').eq('user_id', user.id).order('started_at', { ascending: false }).limit(5)
-          : supabase.from('sessions').select('id, name, subject, started_at, ended_at, synopsis, transcript, capture_mode').eq('user_id', user.id).gte('started_at', new Date(Date.now() - limits.historyDays * 86400000).toISOString()).order('started_at', { ascending: false }).limit(5)),
+          : supabase.from('sessions').select('id, name, subject, started_at, ended_at, synopsis, transcript, capture_mode').eq('user_id', user.id).gte('started_at', new Date(Date.now() - mountHistoryDays * 86400000).toISOString()).order('started_at', { ascending: false }).limit(5)),
         supabase.from('sessions').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
       ])
       totalSessionCountRef.current = totalCount ?? 0
@@ -888,6 +917,8 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
         // rest of the session with no way to tell that apart from "nothing
         // worth flagging was said."
         console.error('native detectTerms error:', e)
+        detectionStatsRef.current.failed++
+        detectionStatsRef.current.lastFailure = 'native_error'
         setRecordingWarning('Term detection hit an error on that segment. Recording continues normally.')
         return
       }
@@ -899,7 +930,11 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       if (sentTermsRef.current.size > 500) {
         sentTermsRef.current = new Set(Array.from(sentTermsRef.current).slice(-500))
       }
-      if (candidates.length === 0) return   // nothing new, skip the network call entirely
+      if (candidates.length === 0) {
+        // Detection ran and there was simply nothing new to ask about.
+        detectionStatsRef.current.ok++
+        return   // nothing new, skip the network call entirely
+      }
 
       // Cloud translation fallback: only ask the server to translate definitions
       // when on-device translation isn't usable (unsupported browser, still
@@ -909,7 +944,9 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
         ? LANGUAGE_NAMES[profileRef.current.translate_to]
         : undefined
 
-      const dtRes = await fetch(`${base}/functions/v1/detect-terms`, {
+      let dtRes: Response
+      try {
+        dtRes = await fetch(`${base}/functions/v1/detect-terms`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -920,8 +957,17 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
           known_terms: Array.from(knownTermsRef.current),
           target_lang_name: cloudTargetLangName,
         }),
-      })
+        })
+      } catch (e) {
+        // A network failure used to escape as a rejected promise that the
+        // caller logged and nothing else noticed.
+        detectionStatsRef.current.failed++
+        detectionStatsRef.current.lastFailure = 'network'
+        throw e
+      }
       if (!dtRes.ok) {
+        detectionStatsRef.current.failed++
+        detectionStatsRef.current.lastFailure = `http_${dtRes.status}`
         if (dtRes.status === 429) {
           setRecordingWarning('Term detection rate limit reached for this hour. Recording and transcription continue normally.')
         } else if (dtRes.status === 401) {
@@ -942,6 +988,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       const detected = await dtRes.json()
       terms = detected?.terms ?? []
     }
+    detectionStatsRef.current.ok++
 
     // Adaptive chunking: after 3 consecutive empty detections, slow the chunk
     // loop to 10s to halve API calls during silence. Reset to 5s on any hit.
@@ -1238,10 +1285,10 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       recentContextRef.current = (context + ' ' + toDetect).trim().slice(-300)
       detectionBufferRef.current = ''
       lastDetectionTimeRef.current = Date.now()
-      createClient().auth.getSession().then(({ data: { session } }) => {
+      trackDetection(createClient().auth.getSession().then(({ data: { session } }) => {
         const token = session?.access_token
-        if (token) runDetection(toDetect, sessionId, token, context).catch(e => console.error('runDetection error:', e))
-      }).catch(e => console.error('detect-terms auth lookup failed:', e))
+        if (token) return runDetection(toDetect, sessionId, token, context).catch(e => console.error('runDetection error:', e))
+      }).catch(e => console.error('detect-terms auth lookup failed:', e)))
     }
   }
 
@@ -1304,11 +1351,13 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       // confident: unknown must not silently switch term detection off.
       const conf: number | null = typeof tx.confidence === 'number' ? tx.confidence : null
       if (conf !== null && conf < TRANSCRIPT_CONFIDENCE_FLOOR) {
+        detectionStatsRef.current.unclearChunks++
         accumulateAndMaybeDetect(tx.text.trim(), sessionId, false, true)
         capture('chunk_too_unclear_for_terms', { confidence: Math.round(conf * 100) / 100 })
         dlog(`[demist] chunk transcribed at confidence ${conf.toFixed(2)}, below ${TRANSCRIPT_CONFIDENCE_FLOOR}: showing text, skipping term detection`)
         return
       }
+      detectionStatsRef.current.clearChunks++
       accumulateAndMaybeDetect(tx.text.trim(), sessionId)
     } catch (e) {
       console.error('processChunk error:', e)
@@ -1629,6 +1678,8 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     lastDetectionTimeRef.current = Date.now()
     chunkIntervalRef.current = 5_000
     zeroTermChunksRef.current = 0
+    detectionStatsRef.current = { ok: 0, failed: 0, lastFailure: null, unclearChunks: 0, clearChunks: 0 }
+    setSessionSummary(null)
     chunkPeakRef.current = 0
     recordingStartedAtRef.current = Date.now()
     backgroundedDuringRecordingRef.current = false
@@ -1995,6 +2046,86 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     }
   }
 
+  // Decides what this session caught and shows it: the review sheet when
+  // there are terms, otherwise the empty or failed summary. Detached from
+  // stopRecording on purpose: waiting for in-flight detection here must never
+  // hold up saving the transcript.
+  const summariseSession = async (sid: string | null) => {
+    const durationSec = Math.round((Date.now() - recordingStartedAtRef.current) / 1000)
+    // The final flush and any detection still running. Bounded, so a hung
+    // request cannot leave the user with no summary at all.
+    await Promise.race([
+      Promise.allSettled([...inflightDetectionsRef.current]),
+      new Promise(r => setTimeout(r, 12_000)),
+    ])
+    const stats = detectionStatsRef.current
+    const outcome = classifySession({
+      termsCount: allSessionTermsRef.current.length,
+      transcriptChars: currentTranscriptText().length,
+      durationSec,
+      detectOk: stats.ok,
+      detectFailed: stats.failed,
+      unclearChunks: stats.unclearChunks,
+      clearChunks: stats.clearChunks,
+    })
+    const props = {
+      duration_seconds: durationSec,
+      detect_ok: stats.ok,
+      detect_failed: stats.failed,
+      unclear_chunks: stats.unclearChunks,
+      clear_chunks: stats.clearChunks,
+      capture_mode: captureModeRef.current,
+      native: !!getDemistNative(),
+    }
+    if (outcome.state === 'found') {
+      capture('session_summary_shown', { ...props, terms_count: outcome.termsCount })
+      setReviewTerms([...allSessionTermsRef.current])
+      setReviewSessionId(sid)
+    } else if (outcome.state === 'empty') {
+      capture('session_summary_empty', props)
+      setSessionSummary(outcome)
+    } else if (outcome.state === 'failed') {
+      capture('session_detection_failed', { ...props, reason: outcome.reason, last_failure: stats.lastFailure })
+      // Also as an exception, so it lands in the error digest next to crashes
+      // rather than only in an event breakdown someone has to go looking for.
+      // A fixed message and counts: nothing from the lecture.
+      reportError(`session_detection_failed:${outcome.reason}`, { ...props, last_failure: stats.lastFailure })
+      setSessionSummary(outcome)
+    }
+    // The proactive Pro nudge (see the note in stopRecording) only when no
+    // summary sheet is about to open: every sheet above is modal, and two
+    // modals fighting for the screen is worse than skipping this session.
+    // totalSessionCountRef is refreshed by stopRecording's own queries, which
+    // have had the detection wait above to land.
+    if (
+      outcome.state === 'skipped' &&
+      !isPro && [2, 3].includes(totalSessionCountRef.current) &&
+      !localStorage.getItem('demist_pro_nudge_shown')
+    ) {
+      localStorage.setItem('demist_pro_nudge_shown', '1')
+      setPaywall('post_session_nudge')
+    }
+    if (await surveyEligible()) setSurveyDue(true)
+  }
+
+  // Strangers with 3+ lectures who have not answered. Fails CLOSED on any
+  // read error: if we cannot tell whether someone is internal, or whether
+  // they have already answered, asking again is the wrong default.
+  const surveyEligible = async (): Promise<boolean> => {
+    try { if (localStorage.getItem(SURVEY_DONE_KEY)) return false } catch { /* unreadable: check the database */ }
+    const uid = userIdRef.current
+    if (!uid) return false
+    const sb = createClient()
+    const [{ data: prof, error: profErr }, { count: answered, error: ansErr }, { count: lectures, error: lecErr }] = await Promise.all([
+      sb.from('profiles').select('is_internal').eq('id', uid).maybeSingle(),
+      sb.from('survey_responses').select('id', { count: 'exact', head: true }).eq('user_id', uid).eq('survey', SURVEY_ID),
+      sb.from('sessions').select('id', { count: 'exact', head: true }).eq('user_id', uid),
+    ])
+    if (profErr || ansErr || lecErr) return false
+    if (prof?.is_internal) return false
+    return (answered ?? 0) === 0 && (lectures ?? 0) >= 3
+  }
+
   const stopRecording = async () => {
     // Read BEFORE clearing it: the recovery below must only run for a
     // recording that was genuinely live, not for the unmount-time and
@@ -2099,10 +2230,10 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       detectionBufferRef.current = ''
       lastDetectionTimeRef.current = Date.now()
       const flushSid = sessionIdRef.current
-      createClient().auth.getSession().then(({ data: { session } }) => {
+      trackDetection(createClient().auth.getSession().then(({ data: { session } }) => {
         const token = session?.access_token
-        if (token) runDetection(toDetect, flushSid, token, context).catch(e => console.error('runDetection error:', e))
-      }).catch(e => console.error('detect-terms auth lookup failed:', e))
+        if (token) return runDetection(toDetect, flushSid, token, context).catch(e => console.error('runDetection error:', e))
+      }).catch(e => console.error('detect-terms auth lookup failed:', e)))
     }
 
     // Release the Web Lock so Chrome can resume normal background throttling
@@ -2139,10 +2270,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     stoppingRef.current = false
     window.postMessage({ source: 'demist', type: 'recording-stopped' }, window.location.origin)
     capture('recording_stopped', { duration_seconds: elapsed })
-    if (allSessionTermsRef.current.length > 0) {
-      setReviewTerms([...allSessionTermsRef.current])
-      setReviewSessionId(sid)
-    }
+    if (wasRecording) void summariseSession(sid)
 
     const supabase = createClient()
     const now = new Date()
@@ -2164,8 +2292,14 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     setStats({ streak, termsThisWeek, dueFlashcards })
 
     const [{ data: sessionsRaw }, { count: newTotal }] = await Promise.all([
-      supabase.from('sessions').select('id, name, subject, started_at, ended_at, synopsis, transcript, capture_mode')
-        .eq('user_id', userIdRef.current!).order('started_at', { ascending: false }).limit(5),
+      // Same history window as the mount-time load; without it, stopping a
+      // recording briefly showed a free user their locked lectures here.
+      (limits.historyDays == null
+        ? supabase.from('sessions').select('id, name, subject, started_at, ended_at, synopsis, transcript, capture_mode')
+          .eq('user_id', userIdRef.current!).order('started_at', { ascending: false }).limit(5)
+        : supabase.from('sessions').select('id, name, subject, started_at, ended_at, synopsis, transcript, capture_mode')
+          .eq('user_id', userIdRef.current!).gte('started_at', new Date(Date.now() - limits.historyDays * 86400000).toISOString())
+          .order('started_at', { ascending: false }).limit(5)),
       supabase.from('sessions').select('id', { count: 'exact', head: true }).eq('user_id', userIdRef.current!),
     ])
     totalSessionCountRef.current = newTotal ?? totalSessionCountRef.current
@@ -2186,14 +2320,8 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     // to render (below), and stacking it under a second modal fighting for
     // the same screen is worse than occasionally missing this exact session
     // count - it just tries again, unmarked, next time the count matches.
-    if (
-      !isPro && [2, 3].includes(totalSessionCountRef.current) &&
-      allSessionTermsRef.current.length === 0 &&
-      !localStorage.getItem('demist_pro_nudge_shown')
-    ) {
-      localStorage.setItem('demist_pro_nudge_shown', '1')
-      setPaywall('post_session_nudge')
-    }
+    // (The check itself now lives in summariseSession, which knows whether a
+    // summary sheet is about to take the screen; see the note there.)
     if (sessionsRaw?.length) {
       const ids = sessionsRaw.map((s: { id: string }) => s.id)
       const { data: termRows } = await supabase.from('terms').select('session_id').in('session_id', ids)
@@ -2410,7 +2538,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     loading, isRecording, elapsed, liveTerms, setLiveTerms, sessionGlossary, profile, setProfile, stats,
     recentSessions, setRecentSessions, sessionGenIds, sessionFailIds, sessionFailReasons, sessionTermLoading,
     recordingError, recordingWarning, sessionSyncWarning, modelWarning, staleShellWarning, wakeLockUnsupported, captureMode, setCaptureMode, capturedTabTitle,
-    sentences, translatedSentences, liveSessionId, reviewTerms, setReviewTerms, reviewSessionId, sessionSubject, setSessionSubject,
+    sentences, translatedSentences, liveSessionId, reviewTerms, setReviewTerms, sessionSummary, setSessionSummary, surveyDue, setSurveyDue, reviewSessionId, sessionSubject, setSessionSubject,
     sessionSubjectRef, recentSubjects, addRecentSubject, paywall, setPaywall,
     webTrialBlocked, setWebTrialBlocked, webTrialRemaining, localTranslate, localTranslateUsable, liveTranslateAvailable, translationReady,
     nativeModelsReady, nativeModelProgress, nativeModelsError, retryNativeModelPreload,

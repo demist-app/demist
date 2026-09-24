@@ -1,0 +1,13 @@
+-- sessions.terms_count has existed since 001_initial and nothing has ever
+-- written it: every row is 0. Nothing reads it either. A column that always
+-- says 0 is worse than no column, because the next query or dashboard that
+-- trusts it will report "no terms caught" for every lecture, which is exactly
+-- the shape of the 25-day detection outage that looked like quiet lectures.
+--
+-- The single source of truth for how many terms a session caught is
+-- count(*) from terms where session_id = ... . No trigger-maintained copy:
+-- a denormalised count is one more thing that can silently drift.
+--
+-- No CASCADE: if a view depends on this column the migration should fail
+-- loudly rather than drop the view.
+alter table public.sessions drop column if exists terms_count;

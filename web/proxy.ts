@@ -30,7 +30,9 @@ export function proxy(request: NextRequest) {
 
   if (!hasSession) {
     const loginUrl = new URL('/login', request.url)
-    loginUrl.searchParams.set('next', pathname)
+    // With the query: an email's upgrade link is /dashboard?upgrade=..., and
+    // dropping the query meant signing in landed on Home with no paywall.
+    loginUrl.searchParams.set('next', pathname + request.nextUrl.search)
     return NextResponse.redirect(loginUrl)
   }
 

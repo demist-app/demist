@@ -13,6 +13,8 @@ import { useRecordingSession, LANGUAGE_NAMES, friendlyModelName, type LiveTerm }
 const SummaryViewer = dynamic(() => import('../summary-viewer').then(m => ({ default: m.SummaryViewer })), { ssr: false })
 const OnboardingOverlay = dynamic(() => import('@/components/OnboardingOverlay').then(m => ({ default: m.OnboardingOverlay })), { ssr: false })
 const SessionReview = dynamic(() => import('@/components/SessionReview').then(m => ({ default: m.SessionReview })), { ssr: false })
+const SessionSummary = dynamic(() => import('@/components/SessionSummary').then(m => ({ default: m.SessionSummary })), { ssr: false })
+const SurveyModal = dynamic(() => import('@/components/SurveyModal').then(m => ({ default: m.SurveyModal })), { ssr: false })
 const MicCheck = dynamic(() => import('@/components/MicCheck').then(m => ({ default: m.MicCheck })), { ssr: false })
 import { GuestBackupPrompt } from '@/components/GuestBackupPrompt'
 import { ProExpiryNotice } from '@/components/ProExpiryNotice'
@@ -59,13 +61,29 @@ export default function Dashboard() {
     loading, isRecording, elapsed, liveTerms, setLiveTerms, sessionGlossary, profile, stats,
     recentSessions, sessionGenIds, sessionFailIds, sessionFailReasons, sessionTermLoading,
     recordingError, recordingWarning, sessionSyncWarning, modelWarning, staleShellWarning, wakeLockUnsupported, captureMode, setCaptureMode, capturedTabTitle,
-    sentences, translatedSentences, reviewTerms, setReviewTerms, reviewSessionId, sessionSubject, setSessionSubject,
+    sentences, translatedSentences, reviewTerms, setReviewTerms, sessionSummary, setSessionSummary, surveyDue, setSurveyDue, reviewSessionId, sessionSubject, setSessionSubject,
     sessionSubjectRef, recentSubjects, addRecentSubject, paywall, setPaywall,
     webTrialBlocked, setWebTrialBlocked, webTrialRemaining, localTranslate, liveTranslateAvailable, translationReady,
     nativeModelsReady, nativeModelProgress, nativeModelsError, retryNativeModelPreload,
     vizAnalyserRef, chunkPeakRef, startRecording, stopRecording, dismissTerm, pinTerm, markKnown,
     retrySessionSummarize, toggleExpandSession,
   } = useRecordingSession()
+
+  // Deep link into the paywall, from the Pro expiry emails:
+  // /dashboard?upgrade=pro_expiry&via=email_minus7. Read once, then removed
+  // from the address bar so a reload does not reopen it.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const upgrade = params.get('upgrade')
+    if (!upgrade) return
+    const via = params.get('via')
+    if (upgrade === 'pro_expiry') capture('pro_expiry_cta_clicked', { via: via ?? 'link' })
+    setPaywall(upgrade.replace(/[^a-z0-9_]/gi, '').slice(0, 40) || 'deep_link')
+    params.delete('upgrade'); params.delete('via')
+    const rest = params.toString()
+    window.history.replaceState(null, '', window.location.pathname + (rest ? `?${rest}` : ''))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // All three on-device models now gate the record button (transcription,
   // term detection, translation - see runNativePreload in
@@ -346,7 +364,7 @@ export default function Dashboard() {
         {/* Guests only, and never mid-recording: the one moment this must not
             appear is while someone is trying to follow a lecture. */}
         {!isRecording && <GuestBackupPrompt />}
-        {!isRecording && <ProExpiryNotice onUpgrade={() => setPaywall('pro_expiry_notice')} />}
+        {!isRecording && <ProExpiryNotice onUpgrade={() => setPaywall('pro_expiry')} />}
         {isRecording ? (
           <>
             {/* Red ambient glow during recording */}
@@ -924,6 +942,11 @@ export default function Dashboard() {
 
       {/* End-of-session flashcard review */}
       {reviewTerms && <SessionReview terms={reviewTerms} sessionId={reviewSessionId} onClose={() => setReviewTerms(null)} />}
+      {sessionSummary && <SessionSummary outcome={sessionSummary} onClose={() => setSessionSummary(null)} />}
+      {/* Last in line: only once every other end-of-session sheet has closed. */}
+      {surveyDue && !reviewTerms && !sessionSummary && !paywall && !isRecording && (
+        <SurveyModal onClose={() => setSurveyDue(false)} />
+      )}
 
       {/* First-time onboarding */}
       <OnboardingOverlay />

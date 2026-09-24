@@ -28,6 +28,7 @@
 // the right granularity, not leftover friction.
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase'
+import { reportWriteFailure } from '@/lib/analytics'
 
 type CheckState = 'sampling' | 'good' | 'quiet' | 'error'
 
@@ -88,9 +89,9 @@ export function MicCheck({ subject, onStart, onCancel }: Props) {
         sb.from('mic_acknowledgments')
           .insert({ user_id: session.user.id, subject: subject || '' })
           .then(({ error }) => {
-            if (error && error.code !== '23505') {
-              console.error('mic_acknowledgments insert failed:', error.code, error.message)
-            }
+            // Reported, not just logged: the 42501 above went unnoticed for
+            // weeks because a console in a user's browser is where it went.
+            if (error && error.code !== '23505') reportWriteFailure('mic_acknowledgments.insert', error)
           })
       })
     }

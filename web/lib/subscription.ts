@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { fetchEntitlement } from '@/lib/entitlements'
 
 // Flip this to activate the paywall. Until then every check returns allowed.
 export const PAYWALL_ENABLED = false
@@ -33,13 +34,12 @@ interface LimitResult {
   reason?: string
 }
 
+// Through resolveEntitlement, never the plan column alone. A comped month is a
+// row that says 'pro' with a current_period_end in the past once it lapses, and
+// nothing rewrites it (nothing needs to: the date is the source of truth). Read
+// raw, every comped user would stay Pro forever the moment this gate is on.
 async function getPlan(supabase: SupabaseClient, userId: string): Promise<PlanName> {
-  const { data } = await supabase
-    .from('subscriptions')
-    .select('plan')
-    .eq('user_id', userId)
-    .maybeSingle()
-  return (data?.plan === 'pro' ? 'pro' : 'free')
+  return (await fetchEntitlement(supabase, userId)).plan
 }
 
 export async function checkRecordingLimit(supabase: SupabaseClient, userId: string): Promise<LimitResult> {

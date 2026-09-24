@@ -138,7 +138,7 @@ export function SessionReview({ terms, sessionId, onClose }: {
     >
       <div className="w-full sm:max-w-md max-h-[85dvh] flex flex-col dark:bg-[#0d0d1c] bg-[#FDFCF9] border dark:border-white/[0.09] border-black/[0.12] rounded-t-[24px] sm:rounded-[24px] p-5 sm:p-6">
         <p className="text-[18px] font-bold dark:text-white text-gray-900">
-          {withIds.length} term{withIds.length !== 1 ? 's' : ''} from this lecture
+          {withIds.length} term{withIds.length !== 1 ? 's' : ''} you might have missed in this lecture
         </p>
         <p className="text-[13px] dark:text-white/50 text-gray-600 mt-1 mb-4">
           Tick the ones you want as flashcards. Unticked terms stay in your glossary but won&apos;t come up in reviews.

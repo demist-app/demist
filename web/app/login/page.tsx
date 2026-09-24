@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { isElectronNative } from '@/lib/electronNative'
 import posthog from 'posthog-js'
+import { identify } from '@/lib/analytics'
 
 type Step = 'email' | 'code'
 
@@ -49,6 +50,17 @@ function validateEmail(raw: string): string | null {
   return null
 }
 
+// The path proxy.ts sent a signed-out visitor here from, including its query
+// (email links carry ?upgrade=...). Only a same-site path: anything that could
+// be read as another origin ("//evil.example", "/\evil", a full URL) is
+// ignored, so this cannot be turned into an open redirect.
+function safeNext(): string | null {
+  if (typeof window === 'undefined') return null
+  const next = new URLSearchParams(window.location.search).get('next')
+  if (!next || !next.startsWith('/') || next.startsWith('//') || next.includes('\\')) return null
+  return next
+}
+
 export default function Login() {
   const router = useRouter()
   const [step, setStep] = useState<Step>('email')
@@ -72,7 +84,7 @@ export default function Login() {
   useEffect(() => {
     setIsDesktop(isElectronNative())
     createClient().auth.getSession().then(({ data }) => {
-      if (data.session?.user) router.replace('/dashboard')
+      if (data.session?.user) router.replace(safeNext() ?? '/dashboard')
     })
   }, [])
 
@@ -184,14 +196,17 @@ export default function Login() {
     // The email bought nothing analytically - the id already ties a person's
     // events together - so removing it is a straight improvement over
     // rewriting the policy to admit to it.
-    posthog.identify(data.user!.id)
+    // Via analytics.identify, which also sets the internal-account flag.
+    identify(data.user!.id)
     posthog.capture('login_success', { method: 'otp' })
     const { data: profile } = await supabase
       .from('profiles')
       .select('course, year_of_study')
       .eq('id', data.user!.id)
       .maybeSingle()
-    router.replace((profile?.course || profile?.year_of_study) ? '/dashboard' : '/onboarding')
+    // Onboarding first if it is not done; otherwise back to where they were
+    // sent from (an email's "Keep Pro" link, say) rather than always Home.
+    router.replace((profile?.course || profile?.year_of_study) ? (safeNext() ?? '/dashboard') : '/onboarding')
   }
 
   return (

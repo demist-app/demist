@@ -86,6 +86,10 @@ export default function History() {
   const [loading, setLoading] = useState(true)
   const [sessions, setSessions] = useState<Session[]>([])
   const [totalCount, setTotalCount] = useState(0)
+  // Lectures past the free history window. Shown as locked rows, not hidden:
+  // "your Cardiac physiology lecture is locked" is a reason to pay, a list
+  // that silently got shorter is not (and reads as data loss).
+  const [lockedSessions, setLockedSessions] = useState<{ id: string; name: string | null; subject: string | null; started_at: string; termCount: number }[]>([])
   const [loadingTerms, setLoadingTerms] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [confirmingId, setConfirmingId] = useState<string | null>(null)
@@ -110,7 +114,7 @@ export default function History() {
   // Subject filter
   const [subjectFilter, setSubjectFilter] = useState<string | null>(null)
 
-  const { limits } = useEntitlements()
+  const { limits, loaded: entitlementsLoaded } = useEntitlements()
   const [paywall, setPaywall] = useState<string | null>(null)
 
   // Dashboard keeps its own copy of the 5 most recent sessions (recentSessions,
@@ -150,7 +154,13 @@ export default function History() {
 
   const summarizingRef = useRef(new Set<string>())
 
+  // Waits for entitlements. This effect used to run once on mount, while
+  // `limits` still held the free default from useEntitlements' first render,
+  // so EVERY user got the 7-day filter: paid, comped and trial Pro users saw
+  // exactly what free users saw, beside a banner telling them the rest was
+  // "waiting in Pro". Comped Pro never actually delivered its main feature.
   useEffect(() => {
+    if (!entitlementsLoaded) return
     const supabase = createClient()
     ;(async () => {
       const { data: { session } } = await supabase.auth.getSession()
@@ -168,17 +178,33 @@ export default function History() {
         sessionsQuery = sessionsQuery.gte('started_at', new Date(Date.now() - limits.historyDays * 86400000).toISOString())
       }
 
-      const [{ data: sessionsRaw }, { count }] = await Promise.all([
+      const cutoff = limits.historyDays != null ? new Date(Date.now() - limits.historyDays * 86400000).toISOString() : null
+      const [{ data: sessionsRaw }, { count }, { data: lockedRaw }] = await Promise.all([
         sessionsQuery,
         supabase
           .from('sessions')
           .select('id', { count: 'exact', head: true })
           .eq('user_id', user.id),
+        cutoff
+          ? supabase.from('sessions').select('id, name, subject, started_at').eq('user_id', user.id)
+              .lt('started_at', cutoff).order('started_at', { ascending: false }).limit(100)
+          : Promise.resolve({ data: [] as { id: string; name: string | null; subject: string | null; started_at: string }[] }),
       ])
 
-      if (!sessionsRaw?.length) { setLoading(false); return }
+      // Before the early return below, not after it: someone whose lectures
+      // are ALL older than the window (everyone, the day their Pro ends) used
+      // to get "No sessions yet" and no sign that anything was locked.
+      setTotalCount(count ?? sessionsRaw?.length ?? 0)
+      if (lockedRaw?.length) {
+        const { data: lockedTermRows } = await supabase.from('terms').select('session_id').in('session_id', lockedRaw.map(l => l.id))
+        const lockedCounts: Record<string, number> = {}
+        for (const r of lockedTermRows ?? []) lockedCounts[r.session_id] = (lockedCounts[r.session_id] ?? 0) + 1
+        setLockedSessions(lockedRaw.map(l => ({ ...l, termCount: lockedCounts[l.id] ?? 0 })))
+      } else {
+        setLockedSessions([])
+      }
 
-      setTotalCount(count ?? sessionsRaw.length)
+      if (!sessionsRaw?.length) { setLoading(false); return }
 
       const ids = sessionsRaw.map(s => s.id)
       const { data: termRows } = await supabase
@@ -227,7 +253,8 @@ export default function History() {
       setSessions(built)
       setLoading(false)
     })()
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entitlementsLoaded, limits.historyDays])
 
   const exitSelectMode = () => {
     setSelectMode(false)
@@ -569,7 +596,7 @@ export default function History() {
             </div>
           )}
 
-          {!loading && sessions.length === 0 && (
+          {!loading && sessions.length === 0 && lockedSessions.length === 0 && (
             <div className="flex flex-col items-center justify-center py-16 text-center gap-2">
               <p className="text-gray-600 text-[14px] font-medium">No sessions yet</p>
               <p className="text-gray-700 text-[13px]">Record or import a lecture to get started.</p>
@@ -892,10 +919,35 @@ export default function History() {
                 {totalCount - sessions.length} older {totalCount - sessions.length === 1 ? 'lecture is' : 'lectures are'} waiting in Pro
               </p>
               <p className="text-[12.5px] mt-1 leading-relaxed dark:text-white/55 text-gray-600">
-                Free keeps the last {limits.historyDays} days. Pro keeps everything, so your whole
-                term is still here at revision time.
+                Free keeps the last {limits.historyDays} days. Nothing has been deleted: Pro unlocks
+                all of it, so your whole term is still here at revision time.
               </p>
             </button>
+          )}
+          {limits.historyDays != null && lockedSessions.length > 0 && (
+            <div className="mt-3 space-y-2">
+              {lockedSessions.map(l => (
+                <button
+                  key={l.id}
+                  onClick={() => { capture('history_locked_row_clicked', { terms: l.termCount }); setPaywall('history_locked') }}
+                  className="w-full flex items-center gap-3 rounded-2xl px-4 py-3 text-left border dark:border-white/[0.06] border-black/[0.08] dark:bg-white/[0.02] bg-[#FAF9F6] opacity-70 hover:opacity-100 transition-opacity"
+                  aria-label="Locked lecture. Upgrade to Pro to open it."
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 dark:text-amber-400/70 text-amber-700/70" aria-hidden="true">
+                    <rect x="4" y="11" width="16" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" />
+                  </svg>
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-[14px] font-medium truncate dark:text-white/80 text-gray-800">
+                      {l.name || l.subject || 'Lecture'}
+                    </span>
+                    <span className="block text-[12px] text-gray-500 mt-0.5">
+                      {new Date(l.started_at).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}
+                      {l.termCount > 0 && ` · ${l.termCount} ${l.termCount === 1 ? 'term' : 'terms'}`}
+                    </span>
+                  </span>
+                </button>
+              ))}
+            </div>
           )}
         </div>
       </div>

@@ -41,7 +41,7 @@ const FREE_HISTORY_DAYS = LIMITS.free.historyDays ?? 7
 type NoticeState = 'ending' | 'ended'
 
 export function ProExpiryNotice({ onUpgrade }: { onUpgrade: () => void }) {
-  const { loaded, source, daysLeft, lapsedAt } = useEntitlements()
+  const { loaded, source, daysLeft, lapsedAt, periodEnd } = useEntitlements()
   const [counts, setCounts] = useState<{ sessions: number; terms: number; locked: number } | null>(null)
   const [dismissed, setDismissed] = useState(true)
 
@@ -82,7 +82,7 @@ export function ProExpiryNotice({ onUpgrade }: { onUpgrade: () => void }) {
 
   useEffect(() => {
     if (!visible || !counts) return
-    capture('pro_expiry_notice_shown', { state, source, days_left: daysLeft, sessions: counts.sessions, locked: counts.locked })
+    capture('pro_expiry_banner_shown', { state, source, days_left: daysLeft, sessions: counts.sessions, locked: counts.locked })
     // Once per mount is enough; the counts do not change while it is on screen.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible])
@@ -91,12 +91,12 @@ export function ProExpiryNotice({ onUpgrade }: { onUpgrade: () => void }) {
 
   const dismiss = () => {
     try { localStorage.setItem(DISMISS_KEY, `${state}:${new Date().toDateString()}`) } catch { /* nothing to do */ }
-    capture('pro_expiry_notice_dismissed', { state, days_left: daysLeft })
+    capture('pro_expiry_banner_dismissed', { state, days_left: daysLeft })
     setDismissed(true)
   }
 
   const upgrade = () => {
-    capture('pro_expiry_notice_clicked', { state, source, days_left: daysLeft, sessions: counts.sessions, locked: counts.locked })
+    capture('pro_expiry_cta_clicked', { via: 'banner', state, source, days_left: daysLeft, sessions: counts.sessions, locked: counts.locked })
     onUpgrade()
   }
 
@@ -108,11 +108,16 @@ export function ProExpiryNotice({ onUpgrade }: { onUpgrade: () => void }) {
   let body: string
   let cta: string
   if (state === 'ending') {
-    heading = daysLeft === 0 || daysLeft === 1
-      ? `Your ${kind} ends tomorrow`
+    const when = periodEnd
+      ? new Date(periodEnd).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
+      : null
+    heading = when
+      ? `Your ${kind} ends on ${when}`
       : `Your ${kind} ends in ${n(daysLeft ?? 0, 'day', 'days')}`
     body = `You have ${n(counts.sessions, 'lecture', 'lectures')} and ${n(counts.terms, 'term', 'terms')} in Demist. `
-      + `After it ends, lectures older than ${FREE_HISTORY_DAYS} days lock`
+      + (counts.locked > 0
+        ? `${counts.locked === counts.sessions ? 'All of them are' : `${counts.locked} of those lectures are`} older than ${FREE_HISTORY_DAYS} days and will lock when it ends`
+        : `After it ends, lectures older than ${FREE_HISTORY_DAYS} days lock`)
       + (inBrowser ? ' and recording in the browser goes back to its free limit' : '')
       + '. Live definitions, your glossary and flashcards stay free either way.'
     cta = 'Keep Pro'

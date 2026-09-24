@@ -52,9 +52,44 @@ export function reportWriteFailure(
   return true
 }
 
+// For failures that return successfully: nothing throws, so autocapture never
+// sees them, and they only exist if something reports them. Sent as a PostHog
+// exception so it appears in error tracking alongside real crashes. The name
+// must be a fixed string and props must be counts or enums, never content:
+// this runs in the desktop app too.
+export function reportError(name: string, props?: Props): void {
+  if (typeof window === 'undefined') return
+  console.error(`[demist] ${name}`, props ?? '')
+  get().then(ph => ph.captureException(new Error(name), props))
+}
+
+// Identifies with the Supabase auth user id (the same id on web, desktop and
+// Mac, so PostHog persons join to Supabase rows by id) and marks internal
+// accounts with PostHog's own $internal_or_test_user property, so the
+// project's test-account filter catches new internal accounts automatically
+// instead of through a hand-maintained static cohort.
+//
+// Deliberately NOT the email. It was sent once and removed (see login/page.tsx):
+// the privacy policy says analytics carry no email, a user id is already the
+// join key, and several users are minors. Internal filtering was the only
+// reason to want it, and this flag does that job without it.
+//
+// profiles.is_internal is read here rather than passed in, so every call site
+// gets it. If the read fails the flag is simply not set: an unidentified
+// internal account is a smaller cost than a sign-in that breaks.
 export function identify(userId: string): void {
   if (typeof window === 'undefined') return
-  get().then(ph => ph.identify(userId))
+  void (async () => {
+    let internal: boolean | undefined
+    try {
+      const { createClient } = await import('@/lib/supabase')
+      const { data, error } = await createClient().from('profiles').select('is_internal').eq('id', userId).maybeSingle()
+      if (error) console.warn('[demist] could not read is_internal for analytics:', error.code)
+      else internal = data?.is_internal === true
+    } catch { /* leave unset */ }
+    const ph = await get()
+    ph.identify(userId, internal === undefined ? undefined : { $internal_or_test_user: internal })
+  })()
 }
 
 export function reset(): void {
