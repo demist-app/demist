@@ -71,10 +71,15 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
   const url = new URL(req.url)
-  const live = process.env.PRO_EXPIRY_EMAILS_ENABLED === 'true' && url.searchParams.get('dry') !== '1'
+  const asOf = url.searchParams.get('asOf')
+  // asOf simulates another day, so an empty result today can be told apart
+  // from a broken query by asking what a day in the expiry window would do.
+  // Dry run only: a simulated date must never decide a real send.
+  const live = process.env.PRO_EXPIRY_EMAILS_ENABLED === 'true' && url.searchParams.get('dry') !== '1' && !asOf
   const stagesOn = new Set((process.env.PRO_EXPIRY_STAGES ?? 'minus7,minus1,day0').split(',').map(s => s.trim()))
   const excluded = new Set((process.env.PRO_EXPIRY_EXCLUDE_USER_IDS ?? '').split(',').map(s => s.trim()).filter(Boolean))
-  const now = new Date()
+  const now = asOf ? new Date(asOf) : new Date()
+  if (Number.isNaN(now.getTime())) return NextResponse.json({ error: 'asOf is not a date' }, { status: 400 })
   const sb = createAdminClient()
 
   // ── Candidates ─────────────────────────────────────────────────────────
@@ -110,7 +115,7 @@ export async function GET(req: Request) {
     }
     if (data.users.length < 1000) break
   }
-  if (!users.size) return NextResponse.json({ live, planned: [], skipped: {} })
+  if (!users.size) return NextResponse.json({ live, asOf: now.toISOString(), planned: [], skipped: {}, candidates: { comped_in_window: compedIds.size, trial_in_window: 0 } })
 
   const ids = [...users.keys()]
   // Everyone's subscription row, not only the comped ones: a trial user who
@@ -153,7 +158,7 @@ export async function GET(req: Request) {
     planned.push({ userId: c.userId, ...st, sessions, terms: terms ?? 0, locked: locked ?? 0 })
   }
 
-  if (!live) return NextResponse.json({ live, planned, skipped })
+  if (!live) return NextResponse.json({ live, asOf: now.toISOString(), planned, skipped, candidates: { comped_in_window: compedIds.size, total: users.size } })
 
   // ── Send ───────────────────────────────────────────────────────────────
   const results: { userId: string; stage: ExpiryStage; outcome: string }[] = []
