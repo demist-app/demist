@@ -8,6 +8,7 @@
 // prefix, so importing it from a client component fails the build rather than
 // leaking the key, which is the outcome we want.
 
+import { PRO_PRICE_TEXT } from './pricing'
 import { MS_STORE_URL } from './links'
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails'
@@ -274,7 +275,7 @@ export function proExpiryEmail(d: ExpiryEmailData) {
     ? `${d.locked === d.sessions ? 'All of them are' : `${d.locked} of those lectures are`} older than ${d.historyDays} days, so they will lock when it ends.`
     : `When it ends, the free plan keeps the last ${d.historyDays} days, so older lectures lock. By the end of term that is most of them.`
   const staysFree = 'Nothing is deleted, and live definitions, your glossary and your flashcards stay free either way.'
-  const price = 'Pro is £4.99 a month, or £29.99 a year.'
+  const price = `Pro is ${PRO_PRICE_TEXT.monthly} a month, or ${PRO_PRICE_TEXT.yearly} a year.`
 
   let subject: string, heading: string, paras: string[], cta: string, preheader: string
   if (d.stage === 'minus7') {

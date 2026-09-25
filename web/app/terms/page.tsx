@@ -4,7 +4,7 @@ import Link from 'next/link'
 export const metadata: Metadata = {
   title: 'Terms of Service',
   robots: { index: true, follow: true },
-  alternates: { canonical: 'https://demist.app/terms' },
+  alternates: { canonical: 'https://www.demist.app/terms' },
 }
 
 export default function Terms() {

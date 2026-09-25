@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://demist.app'),
+  metadataBase: new URL('https://www.demist.app'),
   title: {
     default: 'Demist: live lecture transcription, explanations & flashcards',
     template: '%s | Demist',
@@ -27,6 +27,12 @@ export const metadata: Metadata = {
   authors: [{ name: 'Demist' }],
   creator: 'Demist',
   alternates: { canonical: '/' },
+  // Bing Webmaster Tools ownership. ChatGPT's web search leans on Bing's
+  // index, and the site had never been verified there. Set
+  // BING_SITE_VERIFICATION in Vercel to the msvalidate.01 value Bing gives.
+  ...(process.env.BING_SITE_VERIFICATION
+    ? { verification: { other: { 'msvalidate.01': process.env.BING_SITE_VERIFICATION } } }
+    : {}),
   openGraph: {
     siteName: 'Demist',
     type: 'website',

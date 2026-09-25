@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { PRO_PRICE_TEXT } from '@/lib/pricing'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { SUBJECT_PAGES, getSubjectPage } from '@/lib/subjectPages'
@@ -18,7 +19,7 @@ export async function generateMetadata(props: PageProps<'/for/[subject]'>): Prom
   const { subject } = await props.params
   const page = getSubjectPage(subject)
   if (!page) return {}
-  const url = `https://demist.app/for/${page.slug}`
+  const url = `https://www.demist.app/for/${page.slug}`
   return {
     title: page.title,
     description: page.description,
@@ -123,23 +124,28 @@ export default async function SubjectLanding(props: PageProps<'/for/[subject]'>)
           </section>
 
           <section>
-            <h2 className="text-[19px] font-semibold mb-3">It runs on your own computer</h2>
+            <h2 className="text-[19px] font-semibold mb-3">Where your lecture audio goes</h2>
+            <p className="dark:text-gray-400 text-gray-700 mb-4">
+              In the Windows app, live recording is transcribed, and its terms detected and
+              explained, by AI models running on your own machine, so the audio of a live lecture
+              never leaves your computer. Your transcript and glossary sync to your account so you
+              can see them on the web and keep your history if you reinstall.
+            </p>
             <p className="dark:text-gray-400 text-gray-700">
-              The Windows and Mac apps do the transcription, the term detection and the explanations
-              with AI models running locally on your machine, so your lecture audio never leaves your
-              computer. Your transcript and glossary sync to your account so you can see them on the
-              web and keep your history if you reinstall. There is also a browser version if you would
-              rather not install anything.
+              The browser version works differently: it sends the audio to our server to be
+              transcribed, and sends the terms it picks out to be explained. So does uploading a
+              recording, in any version. The <Link href="/privacy" className="underline underline-offset-2">privacy policy</Link> sets
+              out exactly what goes where.
             </p>
           </section>
 
           <section>
             <h2 className="text-[19px] font-semibold mb-3">What it costs</h2>
             <p className="dark:text-gray-400 text-gray-700">
-              Recording, live explanations, translation, your glossary and your flashcards are free
-              and unlimited in the app, with no advertising. Free accounts keep lecture history for
-              seven days. Demist Pro keeps your whole term, records in the browser with no limit,
-              and adds unlimited summaries and Anki export for £4.99 a month. New accounts get Pro
+              Live explanations, translation, your glossary and your flashcards are free, with no
+              advertising. Recording is free and unlimited in the Windows app; in the browser, free
+              accounts get three recordings. Free accounts keep lecture history for seven days. Demist Pro keeps your whole term, records in the browser with no limit,
+              and adds unlimited summaries and Anki export for {PRO_PRICE_TEXT.monthly} a month. New accounts get Pro
               free for their first 30 days, with no card.
             </p>
           </section>

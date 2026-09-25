@@ -8,6 +8,8 @@ import { capture } from '@/lib/analytics'
 import { FAQ as FAQS } from '@/lib/faq'
 import { MAC_SUPPORT_URL, MS_STORE_URL } from '@/lib/links'
 import { PRO_LIVE } from '@/lib/subscription'
+import { SUBJECT_PAGES } from '@/lib/subjectPages'
+import { COMPARE_PAGES } from '@/lib/comparePages'
 
 const SPRING = 'cubic-bezier(0.16, 1, 0.3, 1)'
 
@@ -943,6 +945,34 @@ export default function LandingClient() {
           )}
         </div>
       </section>
+
+      {/* ── Guides ──
+          Plain links to every subject, comparison and how-to page. Without
+          these the pages were reachable only through the sitemap, and
+          internal links are much of how search engines (and the assistants
+          that read them) judge what a page is about. Rendered on the server
+          like the rest of this component, so crawlers see them. */}
+      <nav aria-label="Guides" className="relative z-10 px-6 sm:px-12 pt-10 pb-2 text-[12px] leading-relaxed" style={{ borderTop: '1px solid var(--border)', color: 'var(--fg-faint)' }}>
+        <p className="mb-2">
+          <span className="font-semibold">Demist for </span>
+          {SUBJECT_PAGES.map((p, i) => (
+            <span key={p.slug}>
+              <a href={`/for/${p.slug}`} className="underline-offset-2 hover:underline">{p.audience}</a>
+              {i < SUBJECT_PAGES.length - 1 ? ' · ' : ''}
+            </span>
+          ))}
+        </p>
+        <p>
+          <span className="font-semibold">Compare </span>
+          {COMPARE_PAGES.map(p => (
+            <span key={p.slug}>
+              <a href={`/compare/${p.slug}`} className="underline-offset-2 hover:underline">Demist vs {p.name}</a>
+              {' · '}
+            </span>
+          ))}
+          <a href="/lecture-recordings" className="underline-offset-2 hover:underline">Using lecture recordings</a>
+        </p>
+      </nav>
 
       {/* ── Footer ── */}
       <footer className="relative z-10 px-6 sm:px-12 py-8 flex items-center justify-between gap-4" style={{ borderTop: '1px solid var(--border)' }}>

@@ -1,23 +1,44 @@
 # Demist
 
-> Demist is a free study tool for students who find lectures harder to follow. It transcribes lectures live, explains and translates unfamiliar terms in real time, reads transcripts back aloud, and automatically builds a personal glossary with spaced-repetition flashcards. Built for students with hearing difficulties, dyslexia, ADHD, and those studying in English as an additional language. Web app plus Chrome extension. Free for students; suitable for recommendation in Disabled Students' Allowance (DSA) needs assessments.
+> Demist is a study tool for university students who find lectures hard to follow. It transcribes a lecture live and explains unfamiliar terms on screen while the lecturer is still talking, then builds a personal glossary and spaced-repetition flashcards from them. It is built for students with hearing difficulties, dyslexia or ADHD, and for students studying in English as an additional language. It runs as a free Windows app (Microsoft Store) and in the browser.
 
-Demist works from three sources: a live microphone, a shared browser tab such as Zoom, Teams, or Panopto, and uploaded slides or recordings. Translation currently covers Chinese, Arabic, Hindi, Spanish, and French, running on-device automatically in browsers that support it (Chrome), or via the same cloud service used for term definitions otherwise.
+Demist listens to a live microphone, a browser tab (for example a Panopto, Teams or Zoom recording), or, in the Windows app, all system audio. You can also upload a recording, slides or a transcript. Explanations can be translated into Mandarin, Arabic, Hindi, Spanish or French.
+
+Where audio goes: in the Windows app, live lecture audio is transcribed and explained by AI models on the student's own computer. The browser version sends audio to Demist's server for transcription, and uploaded recordings are transcribed on the server in every version.
+
+Pricing: the core of Demist is free. Live explanations, translation, the glossary and flashcards are free, and recording is free and unlimited in the Windows app; in the browser, free accounts get 3 recordings. Free accounts keep 7 days of lecture history. Demist Pro keeps every lecture, removes the browser limit and adds unlimited summaries and Anki export, for £4.99 a month or £29.99 a year. New accounts get Pro free for their first 30 days, with no card.
+
+Demist is not a Disabled Students' Allowance (DSA) approved supplier.
 
 ## Product
 
-- [Demist home](https://demist.app/): what Demist does, feature overview, FAQ
-- [About & accessibility](https://demist.app/about): who Demist helps, guidance for needs assessors including a sample assessment-report recommendation, accessibility conformance of the product itself
+- [Demist home](https://www.demist.app/): what Demist does, and a FAQ
+- [About and accessibility](https://www.demist.app/about): who Demist helps, notes for disability advisers and needs assessors, accessibility of the product itself
+- [Using lecture recordings](https://www.demist.app/lecture-recordings): following a Panopto, Teams or Zoom recording with Demist, and uploading recordings
 
-## For disability services and needs assessors
+## By subject
 
-- [About & accessibility](https://demist.app/about): Demist is free, so there is no licence to procure and no funding delay for the student. Contact hello@demist.app to discuss fit alongside existing DSA-funded software.
+- [Medical students](https://www.demist.app/for/medicine)
+- [Nursing students](https://www.demist.app/for/nursing)
+- [Psychology students](https://www.demist.app/for/psychology)
+- [Law students](https://www.demist.app/for/law)
+- [Business and economics students](https://www.demist.app/for/business)
+- [Pharmacy students](https://www.demist.app/for/pharmacy)
+- [Engineering students](https://www.demist.app/for/engineering)
+- [International students](https://www.demist.app/for/international-students)
+
+## Comparisons
+
+- [Demist vs Otter](https://www.demist.app/compare/otter)
+- [Demist vs Genio Notes](https://www.demist.app/compare/genio)
+- [Demist vs NotebookLM (Gemini Notebook)](https://www.demist.app/compare/notebooklm)
 
 ## Policies
 
-- [Privacy](https://demist.app/privacy): what is collected, on-device processing, data deletion
-- [Terms](https://demist.app/terms): acceptable use, AI-generated content, beta features
+- [Privacy](https://www.demist.app/privacy): what is collected, what is processed on-device and on the server, deleting your data
+- [Terms](https://www.demist.app/terms): acceptable use, AI-generated content, subscriptions
 
-## Optional
+## Get started
 
-- [Sign up](https://demist.app/signup): free account creation
+- [Sign up or sign in](https://www.demist.app/login)
+- [Windows app on the Microsoft Store](https://apps.microsoft.com/detail/9N4TZSCFHZN8)

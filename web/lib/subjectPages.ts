@@ -44,7 +44,7 @@ export const SUBJECT_PAGES: SubjectPage[] = [
     audience: 'medical students',
     title: 'Demist for medical students',
     description:
-      'Demist listens to your medical lectures and explains the terminology as your lecturer says it, then builds a glossary and flashcards from what came up. Free, and it runs on your own computer.',
+      'Demist listens to your medical lectures and explains the terminology as your lecturer says it, then builds a glossary and flashcards from what came up. Free, and the Windows app runs entirely on your own computer.',
     problem:
       'Medical lectures move at the speed of someone who already knows the vocabulary. Miss one term and the next ten minutes are built on something you did not catch.',
     terms: [
@@ -65,7 +65,7 @@ export const SUBJECT_PAGES: SubjectPage[] = [
     audience: 'nursing students',
     title: 'Demist for nursing students',
     description:
-      'Demist explains clinical terminology during your nursing lectures, as it is said, and turns it into a glossary and flashcards afterwards. Free, and it runs on your own computer.',
+      'Demist explains clinical terminology during your nursing lectures, as it is said, and turns it into a glossary and flashcards afterwards. Free, and the Windows app runs entirely on your own computer.',
     problem:
       'Nursing teaching mixes physiology, pharmacology and practice vocabulary in the same hour, often from a lecturer who uses the abbreviations as second nature. Writing a term down to look up later means missing the sentence that explained it.',
     terms: [
@@ -86,7 +86,7 @@ export const SUBJECT_PAGES: SubjectPage[] = [
     audience: 'psychology students',
     title: 'Demist for psychology students',
     description:
-      'Demist explains psychological and statistical terminology during your lectures, then builds a glossary and flashcards from it. Free, and it runs on your own computer.',
+      'Demist explains psychological and statistical terminology during your lectures, then builds a glossary and flashcards from it. Free, and the Windows app runs entirely on your own computer.',
     problem:
       'Psychology uses ordinary words in precise technical senses, and a lecturer rarely stops to flag which sense they mean. The statistics half of the degree then adds a second vocabulary on top.',
     terms: [
@@ -107,7 +107,7 @@ export const SUBJECT_PAGES: SubjectPage[] = [
     audience: 'law students',
     title: 'Demist for law students',
     description:
-      'Demist explains legal terminology and case names during your lectures, then builds a glossary and flashcards from them. Free, and it runs on your own computer.',
+      'Demist explains legal terminology and case names during your lectures, then builds a glossary and flashcards from them. Free, and the Windows app runs entirely on your own computer.',
     problem:
       'A law lecturer will cite a case in three words and move on, assuming you know what it stands for. Latin terms arrive the same way, spoken once and never spelled.',
     terms: [
@@ -128,7 +128,7 @@ export const SUBJECT_PAGES: SubjectPage[] = [
     audience: 'business and economics students',
     title: 'Demist for business and economics students',
     description:
-      'Demist explains economic and financial terminology during your lectures, then builds a glossary and flashcards from it. Free, and it runs on your own computer.',
+      'Demist explains economic and financial terminology during your lectures, then builds a glossary and flashcards from it. Free, and the Windows app runs entirely on your own computer.',
     problem:
       'Economics builds each concept on the last, so one unfamiliar term early in a lecture quietly costs you the rest of it. Finance adds a layer of terms that sound like ordinary English and are not.',
     terms: [
@@ -140,7 +140,70 @@ export const SUBJECT_PAGES: SubjectPage[] = [
     ],
     note: {
       heading: 'Words that mean something specific here',
-      body: 'Terms like capital, equity, margin and interest all have everyday meanings and technical ones. Demist keeps the technical reading rather than skipping the word because it looks ordinary.',
+      body: 'Terms like capital, equity, margin and interest all have everyday meanings and technical ones. Demist explains the technical reading when it flags one, but a word that sounds ordinary is more likely to be passed over than one that is plainly technical, so it will not catch every one.',
+    },
+  },
+  {
+    slug: 'pharmacy',
+    subject: 'pharmacy',
+    audience: 'pharmacy students',
+    title: 'Demist for pharmacy students',
+    description:
+      'Demist explains pharmacology and pharmaceutics terminology during your pharmacy lectures, then builds a glossary and flashcards from it. Free, and the Windows app runs entirely on your own computer.',
+    problem:
+      'Pharmacy lectures move between chemistry, physiology and clinical practice in the same hour, and the drug names alone are a second vocabulary. Stop to look one up and the mechanism that followed it has gone.',
+    terms: [
+      { term: 'Bioavailability', definition: 'The proportion of a dose that reaches the general circulation unchanged. An intravenous dose is 100% bioavailable; an oral one is usually less.' },
+      { term: 'First-pass metabolism', definition: 'The breakdown of a drug by the gut wall and liver after it is swallowed and before it reaches the rest of the body, which lowers how much is available.' },
+      { term: 'Half-life', definition: 'The time it takes for the concentration of a drug in the blood to fall by half.' },
+      { term: 'Therapeutic index', definition: 'The ratio between the dose that causes harm and the dose that has the intended effect. A narrow therapeutic index means little margin for error.' },
+      { term: 'Agonist', definition: 'A drug that binds to a receptor and activates it, producing a response like the body\'s own signalling molecule would.' },
+    ],
+    note: {
+      heading: 'For understanding lectures, not for dosing',
+      body: 'Demist explains what a term means so you can follow the lecture. It is not a prescribing reference and its explanations are AI-generated, so never use them for doses, interactions or anything clinical. Your course will point you to the proper references for that.',
+    },
+  },
+  {
+    slug: 'engineering',
+    subject: 'engineering',
+    audience: 'engineering students',
+    title: 'Demist for engineering students',
+    description:
+      'Demist explains engineering terminology during your lectures, as your lecturer says it, then builds a glossary and flashcards from it. Free, and the Windows app runs entirely on your own computer.',
+    problem:
+      'Engineering lectures name a concept once and then use it for the rest of the hour. If the name did not land, every derivation that follows is built on something you missed.',
+    terms: [
+      { term: "Young's modulus", definition: 'A measure of a material\'s stiffness: the stress applied divided by the strain it produces, while the material still springs back to its original shape.' },
+      { term: 'Reynolds number', definition: 'A dimensionless number comparing inertial forces to viscous forces in a flowing fluid, used to predict whether the flow will be smooth (laminar) or turbulent.' },
+      { term: 'Bending moment', definition: 'The turning effect of the forces acting on a beam at a given point, which determines how much the beam bends there.' },
+      { term: 'Eigenvalue', definition: 'A number that describes how a transformation stretches or shrinks a particular direction, called an eigenvector, without changing the direction itself.' },
+      { term: 'Fourier transform', definition: 'A way of breaking a signal down into the frequencies it is made of, so it can be analysed by frequency instead of over time.' },
+    ],
+    note: {
+      heading: 'It listens, it does not read the board',
+      body: 'Demist works from what your lecturer says. It will explain a concept they name, but it cannot see equations or diagrams written on the board or slides, so it is a companion to your notes on the maths, not a replacement for them.',
+    },
+  },
+  {
+    slug: 'international-students',
+    subject: 'university',
+    audience: 'international students',
+    title: 'Demist for international students',
+    description:
+      'Demist helps international students follow lectures in English: it explains unfamiliar terms as they are said, can translate those explanations, and works alongside your university\'s lecture recordings. Free to start.',
+    problem:
+      'A lecture in your second language runs at the speed of a native speaker, with subject vocabulary on top of the English. Stopping to translate one word costs you the next sentence, and the one after that.',
+    terms: [
+      { term: 'Formative assessment', definition: 'Work that is marked to give you feedback on your progress but does not count towards your final grade.' },
+      { term: 'Literature review', definition: 'A written survey of what published research already says about a topic, usually the starting point for an essay or dissertation.' },
+      { term: 'Peer review', definition: 'The process where other experts check a piece of research before it is published, to judge whether it is sound.' },
+      { term: 'Critical analysis', definition: 'Evaluating an argument or piece of evidence, including its weaknesses, rather than only describing what it says.' },
+      { term: 'Methodology', definition: 'The reasoning behind how a study was carried out: why these methods, and what they can and cannot show.' },
+    ],
+    note: {
+      heading: 'Use it with your university\'s recordings',
+      body: 'If your university records lectures on Panopto, Teams or Zoom, you can play the recording in a browser tab and let Demist listen to that tab, pausing whenever you need to. Explanations can be translated into Mandarin, Arabic, Hindi, Spanish or French, so you can check a term in your own language without leaving the lecture.',
     },
   },
 ]

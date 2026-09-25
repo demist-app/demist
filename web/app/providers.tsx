@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import { ThemeProvider, useTheme } from 'next-themes'
 import { startSessionRecording, stopSessionRecording } from '@/lib/analytics'
 import { isElectronNative } from '@/lib/electronNative'
+import { captureFirstTouch } from '@/lib/firstTouch'
 
 const THEME_COLOR = { light: '#EDEAE3', dark: '#080810' }
 
@@ -41,6 +42,9 @@ const RECORDABLE_PATHS = new Set([
 // set by the time this effect fires.
 function SessionReplayGate() {
   const pathname = usePathname()
+  // Where this visitor first came from, captured on arrival (see
+  // lib/firstTouch.ts). Write-once, so running it on every route is harmless.
+  useEffect(() => { captureFirstTouch() }, [])
   useEffect(() => {
     if (isElectronNative()) { stopSessionRecording(); return }
     if (RECORDABLE_PATHS.has(pathname)) startSessionRecording()

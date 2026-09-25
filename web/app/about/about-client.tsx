@@ -45,7 +45,7 @@ export function AboutClient() {
           Built for students who find lectures harder to follow
         </h1>
         <p className="text-[16px] leading-relaxed mb-14" style={{ color: 'var(--fg-muted)' }}>
-          Demist explains unfamiliar terms the moment they&apos;re said, then turns every lecture into a personal glossary and a set of flashcards. No manual note-taking required. It&apos;s free for students, and it&apos;s the kind of support some students access through their Disabled Students&apos; Allowance (DSA).
+          Demist explains unfamiliar terms the moment they&apos;re said, then turns every lecture into a personal glossary and a set of flashcards. No manual note-taking required. The core of it is free for students, with an optional paid plan that keeps your whole term&apos;s history.
         </p>
 
         <section className="mb-16">
@@ -74,7 +74,7 @@ export function AboutClient() {
               &ldquo;[Student] experiences difficulty processing and retaining spoken information during lectures, which affects note-taking and engagement. Demist is recommended as it provides real-time explanations of unfamiliar terms during lectures, alongside automatically generated notes and flashcards, reducing the cognitive load of listening and writing simultaneously.&rdquo;
             </p>
             <p className="text-[13px] leading-relaxed" style={{ color: 'var(--fg-muted)' }}>
-              Demist is free to use. There&apos;s no licence to purchase or equipment to fund, which means no procurement delay for the student. If you&apos;d like to discuss how it fits alongside existing DSA-funded software, email <a href="mailto:hello@demist.app" className="underline">hello@demist.app</a>.
+              Demist is not a DSA-approved supplier, and it does not need funding: the core of it is free, with no licence or equipment to buy, so there is no procurement delay for the student. If you&apos;d like to discuss how it could sit alongside the support a student already has, email <a href="mailto:hello@demist.app" className="underline">hello@demist.app</a>.
             </p>
           </div>
         </section>

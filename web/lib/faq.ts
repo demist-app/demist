@@ -1,7 +1,13 @@
+import { PRO_PRICE_TEXT } from './pricing'
+
+// These answers are read by search engines and AI assistants and quoted word
+// for word (they are also the FAQPage JSON-LD on the home page), so every one
+// must be true of the product as it ships. Checked against the code on
+// 2026-09-25; recheck when pricing, limits or capture modes change.
 export const FAQ = [
   {
     q: 'Is Demist free?',
-    a: 'Free to use. No credit card, no trial period.',
+    a: `The core of it is. Live explanations, translation, your glossary and flashcards are free, and so is unlimited recording in the Windows app. In the browser, free accounts get 3 recordings. Free accounts keep lecture history for 7 days. Demist Pro keeps every lecture, removes the browser limit and adds unlimited summaries and Anki export, for ${PRO_PRICE_TEXT.monthly} a month or ${PRO_PRICE_TEXT.yearly} a year. New accounts get Pro free for their first 30 days, with no card.`,
   },
   {
     q: 'What subjects does it support?',
@@ -13,11 +19,11 @@ export const FAQ = [
   },
   {
     q: 'Is there a Windows app?',
-    a: 'Yes, free on the Microsoft Store. It transcribes on your own computer rather than sending audio to a server, so your lecture audio never leaves the machine. Your glossary, flashcards and history still sync to your account so they follow you across devices.',
+    a: 'Yes, free on the Microsoft Store. It transcribes live lectures on your own computer rather than sending the audio to a server, so the audio of a live lecture never leaves the machine. Uploading a recording is different: that is transcribed on our server in every version. Your glossary, flashcards and history sync to your account so they follow you across devices.',
   },
   {
     q: 'What file formats can I import?',
-    a: 'You can upload an audio file (MP3, WAV, M4A), a slide deck (PPTX, DOCX), or a plain text transcript. Demist extracts concepts from your content automatically.',
+    a: 'You can upload a recording (MP3, WAV, M4A, MP4, WebM or OGG, up to 50 MB), a slide deck or document (PPTX, DOCX), or a plain text transcript. Demist picks out the terms and explains them.',
   },
   {
     q: 'Why isn\'t Demist detecting any concepts?',
@@ -29,14 +35,14 @@ export const FAQ = [
   },
   {
     q: 'Does it work during online lectures on Zoom or Teams?',
-    a: 'Yes, as long as the audio is going through your microphone. Start recording in the Demist web app, join your Zoom or Teams call, and concept cards will appear on top of whatever tab you\'re viewing.',
+    a: 'Yes. In Chrome or Edge, choose Tab capture, pick the tab with the lecture and tick Share tab audio. In the Windows app, choose System audio, which listens to everything playing on the PC. The same works for recorded lectures on Panopto, Teams or Zoom playing in a tab.',
   },
   {
     q: 'Where is my data stored?',
-    a: 'Your data is tied to your account and not shared. Audio is processed for transcription only and isn\'t stored after the request finishes.',
+    a: 'Your data is tied to your account and not shared. In the browser, audio is sent to our server for transcription and is not kept afterwards; an uploaded recording is deleted once it has been processed. In the Windows app, live lecture audio is processed on your own computer. The privacy policy has the details.',
   },
   {
     q: 'Is Demist available through DSA?',
-    a: 'Demist is free for every student. If you receive Disabled Students\' Allowance and want it in your support plan, see our About Us page at demist.app/about.',
+    a: 'Demist is not a DSA-approved supplier. It does not need DSA funding, though: the core of it is free for every student. If you are working with a needs assessor or a disability adviser, see demist.app/about.',
   },
 ]

@@ -8,7 +8,8 @@
     "start": "next start",
     "build:extension": "node scripts/build-extension.mjs",
     "check:extension": "node scripts/build-extension.mjs --check",
-    "prebuild": "node scripts/build-extension.mjs"
+    "prebuild": "node scripts/build-extension.mjs",
+    "postbuild": "node scripts/indexnow.mjs"
   },
   "dependencies": {
     "@stripe/react-stripe-js": "^6.10.0",

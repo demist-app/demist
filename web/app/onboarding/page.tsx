@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
-import { capture, identify, reportWriteFailure } from '@/lib/analytics'
+import { capture, identify, reportWriteFailure, setOnce } from '@/lib/analytics'
+import { getFirstTouch } from '@/lib/firstTouch'
 import { MINIMUM_AGE, meetsMinimumAge } from '@/lib/age'
 import { LIMITS, useEntitlements, REVERSE_TRIAL_DAYS } from '@/lib/entitlements'
 
@@ -43,14 +44,26 @@ const SUPPORT_NEEDS: { value: SupportNeed; label: string }[] = [
 // already shows (search, ChatGPT, Instagram) plus the two channels it
 // structurally CANNOT see - word of mouth, and Microsoft Store installs,
 // which arrive with no referrer at all.
+//
+// 2026-09-25: split search into Google and Bing (ChatGPT's web search leans on
+// Bing, so the two are different channels to work on), split YouTube and
+// Reddit, and added LinkedIn and "a lecturer or my university". Old stored
+// values ('search', 'youtube_reddit') stay valid for existing rows; anything
+// reading heard_from must accept both sets. 'other' now asks for one line,
+// because the channel we are not listing is the one we most need to hear
+// about.
 const HEARD_FROM: { value: string; label: string }[] = [
-  { value: 'search', label: 'Google or another search engine' },
   { value: 'ai_assistant', label: 'ChatGPT or another AI assistant' },
+  { value: 'google', label: 'Google' },
+  { value: 'bing', label: 'Bing' },
   { value: 'microsoft_store', label: 'The Microsoft Store' },
-  { value: 'friend', label: 'A friend or classmate' },
-  { value: 'instagram', label: 'Instagram' },
+  { value: 'friend', label: 'A friend or coursemate' },
+  { value: 'lecturer', label: 'A lecturer or my university' },
   { value: 'tiktok', label: 'TikTok' },
-  { value: 'youtube_reddit', label: 'YouTube or Reddit' },
+  { value: 'instagram', label: 'Instagram' },
+  { value: 'youtube', label: 'YouTube' },
+  { value: 'reddit', label: 'Reddit' },
+  { value: 'linkedin', label: 'LinkedIn' },
   { value: 'other', label: 'Somewhere else' },
 ]
 
@@ -68,6 +81,8 @@ export default function Onboarding() {
   const [dob, setDob] = useState('')
   const [saving, setSaving] = useState(false)
   const [heardFrom, setHeardFrom] = useState<string | null>(null)
+  const [otherOpen, setOtherOpen] = useState(false)
+  const [otherText, setOtherText] = useState('')
   const [saveError, setSaveError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -105,6 +120,7 @@ export default function Onboarding() {
         .upsert({ id: user.id, course: course.trim() || null, year_of_study: year, support_need: supportNeed, date_of_birth: dob || null, ai_disclaimer_ack_at: new Date().toISOString() })
       if (error) throw error
       identify(user.id)
+      void recordFirstTouch()
       capture('onboarding_completed', { course: course.trim() || null, year_of_study: year, support_need: supportNeed, has_dob: !!dob })
       // The profile is saved. Everything from here is optional and cannot
       // cost a signup: if they close the tab on step 5, the account exists
@@ -118,25 +134,43 @@ export default function Onboarding() {
     }
   }
 
-  // Never blocks the dashboard. A failed write here loses one analytics
-  // answer; making the user sit on a spinner for it would be a worse trade,
-  // so it reports the failure and moves on either way.
-  const finishHeardFrom = async (value: string | null) => {
+  // Where this person first came from (lib/firstTouch.ts), written once to
+  // their profile through record_first_touch (migration 040; users cannot
+  // write those columns directly) and to PostHog as $set_once. Never blocks:
+  // the profile is already saved. No stored touch means we genuinely do not
+  // know, and the columns stay NULL rather than pretending "direct".
+  const recordFirstTouch = async () => {
+    const ft = getFirstTouch()
+    if (!ft) { capture('first_touch_missing'); return }
+    setOnce({
+      first_touch_source: ft.source, first_touch_medium: ft.medium, first_touch_campaign: ft.campaign,
+      first_touch_content: ft.content, first_touch_referrer: ft.referrer,
+      first_touch_landing_path: ft.landing_path, first_touch_at: ft.at,
+    })
+    const { error } = await createClient().rpc('record_first_touch', { p: ft })
+    reportWriteFailure('profile.first_touch', error)
+  }
+
+  // Required now: a single tap, and without it 88% of accounts had no known
+  // source. Still never blocks the dashboard on the network: a failed write
+  // loses one answer and is reported, rather than trapping the user.
+  const finishHeardFrom = async (value: string, detail?: string) => {
     if (saving) return
     setHeardFrom(value)
     setSaving(true)
-    capture('heard_about_us', { source: value ?? 'skipped' })
-    if (value) {
-      try {
-        const supabase = createClient()
-        const { data: { session } } = await supabase.auth.getSession()
-        if (session?.user) {
-          const { error } = await supabase.from('profiles').update({ heard_from: value }).eq('id', session.user.id)
-          reportWriteFailure('profile.heard_from', error, { source: value })
-        }
-      } catch (e) {
-        console.error('heard_from save failed:', e)
+    const trimmed = detail?.trim().slice(0, 200) || null
+    capture('heard_about_us', { source: value, has_detail: !!trimmed })
+    try {
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session?.user) {
+        const { error } = await supabase.from('profiles')
+          .update({ heard_from: value, ...(trimmed ? { heard_from_detail: trimmed } : {}) })
+          .eq('id', session.user.id)
+        reportWriteFailure('profile.heard_from', error, { source: value })
       }
+    } catch (e) {
+      console.error('heard_from save failed:', e)
     }
     router.replace('/dashboard')
   }
@@ -317,21 +351,21 @@ export default function Onboarding() {
           </div>
         )}
 
-        {/* Step 5 - optional, after the profile is already written */}
+        {/* Step 5 - required, one tap, after the profile is already written */}
         {step === 5 && (
           <div key="step5" className="animate-step">
             <h1 className="text-[32px] sm:text-[38px] font-bold tracking-tight leading-tight mb-2">
               One last thing.<br />How did you find us?
             </h1>
             <p className="dark:text-gray-500 text-gray-600 mb-8">
-              Optional, and it genuinely helps us know where to put our effort.
+              One tap. It tells us where to put our effort.
             </p>
 
             <div className="space-y-2.5">
               {HEARD_FROM.map(({ value, label }) => (
                 <button
                   key={value}
-                  onClick={() => finishHeardFrom(value)}
+                  onClick={() => value === 'other' ? setOtherOpen(true) : finishHeardFrom(value)}
                   disabled={saving}
                   className={`w-full py-4 px-5 rounded-2xl text-[15px] font-medium text-left transition-all disabled:opacity-40 ${
                     heardFrom === value
@@ -344,13 +378,26 @@ export default function Onboarding() {
               ))}
             </div>
 
-            <button
-              onClick={() => finishHeardFrom(null)}
-              disabled={saving}
-              className="w-full mt-4 py-4 rounded-2xl text-[15px] font-medium dark:text-gray-500 text-gray-600 dark:hover:text-gray-300 hover:text-gray-900 transition-all disabled:opacity-40"
-            >
-              Skip
-            </button>
+            {otherOpen && (
+              <div className="mt-4 flex gap-2">
+                <input
+                  autoFocus
+                  value={otherText}
+                  onChange={e => setOtherText(e.target.value.slice(0, 200))}
+                  onKeyDown={e => { if (e.key === 'Enter') finishHeardFrom('other', otherText) }}
+                  placeholder="Where? (optional)"
+                  aria-label="Where did you hear about Demist?"
+                  className="flex-1 px-4 py-3.5 rounded-2xl text-[15px] dark:bg-white/[0.05] bg-[#FAF9F6] border dark:border-white/[0.08] border-black/[0.12] focus:outline-none focus:border-amber-500/60"
+                />
+                <button
+                  onClick={() => finishHeardFrom('other', otherText)}
+                  disabled={saving}
+                  className="px-5 rounded-2xl text-[15px] font-semibold bg-amber-600 hover:brightness-[1.1] text-white disabled:opacity-40"
+                >
+                  Done
+                </button>
+              </div>
+            )}
 
             {/* Stated up front, before the first recording, rather than at the
                 moment a lecture disappears. Microsoft Store policy 10.8.4
@@ -359,7 +406,8 @@ export default function Onboarding() {
                 only when you go looking for them is a bad way to learn it. */}
             <p className="text-[12px] dark:text-gray-600 text-gray-500 mt-8 leading-relaxed text-center">
               {isTrial && <>Your first {REVERSE_TRIAL_DAYS} days are Pro, free and with no card. </>}
-              Recording, live definitions, your glossary and flashcards are free and unlimited.
+              Live definitions, your glossary and flashcards are free. Recording is free and
+              unlimited in the Windows app; in the browser, free accounts get 3 recordings.
               Free accounts keep lecture history for {FREE_HISTORY_DAYS} days; Pro keeps everything.
             </p>
           </div>

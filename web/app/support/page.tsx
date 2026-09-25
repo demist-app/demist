@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   title: 'Support',
   description: 'Help with Demist: getting started, recording problems, term cards, your data, and how to get in touch.',
   robots: { index: true, follow: true },
-  alternates: { canonical: 'https://demist.app/support' },
+  alternates: { canonical: 'https://www.demist.app/support' },
 }
 
 const SUPPORT_EMAIL = 'hello@demist.app'

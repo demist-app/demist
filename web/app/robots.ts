@@ -24,6 +24,6 @@ export default function robots(): MetadataRoute.Robots {
       { userAgent: 'Google-Extended', allow: '/', disallow: PRIVATE },
       { userAgent: 'Bingbot', allow: '/', disallow: PRIVATE },
     ],
-    sitemap: 'https://demist.app/sitemap.xml',
+    sitemap: 'https://www.demist.app/sitemap.xml',
   }
 }

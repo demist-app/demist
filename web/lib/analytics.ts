@@ -77,6 +77,14 @@ export function reportError(name: string, props?: Props): void {
 // profiles.is_internal is read here rather than passed in, so every call site
 // gets it. If the read fails the flag is simply not set: an unidentified
 // internal account is a smaller cost than a sign-in that breaks.
+// Person properties that must never be overwritten once set, such as where
+// someone first came from. PostHog's $set_once, so a later call from another
+// device cannot rewrite the original.
+export function setOnce(props: Props): void {
+  if (typeof window === 'undefined') return
+  get().then(ph => ph.setPersonProperties(undefined, props))
+}
+
 export function identify(userId: string): void {
   if (typeof window === 'undefined') return
   void (async () => {
