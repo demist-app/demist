@@ -61,11 +61,22 @@ export function friendlyModelName(raw: string): string {
 // chunk is shown as text but not mined for terms.
 //
 // Scale: roughly -0.1 is a clearly-heard sentence and -1.0 is mush. OpenAI's
-// own reference decoder treats -1.0 as outright decode failure, so -0.6 sits
-// deliberately well above that: the goal is not to catch only total failures
-// but to stop the detector being handed audio it half-heard, which is exactly
-// where mangled-but-technical-sounding candidates come from.
-export const TRANSCRIPT_CONFIDENCE_FLOOR = -0.6
+// own reference decoder treats -1.0 as outright decode failure.
+//
+// Was -0.6 until 2026-09-29, and that was wrong. Measured on real students
+// (PostHog chunk_too_unclear_for_terms, 22-28 Sep): a laptop microphone in a
+// lecture hall routinely scores -0.6 to -0.9, so the old floor skipped 45% of
+// the chunks in a typical mic session and most new mic users finished their
+// first lecture with zero terms. One recorded 19 minutes, was told the audio
+// was "too unclear", and uploaded the file instead to get anything at all.
+// 56 of the 74 chunks skipped that week sat between -0.6 and -1.0.
+//
+// Garble that survives the transcriber at -0.7 is still caught downstream:
+// isLikelyJargon and isConfidentDefinition (termQuality.ts) reject the
+// technical-sounding nonsense this floor was originally added for, and they
+// run on every candidate regardless of this number. So the floor now marks
+// actual decode failure, which is what the reference decoder says -1.0 is.
+export const TRANSCRIPT_CONFIDENCE_FLOOR = -1.0
 
 // Nudge at three hours, hard stop at four. Longer than any lecture, short
 // enough that a forgotten recording is not left running all day.
@@ -392,7 +403,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
   // Per-session detection health, for the end-of-session summary: it is what
   // lets "this lecture had no jargon" be told apart from "detection broke"
   // (see sessionOutcome.ts). Counts only, nothing from the lecture.
-  const detectionStatsRef = useRef({ ok: 0, failed: 0, lastFailure: null as string | null, unclearChunks: 0, clearChunks: 0 })
+  const detectionStatsRef = useRef({ ok: 0, failed: 0, lastFailure: null as string | null, unclearChunks: 0, clearChunks: 0, confBuckets: [0, 0, 0, 0] })
   // Detection calls still in flight. Stop waits for these (briefly) before
   // deciding what the session caught, or the final flush's terms would arrive
   // after the summary had already said there were none.
@@ -767,6 +778,12 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       }
       userIdRef.current = user.id
       identify(user.id); capture('dashboard_viewed')
+      // The survey also comes up on a dashboard visit, not only after a
+      // recording: as of 2026-09-29 it had been shown to nobody, because the
+      // 14 people eligible (3+ lectures) had mostly stopped recording, and the
+      // comped Pro users among them need to be asked before 19 Oct. Checked
+      // after a short pause so it never lands on top of the page loading.
+      setTimeout(() => { void surveyEligible().then(ok => { if (ok) setSurveyDue(true) }) }, 2500)
 
       const now = new Date()
       const weekAgo = new Date(now.getTime() - 7 * 86400000).toISOString()
@@ -1350,6 +1367,14 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       // null means the provider gave no segments, which is treated as
       // confident: unknown must not silently switch term detection off.
       const conf: number | null = typeof tx.confidence === 'number' ? tx.confidence : null
+      // Session-level histogram of chunk confidence, reported once at the end
+      // (summariseSession) rather than as an event per chunk. It is what the
+      // floor above should be tuned against: >= -0.3, -0.3 to -0.6, -0.6 to
+      // -1.0, below -1.0.
+      if (conf !== null) {
+        const b = detectionStatsRef.current.confBuckets
+        b[conf >= -0.3 ? 0 : conf >= -0.6 ? 1 : conf >= -1.0 ? 2 : 3]++
+      }
       if (conf !== null && conf < TRANSCRIPT_CONFIDENCE_FLOOR) {
         detectionStatsRef.current.unclearChunks++
         accumulateAndMaybeDetect(tx.text.trim(), sessionId, false, true)
@@ -1678,7 +1703,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     lastDetectionTimeRef.current = Date.now()
     chunkIntervalRef.current = 5_000
     zeroTermChunksRef.current = 0
-    detectionStatsRef.current = { ok: 0, failed: 0, lastFailure: null, unclearChunks: 0, clearChunks: 0 }
+    detectionStatsRef.current = { ok: 0, failed: 0, lastFailure: null, unclearChunks: 0, clearChunks: 0, confBuckets: [0, 0, 0, 0] }
     setSessionSummary(null)
     chunkPeakRef.current = 0
     recordingStartedAtRef.current = Date.now()
@@ -2074,6 +2099,10 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       detect_failed: stats.failed,
       unclear_chunks: stats.unclearChunks,
       clear_chunks: stats.clearChunks,
+      conf_high: stats.confBuckets[0],
+      conf_mid: stats.confBuckets[1],
+      conf_low: stats.confBuckets[2],
+      conf_fail: stats.confBuckets[3],
       capture_mode: captureModeRef.current,
       native: !!getDemistNative(),
     }

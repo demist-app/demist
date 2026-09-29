@@ -18,7 +18,9 @@
 //   window with no referrer and its own cookie jar, so its first page view
 //   would read as "direct". Store installs are exactly that invisible channel.
 
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { isElectronNative } from '@/lib/electronNative'
+import { capture, reportWriteFailure, setOnce } from '@/lib/analytics'
 
 const COOKIE = 'demist_ft'
 const MAX_AGE_S = 90 * 86_400
@@ -93,4 +95,31 @@ export function getFirstTouch(): FirstTouch | null {
     return { source: 'desktop', medium: null, campaign: null, content: null, referrer: null, landing_path: null, at: new Date().toISOString() }
   }
   return null
+}
+
+// Accounts older than this are never given a first touch: a cookie read now,
+// weeks after they signed up, says where they came from TODAY, not first.
+const NEW_ACCOUNT_MS = 86_400_000
+
+/**
+ * Writes the stored first touch to the signed-in user's profile (write-once,
+ * via record_first_touch in migration 040) and to PostHog as $set_once.
+ *
+ * Called when onboarding OPENS, not when it finishes. Recording it only on
+ * completion left every signup who dropped out of onboarding with no source
+ * (5 of 18 in the week to 2026-09-29), and they are exactly the people whose
+ * channel we most need to judge. Safe to call more than once: the database
+ * function ignores a second call.
+ */
+export async function recordFirstTouch(sb: SupabaseClient, user: { id: string; created_at?: string }): Promise<void> {
+  if (!user.created_at || Date.now() - new Date(user.created_at).getTime() > NEW_ACCOUNT_MS) return
+  const ft = getFirstTouch()
+  if (!ft) { capture('first_touch_missing'); return }
+  setOnce({
+    first_touch_source: ft.source, first_touch_medium: ft.medium, first_touch_campaign: ft.campaign,
+    first_touch_content: ft.content, first_touch_referrer: ft.referrer,
+    first_touch_landing_path: ft.landing_path, first_touch_at: ft.at,
+  })
+  const { error } = await sb.rpc('record_first_touch', { p: ft })
+  reportWriteFailure('profile.first_touch', error)
 }

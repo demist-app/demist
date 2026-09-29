@@ -5,7 +5,8 @@
 // whether a product has found people who need it, and the free-text answers
 // say WHO they are, which is the segment decision this exists to inform.
 //
-// Shown once, after a session ends, only to strangers with 3+ lectures (see
+// Shown once, after a session ends or on a dashboard visit, only to
+// strangers with 3+ lectures (see
 // surveyEligible in lib/recordingSession.tsx). Once means once: answering
 // or dismissing both end it, because a survey that comes back is a survey
 // that trains people to close it without reading.

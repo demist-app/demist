@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
-import { capture, identify, reportWriteFailure, setOnce } from '@/lib/analytics'
-import { getFirstTouch } from '@/lib/firstTouch'
+import { capture, identify, reportWriteFailure } from '@/lib/analytics'
+import { recordFirstTouch } from '@/lib/firstTouch'
 import { MINIMUM_AGE, meetsMinimumAge } from '@/lib/age'
 import { LIMITS, useEntitlements, REVERSE_TRIAL_DAYS } from '@/lib/entitlements'
 
@@ -90,6 +90,8 @@ export default function Onboarding() {
     supabase.auth.getSession().then(async ({ data }) => {
       const user = data.session?.user
       if (!user) { router.replace('/login'); return }
+      // On arrival, not on completion: see recordFirstTouch.
+      void recordFirstTouch(supabase, user)
       const { data: profile } = await supabase
         .from('profiles')
         .select('course, year_of_study')
@@ -120,7 +122,6 @@ export default function Onboarding() {
         .upsert({ id: user.id, course: course.trim() || null, year_of_study: year, support_need: supportNeed, date_of_birth: dob || null, ai_disclaimer_ack_at: new Date().toISOString() })
       if (error) throw error
       identify(user.id)
-      void recordFirstTouch()
       capture('onboarding_completed', { course: course.trim() || null, year_of_study: year, support_need: supportNeed, has_dob: !!dob })
       // The profile is saved. Everything from here is optional and cannot
       // cost a signup: if they close the tab on step 5, the account exists
@@ -132,23 +133,6 @@ export default function Onboarding() {
       setSaveError('Could not save your profile. Check your connection and try again.')
       setSaving(false)
     }
-  }
-
-  // Where this person first came from (lib/firstTouch.ts), written once to
-  // their profile through record_first_touch (migration 040; users cannot
-  // write those columns directly) and to PostHog as $set_once. Never blocks:
-  // the profile is already saved. No stored touch means we genuinely do not
-  // know, and the columns stay NULL rather than pretending "direct".
-  const recordFirstTouch = async () => {
-    const ft = getFirstTouch()
-    if (!ft) { capture('first_touch_missing'); return }
-    setOnce({
-      first_touch_source: ft.source, first_touch_medium: ft.medium, first_touch_campaign: ft.campaign,
-      first_touch_content: ft.content, first_touch_referrer: ft.referrer,
-      first_touch_landing_path: ft.landing_path, first_touch_at: ft.at,
-    })
-    const { error } = await createClient().rpc('record_first_touch', { p: ft })
-    reportWriteFailure('profile.first_touch', error)
   }
 
   // Required now: a single tap, and without it 88% of accounts had no known

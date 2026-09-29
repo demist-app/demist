@@ -55,7 +55,11 @@ export function classifySession(s: SessionSignals): SessionOutcome {
   // Any failure with no success, or more failures than successes: the empty
   // result is the detector's, not the lecture's.
   if (s.detectFailed > 0 && s.detectFailed >= s.detectOk) return { state: 'failed', reason: 'detection_errors' }
-  if (s.unclearChunks > 0 && s.unclearChunks >= s.clearChunks) return { state: 'failed', reason: 'audio_unclear' }
+  // Only when the audio was MOSTLY unusable: at least two unclear chunks for
+  // every clear one. At ">= half" a 19-minute lecture with an ordinary laptop
+  // mic was told its audio was too unclear (2026-09-28), which was not true
+  // and not something the student could fix.
+  if (s.unclearChunks > 0 && s.unclearChunks >= 2 * s.clearChunks) return { state: 'failed', reason: 'audio_unclear' }
   if (s.durationSec >= LONG_SESSION_SEC) return { state: 'failed', reason: 'long_session_no_terms' }
   return { state: 'empty' }
 }
