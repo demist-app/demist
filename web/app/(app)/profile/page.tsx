@@ -266,8 +266,11 @@ export default function Profile() {
     setSelectedMicId(localStorage.getItem('demist_mic_device_id') ?? '')
     listMicDevices()
     navigator.mediaDevices?.addEventListener?.('devicechange', listMicDevices)
-    getDemistNative()?.getModelTier().then(setModelTier)
-    getDemistNative()?.getTranscribeTier().then(setTranscribeTier)
+    // Caught: these ask the on-device engines, which on a low-memory machine
+    // can take over a minute to answer, and an uncaught rejection here was
+    // surfacing as an app error. The tier selector just stays unset.
+    getDemistNative()?.getModelTier().then(setModelTier).catch(e => console.warn('[demist] model tier unavailable:', e))
+    getDemistNative()?.getTranscribeTier().then(setTranscribeTier).catch(e => console.warn('[demist] transcribe tier unavailable:', e))
     return () => navigator.mediaDevices?.removeEventListener?.('devicechange', listMicDevices)
   }, [])
 

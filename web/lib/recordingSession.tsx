@@ -57,6 +57,42 @@ export function friendlyModelName(raw: string): string {
   return raw
 }
 
+// A short, content-free code for a message from the desktop app's on-device
+// engines, for analytics. The messages are our own fixed strings, but some
+// carry the microphone's device name, so the text itself is never sent; an
+// unrecognised message is sent with quoted parts removed.
+//
+// WHY. On 2026-09-29 a desktop user recorded 59 minutes and got no transcript
+// at all, and nothing said why: every on-device error and notice was shown
+// on screen and logged to a console, and none reached us. A 35-minute
+// desktop lecture with zero terms on 22 Sep was just as invisible.
+export function nativeMessageCode(message: string): { code: string; detail?: string } {
+  const m = message.toLowerCase()
+  if (m.includes('too quiet')) return { code: 'mic_too_quiet' }
+  if (m.includes('muted at the system level')) return { code: 'mic_muted' }
+  if (m.includes('audio context')) return { code: 'audio_context_failed' }
+  if (m.includes('barely running')) return { code: 'capture_starved' }
+  if (m.includes('stopped unexpectedly')) return { code: 'engine_died' }
+  if (m.includes('stopped responding')) return { code: 'engine_unresponsive' }
+  if (m.includes('still busy loading')) return { code: 'engine_still_loading' }
+  return { code: 'other', detail: message.replace(/"[^"]*"/g, '""').slice(0, 120) }
+}
+
+// Approximate hardware, so on-device failures can be read against it: the
+// engines are known to be paged out and stall on low-memory machines.
+// navigator.deviceMemory is Chromium's coarse RAM figure (capped at 8).
+export function deviceProfile(): { device_memory_gb: number | null; cpu_cores: number | null } {
+  if (typeof navigator === 'undefined') return { device_memory_gb: null, cpu_cores: null }
+  const mem = (navigator as { deviceMemory?: number }).deviceMemory
+  return { device_memory_gb: typeof mem === 'number' ? mem : null, cpu_cores: navigator.hardwareConcurrency ?? null }
+}
+
+// If a desktop session has produced no transcript this long after its engine
+// was ready, something is wrong that the student can usually fix (the wrong
+// or muted microphone, Windows blocking microphone access) and should be told
+// now, not after an hour of recording nothing.
+const NATIVE_NO_TRANSCRIPT_MS = 90_000
+
 // Whisper's duration-weighted mean segment log probability, below which a
 // chunk is shown as text but not mined for terms.
 //
@@ -462,6 +498,10 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
   const recordingStartedAtRef = useRef(0)
   const firstDetectionDoneRef = useRef(false)
   const firstTranscriptLoggedRef = useRef(false)
+  // Desktop engine health for this session (see nativeMessageCode).
+  const nativeReadyAtRef = useRef<number | null>(null)
+  const firstTranscriptMsRef = useRef<number | null>(null)
+  const nativeWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // profileRef is what startRecording/stopRecording/runDetection actually read
   // (refs avoid stale closures in those callbacks); profile state fetched once
@@ -1710,6 +1750,9 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     backgroundedDuringRecordingRef.current = false
     firstDetectionDoneRef.current = false
     firstTranscriptLoggedRef.current = false
+    nativeReadyAtRef.current = null
+    firstTranscriptMsRef.current = null
+    if (nativeWatchdogRef.current) { clearTimeout(nativeWatchdogRef.current); nativeWatchdogRef.current = null }
     webSpeechFinalRef.current = ''
     allSessionTermsRef.current = []
     sessionTermNamesRef.current = []
@@ -1831,10 +1874,25 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
           : null
         const handle = await startNativeSession(streamRef.current!, {
           isStale: () => sessionEpochRef.current !== myEpoch || !isActiveRef.current,
-          onReady: () => setRecordingWarning(null),
+          onReady: () => {
+            setRecordingWarning(null)
+            nativeReadyAtRef.current = Date.now()
+            capture('native_session_ready', { ms_to_ready: Date.now() - recordingStartedAtRef.current, capture_mode: mode, ...deviceProfile() })
+            // Watchdog: nothing transcribed long after the engine was ready.
+            if (nativeWatchdogRef.current) clearTimeout(nativeWatchdogRef.current)
+            nativeWatchdogRef.current = setTimeout(() => {
+              nativeWatchdogRef.current = null
+              if (!isActiveRef.current || firstTranscriptLoggedRef.current) return
+              capture('native_no_transcript', { secs_since_ready: NATIVE_NO_TRANSCRIPT_MS / 1000, capture_mode: mode })
+              setRecordingWarning(mode === 'tab'
+                ? 'Nothing has been transcribed yet. Check that the lecture is actually playing with sound on this PC, then restart the recording.'
+                : 'Nothing has been transcribed yet. If your lecturer is speaking, check your microphone is selected and unmuted in Profile, and that Windows allows Demist to use it, then restart the recording.')
+            }, NATIVE_NO_TRANSCRIPT_MS)
+          },
           onTranscript: (text) => {
             if (!firstTranscriptLoggedRef.current) {
               firstTranscriptLoggedRef.current = true
+              firstTranscriptMsRef.current = Date.now() - recordingStartedAtRef.current
               dlog(`[demist] first transcript ${Date.now() - recordingStartedAtRef.current} ms after recording started`)
             }
             dlog('[demist] FINAL transcript received:', text)
@@ -1885,12 +1943,16 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
           // invisible outside DevTools.
           onError: (message) => {
             console.error('[demist] native session error:', message)
+            capture('native_session_error', { ...nativeMessageCode(message), capture_mode: mode, secs_in: Math.round((Date.now() - recordingStartedAtRef.current) / 1000) })
             setRecordingWarning(message)
           },
           // Not an error, and retractable: the worker sends '' once the
           // condition clears, which puts the banner away again.
           onNotice: (message) => {
-            if (message) console.warn('[demist] session notice:', message)
+            if (message) {
+              console.warn('[demist] session notice:', message)
+              capture('native_session_notice', { ...nativeMessageCode(message), capture_mode: mode, secs_in: Math.round((Date.now() - recordingStartedAtRef.current) / 1000) })
+            }
             setRecordingWarning(message || null)
           },
         }, sharedGraph)
@@ -1904,12 +1966,19 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
         }
       } catch (e) {
         console.error('[demist] failed to start native session:', e)
+        capture('native_session_start_failed', { ...nativeMessageCode(String((e as Error)?.message ?? e)), capture_mode: mode })
         // Clear the "Preparing on-device transcription…" notice: it is set
         // just before startNativeSession and only cleared by onReady, so on
         // any failure path it used to sit on screen forever, telling the user
         // to keep waiting for something that had already given up.
         setRecordingWarning(null)
-        setRecordingError('Could not start on-device transcription.')
+        setRecordingError('Could not start on-device transcription, so this recording was stopped. Try again; if it keeps happening, restart Demist.')
+        // Stop, don't carry on. The recording used to keep running with the
+        // error on screen and nothing listening, and a student who missed the
+        // message could record a whole lecture into nothing: that is the
+        // likeliest reading of a 59-minute desktop session on 2026-09-29 that
+        // ended with no transcript at all.
+        void stopRecordingRef.current()
       }
     } else {
       // ── Cloud transcription: chunk loop ─────────────────────────────────────
@@ -2103,6 +2172,10 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       conf_mid: stats.confBuckets[1],
       conf_low: stats.confBuckets[2],
       conf_fail: stats.confBuckets[3],
+      // Desktop only: whether and when its engine came up and first spoke.
+      native_ready: nativeReadyAtRef.current !== null,
+      ...deviceProfile(),
+      first_transcript_ms: firstTranscriptMsRef.current,
       capture_mode: captureModeRef.current,
       native: !!getDemistNative(),
     }
@@ -2265,6 +2338,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       }).catch(e => console.error('detect-terms auth lookup failed:', e)))
     }
 
+    if (nativeWatchdogRef.current) { clearTimeout(nativeWatchdogRef.current); nativeWatchdogRef.current = null }
     // Release the Web Lock so Chrome can resume normal background throttling
     webLockReleaseRef.current?.()
     webLockReleaseRef.current = null
