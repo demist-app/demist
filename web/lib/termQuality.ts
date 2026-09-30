@@ -86,6 +86,23 @@ const EVERYDAY = new Set<string>([
   'permission','definitions','decisions','paragraph','silhouette','salute','stitch','disco','camera',
   'playlists','bookend','handshake','toothpaste','eyebrow','scalp','conquest','incarceration','terrorist',
   'charity','empathy','exploration','institution','corporation','regulation','proficiencies','assessment',
+  // General vocabulary a university student already has, found as cards in a
+  // single 59-minute history lecture on 2026-09-29 (116 cards, roughly 40% of
+  // them words like these). Anything with a technical reading in some subject
+  // was left OUT on purpose: settlement (law), transmitted (biology),
+  // component and integrated (engineering, maths), concentration
+  // (chemistry), resistance (physics), culture and community (biology,
+  // ecology), significance and estimate (statistics), systematic (reviews,
+  // error) all still pass.
+  'government','violence','religious','religion','christian','christianity','languages','language',
+  'ownership','workforce','approximately','connected','practices','practice','documentation',
+  'documentary','campaigns','campaign','merchants','survivors','ancestors','immigrants','civilians',
+  'harvesting','gathering','spiritual','spirituality','livestock','landowners','europeans','american',
+  'americans','commissioned','installment','prohibited','aftermath','devastation','slaughter','homelands',
+  'injustices','violations','inflicted','nationalists',
+  'foothills','ancestry','society','history','historical',
+  'tradition','traditions','traditional','important','particular',
+  'especially','generally','basically','actually','certainly','definitely','probably','possibly',
 ])
 
 // Words that are everyday English AND real jargon somewhere. Never filtered,
@@ -160,8 +177,11 @@ export function isLikelyJargon(rawTerm: string): boolean {
   }
 
   const word = words[0]
-  if (word.length < MIN_TERM_LENGTH) return false
+  // Homonyms BEFORE the length floor. The floor came first until 2026-09-30,
+  // which silently dropped every short technical word this set exists to
+  // protect: cell, mass, acid, bond, ring, node, wave, tort, duct, stem.
   if (TECHNICAL_HOMONYMS.has(word)) return true
+  if (word.length < MIN_TERM_LENGTH) return false
   if (EVERYDAY.has(word)) return false
   return true
 }
@@ -211,10 +231,27 @@ const UNCONFIDENT = [
 // the shortest real one.
 const MIN_DEFINITION_CHARS = 25
 
-export function isConfidentDefinition(term: string, definition: string): boolean {
+// Lowercase, letters and digits only, single spaces: so a quote still matches
+// the transcript it came from despite punctuation and casing differences.
+const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim()
+
+// A "definition" that is really a line of the lecture. Found 2026-09-29:
+// "prohibited" was carded with "For 40 years, my people were prohibited by
+// law from leaving the reservations", and "estimated" with a sentence that
+// stopped mid-way. The model had put the context sentence in the definition
+// field. Its opening 40 characters appearing verbatim in what was sent for
+// detection is the tell; a real definition is never a quote.
+export function isCopiedFromSource(definition: string, sourceText: string): boolean {
+  const d = norm(definition)
+  if (d.length < 40 || !sourceText) return false
+  return norm(sourceText).includes(d.slice(0, 40))
+}
+
+export function isConfidentDefinition(term: string, definition: string, sourceText = ''): boolean {
   const def = (definition ?? '').trim()
   if (def.length < MIN_DEFINITION_CHARS) return false
   if (UNCONFIDENT.some(re => re.test(def))) return false
+  if (isCopiedFromSource(def, sourceText)) return false
   // Circular: strip the term out and see whether anything is left.
   const withoutTerm = def.toLowerCase().split(term.toLowerCase()).join(' ').replace(/\s+/g, ' ').trim()
   if (withoutTerm.length < MIN_DEFINITION_CHARS) return false

@@ -1088,7 +1088,9 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       // for SA node), which every is-this-jargon test passes by construction.
       // When the model half-recognises the garble it hedges, and the hedge is
       // detectable without paying for another model call.
-      if (!isConfidentDefinition(t.term, t.definition)) {
+      // The transcript window and its context are passed so a definition that
+      // is just a quote from the lecture is caught (isCopiedFromSource).
+      if (!isConfidentDefinition(t.term, t.definition, `${context} ${transcript}`)) {
         dlog(`[demist] dropped "${t.term}": model was not confident in the definition`)
         captureRejectedTerm(t.term, 'unconfident_definition')
         return false
