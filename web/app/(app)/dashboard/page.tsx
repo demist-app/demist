@@ -20,6 +20,8 @@ import { GuestBackupPrompt } from '@/components/GuestBackupPrompt'
 import { ProExpiryNotice } from '@/components/ProExpiryNotice'
 import { PaywallModal } from '@/components/PaywallModal'
 import { TrialLimitModal } from '@/components/TrialLimitModal'
+import { DesktopAppDialog } from '@/components/DesktopAppDialog'
+import { detectDesktopPlatform, isMobileUA } from '@/lib/platform'
 import { TranscriptBilingual } from '@/components/TranscriptBilingual'
 import { BrandMark } from '@/components/BrandMark'
 
@@ -102,6 +104,24 @@ export default function Dashboard() {
   const [transcriptView, setTranscriptView] = useState<'both' | 'source' | 'translated'>('both')
   const [showSubjectInput, setShowSubjectInput] = useState(false)
   const [showMicCheck, setShowMicCheck] = useState(false)
+  // Windows browser users are steered to the desktop app at the record button
+  // (see DesktopAppDialog). Decided after mount: the UA is not known on the
+  // server, and the desktop shell itself loads this same page.
+  const [isWindowsWeb, setIsWindowsWeb] = useState(false)
+  const [showDesktopPush, setShowDesktopPush] = useState(false)
+  useEffect(() => {
+    // Web only, never inside the desktop app. demistNative is the shell's own
+    // bridge (every build has it); the Electron UA check is a second guard in
+    // case a future shell ever loads the page before the bridge is attached.
+    const inDesktopApp = isElectronNative() || /Electron\//.test(navigator.userAgent)
+    setIsWindowsWeb(!inDesktopApp && !isMobileUA() && detectDesktopPlatform() === 'windows')
+  }, [])
+  const beginRecordingFlow = () => {
+    // Mic mode only: tab/system-audio capture has its own
+    // source and picker, nothing here to test beforehand.
+    if (captureMode === 'microphone') setShowMicCheck(true)
+    else startRecording(captureMode)
+  }
   const [tabCaptureSupportedState, setTabCaptureSupportedState] = useState(false)
   const [isScrolledUp, setIsScrolledUp] = useState(false)
 
@@ -608,10 +628,8 @@ export default function Dashboard() {
                   ref={btnRef}
                   onClick={() => {
                     if (!nativeModelsReady) return
-                    // Mic mode only: tab/system-audio capture has its own
-                    // source and picker, nothing here to test beforehand.
-                    if (captureMode === 'microphone') setShowMicCheck(true)
-                    else startRecording(captureMode)
+                    if (isWindowsWeb) { setShowDesktopPush(true); return }
+                    beginRecordingFlow()
                   }}
                   disabled={!nativeModelsReady}
                   aria-label={nativeModelsReady ? 'Start recording' : nativeModelsError ? 'On-device models failed to load' : 'Preparing on-device models'}
@@ -925,6 +943,13 @@ export default function Dashboard() {
           </div>
         )}
       </div>
+
+      {showDesktopPush && (
+        <DesktopAppDialog
+          onClose={() => setShowDesktopPush(false)}
+          onContinueInBrowser={() => { setShowDesktopPush(false); beginRecordingFlow() }}
+        />
+      )}
 
       {showMicCheck && (
         <MicCheck

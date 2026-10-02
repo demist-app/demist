@@ -77,12 +77,57 @@ function isTruncationOf(shorter: string, longer: string): boolean {
   return shortWords >= 2 && longWords - shortWords <= 1
 }
 
+// The third failure: the same word in a different grammatical form. A live
+// recording of a cardiology lecture (2026-10-02) carded both "ventricles" and
+// "ventricular" with near-identical definitions; they are three edits apart,
+// past the spelling slack, and neither is a sub-phrase of the other.
+//
+// Two words are one family when they share a root of 4+ letters and what is
+// left of EACH is a grammatical ending. The ending list is what stops a shared
+// prefix alone from merging different words: "hypertension"/"hypertrophy" share
+// "hypert" but "ension" and "rophy" are not endings, so they stay separate.
+// Dedupe only runs within one lecture, which is what makes rare collisions like
+// "organ"/"organic" acceptable.
+const ENDINGS = new Set([
+  '', 's', 'es', 'e', 'y', 'ies', 'ed', 'ing', 'ion', 'ions', 'ation', 'ations',
+  'al', 'ar', 'ic', 'ics', 'ical', 'le', 'les', 'ular', 'ula', 'ulae',
+  'um', 'a', 'ae', 'us', 'i', 'ia', 'ial', 'ity', 'ive', 'ism', 'ist', 'ists', 'ous',
+])
+function sameWordFamily(a: string, b: string): boolean {
+  if (a === b) return true
+  if (Math.min(a.length, b.length) < 5) return false
+  let p = 0
+  while (p < a.length && p < b.length && a[p] === b[p]) p++
+  // Walk the root back from the full shared prefix, because the prefix can
+  // swallow the start of an ending: "atria"/"atrial" share "atria", leaving ""
+  // and "l" (not an ending), but at root "atri" they leave "a" and "al".
+  for (let root = p; root >= 4; root--) {
+    if (ENDINGS.has(a.slice(root)) && ENDINGS.has(b.slice(root))) return true
+  }
+  return false
+}
+
+// Same number of words, every word equal except one, and that one pair is the
+// same word family ("bundle branch" / "bundle branches").
+function isInflectionOf(x: string, y: string): boolean {
+  const xs = x.split(' ')
+  const ys = y.split(' ')
+  if (xs.length !== ys.length) return false
+  let differing = 0
+  for (let i = 0; i < xs.length; i++) {
+    if (xs[i] === ys[i]) continue
+    if (++differing > 1 || !sameWordFamily(xs[i], ys[i])) return false
+  }
+  return differing === 1
+}
+
 export function isSameConcept(a: string, b: string): boolean {
   const x = normalize(a)
   const y = normalize(b)
   if (!x || !y) return false
   if (x === y) return true
   if (x.length < y.length ? isTruncationOf(x, y) : isTruncationOf(y, x)) return true
+  if (isInflectionOf(x, y)) return true
   // Only worth the distance check for terms of comparable length; a
   // three-character difference means nothing between "ion" and "iron" but
   // everything between two forty-character phrases, and the length guard inside

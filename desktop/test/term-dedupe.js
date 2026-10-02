@@ -74,11 +74,37 @@ function isTruncationOf(s, l) {
   const sw = s.split(' ').length, lw = l.split(' ').length
   return sw >= 2 && lw - sw <= 1
 }
+const ENDINGS = new Set([
+  '', 's', 'es', 'e', 'y', 'ies', 'ed', 'ing', 'ion', 'ions', 'ation', 'ations',
+  'al', 'ar', 'ic', 'ics', 'ical', 'le', 'les', 'ular', 'ula', 'ulae',
+  'um', 'a', 'ae', 'us', 'i', 'ia', 'ial', 'ity', 'ive', 'ism', 'ist', 'ists', 'ous',
+])
+function sameWordFamily(a, b) {
+  if (a === b) return true
+  if (Math.min(a.length, b.length) < 5) return false
+  let p = 0
+  while (p < a.length && p < b.length && a[p] === b[p]) p++
+  for (let root = p; root >= 4; root--) {
+    if (ENDINGS.has(a.slice(root)) && ENDINGS.has(b.slice(root))) return true
+  }
+  return false
+}
+function isInflectionOf(x, y) {
+  const xs = x.split(' '), ys = y.split(' ')
+  if (xs.length !== ys.length) return false
+  let differing = 0
+  for (let i = 0; i < xs.length; i++) {
+    if (xs[i] === ys[i]) continue
+    if (++differing > 1 || !sameWordFamily(xs[i], ys[i])) return false
+  }
+  return differing === 1
+}
 function isSameConcept(a, b) {
   const x = normalize(a), y = normalize(b)
   if (!x || !y) return false
   if (x === y) return true
   if (x.length < y.length ? isTruncationOf(x, y) : isTruncationOf(y, x)) return true
+  if (isInflectionOf(x, y)) return true
   if (Math.min(x.length, y.length) < 5) return false
   const max = slack(x.length < y.length ? x : y)
   return editDistanceWithin(x, y, max) <= max
@@ -95,6 +121,19 @@ for (const [a, b, want, why] of [
   ['inner mitochondrial membrane', 'mitochondrial membrane', true, 'the same structure, one word of precision apart'],
   ['enthalpy', 'entropy', false, 'similar-looking, completely different quantities'],
   ['packet switching', 'Packet Switching', true, 'case only'],
+  // Word forms (2026-10-02): a live cardiology recording carded both of these.
+  ['ventricles', 'ventricular', true, 'one word, two grammatical forms'],
+  ['ventricle', 'ventricles', true, 'plural'],
+  ['atrium', 'atria', true, 'Latin plural'],
+  ['atria', 'atrial', true, 'root walks back past a shared letter'],
+  ['nucleus', 'nuclei', true, 'Latin plural'],
+  ['bundle branch', 'bundle branches', true, 'plural inside a phrase'],
+  ['depolarisation', 'depolarization', true, 'British vs American spelling'],
+  ['hypertension', 'hypertrophy', false, 'shared prefix, but the rest is not an ending'],
+  ['mitosis', 'meiosis', false, 'look alike, different processes'],
+  ['anion', 'cation', false, 'opposite charges'],
+  ['kinase', 'kinetic', false, 'shared start, unrelated words'],
+  ['left ventricle', 'right ventricular', false, 'two words differ, not one'],
 ]) {
   const got = isSameConcept(a, b)
   check(`${JSON.stringify(a)} vs ${JSON.stringify(b)} -> ${got}`, got === want, why)
