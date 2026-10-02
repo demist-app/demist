@@ -85,30 +85,47 @@ serve(async (req) => {
     const file = new File([audioBytes], `audio.${ext}`, { type: contentType })
 
     const GROQ_KEY = Deno.env.get('GROQ_API_KEY')
-    const WHISPER_URL = GROQ_KEY
-      ? 'https://api.groq.com/openai/v1/audio/transcriptions'
-      : 'https://api.openai.com/v1/audio/transcriptions'
-    const WHISPER_MODEL = GROQ_KEY ? 'whisper-large-v3-turbo' : 'whisper-1'
-    const WHISPER_AUTH = GROQ_KEY ?? Deno.env.get('OPENAI_API_KEY') ?? ''
+    const OPENAI_KEY = Deno.env.get('OPENAI_API_KEY')
+    const PROVIDERS = {
+      groq: { url: 'https://api.groq.com/openai/v1/audio/transcriptions', model: 'whisper-large-v3-turbo', key: GROQ_KEY },
+      openai: { url: 'https://api.openai.com/v1/audio/transcriptions', model: 'whisper-1', key: OPENAI_KEY },
+    } as const
+    type Provider = keyof typeof PROVIDERS
 
-    const form = new FormData()
-    form.append('file', file)
-    form.append('model', WHISPER_MODEL)
-    // verbose_json, not json, purely for segments[].avg_logprob. Whisper's own
-    // confidence is the only honest signal for "did the transcriber actually
-    // understand this audio", and without it the downstream term detector
-    // cannot tell a clearly-heard technical word from a confident guess at
-    // mush. A 2026-09 audit found cards for "Patriarchs" (Purkinje), "S-mode"
-    // (SA node) and "Spontaneous dechloridation" (spontaneous depolarization):
-    // real terms the transcriber mangled, then the detector defined verbatim.
-    // Costs nothing extra; the field is already computed.
-    form.append('response_format', 'verbose_json')
+    const callWhisper = (p: Provider) => {
+      const form = new FormData()
+      form.append('file', file)
+      form.append('model', PROVIDERS[p].model)
+      // verbose_json, not json, purely for segments[].avg_logprob. Whisper's own
+      // confidence is the only honest signal for "did the transcriber actually
+      // understand this audio", and without it the downstream term detector
+      // cannot tell a clearly-heard technical word from a confident guess at
+      // mush. A 2026-09 audit found cards for "Patriarchs" (Purkinje), "S-mode"
+      // (SA node) and "Spontaneous dechloridation" (spontaneous depolarization):
+      // real terms the transcriber mangled, then the detector defined verbatim.
+      // Costs nothing extra; the field is already computed.
+      form.append('response_format', 'verbose_json')
+      return fetch(PROVIDERS[p].url, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${PROVIDERS[p].key ?? ''}` },
+        body: form,
+      })
+    }
 
-    const response = await fetch(WHISPER_URL, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${WHISPER_AUTH}` },
-      body: form,
-    })
+    // Groq first (cheapest), OpenAI when Groq turns the chunk away. Groq's free
+    // tier allows roughly one live recording at a time and its paid tier was
+    // closed to upgrades on 2026-10-02, so with a class recording at once most
+    // chunks would 429 and the transcript would silently stall. OpenAI costs
+    // ~$0.36/hour against Groq's ~$0.08 but keeps every student transcribing;
+    // usage_events records which provider actually served each chunk.
+    let provider: Provider = GROQ_KEY ? 'groq' : 'openai'
+    let response = await callWhisper(provider)
+    if (!response.ok && provider === 'groq' && OPENAI_KEY && (response.status === 429 || response.status >= 500)) {
+      console.warn(`transcribe: groq ${response.status}, falling back to openai`)
+      await response.body?.cancel()
+      provider = 'openai'
+      response = await callWhisper(provider)
+    }
 
     if (!response.ok) {
       const err = await response.text()
@@ -155,7 +172,7 @@ serve(async (req) => {
     // no symptom at all - exactly the failure mode this whole audit has been
     // about. So say it once per occurrence rather than never.
     if (confidence === null) {
-      console.warn(`transcribe: no usable avg_logprob (segments=${segments.length}, provider=${GROQ_KEY ? 'groq' : 'openai'}); term detection will not be confidence-gated for this chunk`)
+      console.warn(`transcribe: no usable avg_logprob (segments=${segments.length}, provider=${provider}); term detection will not be confidence-gated for this chunk`)
     }
 
     // Server-side hallucination filter: Whisper invents filler phrases on silence
@@ -188,13 +205,13 @@ serve(async (req) => {
     // per second. The old flat "5s at $0.0002/min" logged roughly 1/6 of the
     // real Groq cost. Re-check console.groq.com/pricing if these change.
     const audioSeconds = Number(data.duration) > 0 ? Number(data.duration) : 5
-    const cost = GROQ_KEY
+    const cost = provider === 'groq'
       ? Math.max(10, audioSeconds) * (0.04 / 3600)
       : audioSeconds * (0.006 / 60)
     supabase.from('usage_events').insert({
       user_id: user.id,
       event_type: 'transcribe',
-      provider: GROQ_KEY ? 'groq' : 'openai',
+      provider,
       tokens_used: null,
       cost_usd: cost,
       session_id: sessionId,
