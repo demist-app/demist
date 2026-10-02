@@ -87,7 +87,7 @@ if (skipped.length) console.log('skipped:', skipped.join(', '))
 console.log(`price line: ${priceText ? `${priceText}/month` : '(none - stripe-prices unreachable)'}`)
 console.log('')
 
-const ACCENT = '#A16207', INK = '#0F0F14', MUTED = '#5B5B63', FAINT = '#8A8A92', PAGE_BG = '#EDEAE3', CARD_BG = '#FAF9F6', BORDER = '#DCD8CF'
+const ACCENT = '#5B3F8F', INK = '#1E1433', MUTED = '#5B5B63', FAINT = '#8A8A92', PAGE_BG = '#F3F0F8', CARD_BG = '#FFFFFF', BORDER = '#DCD5E8'
 
 function buildEmail(onWaitlist) {
   const priceLine = priceText ? ` Plans start at ${priceText}/month.` : ''

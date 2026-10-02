@@ -104,7 +104,7 @@ export function SessionReview({ terms, sessionId, onClose }: {
         role="dialog"
         aria-modal="true"
       >
-        <div className="w-full max-w-sm dark:bg-[#0d0d1c] bg-[#FDFCF9] border dark:border-white/[0.08] border-black/[0.12] rounded-[24px] p-6 space-y-4 text-center">
+        <div className="w-full max-w-sm dark:bg-[#1a1328] bg-[#FFFFFF] border dark:border-white/[0.08] border-black/[0.12] rounded-[24px] p-6 space-y-4 text-center">
           <p className="text-[18px] font-bold dark:text-white text-gray-900">
             Review {kept.size} term{kept.size !== 1 ? 's' : ''} from this lecture?
           </p>
@@ -113,7 +113,7 @@ export function SessionReview({ terms, sessionId, onClose }: {
           </p>
           <button
             onClick={reviewNow}
-            className="w-full py-3 rounded-2xl bg-yellow-600 hover:brightness-110 text-white text-[14px] font-semibold active:scale-[0.97] transition-[filter,transform] duration-150"
+            className="w-full py-3 rounded-2xl bg-brand-600 hover:brightness-110 text-white text-[14px] font-semibold active:scale-[0.97] transition-[filter,transform] duration-150"
           >
             Review now
           </button>
@@ -136,7 +136,7 @@ export function SessionReview({ terms, sessionId, onClose }: {
       aria-modal="true"
       aria-label="Choose your flashcards"
     >
-      <div className="w-full sm:max-w-md max-h-[85dvh] flex flex-col dark:bg-[#0d0d1c] bg-[#FDFCF9] border dark:border-white/[0.09] border-black/[0.12] rounded-t-[24px] sm:rounded-[24px] p-5 sm:p-6">
+      <div className="w-full sm:max-w-md max-h-[85dvh] flex flex-col dark:bg-[#1a1328] bg-[#FFFFFF] border dark:border-white/[0.09] border-black/[0.12] rounded-t-[24px] sm:rounded-[24px] p-5 sm:p-6">
         <p className="text-[18px] font-bold dark:text-white text-gray-900">
           {withIds.length} term{withIds.length !== 1 ? 's' : ''} you might have missed in this lecture
         </p>
@@ -151,13 +151,13 @@ export function SessionReview({ terms, sessionId, onClose }: {
               <button
                 key={t.dbId}
                 onClick={() => toggle(t.dbId!)}
-                className={`w-full text-left flex items-start gap-3 px-4 py-3 rounded-2xl border transition-colors duration-150 ${on ? 'dark:bg-yellow-500/[0.07] bg-yellow-50 dark:border-yellow-500/30 border-yellow-600/40' : 'dark:bg-white/[0.02] bg-[#FAF9F6] dark:border-white/[0.06] border-black/[0.12] opacity-70'}`}
+                className={`w-full text-left flex items-start gap-3 px-4 py-3 rounded-2xl border transition-colors duration-150 ${on ? 'dark:bg-brand-500/[0.07] bg-brand-50 dark:border-brand-500/30 border-brand-600/40' : 'dark:bg-white/[0.02] bg-[#FFFFFF] dark:border-white/[0.06] border-black/[0.12] opacity-70'}`}
               >
                 <span
                   className="shrink-0 w-5 h-5 mt-0.5 rounded-full border-2 flex items-center justify-center transition-colors"
                   style={{
-                    borderColor: on ? '#D97706' : 'rgba(107,114,128,0.5)',
-                    background: on ? '#D97706' : 'transparent',
+                    borderColor: on ? '#5B3F8F' : 'rgba(107,114,128,0.5)',
+                    background: on ? '#5B3F8F' : 'transparent',
                   }}
                 >
                   {on && (
@@ -185,7 +185,7 @@ export function SessionReview({ terms, sessionId, onClose }: {
           <button
             onClick={confirm}
             disabled={saving}
-            className="px-5 py-3 rounded-2xl bg-yellow-600 hover:brightness-110 text-white text-[14px] font-semibold active:scale-[0.97] transition-[filter,transform] duration-150 disabled:opacity-50"
+            className="px-5 py-3 rounded-2xl bg-brand-600 hover:brightness-110 text-white text-[14px] font-semibold active:scale-[0.97] transition-[filter,transform] duration-150 disabled:opacity-50"
           >
             {saving ? 'Saving…' : `Keep ${kept.size} as flashcards`}
           </button>

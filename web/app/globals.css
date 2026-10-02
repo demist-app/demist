@@ -4,52 +4,110 @@
 @variant dark (&:where(.dark, .dark *));
 
 /* ── Design tokens (light default, dark override) ── */
+/* Graceful Minds palette (2026-10-02). Drawn from the Graceful Minds logo:
+   plum wordmark, lavender/periwinkle/teal watercolour. Plum is the action
+   colour, teal the calm secondary. Every hue the UI uses lives here; the
+   brand-* scale below is what bg-brand-600 etc. resolve to. */
 :root {
-  --bg:          #EDEAE3;
-  --bg-subtle:   #E3E0D8;
-  --fg:          #0F0F14;
-  --fg-muted:    rgba(15, 15, 20, 0.65);
-  --fg-faint:    rgba(15, 15, 20, 0.42);
-  --surface:     #FAF9F6;
+  --bg:          #F3F0F8;
+  --bg-subtle:   #ECE8F4;
+  --fg:          #1E1433;
+  --fg-muted:    rgba(30, 20, 51, 0.68);
+  --fg-faint:    rgba(30, 20, 51, 0.45);
+  --surface:     #FFFFFF;
   --surface-2:   #FFFFFF;
-  --border:      rgba(0, 0, 0, 0.10);
-  --border-strong: rgba(0, 0, 0, 0.20);
-  --accent:      #A16207;
-  --accent-rgb:  161, 98, 7;
-  --accent-soft: rgba(161, 98, 7, 0.10);
-  --accent-glow: rgba(161, 98, 7, 0.18);
-  --accent-border: rgba(161, 98, 7, 0.30);
-  --accent-icon-bg: rgba(161, 98, 7, 0.12);
-  --shadow-sm:   0 1px 3px rgba(0,0,0,0.09), 0 0 0 1px rgba(0,0,0,0.06);
-  --shadow-md:   0 4px 16px rgba(0,0,0,0.11), 0 1px 4px rgba(0,0,0,0.07);
+  --border:      rgba(30, 20, 51, 0.10);
+  --border-strong: rgba(30, 20, 51, 0.20);
+  --accent:      #5B3F8F;
+  --accent-rgb:  91, 63, 143;
+  --accent-soft: rgba(91, 63, 143, 0.08);
+  --accent-glow: rgba(91, 63, 143, 0.16);
+  --accent-border: rgba(91, 63, 143, 0.28);
+  --accent-icon-bg: rgba(91, 63, 143, 0.10);
+  /* Fill for solid buttons. --accent is a TEXT colour and goes pastel in
+     dark mode, where white on it fails contrast; this one stays white-safe. */
+  --accent-solid: #5B3F8F;
+  --calm:        #2A777A;
+  --calm-rgb:    42, 119, 122;
+  --term:        #5B3F8F;
+  --shadow-sm:   0 1px 3px rgba(30,20,51,0.07), 0 0 0 1px rgba(30,20,51,0.05);
+  --shadow-md:   0 4px 16px rgba(30,20,51,0.09), 0 1px 4px rgba(30,20,51,0.06);
   /* Pre-computed nav backgrounds, avoiding color-mix() for browser compat */
-  --nav-bg:         rgba(237, 234, 227, 0.94);
-  --mobile-nav-bg:  rgba(237, 234, 227, 0.97);
+  --nav-bg:         rgba(243, 240, 248, 0.94);
+  --mobile-nav-bg:  rgba(243, 240, 248, 0.97);
+
+  --brand-50:  #F6F3FC;
+  --brand-100: #ECE6F7;
+  --brand-200: #E2D9F5;
+  --brand-300: #D2C5F0;
+  --brand-400: #C3B2EA;
+  --brand-500: #7C62B5;
+  --brand-600: #5B3F8F;
+  --brand-700: #4B3279;
+  --brand-800: #3B2761;
+  --brand-900: #2B1C47;
+  --brand-950: #1E1433;
+
+  /* Plum-tinted neutrals behind Tailwind's gray-* (see @theme below). */
+  --gray-50: #F8F7FB;
+  --gray-100: #F1EFF6;
+  --gray-200: #E4E1EC;
+  --gray-300: #CFCBDA;
+  --gray-400: #9E98AE;
+  --gray-500: #6E6782;
+  --gray-600: #544D66;
+  --gray-700: #423B53;
+  --gray-800: #2C2639;
+  --gray-900: #1C1628;
+  --gray-950: #120E1B;
   /* Reading text scale: user-adjustable, see lib/fontScale.ts. Applied only
      to transcript/definition/summary content, not chrome (nav, buttons, labels). */
   --df-scale: 1;
 }
 
 .dark {
-  --bg:          #080810;
-  --bg-subtle:   #0E0E1A;
-  --fg:          #EDEDED;
-  --fg-muted:    rgba(237, 237, 237, 0.52);
-  --fg-faint:    rgba(237, 237, 237, 0.28);
-  --surface:     rgba(255, 255, 255, 0.04);
+  --bg:          #110B1C;
+  --bg-subtle:   #171024;
+  --fg:          #EEEAF6;
+  --fg-muted:    rgba(238, 234, 246, 0.60);
+  --fg-faint:    rgba(238, 234, 246, 0.34);
+  --surface:     rgba(255, 255, 255, 0.045);
   --surface-2:   rgba(255, 255, 255, 0.08);
   --border:      rgba(255, 255, 255, 0.08);
   --border-strong: rgba(255, 255, 255, 0.15);
-  --accent:      #FBBF24;
-  --accent-rgb:  251, 191, 36;
-  --accent-soft: rgba(251, 191, 36, 0.10);
-  --accent-glow: rgba(251, 191, 36, 0.20);
-  --accent-border: rgba(251, 191, 36, 0.28);
-  --accent-icon-bg: rgba(251, 191, 36, 0.12);
+  --accent:      #C3B2EA;
+  --accent-rgb:  195, 178, 234;
+  --accent-soft: rgba(195, 178, 234, 0.10);
+  --accent-glow: rgba(195, 178, 234, 0.18);
+  --accent-border: rgba(195, 178, 234, 0.28);
+  --accent-icon-bg: rgba(195, 178, 234, 0.12);
+  --accent-solid: #7457AF;
+
+  /* The app was built dark-first with bare text-gray-500/600/700 as its
+     "quiet" text, which on this background lands at 2-3:1, too faint to read.
+     Lifted here once rather than adding a dark: pair at ~180 call sites. */
+  --gray-500: #A39BB6;
+  --gray-600: #8E86A2;
+  --gray-700: #7D7592;
+  --calm:        #7CC9C0;
+  --calm-rgb:    124, 201, 192;
+  --term:        #C3B2EA;
   --shadow-sm:   0 1px 4px rgba(0,0,0,0.40);
   --shadow-md:   0 4px 20px rgba(0,0,0,0.50);
-  --nav-bg:         rgba(8, 8, 16, 0.92);
-  --mobile-nav-bg:  rgba(8, 8, 16, 0.96);
+  --nav-bg:         rgba(17, 11, 28, 0.92);
+  --mobile-nav-bg:  rgba(17, 11, 28, 0.96);
+
+  /* Solid plum buttons read as a dark hole on a plum-black page (2.3:1).
+     One step brighter keeps white text at 5:1 and the button at 3.7:1. */
+  --brand-600: #7457AF;
+}
+
+/* Surfaces that stay white in dark mode (the onboarding card) keep the light
+   greys, or the dark-mode lift above would wash their text out. */
+.dark .force-light {
+  --gray-500: #6E6782;
+  --gray-600: #544D66;
+  --gray-700: #423B53;
 }
 
 /* ── Tailwind theme ── */
@@ -58,6 +116,35 @@
   --color-foreground: var(--fg);
   --font-sans: var(--font-jakarta);
   --font-mono: var(--font-geist-mono);
+
+  --color-brand-50:  var(--brand-50);
+  --color-brand-100: var(--brand-100);
+  --color-brand-200: var(--brand-200);
+  --color-brand-300: var(--brand-300);
+  --color-brand-400: var(--brand-400);
+  --color-brand-500: var(--brand-500);
+  --color-brand-600: var(--brand-600);
+  --color-brand-700: var(--brand-700);
+  --color-brand-800: var(--brand-800);
+  --color-brand-900: var(--brand-900);
+  --color-brand-950: var(--brand-950);
+  --color-calm: var(--calm);
+
+  /* Plum-tinted neutrals: Tailwind's gray-* everywhere in the app picks up a
+     trace of the brand instead of reading as cold blue-grey next to it.
+     Routed through --gray-* so .dark can re-point them; @theme inline would
+     otherwise bake the hex into every utility. */
+  --color-gray-50: var(--gray-50);
+  --color-gray-100: var(--gray-100);
+  --color-gray-200: var(--gray-200);
+  --color-gray-300: var(--gray-300);
+  --color-gray-400: var(--gray-400);
+  --color-gray-500: var(--gray-500);
+  --color-gray-600: var(--gray-600);
+  --color-gray-700: var(--gray-700);
+  --color-gray-800: var(--gray-800);
+  --color-gray-900: var(--gray-900);
+  --color-gray-950: var(--gray-950);
 
   --animate-ring:       recording-ring 2.4s ease-out infinite;
   --animate-slide-up:   term-slide-up 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
@@ -78,22 +165,22 @@ html {
 #init-loader {
   position: fixed; inset: 0; z-index: 9999;
   display: flex; align-items: center; justify-content: center;
-  background: #EDEAE3;
+  background: #F3F0F8;
   pointer-events: none;
   transition: opacity 0.15s ease;
 }
-.dark #init-loader { background: #080810; }
+.dark #init-loader { background: #110B1C; }
 #init-loader::after {
   content: '';
   width: 32px; height: 32px;
   border-radius: 50%;
-  border: 2px solid rgba(0,0,0,0.08);
-  border-top-color: #A16207;
+  border: 2px solid rgba(30,20,51,0.08);
+  border-top-color: #5B3F8F;
   animation: init-spin 0.7s linear infinite;
 }
 .dark #init-loader::after {
   border-color: rgba(255,255,255,0.08);
-  border-top-color: #FBBF24;
+  border-top-color: #C3B2EA;
 }
 @keyframes init-spin { to { transform: rotate(360deg); } }
 html.dark {
@@ -223,7 +310,7 @@ button, a {
   top: 0;
   bottom: 0;
   width: 2px;
-  background: rgba(245, 166, 35, 0.2);
+  background: rgba(var(--accent-rgb), 0.2);
 }
 .transcript-container [data-age="0"] { opacity: 1;    font-weight: 500; }
 .transcript-container [data-age="1"] { opacity: 0.75; }
@@ -242,7 +329,7 @@ button, a {
   opacity: 1;
 }
 .transcript-term {
-  color: #f5a623;
+  color: var(--term);
   opacity: 1 !important;
   font-weight: 600;
   cursor: pointer;

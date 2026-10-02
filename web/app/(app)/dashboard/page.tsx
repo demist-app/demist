@@ -21,6 +21,7 @@ import { ProExpiryNotice } from '@/components/ProExpiryNotice'
 import { PaywallModal } from '@/components/PaywallModal'
 import { TrialLimitModal } from '@/components/TrialLimitModal'
 import { TranscriptBilingual } from '@/components/TranscriptBilingual'
+import { BrandMark } from '@/components/BrandMark'
 
 function fmtTime(s: number) {
   return `${String(Math.floor(s / 60)).padStart(2,'0')}:${String(s % 60).padStart(2,'0')}`
@@ -282,35 +283,35 @@ export default function Dashboard() {
   }
 
   if (loading) return (
-    <main className="h-dvh sm:h-[calc(100dvh-3.5rem)] dark:bg-[#080810] bg-[#EDEAE3] dark:text-white text-gray-900 flex flex-col overflow-hidden nav-bottom-pad">
+    <main className="h-dvh sm:h-[calc(100dvh-3.5rem)] dark:bg-[#110B1C] bg-[#F3F0F8] dark:text-white text-gray-900 flex flex-col overflow-hidden nav-bottom-pad">
       <header className="sm:hidden shrink-0 flex items-center px-6 h-14 border-b dark:border-white/[0.05] border-black/[0.06]">
-        <span className="font-bold tracking-tight text-[15px]">Demist</span>
+        <BrandMark />
       </header>
       <div className="flex-1 overflow-y-auto animate-pulse">
         <div className="w-full max-w-4xl mx-auto">
           <div className="flex flex-col items-center pt-12 pb-8 px-6 gap-3">
-            <div className="w-[96px] h-[96px] rounded-full dark:bg-white/[0.06] bg-[#F3F1EC]" />
-            <div className="h-4 w-32 dark:bg-white/[0.04] bg-[#FAF9F6] rounded-full" />
-            <div className="h-3 w-48 dark:bg-white/[0.03] bg-[#FAF9F6] rounded-full" />
+            <div className="w-[96px] h-[96px] rounded-full dark:bg-white/[0.06] bg-[#F1EEF7]" />
+            <div className="h-4 w-32 dark:bg-white/[0.04] bg-[#FFFFFF] rounded-full" />
+            <div className="h-3 w-48 dark:bg-white/[0.03] bg-[#FFFFFF] rounded-full" />
           </div>
           <div className="grid grid-cols-2 gap-3 px-4 sm:px-6 pb-5">
             {[0,1].map(i => (
-              <div key={i} className="dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl px-4 py-4">
-                <div className="h-2 w-12 dark:bg-white/[0.06] bg-[#F3F1EC] rounded-full mb-3" />
-                <div className="h-7 w-14 dark:bg-white/[0.08] bg-[#EFEDE7] rounded-md" />
+              <div key={i} className="dark:bg-white/[0.03] bg-[#FFFFFF] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl px-4 py-4">
+                <div className="h-2 w-12 dark:bg-white/[0.06] bg-[#F1EEF7] rounded-full mb-3" />
+                <div className="h-7 w-14 dark:bg-white/[0.08] bg-[#ECE8F4] rounded-md" />
               </div>
             ))}
           </div>
           <div className="px-4 sm:px-6 pb-4">
-            <div className="h-2 w-28 dark:bg-white/[0.05] bg-[#F6F5F2] rounded-full mb-3" />
+            <div className="h-2 w-28 dark:bg-white/[0.05] bg-[#F8F6FB] rounded-full mb-3" />
             <div className="space-y-2">
               {[0,1,2].map(i => (
-                <div key={i} className="flex items-center gap-3 dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl px-4 py-3.5">
+                <div key={i} className="flex items-center gap-3 dark:bg-white/[0.03] bg-[#FFFFFF] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl px-4 py-3.5">
                   <div className="flex-1 flex flex-col gap-2">
-                    <div className="h-3.5 w-36 dark:bg-white/[0.07] bg-[#EFEDE7] rounded-full" />
-                    <div className="h-3 w-20 dark:bg-white/[0.05] bg-[#F6F5F2] rounded-full" />
+                    <div className="h-3.5 w-36 dark:bg-white/[0.07] bg-[#ECE8F4] rounded-full" />
+                    <div className="h-3 w-20 dark:bg-white/[0.05] bg-[#F8F6FB] rounded-full" />
                   </div>
-                  <div className="h-5 w-12 dark:bg-white/[0.05] bg-[#F6F5F2] rounded-full" />
+                  <div className="h-5 w-12 dark:bg-white/[0.05] bg-[#F8F6FB] rounded-full" />
                 </div>
               ))}
             </div>
@@ -334,15 +335,15 @@ export default function Dashboard() {
     // `sm:pt-14`, so on desktop a plain 100dvh overflows by exactly the nav's
     // 3.5rem. Below sm the nav is at the bottom instead and nav-bottom-pad
     // reserves its space inside this element.
-    <main className="h-dvh sm:h-[calc(100dvh-3.5rem)] dark:bg-[#080810] bg-[#EDEAE3] dark:text-white text-gray-900 flex flex-col overflow-hidden nav-bottom-pad">
+    <main className="h-dvh sm:h-[calc(100dvh-3.5rem)] dark:bg-[#110B1C] bg-[#F3F0F8] dark:text-white text-gray-900 flex flex-col overflow-hidden nav-bottom-pad">
       {/* Ambient blobs */}
       <div aria-hidden className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
         <div
-          className="absolute -top-32 -left-32 w-[500px] h-[500px] rounded-full bg-yellow-700/[0.06] blur-[120px]"
+          className="absolute -top-32 -left-32 w-[500px] h-[500px] rounded-full bg-brand-700/[0.06] blur-[120px]"
           style={{ animation: 'blob-drift 22s ease-in-out infinite' }}
         />
         <div
-          className="absolute -bottom-24 -right-24 w-[380px] h-[380px] rounded-full bg-amber-800/[0.05] blur-[100px]"
+          className="absolute -bottom-24 -right-24 w-[380px] h-[380px] rounded-full bg-brand-800/[0.05] blur-[100px]"
           style={{ animation: 'blob-drift 28s ease-in-out infinite reverse' }}
         />
       </div>
@@ -355,7 +356,7 @@ export default function Dashboard() {
             <span className="font-mono text-[17px] tabular-nums">{fmtTime(elapsed)}</span>
           </div>
         ) : (
-          <Link href="/dashboard" className="font-bold tracking-tight text-[15px] hover:dark:text-yellow-300 text-yellow-700 active:scale-[0.97] transition-all duration-150 select-none">Demist</Link>
+          <Link href="/dashboard" aria-label="Demist home" className="active:scale-[0.97] transition-transform duration-150"><BrandMark /></Link>
         )}
       </header>
 
@@ -373,7 +374,7 @@ export default function Dashboard() {
             </div>
 
             {wakeLockUnsupported && (
-              <div className="relative z-10 mx-4 sm:mx-6 mt-4 bg-amber-50 border border-amber-200 rounded-lg px-4 py-2 text-sm text-amber-800">
+              <div className="relative z-10 mx-4 sm:mx-6 mt-4 bg-brand-50 border border-brand-200 rounded-lg px-4 py-2 text-sm text-brand-800">
                 Keep your screen on to avoid interrupting the recording.
               </div>
             )}
@@ -395,7 +396,7 @@ export default function Dashboard() {
                 max-w rather than being truncated. */}
             {recordingWarning && (
               <div className="relative z-10 mt-4 px-4 sm:px-6 flex justify-center">
-                <div className="w-fit max-w-xl rounded-full px-3.5 py-1.5 text-[12px] leading-snug text-center dark:bg-amber-500/10 bg-amber-50 border dark:border-amber-500/25 border-amber-200 dark:text-amber-300 text-amber-800" role="status">
+                <div className="w-fit max-w-xl rounded-full px-3.5 py-1.5 text-[12px] leading-snug text-center dark:bg-brand-500/10 bg-brand-50 border dark:border-brand-500/25 border-brand-200 dark:text-brand-300 text-brand-800" role="status">
                   {recordingWarning}
                 </div>
               </div>
@@ -409,7 +410,7 @@ export default function Dashboard() {
                 on-device capture lifecycle within a second of a recording
                 starting, which silently swallowed this notice entirely. */}
             {[sessionSyncWarning, modelWarning, staleShellWarning].filter(Boolean).map((msg, i) => (
-              <div key={i} className="relative z-10 mx-4 sm:mx-6 mt-4 rounded-lg px-4 py-2 text-[13px] leading-relaxed dark:bg-amber-500/10 bg-amber-50 border dark:border-amber-500/25 border-amber-200 dark:text-amber-300 text-amber-800" role="status">
+              <div key={i} className="relative z-10 mx-4 sm:mx-6 mt-4 rounded-lg px-4 py-2 text-[13px] leading-relaxed dark:bg-brand-500/10 bg-brand-50 border dark:border-brand-500/25 border-brand-200 dark:text-brand-300 text-brand-800" role="status">
                 {msg}
               </div>
             ))}
@@ -422,7 +423,7 @@ export default function Dashboard() {
               </div>
 
               {capturedTabTitle && (
-                <p className="text-xs text-amber-600 mb-4 text-center max-w-xs truncate px-4">
+                <p className="text-xs text-brand-600 mb-4 text-center max-w-xs truncate px-4 dark:text-brand-300">
                   Capturing from: {capturedTabTitle}
                 </p>
               )}
@@ -474,7 +475,7 @@ export default function Dashboard() {
                           onClick={() => changeTranscriptView(key)}
                           className={`text-[11px] font-medium px-2.5 py-1 rounded-full transition-all ${
                             transcriptView === key
-                              ? 'bg-amber-500 text-white shadow-sm'
+                              ? 'bg-brand-500 text-white shadow-sm'
                               : 'text-gray-500 dark:text-white/45 hover:text-gray-700 dark:hover:text-white/65'
                           }`}
                         >
@@ -520,7 +521,7 @@ export default function Dashboard() {
                   className={`transcript-container flex-1 min-h-0 overflow-y-auto ${isScrolledUp ? 'scrolled-up' : ''}`}
                 >
                   {sentences.length === 0 && (
-                    <p className="text-[13px] text-gray-700 italic">Transcription will appear here as you speak…</p>
+                    <p className="text-[13px] dark:text-white/60 text-gray-700 italic">Transcription will appear here as you speak…</p>
                   )}
                   {profile?.translate_to && liveTranslateAvailable && transcriptView === 'both' && (
                     <TranscriptBilingual
@@ -549,7 +550,7 @@ export default function Dashboard() {
                           key={i}
                           data-age={ageOf(i)}
                           dir={profile.translate_to === 'ar' ? 'rtl' : undefined}
-                          className="text-[calc(0.875rem*var(--df-scale))] leading-relaxed mb-1 transition-opacity duration-500 dark:text-amber-300/80 text-amber-700"
+                          className="text-[calc(0.875rem*var(--df-scale))] leading-relaxed mb-1 transition-opacity duration-500 dark:text-brand-300/80 text-brand-700"
                         >
                           {tgt === null ? <span className="dark:text-white/25 text-gray-400">⋯</span> : tgt}
                         </p>
@@ -560,7 +561,7 @@ export default function Dashboard() {
                 {isScrolledUp && (
                   <button
                     onClick={scrollToLive}
-                    className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 bg-amber-500 text-white text-[12px] font-medium px-3.5 py-1.5 rounded-full shadow-lg"
+                    className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 bg-brand-500 text-white text-[12px] font-medium px-3.5 py-1.5 rounded-full shadow-lg"
                   >
                     back to live ↓
                   </button>
@@ -570,17 +571,17 @@ export default function Dashboard() {
 
             {sessionGlossary.length > 0 && (
               <div className="shrink-0 px-4 sm:px-6 pb-4 max-h-[32vh] overflow-y-auto">
-                <p className="text-[10px] font-bold tracking-[0.18em] text-gray-600 uppercase mb-3 sticky top-0 dark:bg-[#080810] bg-[#EDEAE3]">
+                <p className="text-[10px] font-bold tracking-[0.18em] text-gray-600 uppercase mb-3 sticky top-0 dark:bg-[#110B1C] bg-[#F3F0F8]">
                   This Session
                 </p>
                 <div className="space-y-2">
                   {sessionGlossary.map((t, i) => (
-                    <div key={i} className="flex gap-3 dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.07] border-black/[0.16] rounded-xl px-3 py-2.5">
+                    <div key={i} className="flex gap-3 dark:bg-white/[0.03] bg-[#FFFFFF] border dark:border-white/[0.07] border-black/[0.16] rounded-xl px-3 py-2.5">
                       <div className="min-w-0">
                         <span className="text-[calc(0.8125rem*var(--df-scale))] font-semibold dark:text-white/90 text-gray-900">{t.term}</span>
-                        <p className="text-[calc(0.75rem*var(--df-scale))] text-gray-700 mt-0.5 leading-relaxed">{t.definition}</p>
+                        <p className="text-[calc(0.75rem*var(--df-scale))] dark:text-white/60 text-gray-700 mt-0.5 leading-relaxed">{t.definition}</p>
                         {t.translation && (
-                          <p className="text-[calc(0.75rem*var(--df-scale))] dark:text-amber-400/80 text-amber-700 mt-0.5 leading-relaxed">{t.translation}</p>
+                          <p className="text-[calc(0.75rem*var(--df-scale))] dark:text-brand-400/80 text-brand-700 mt-0.5 leading-relaxed">{t.translation}</p>
                         )}
                       </div>
                     </div>
@@ -597,9 +598,9 @@ export default function Dashboard() {
             {/* Mic hero */}
             <div className="flex flex-col items-center pt-12 pb-8 px-4 sm:px-6 animate-step opacity-0" style={{ animationFillMode: 'forwards' }}>
               <div className="relative flex items-center justify-center mb-5">
-                <span className="absolute w-[130px] h-[130px] rounded-full bg-yellow-600/[0.08]" style={{ animation: 'glow-float 4s ease-in-out infinite' }} />
-                <span className="absolute w-[162px] h-[162px] rounded-full bg-yellow-600/[0.05]" style={{ animation: 'glow-float 4s ease-in-out -1.3s infinite' }} />
-                <span className="absolute w-[194px] h-[194px] rounded-full bg-yellow-600/[0.025]" style={{ animation: 'glow-float 4s ease-in-out -2.7s infinite' }} />
+                <span className="absolute w-[130px] h-[130px] rounded-full bg-brand-600/[0.08]" style={{ animation: 'glow-float 4s ease-in-out infinite' }} />
+                <span className="absolute w-[162px] h-[162px] rounded-full bg-brand-600/[0.05]" style={{ animation: 'glow-float 4s ease-in-out -1.3s infinite' }} />
+                <span className="absolute w-[194px] h-[194px] rounded-full bg-brand-600/[0.025]" style={{ animation: 'glow-float 4s ease-in-out -2.7s infinite' }} />
                 <button
                   ref={btnRef}
                   onClick={() => {
@@ -611,7 +612,7 @@ export default function Dashboard() {
                   }}
                   disabled={!nativeModelsReady}
                   aria-label={nativeModelsReady ? 'Start recording' : nativeModelsError ? 'On-device models failed to load' : 'Preparing on-device models'}
-                  className="relative z-10 w-[96px] h-[96px] rounded-full dark:bg-white/[0.08] bg-[#FAF9F6] border border-yellow-500/40 hover:bg-yellow-500/10 hover:border-yellow-500/60 hover:shadow-[0_0_48px_rgba(161,98,7,0.30)] dark:hover:shadow-[0_0_48px_rgba(251,191,36,0.30)] active:scale-[0.97] flex items-center justify-center transition-all duration-200 select-none shadow-sm disabled:opacity-40 disabled:pointer-events-none disabled:hover:shadow-none"
+                  className="relative z-10 w-[96px] h-[96px] rounded-full dark:bg-white/[0.08] bg-[#FFFFFF] border border-brand-500/40 hover:bg-brand-500/10 hover:border-brand-500/60 hover:shadow-[0_0_48px_rgba(91,63,143,0.30)] dark:hover:shadow-[0_0_48px_rgba(195,178,234,0.30)] active:scale-[0.97] flex items-center justify-center transition-all duration-200 select-none shadow-sm disabled:opacity-40 disabled:pointer-events-none disabled:hover:shadow-none"
                 >
                   <MicIcon />
                 </button>
@@ -648,7 +649,7 @@ export default function Dashboard() {
                   <p className="text-red-400 text-[12px] text-center">{nativeModelsError}</p>
                   <button
                     onClick={retryNativeModelPreload}
-                    className="text-[12px] font-medium text-yellow-600 dark:text-yellow-400 hover:opacity-80 transition-opacity px-3 py-1 rounded-full border dark:border-yellow-500/30 border-yellow-600/30"
+                    className="text-[12px] font-medium text-brand-600 dark:text-brand-400 hover:opacity-80 transition-opacity px-3 py-1 rounded-full border dark:border-brand-500/30 border-brand-600/30"
                   >
                     Retry
                   </button>
@@ -662,7 +663,7 @@ export default function Dashboard() {
                   </p>
                   <div className="h-1 rounded-full dark:bg-white/[0.08] bg-black/[0.08] overflow-hidden">
                     <div
-                      className="h-full rounded-full bg-yellow-500 transition-all duration-300"
+                      className="h-full rounded-full bg-brand-500 transition-all duration-300"
                       style={{ width: `${gatingProgress?.pct ?? 8}%` }}
                     />
                   </div>
@@ -691,7 +692,7 @@ export default function Dashboard() {
                       capture('session_subject_selected', { source: showSubjectInput ? 'new' : 'default' })
                     }}
                     placeholder={profile?.course || 'Subject or module'}
-                    className="w-full dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.10] border-black/[0.13] rounded-2xl px-4 py-2.5 text-[13px] dark:text-white text-gray-900 placeholder-gray-500 focus:outline-none focus:border-yellow-500/50 transition-colors"
+                    className="w-full dark:bg-white/[0.05] bg-[#F8F6FB] border dark:border-white/[0.10] border-black/[0.13] rounded-2xl px-4 py-2.5 text-[13px] dark:text-white text-gray-900 placeholder-gray-500 focus:outline-none focus:border-brand-500/50 transition-colors"
                     autoFocus={showSubjectInput}
                   />
                   {recentSubjects.filter(s => s !== sessionSubject).length > 0 && (
@@ -708,7 +709,7 @@ export default function Dashboard() {
                             setShowSubjectInput(false)
                             capture('session_subject_selected', { source: 'quick_pick' })
                           }}
-                          className="text-[12px] px-2.5 py-1 rounded-full border transition-colors dark:bg-white/[0.04] bg-[#F3F1EC] dark:border-white/[0.08] border-black/[0.12] dark:text-gray-400 text-gray-600 hover:border-yellow-500/40"
+                          className="text-[12px] px-2.5 py-1 rounded-full border transition-colors dark:bg-white/[0.04] bg-[#F1EEF7] dark:border-white/[0.08] border-black/[0.12] dark:text-gray-400 text-gray-600 hover:border-brand-500/40"
                         >
                           {s}
                         </button>
@@ -725,7 +726,7 @@ export default function Dashboard() {
                     onClick={() => setCaptureMode('microphone')}
                     className={`flex-1 text-[13px] font-medium px-4 py-2.5 rounded-full transition-all duration-200 active:scale-[0.97] ${
                       captureMode === 'microphone'
-                        ? 'bg-amber-500 text-white shadow-sm'
+                        ? 'bg-brand-500 text-white shadow-sm'
                         : 'text-gray-500 dark:text-white/45 hover:text-gray-700 dark:hover:text-white/65'
                     }`}
                   >
@@ -747,7 +748,7 @@ export default function Dashboard() {
                         !tabCaptureSupportedState
                           ? 'text-gray-400 dark:text-white/20 cursor-not-allowed'
                           : captureMode === 'tab'
-                            ? 'bg-amber-500 text-white shadow-sm'
+                            ? 'bg-brand-500 text-white shadow-sm'
                             : 'text-gray-500 dark:text-white/45 hover:text-gray-700 dark:hover:text-white/65'
                       }`}
                     >
@@ -764,7 +765,7 @@ export default function Dashboard() {
                 </p>
               </div>
               {recordingWarning && (
-                <p className="mt-3 text-amber-500 text-[12px] text-center max-w-xs leading-relaxed" role="status">{recordingWarning}</p>
+                <p className="mt-3 text-brand-500 text-[12px] text-center max-w-xs leading-relaxed" role="status">{recordingWarning}</p>
               )}
               {recordingError && (
                 <p className="mt-2 text-red-400 text-[13px] text-center max-w-xs" role="alert">{recordingError}</p>
@@ -773,7 +774,7 @@ export default function Dashboard() {
                   not be saved" is most worth reading once the user has stopped
                   and is looking at a History page that will not list it. */}
               {[sessionSyncWarning, modelWarning, staleShellWarning].filter(Boolean).map((msg, i) => (
-                <p key={i} className="mt-2 text-amber-500 text-[12px] text-center max-w-xs leading-relaxed" role="status">{msg}</p>
+                <p key={i} className="mt-2 text-brand-500 text-[12px] text-center max-w-xs leading-relaxed" role="status">{msg}</p>
               ))}
             </div>
 
@@ -782,32 +783,32 @@ export default function Dashboard() {
               {stats.dueFlashcards > 0 && (
                 <Link
                   href="/flashcards"
-                  className="col-span-2 flex items-center justify-between dark:bg-amber-500/[0.07] bg-amber-50 dark:border-amber-500/20 border-amber-300/70 border rounded-2xl px-4 py-3.5 dark:hover:bg-amber-500/[0.11] hover:bg-amber-100 transition-all group"
+                  className="col-span-2 flex items-center justify-between dark:bg-brand-500/[0.07] bg-brand-50 dark:border-brand-500/20 border-brand-300/70 border rounded-2xl px-4 py-3.5 dark:hover:bg-brand-500/[0.11] hover:bg-brand-100 transition-all group"
                 >
                   <div>
-                    <p className="text-[14px] font-semibold dark:text-amber-300 text-amber-800">{stats.dueFlashcards} flashcard{stats.dueFlashcards !== 1 ? 's' : ''} due</p>
-                    <p className="text-[12px] dark:text-amber-400/50 text-amber-700/80 mt-0.5">
+                    <p className="text-[14px] font-semibold dark:text-brand-300 text-brand-800">{stats.dueFlashcards} flashcard{stats.dueFlashcards !== 1 ? 's' : ''} due</p>
+                    <p className="text-[12px] dark:text-brand-400/50 text-brand-700/80 mt-0.5">
                       {stats.streak > 1 ? `Don't break your ${stats.streak}-day streak` : 'Review now: spaced repetition only works if you show up'}
                     </p>
                   </div>
-                  <span className="dark:text-amber-400/60 text-amber-700/50 dark:group-hover:text-amber-300 group-hover:text-amber-900 transition-colors text-[20px] leading-none">›</span>
+                  <span className="dark:text-brand-400/60 text-brand-700/50 dark:group-hover:text-brand-300 group-hover:text-brand-900 transition-colors text-[20px] leading-none">›</span>
                 </Link>
               )}
-              <div className="dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.07] border-black/[0.16] rounded-2xl px-4 py-4">
+              <div className="dark:bg-white/[0.03] bg-[#FFFFFF] border dark:border-white/[0.07] border-black/[0.16] rounded-2xl px-4 py-4">
                 <div className="flex items-center gap-1.5 mb-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                  <div className="w-1.5 h-1.5 rounded-full bg-brand-500" />
                   <p className="text-[11px] text-gray-600 uppercase tracking-[0.12em]">Streak</p>
                 </div>
-                <p className="text-[28px] font-bold leading-none text-amber-400">
+                <p className="text-[28px] font-bold leading-none text-brand-700 dark:text-brand-400">
                   {stats.streak}<span className="text-[14px] font-normal text-gray-600 ml-1">days</span>
                 </p>
               </div>
-              <div className="dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.07] border-black/[0.16] rounded-2xl px-4 py-4">
+              <div className="dark:bg-white/[0.03] bg-[#FFFFFF] border dark:border-white/[0.07] border-black/[0.16] rounded-2xl px-4 py-4">
                 <div className="flex items-center gap-1.5 mb-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-yellow-500" />
+                  <div className="w-1.5 h-1.5 rounded-full bg-brand-500" />
                   <p className="text-[11px] text-gray-600 uppercase tracking-[0.12em]">This week</p>
                 </div>
-                <p className="text-[28px] font-bold leading-none dark:text-yellow-400 text-yellow-700">
+                <p className="text-[28px] font-bold leading-none dark:text-brand-400 text-brand-700">
                   {stats.termsThisWeek}<span className="text-[14px] font-normal text-gray-600 ml-1">concepts</span>
                 </p>
               </div>
@@ -819,11 +820,11 @@ export default function Dashboard() {
                 <>
                   <div className="flex items-center justify-between mb-3">
                     <p className="text-[11px] font-bold tracking-[0.18em] text-gray-600 uppercase">Recent Sessions</p>
-                    <Link href="/history" className="text-[12px] text-yellow-500/70 hover:dark:text-yellow-400 text-yellow-700 transition-colors">See all</Link>
+                    <Link href="/history" className="text-[12px] text-brand-500/70 hover:dark:text-brand-400 text-brand-700 transition-colors dark:text-brand-300">See all</Link>
                   </div>
                   <div className="space-y-2">
                     {recentSessions.map(s => (
-                      <div key={s.id} className="dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.07] border-black/[0.16] rounded-2xl overflow-hidden hover:bg-yellow-500/[0.04] hover:border-yellow-500/[0.15] transition-colors duration-200">
+                      <div key={s.id} className="dark:bg-white/[0.03] bg-[#FFFFFF] border dark:border-white/[0.07] border-black/[0.16] rounded-2xl overflow-hidden hover:bg-brand-500/[0.04] hover:border-brand-500/[0.15] transition-colors duration-200">
                         <div
                           onClick={() => s.termCount > 0 && toggleExpandSession(s.id)}
                           className={`flex items-center gap-3 px-4 py-3.5 ${s.termCount > 0 ? 'cursor-pointer' : ''}`}
@@ -836,7 +837,7 @@ export default function Dashboard() {
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
                             {s.termCount > 0 && (
-                              <span className="bg-yellow-500/10 border border-yellow-500/20 rounded-full px-2.5 py-0.5 text-[12px] font-semibold dark:text-yellow-400 text-yellow-700 tabular-nums">
+                              <span className="bg-brand-500/10 border border-brand-500/20 rounded-full px-2.5 py-0.5 text-[12px] font-semibold dark:text-brand-400 text-brand-700 tabular-nums">
                                 {s.termCount}
                               </span>
                             )}
@@ -851,37 +852,37 @@ export default function Dashboard() {
                                 <SummaryViewer synopsis={s.synopsis} sessionId={s.id} subject={profile?.course ?? null} year={profile?.year_of_study ?? null} />
                               </div>
                             ) : sessionGenIds.has(s.id) ? (
-                              <p className="text-[12px] text-gray-700 pt-3">Generating summary...</p>
+                              <p className="text-[12px] dark:text-white/60 text-gray-700 pt-3">Generating summary...</p>
                             ) : sessionFailIds.has(s.id) ? (
                               <div className="flex items-center gap-3 pt-3">
-                                <p className="text-[12px] text-gray-700">{summaryFailureMessage(sessionFailReasons[s.id])}</p>
-                                <button onClick={() => retrySessionSummarize(s)} className="text-[12px] text-yellow-500 hover:dark:text-yellow-400 text-yellow-700 transition-colors shrink-0">Retry</button>
+                                <p className="text-[12px] dark:text-white/60 text-gray-700">{summaryFailureMessage(sessionFailReasons[s.id])}</p>
+                                <button onClick={() => retrySessionSummarize(s)} className="text-[12px] text-brand-500 hover:dark:text-brand-400 text-brand-700 transition-colors shrink-0 dark:text-brand-300">Retry</button>
                               </div>
                             ) : null}
 
                             {sessionTermLoading === s.id && (
-                              <p className="text-gray-700 text-[13px] pt-3">Loading...</p>
+                              <p className="dark:text-white/60 text-gray-700 text-[13px] pt-3">Loading...</p>
                             )}
                             {s.terms && s.terms.length > 0 && (
                               <div className="pt-3">
                                 <p className="text-[10px] font-bold tracking-[0.15em] text-gray-600 uppercase mb-2">Words</p>
                                 <div className="space-y-1.5">
                                   {s.terms.slice(0, 3).map(t => (
-                                    <p key={t.id} className="text-[13px] text-gray-700 leading-snug">
+                                    <p key={t.id} className="text-[13px] dark:text-white/60 text-gray-700 leading-snug">
                                       <span className="dark:text-white/70 text-gray-700 font-medium">{t.term}</span>
                                       {' '}- {t.definition}
                                     </p>
                                   ))}
                                 </div>
                                 {s.terms.length > 3 && (
-                                  <Link href={`/history?session=${s.id}`} className="inline-block mt-2 text-[12px] text-yellow-500 hover:dark:text-yellow-400 text-yellow-700 transition-colors">
+                                  <Link href={`/history?session=${s.id}`} className="inline-block mt-2 text-[12px] text-brand-500 hover:dark:text-brand-400 text-brand-700 transition-colors dark:text-brand-300">
                                     +{s.terms.length - 3} more words in History
                                   </Link>
                                 )}
                               </div>
                             )}
                             {s.terms && s.terms.length === 0 && (
-                              <p className="text-gray-700 text-[13px] pt-3">No words detected.</p>
+                              <p className="dark:text-white/60 text-gray-700 text-[13px] pt-3">No words detected.</p>
                             )}
                           </div>
                         )}
@@ -893,7 +894,7 @@ export default function Dashboard() {
                 <div className="flex flex-col items-center py-8 text-center gap-5">
                   <div>
                     <p className="text-gray-600 text-[14px] font-medium mb-1">No sessions yet</p>
-                    <p className="text-gray-700 text-[13px]">Hit record before your next lecture. Demist transcribes it, explains unfamiliar terms, and reads it back for you.</p>
+                    <p className="dark:text-white/60 text-gray-700 text-[13px]">Hit record before your next lecture. Demist transcribes it, explains unfamiliar terms, and reads it back for you.</p>
                   </div>
                   <div className="w-full max-w-xs flex flex-col gap-2 text-left">
                     {[
@@ -901,14 +902,14 @@ export default function Dashboard() {
                       { n: '2', text: 'Unfamiliar terms appear on screen as you listen' },
                       { n: '3', text: 'Your glossary and flashcards build automatically' },
                     ].map(({ n, text }) => (
-                      <div key={n} className="flex items-start gap-3 px-4 py-3 rounded-xl dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.10]">
-                        <span className="w-5 h-5 rounded-full bg-yellow-500/20 dark:text-yellow-400 text-yellow-700 text-[11px] font-bold flex items-center justify-center shrink-0 mt-[1px]">{n}</span>
+                      <div key={n} className="flex items-start gap-3 px-4 py-3 rounded-xl dark:bg-white/[0.03] bg-[#FFFFFF] border dark:border-white/[0.06] border-black/[0.10]">
+                        <span className="w-5 h-5 rounded-full bg-brand-500/20 dark:text-brand-400 text-brand-700 text-[11px] font-bold flex items-center justify-center shrink-0 mt-[1px]">{n}</span>
                         <p className="text-[13px] text-gray-600 leading-snug">{text}</p>
                       </div>
                     ))}
                   </div>
                   {tabCaptureSupportedState && (
-                    <p className="text-[12px] text-gray-700 max-w-xs leading-relaxed">
+                    <p className="text-[12px] dark:text-white/60 text-gray-700 max-w-xs leading-relaxed">
                       {isElectronNative()
                         ? <>On Zoom or in an online lecture? Switch to <span className="dark:text-white/60 text-gray-800 font-medium">System audio</span> above to capture it directly, without needing your microphone.</>
                         : <>On Zoom or in an online lecture? Switch to <span className="dark:text-white/60 text-gray-800 font-medium">Tab capture</span> above to capture the audio directly from your browser.</>}
@@ -984,7 +985,7 @@ function TermCard({
     <div className={`pointer-events-auto w-full max-w-[420px] ${dismissing ? 'animate-slide-down' : 'animate-slide-up'}`}>
       <div
         onClick={onPin}
-        className={`rounded-2xl px-5 py-4 dark:bg-[#13120e]/96 bg-[#FDFCF9]/96 border cursor-pointer ${pinned ? 'dark:border-amber-500/40 border-amber-500/60' : 'dark:border-amber-500/[0.18] border-amber-400/40'}`}
+        className={`rounded-2xl px-5 py-4 dark:bg-[#181121]/96 bg-[#FFFFFF]/96 border cursor-pointer ${pinned ? 'dark:border-brand-500/40 border-brand-500/60' : 'dark:border-brand-500/[0.18] border-brand-400/40'}`}
         style={{
           backdropFilter: 'blur(28px)',
           WebkitBackdropFilter: 'blur(28px)',
@@ -993,11 +994,11 @@ function TermCard({
       >
         <div className="flex items-start gap-3">
           {/* Amber left accent bar */}
-          <div className="w-[3px] self-stretch rounded-full shrink-0 dark:bg-amber-400 bg-amber-600" />
+          <div className="w-[3px] self-stretch rounded-full shrink-0 dark:bg-brand-400 bg-brand-600" />
 
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-3 mb-1.5">
-              <p className="text-[10px] font-bold tracking-[0.18em] uppercase dark:text-amber-400/70 text-amber-700/80">
+              <p className="text-[10px] font-bold tracking-[0.18em] uppercase dark:text-brand-400/70 text-brand-700/80">
                 {pinned ? 'Pinned' : 'Just detected'}
               </p>
               <button
@@ -1011,7 +1012,7 @@ function TermCard({
             <p className="text-[15px] font-semibold truncate dark:text-white/95 text-gray-900">{term}</p>
             <p className="text-[13px] leading-relaxed mt-1 dark:text-white/55 text-gray-600">{definition}</p>
             {translation && (
-              <p className="text-[13px] leading-relaxed mt-1 dark:text-amber-300/80 text-amber-700">{translation}</p>
+              <p className="text-[13px] leading-relaxed mt-1 dark:text-brand-300/80 text-brand-700">{translation}</p>
             )}
           </div>
         </div>
@@ -1019,7 +1020,7 @@ function TermCard({
         <div className="mt-3 pt-2.5 border-t dark:border-white/[0.06] border-black/[0.07] ml-[15px] flex items-center justify-between">
           <button
             onClick={e => { e.stopPropagation(); onKnown() }}
-            className="text-[12px] dark:text-white/60 text-gray-500 dark:hover:text-amber-400 hover:text-amber-700 transition-colors"
+            className="text-[12px] dark:text-white/60 text-gray-500 dark:hover:text-brand-400 hover:text-brand-700 transition-colors"
           >
             I already know this
           </button>

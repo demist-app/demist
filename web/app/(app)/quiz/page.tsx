@@ -229,22 +229,22 @@ export default function QuizPage() {
   // ── Empty ──
   if (phase === 'empty') {
     return (
-      <main className="h-dvh dark:bg-[#080810] bg-[#EDEAE3] dark:text-white text-gray-900 flex flex-col items-center justify-center px-6 nav-bottom-pad overflow-hidden">
+      <main className="h-dvh dark:bg-[#110B1C] bg-[#F3F0F8] dark:text-white text-gray-900 flex flex-col items-center justify-center px-6 nav-bottom-pad overflow-hidden">
         <div className="flex flex-col items-center text-center gap-3 max-w-xs">
-          <div className="w-14 h-14 rounded-2xl dark:bg-white/[0.04] bg-[#FAF9F6] border dark:border-white/[0.07] border-black/[0.16] flex items-center justify-center mb-1">
+          <div className="w-14 h-14 rounded-2xl dark:bg-white/[0.04] bg-[#FFFFFF] border dark:border-white/[0.07] border-black/[0.16] flex items-center justify-center mb-1">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="text-gray-600">
               <circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" />
             </svg>
           </div>
           <p className="text-[22px] font-bold">Not enough terms</p>
-          <p className="text-gray-700 text-[14px] leading-relaxed">
+          <p className="dark:text-white/60 text-gray-700 text-[14px] leading-relaxed">
             You need at least 4 terms in your glossary to start a quiz. Record or import a lecture to get started.
           </p>
           <div className="flex gap-2 mt-2">
-            <Link href="/dashboard" className="px-5 py-2.5 rounded-2xl bg-yellow-600 hover:brightness-110 text-white text-[14px] font-semibold active:scale-[0.97] transition-[filter,transform] duration-150">
+            <Link href="/dashboard" className="px-5 py-2.5 rounded-2xl bg-brand-600 hover:brightness-110 text-white text-[14px] font-semibold active:scale-[0.97] transition-[filter,transform] duration-150">
               Record a lecture
             </Link>
-            <Link href="/import" className="px-5 py-2.5 rounded-2xl dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.09] border-black/[0.14] text-[14px] font-medium dark:text-gray-300 text-gray-700 active:scale-[0.97] transition-all">
+            <Link href="/import" className="px-5 py-2.5 rounded-2xl dark:bg-white/[0.05] bg-[#F8F6FB] border dark:border-white/[0.09] border-black/[0.14] text-[14px] font-medium dark:text-gray-300 text-gray-700 active:scale-[0.97] transition-all">
               Import a file
             </Link>
           </div>
@@ -256,9 +256,9 @@ export default function QuizPage() {
   // ── Loading ──
   if (phase === 'loading') {
     return (
-      <main className="h-dvh dark:bg-[#080810] bg-[#EDEAE3] flex flex-col nav-bottom-pad overflow-hidden">
+      <main className="h-dvh dark:bg-[#110B1C] bg-[#F3F0F8] flex flex-col nav-bottom-pad overflow-hidden">
         <div className="flex-1 flex items-center justify-center">
-          <div className="w-8 h-8 border-2 dark:border-white/20 border-black/20 border-t-yellow-500 rounded-full animate-spin" />
+          <div className="w-8 h-8 border-2 dark:border-white/20 border-black/20 border-t-brand-500 rounded-full animate-spin" />
         </div>
       </main>
     )
@@ -267,7 +267,7 @@ export default function QuizPage() {
   // ── Setup ──
   if (phase === 'setup') {
     return (
-      <main className="h-dvh dark:bg-[#080810] bg-[#EDEAE3] dark:text-white text-gray-900 flex flex-col overflow-hidden nav-bottom-pad">
+      <main className="h-dvh dark:bg-[#110B1C] bg-[#F3F0F8] dark:text-white text-gray-900 flex flex-col overflow-hidden nav-bottom-pad">
         <header className="sm:hidden shrink-0 flex items-center px-4 h-14 border-b dark:border-white/[0.05] border-black/[0.06]">
           {fromStudy ? (
             <button
@@ -306,12 +306,12 @@ export default function QuizPage() {
                     onClick={() => setScope(val)}
                     className={`flex flex-col items-start px-3 py-3 rounded-2xl border text-left transition-colors active:scale-[0.97] ${
                       scope === val
-                        ? 'dark:bg-yellow-500/10 bg-yellow-50 border-yellow-500/40 dark:text-yellow-300 text-yellow-800'
-                        : 'dark:bg-white/[0.03] bg-[#FAF9F6] dark:border-white/[0.07] border-black/[0.14] dark:text-white text-gray-900'
+                        ? 'dark:bg-brand-500/10 bg-brand-50 border-brand-500/40 dark:text-brand-300 text-brand-800'
+                        : 'dark:bg-white/[0.03] bg-[#FFFFFF] dark:border-white/[0.07] border-black/[0.14] dark:text-white text-gray-900'
                     }`}
                   >
                     <span className="text-[13px] font-semibold">{label}</span>
-                    <span className={`text-[11px] mt-0.5 leading-snug ${scope === val ? 'dark:text-yellow-400/70 text-yellow-700/70' : 'text-gray-600'}`}>{desc}</span>
+                    <span className={`text-[11px] mt-0.5 leading-snug ${scope === val ? 'dark:text-brand-400/70 text-brand-700/70' : 'text-gray-600'}`}>{desc}</span>
                   </button>
                 ))}
               </div>
@@ -334,12 +334,12 @@ export default function QuizPage() {
                       onClick={() => setMode(val)}
                       className={`flex flex-col items-start px-4 py-3.5 rounded-2xl border text-left transition-colors active:scale-[0.97] ${
                         mode === val
-                          ? 'dark:bg-yellow-500/10 bg-yellow-50 border-yellow-500/40 dark:text-yellow-300 text-yellow-800'
-                          : 'dark:bg-white/[0.03] bg-[#FAF9F6] dark:border-white/[0.07] border-black/[0.14] dark:text-white text-gray-900'
+                          ? 'dark:bg-brand-500/10 bg-brand-50 border-brand-500/40 dark:text-brand-300 text-brand-800'
+                          : 'dark:bg-white/[0.03] bg-[#FFFFFF] dark:border-white/[0.07] border-black/[0.14] dark:text-white text-gray-900'
                       }`}
                     >
                       <span className="text-[13px] font-semibold">{label}</span>
-                      <span className={`text-[11px] mt-0.5 ${mode === val ? 'dark:text-yellow-400/70 text-yellow-700/70' : 'text-gray-600'}`}>{desc}</span>
+                      <span className={`text-[11px] mt-0.5 ${mode === val ? 'dark:text-brand-400/70 text-brand-700/70' : 'text-gray-600'}`}>{desc}</span>
                     </button>
                   ))}
                 </div>
@@ -361,8 +361,8 @@ export default function QuizPage() {
                         disabled={disabled}
                         className={`flex-1 py-3 rounded-2xl border text-[13px] font-semibold transition-colors active:scale-[0.97] disabled:opacity-30 ${
                           count === n
-                            ? 'dark:bg-yellow-500/10 bg-yellow-50 border-yellow-500/40 dark:text-yellow-300 text-yellow-800'
-                            : 'dark:bg-white/[0.03] bg-[#FAF9F6] dark:border-white/[0.07] border-black/[0.14] dark:text-white text-gray-900'
+                            ? 'dark:bg-brand-500/10 bg-brand-50 border-brand-500/40 dark:text-brand-300 text-brand-800'
+                            : 'dark:bg-white/[0.03] bg-[#FFFFFF] dark:border-white/[0.07] border-black/[0.14] dark:text-white text-gray-900'
                         }`}
                       >
                         {available < n ? available : n}
@@ -377,7 +377,7 @@ export default function QuizPage() {
               <button
                 onClick={() => canStart && startQuiz()}
                 disabled={!canStart}
-                className="w-full py-3.5 rounded-2xl bg-yellow-600 hover:brightness-110 text-white text-[15px] font-semibold active:scale-[0.97] transition-[filter,transform] duration-150 disabled:opacity-40"
+                className="w-full py-3.5 rounded-2xl bg-brand-600 hover:brightness-110 text-white text-[15px] font-semibold active:scale-[0.97] transition-[filter,transform] duration-150 disabled:opacity-40"
               >
                 {scope === 'blitz' ? 'Start Blitz' : 'Start quiz'}
               </button>
@@ -406,7 +406,7 @@ export default function QuizPage() {
     const cardIsLong   = cardContent.length > 60
 
     return (
-      <main className="h-dvh dark:bg-[#080810] bg-[#EDEAE3] dark:text-white text-gray-900 flex flex-col overflow-hidden nav-bottom-pad">
+      <main className="h-dvh dark:bg-[#110B1C] bg-[#F3F0F8] dark:text-white text-gray-900 flex flex-col overflow-hidden nav-bottom-pad">
         <header className="sm:hidden shrink-0 flex items-center justify-between px-4 h-14 border-b dark:border-white/[0.05] border-black/[0.06]">
           {fromStudy ? (
             <button
@@ -431,14 +431,14 @@ export default function QuizPage() {
 
         <div className="flex-1 min-h-0 flex flex-col px-4 sm:px-6 pt-4 pb-4">
           {/* Progress */}
-          <div className="shrink-0 h-1 dark:bg-white/[0.06] bg-[#F3F1EC] rounded-full mb-4 overflow-hidden">
-            <div className="h-full bg-yellow-500 rounded-full transition-all duration-500" style={{ width: `${progress}%` }} />
+          <div className="shrink-0 h-1 dark:bg-white/[0.06] bg-[#F1EEF7] rounded-full mb-4 overflow-hidden">
+            <div className="h-full bg-brand-500 rounded-full transition-all duration-500" style={{ width: `${progress}%` }} />
           </div>
 
           {/* Question card */}
           <div className="shrink-0 mb-4">
             <p className="text-[11px] font-bold tracking-[0.18em] uppercase text-gray-600 mb-1.5">{questionLabel}</p>
-            <div className="dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.07] border-black/[0.14] rounded-2xl px-5 py-4">
+            <div className="dark:bg-white/[0.03] bg-[#FFFFFF] border dark:border-white/[0.07] border-black/[0.14] rounded-2xl px-5 py-4">
               <p className={`font-bold leading-snug ${cardIsLong ? 'text-[16px]' : 'text-[22px]'}`}>{cardContent}</p>
             </div>
           </div>
@@ -451,7 +451,7 @@ export default function QuizPage() {
                   const isSelected = selected === opt.text
                   const showResult = answered
                   const correct = opt.correct
-                  let cls = 'dark:bg-white/[0.03] bg-[#FAF9F6] dark:border-white/[0.07] border-black/[0.14] dark:text-white text-gray-900'
+                  let cls = 'dark:bg-white/[0.03] bg-[#FFFFFF] dark:border-white/[0.07] border-black/[0.14] dark:text-white text-gray-900'
                   if (showResult && correct) cls = 'bg-emerald-500/10 border-emerald-500/40 dark:text-emerald-300 text-emerald-800'
                   else if (showResult && isSelected && !correct) cls = 'bg-red-500/10 border-red-500/40 dark:text-red-300 text-red-700'
                   return (
@@ -471,7 +471,7 @@ export default function QuizPage() {
               {answered && (
                 <button
                   onClick={next}
-                  className="w-full mt-4 py-3.5 rounded-2xl bg-yellow-600 hover:brightness-110 text-white text-[15px] font-semibold active:scale-[0.97] transition-[filter,transform] duration-150 animate-step opacity-0"
+                  className="w-full mt-4 py-3.5 rounded-2xl bg-brand-600 hover:brightness-110 text-white text-[15px] font-semibold active:scale-[0.97] transition-[filter,transform] duration-150 animate-step opacity-0"
                   style={{ animationFillMode: 'forwards' }}
                 >
                   {idx + 1 >= questions.length ? 'See results' : 'Next →'}
@@ -492,12 +492,12 @@ export default function QuizPage() {
                     onChange={e => setInputAnswer(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter' && inputAnswer.trim()) submitBlitz() }}
                     placeholder="Type the term…"
-                    className="w-full px-4 py-3.5 rounded-2xl text-[15px] dark:bg-white/[0.05] bg-[#FAF9F6] border dark:border-white/[0.09] border-black/[0.14] dark:text-white text-gray-900 focus:outline-none focus:border-yellow-500/50 transition-colors"
+                    className="w-full px-4 py-3.5 rounded-2xl text-[15px] dark:bg-white/[0.05] bg-[#FFFFFF] border dark:border-white/[0.09] border-black/[0.14] dark:text-white text-gray-900 focus:outline-none focus:border-brand-500/50 transition-colors"
                   />
                   <button
                     onClick={submitBlitz}
                     disabled={!inputAnswer.trim()}
-                    className="w-full py-3.5 rounded-2xl bg-yellow-600 hover:brightness-110 text-white text-[15px] font-semibold active:scale-[0.97] transition-[filter,transform] disabled:opacity-40 duration-150"
+                    className="w-full py-3.5 rounded-2xl bg-brand-600 hover:brightness-110 text-white text-[15px] font-semibold active:scale-[0.97] transition-[filter,transform] disabled:opacity-40 duration-150"
                   >
                     Check →
                   </button>
@@ -517,7 +517,7 @@ export default function QuizPage() {
                   )}
                   <button
                     onClick={next}
-                    className="w-full py-3.5 rounded-2xl bg-yellow-600 hover:brightness-110 text-white text-[15px] font-semibold active:scale-[0.97] transition-[filter,transform] duration-150"
+                    className="w-full py-3.5 rounded-2xl bg-brand-600 hover:brightness-110 text-white text-[15px] font-semibold active:scale-[0.97] transition-[filter,transform] duration-150"
                   >
                     {idx + 1 >= questions.length ? 'See results' : 'Next →'}
                   </button>
@@ -534,15 +534,15 @@ export default function QuizPage() {
                   <p className="text-[13px] text-gray-600 text-center">Think about it, then reveal</p>
                   <button
                     onClick={() => setRevealed(true)}
-                    className="w-full max-w-sm py-4 rounded-2xl text-[15px] font-semibold dark:bg-white/[0.06] bg-[#F3F1EC] border dark:border-white/[0.08] border-black/[0.13] dark:text-white text-gray-900 active:scale-[0.97] transition-colors duration-150"
+                    className="w-full max-w-sm py-4 rounded-2xl text-[15px] font-semibold dark:bg-white/[0.06] bg-[#F1EEF7] border dark:border-white/[0.08] border-black/[0.13] dark:text-white text-gray-900 active:scale-[0.97] transition-colors duration-150"
                   >
                     Reveal definition
                   </button>
                 </div>
               ) : (
                 <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-3">
-                  <div className="dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.07] border-black/[0.14] rounded-2xl px-5 py-4">
-                    <p className="text-[11px] font-bold tracking-[0.18em] uppercase dark:text-yellow-400/70 text-yellow-700/70 mb-2">Definition</p>
+                  <div className="dark:bg-white/[0.03] bg-[#FFFFFF] border dark:border-white/[0.07] border-black/[0.14] rounded-2xl px-5 py-4">
+                    <p className="text-[11px] font-bold tracking-[0.18em] uppercase dark:text-brand-400/70 text-brand-700/70 mb-2">Definition</p>
                     <p className="text-[15px] leading-relaxed dark:text-white/90 text-gray-800">{q.correctDefinition}</p>
                   </div>
 
@@ -570,7 +570,7 @@ export default function QuizPage() {
                   ) : (
                     <button
                       onClick={next}
-                      className="py-3.5 rounded-2xl bg-yellow-600 hover:brightness-110 text-white text-[15px] font-semibold active:scale-[0.97] transition-[filter,transform] duration-150 animate-step opacity-0"
+                      className="py-3.5 rounded-2xl bg-brand-600 hover:brightness-110 text-white text-[15px] font-semibold active:scale-[0.97] transition-[filter,transform] duration-150 animate-step opacity-0"
                       style={{ animationFillMode: 'forwards' }}
                     >
                       {idx + 1 >= questions.length ? 'See results' : 'Next →'}
@@ -591,7 +591,7 @@ export default function QuizPage() {
   const pctFinal = Math.round((correctFinal / questions.length) * 100)
 
   return (
-    <main className="h-dvh dark:bg-[#080810] bg-[#EDEAE3] dark:text-white text-gray-900 flex flex-col overflow-hidden nav-bottom-pad">
+    <main className="h-dvh dark:bg-[#110B1C] bg-[#F3F0F8] dark:text-white text-gray-900 flex flex-col overflow-hidden nav-bottom-pad">
       <header className="sm:hidden shrink-0 flex items-center justify-between px-4 h-14 border-b dark:border-white/[0.05] border-black/[0.06]">
         {fromStudy ? (
           <button
@@ -613,12 +613,12 @@ export default function QuizPage() {
 
           {/* Score */}
           <div className="flex flex-col items-center text-center gap-1 animate-step opacity-0" style={{ animationFillMode: 'forwards', animationDelay: '0ms' }}>
-            <p className="text-[48px] font-bold leading-none dark:text-amber-400 text-amber-600 tabular-nums">{pctFinal}%</p>
+            <p className="text-[48px] font-bold leading-none dark:text-brand-400 text-brand-600 tabular-nums">{pctFinal}%</p>
             <p className="text-[14px] text-gray-600 mt-1">{correctFinal} of {questions.length} correct</p>
           </div>
 
           {/* Performance message */}
-          <div className="dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl px-5 py-4 animate-step opacity-0" style={{ animationFillMode: 'forwards', animationDelay: '80ms' }}>
+          <div className="dark:bg-white/[0.03] bg-[#FFFFFF] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl px-5 py-4 animate-step opacity-0" style={{ animationFillMode: 'forwards', animationDelay: '80ms' }}>
             <p className="text-[14px] dark:text-white/80 text-gray-700 leading-relaxed">
               {pctFinal >= 80
                 ? '🎯 Strong session. You have a solid grip on this material.'
@@ -629,7 +629,7 @@ export default function QuizPage() {
           </div>
 
           {/* Distribution */}
-          <div className="dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl px-5 py-4 animate-step opacity-0" style={{ animationFillMode: 'forwards', animationDelay: '160ms' }}>
+          <div className="dark:bg-white/[0.03] bg-[#FFFFFF] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl px-5 py-4 animate-step opacity-0" style={{ animationFillMode: 'forwards', animationDelay: '160ms' }}>
             <p className="text-[10px] font-bold tracking-[0.18em] text-gray-600 uppercase mb-3">Breakdown</p>
             <div className="space-y-2.5">
               {[
@@ -651,7 +651,7 @@ export default function QuizPage() {
           {wrongTerms.length > 0 && (
             <div className="animate-step opacity-0" style={{ animationFillMode: 'forwards', animationDelay: '240ms' }}>
               <p className="text-[10px] font-bold tracking-[0.18em] text-gray-600 uppercase mb-2">Review these</p>
-              <div className="dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl overflow-hidden">
+              <div className="dark:bg-white/[0.03] bg-[#FFFFFF] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl overflow-hidden">
                 {wrongTerms.map((t, i) => (
                   <div key={t.id} className={`px-4 py-3.5 ${i > 0 ? 'border-t dark:border-white/[0.04] border-black/[0.05]' : ''}`}>
                     <p className="text-[13px] font-semibold dark:text-white/90 text-gray-900">{t.term}</p>
@@ -667,20 +667,20 @@ export default function QuizPage() {
             {wrongTerms.length >= 4 && (
               <button
                 onClick={() => startQuiz(wrongTerms)}
-                className="w-full py-3.5 rounded-2xl bg-yellow-600 hover:brightness-110 text-white text-[14px] font-semibold active:scale-[0.97] transition-[filter,transform] duration-150"
+                className="w-full py-3.5 rounded-2xl bg-brand-600 hover:brightness-110 text-white text-[14px] font-semibold active:scale-[0.97] transition-[filter,transform] duration-150"
               >
                 Retake with wrong terms only
               </button>
             )}
             <button
               onClick={() => setPhase('setup')}
-              className="w-full py-3 rounded-2xl dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.09] border-black/[0.14] text-[14px] font-medium dark:text-gray-300 text-gray-700 active:scale-[0.97] transition-all"
+              className="w-full py-3 rounded-2xl dark:bg-white/[0.05] bg-[#F8F6FB] border dark:border-white/[0.09] border-black/[0.14] text-[14px] font-medium dark:text-gray-300 text-gray-700 active:scale-[0.97] transition-all"
             >
               New quiz
             </button>
             <Link
               href="/flashcards"
-              className="w-full py-3 text-center rounded-2xl dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.09] border-black/[0.14] text-[14px] font-medium dark:text-gray-300 text-gray-700 active:scale-[0.97] transition-all"
+              className="w-full py-3 text-center rounded-2xl dark:bg-white/[0.05] bg-[#F8F6FB] border dark:border-white/[0.09] border-black/[0.14] text-[14px] font-medium dark:text-gray-300 text-gray-700 active:scale-[0.97] transition-all"
             >
               Back to flashcards
             </Link>

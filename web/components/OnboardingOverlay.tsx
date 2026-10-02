@@ -67,18 +67,18 @@ export function OnboardingOverlay() {
       aria-modal="true"
       aria-label="Welcome to Demist"
     >
-      <div className="w-full max-w-md bg-[#FDFCF9] border border-black/[0.10] rounded-t-[24px] sm:rounded-[24px] shadow-xl animate-step opacity-0" style={{ animationFillMode: 'forwards' }}>
+      <div className="force-light w-full max-w-md bg-[#FFFFFF] border border-black/[0.10] rounded-t-[24px] sm:rounded-[24px] shadow-xl animate-step opacity-0" style={{ animationFillMode: 'forwards' }}>
 
         {/* ── Step 1: How it works ── */}
         {step === 'how' && (
           <div className="p-6 sm:p-7">
-            <p className="text-[10px] font-bold tracking-[0.18em] uppercase text-amber-700/80 mb-1.5">Welcome to Demist</p>
+            <p className="text-[10px] font-bold tracking-[0.18em] uppercase text-brand-700/80 mb-1.5">Welcome to Demist</p>
             <p className="text-[20px] font-bold text-gray-900 mb-5">Never feel lost in a lecture again</p>
 
             <div className="space-y-4 mb-6">
               {HOW_STEPS.map((s, i) => (
                 <div key={i} className="flex items-start gap-3 animate-step opacity-0" style={{ animationFillMode: 'forwards', animationDelay: `${(i + 1) * 90}ms` }}>
-                  <div className="shrink-0 w-8 h-8 rounded-xl bg-amber-500/[0.08] border border-amber-600/20 flex items-center justify-center text-amber-700">
+                  <div className="shrink-0 w-8 h-8 rounded-xl bg-brand-500/[0.08] border border-brand-600/20 flex items-center justify-center text-brand-700">
                     {s.icon}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -91,11 +91,11 @@ export function OnboardingOverlay() {
 
             <div className="animate-step opacity-0" style={{ animationFillMode: 'forwards', animationDelay: '360ms' }}>
               <p className="text-[10px] font-bold tracking-[0.15em] uppercase text-gray-500 mb-2">What a term card looks like</p>
-              <div className="rounded-2xl px-4 py-3.5 bg-[#FAF9F6] border border-amber-400/40 mb-6">
+              <div className="rounded-2xl px-4 py-3.5 bg-[#FFFFFF] border border-brand-400/40 mb-6">
                 <div className="flex items-start gap-3">
-                  <div className="w-[3px] self-stretch rounded-full shrink-0 bg-amber-600" />
+                  <div className="w-[3px] self-stretch rounded-full shrink-0 bg-brand-600" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-[9px] font-bold tracking-[0.18em] uppercase text-amber-700/80 mb-1">Just detected</p>
+                    <p className="text-[9px] font-bold tracking-[0.18em] uppercase text-brand-700/80 mb-1">Just detected</p>
                     <p className="text-[14px] font-semibold text-gray-900">Elasticity of Demand</p>
                     <p className="text-[12px] leading-relaxed mt-0.5 text-gray-600">How sensitive consumer demand is to a change in price or income.</p>
                   </div>
@@ -104,7 +104,7 @@ export function OnboardingOverlay() {
 
               <button
                 onClick={() => setStep('consent')}
-                className="w-full py-3 rounded-2xl bg-yellow-600 hover:brightness-110 text-white text-[14px] font-semibold active:scale-[0.97] transition-[filter,transform] duration-150"
+                className="w-full py-3 rounded-2xl bg-brand-600 hover:brightness-110 text-white text-[14px] font-semibold active:scale-[0.97] transition-[filter,transform] duration-150"
               >
                 Next →
               </button>
@@ -115,18 +115,18 @@ export function OnboardingOverlay() {
         {/* ── Step 2: Consent ── */}
         {step === 'consent' && (
           <div className="p-6 sm:p-7">
-            <p className="text-[10px] font-bold tracking-[0.18em] uppercase text-amber-700/80 mb-1.5">Before you start</p>
+            <p className="text-[10px] font-bold tracking-[0.18em] uppercase text-brand-700/80 mb-1.5">Before you start</p>
             <p className="text-[20px] font-bold text-gray-900 mb-4">A note on recording</p>
 
             <div className="space-y-3 mb-6">
-              <div className="rounded-2xl bg-amber-50 border border-amber-400/30 px-4 py-3.5">
-                <p className="text-[13px] font-semibold text-amber-900 mb-1">Recording lectures</p>
-                <p className="text-[12px] text-amber-800/80 leading-relaxed">
+              <div className="rounded-2xl bg-brand-50 border border-brand-400/30 px-4 py-3.5">
+                <p className="text-[13px] font-semibold text-brand-900 mb-1">Recording lectures</p>
+                <p className="text-[12px] text-brand-800/80 leading-relaxed">
                   Many universities allow lecture recording as a learning support measure. If that doesn't apply to you, check your institution's policy or get your lecturer's consent from Settings before recording.
                 </p>
               </div>
 
-              <div className="rounded-2xl bg-[#FAF9F6] border border-black/[0.08] px-4 py-3.5 space-y-2.5">
+              <div className="rounded-2xl bg-[#FFFFFF] border border-black/[0.08] px-4 py-3.5 space-y-2.5">
                 <p className="text-[12px] font-semibold text-gray-800">How your audio is handled</p>
                 <ul className="space-y-1.5">
                   {[
@@ -145,7 +145,7 @@ export function OnboardingOverlay() {
 
             <button
               onClick={finish}
-              className="w-full py-3 rounded-2xl bg-yellow-600 hover:brightness-110 text-white text-[14px] font-semibold active:scale-[0.97] transition-[filter,transform] duration-150"
+              className="w-full py-3 rounded-2xl bg-brand-600 hover:brightness-110 text-white text-[14px] font-semibold active:scale-[0.97] transition-[filter,transform] duration-150"
             >
               Got it, let&apos;s go
             </button>
@@ -157,7 +157,7 @@ export function OnboardingOverlay() {
           {(['how', 'consent'] as Step[]).map(s => (
             <div
               key={s}
-              className={`h-1.5 rounded-full transition-all duration-300 ${step === s ? 'w-4 bg-yellow-500' : 'w-1.5 bg-black/[0.12]'}`}
+              className={`h-1.5 rounded-full transition-all duration-300 ${step === s ? 'w-4 bg-brand-500' : 'w-1.5 bg-black/[0.12]'}`}
             />
           ))}
         </div>

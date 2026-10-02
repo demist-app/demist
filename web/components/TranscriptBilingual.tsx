@@ -61,7 +61,7 @@ export function TranscriptBilingual({
           {p.tgt !== '' && (
             <p
               dir={rtl ? 'rtl' : undefined}
-              className="text-[calc(0.875rem*var(--df-scale))] leading-relaxed dark:text-amber-300/80 text-amber-700"
+              className="text-[calc(0.875rem*var(--df-scale))] leading-relaxed dark:text-brand-300/80 text-brand-700"
             >
               {p.tgt === null ? <span className="dark:text-white/25 text-gray-400">⋯</span> : p.tgt}
             </p>

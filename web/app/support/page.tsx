@@ -38,7 +38,7 @@ const SECTIONS: { title: string; id?: string; items: { q: string; a: React.React
       },
       {
         q: 'Something’s not working right',
-        a: <>It&apos;s a beta, and real-hardware testing on it is still ongoing - if recording, term cards, or translation don&apos;t work as expected, that&apos;s genuinely useful for us to hear about. Email{' '}<a href={`mailto:${SUPPORT_EMAIL}`} className="dark:text-yellow-400 text-yellow-700 dark:hover:text-yellow-300 hover:text-yellow-600 transition-colors">{SUPPORT_EMAIL}</a>{' '}with what you saw, your macOS version, and whether it&apos;s Apple Silicon (it has to be), and we&apos;ll follow up.</>,
+        a: <>It&apos;s a beta, and real-hardware testing on it is still ongoing - if recording, term cards, or translation don&apos;t work as expected, that&apos;s genuinely useful for us to hear about. Email{' '}<a href={`mailto:${SUPPORT_EMAIL}`} className="dark:text-brand-400 text-brand-700 dark:hover:text-brand-300 hover:text-brand-600 transition-colors">{SUPPORT_EMAIL}</a>{' '}with what you saw, your macOS version, and whether it&apos;s Apple Silicon (it has to be), and we&apos;ll follow up.</>,
       },
     ],
   },
@@ -122,16 +122,16 @@ const SECTIONS: { title: string; id?: string; items: { q: string; a: React.React
 
 export default function Support() {
   return (
-    <main className="min-h-dvh dark:bg-[#080810] bg-[#EDEAE3] dark:text-white text-gray-900 px-6 py-16">
+    <main className="min-h-dvh dark:bg-[#110B1C] bg-[#F3F0F8] dark:text-white text-gray-900 px-6 py-16">
       <div className="max-w-[680px] mx-auto">
-        <Link href="/" className="text-[11px] font-bold tracking-[0.2em] dark:text-yellow-400/70 text-yellow-700 uppercase dark:hover:text-yellow-400 hover:text-yellow-600 transition-colors">
+        <Link href="/" className="text-[11px] font-bold tracking-[0.2em] dark:text-brand-400/70 text-brand-700 uppercase dark:hover:text-brand-400 hover:text-brand-600 transition-colors">
           ← Demist
         </Link>
 
         <h1 className="text-[34px] font-bold tracking-tight mt-8 mb-2">Support</h1>
         <p className="dark:text-gray-400 text-gray-700 text-[15px] leading-relaxed mb-4">
           Answers to the things people most often get stuck on. If yours isn’t here, email{' '}
-          <a href={`mailto:${SUPPORT_EMAIL}`} className="dark:text-yellow-400 text-yellow-700 dark:hover:text-yellow-300 hover:text-yellow-600 transition-colors">{SUPPORT_EMAIL}</a>
+          <a href={`mailto:${SUPPORT_EMAIL}`} className="dark:text-brand-400 text-brand-700 dark:hover:text-brand-300 hover:text-brand-600 transition-colors">{SUPPORT_EMAIL}</a>
           {' '}and we’ll get back to you.
         </p>
         <p className="dark:text-gray-500 text-gray-600 text-[13px] leading-relaxed mb-12">
@@ -158,9 +158,9 @@ export default function Support() {
           <h2 className="text-[17px] font-semibold mb-3">Still stuck?</h2>
           <p className="dark:text-gray-400 text-gray-700 text-[15px] leading-relaxed">
             Email{' '}
-            <a href={`mailto:${SUPPORT_EMAIL}`} className="dark:text-yellow-400 text-yellow-700 dark:hover:text-yellow-300 hover:text-yellow-600 transition-colors">{SUPPORT_EMAIL}</a>.
+            <a href={`mailto:${SUPPORT_EMAIL}`} className="dark:text-brand-400 text-brand-700 dark:hover:text-brand-300 hover:text-brand-600 transition-colors">{SUPPORT_EMAIL}</a>.
             {' '}For anything about your personal data specifically, write to{' '}
-            <a href="mailto:privacy@demist.app" className="dark:text-yellow-400 text-yellow-700 dark:hover:text-yellow-300 hover:text-yellow-600 transition-colors">privacy@demist.app</a>
+            <a href="mailto:privacy@demist.app" className="dark:text-brand-400 text-brand-700 dark:hover:text-brand-300 hover:text-brand-600 transition-colors">privacy@demist.app</a>
             {' '}and see the <Link href="/privacy" className="underline underline-offset-2">privacy policy</Link> for how we handle it.
           </p>
         </section>

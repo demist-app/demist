@@ -109,7 +109,7 @@ export default function ProfileScreen() {
             <Switch
               value={profile.is_public}
               onValueChange={togglePublic}
-              trackColor={{ false: 'rgba(255,255,255,0.1)', true: '#D97706' }}
+              trackColor={{ false: 'rgba(255,255,255,0.1)', true: '#5B3F8F' }}
               thumbColor="#fff"
             />
           </View>
@@ -125,17 +125,17 @@ export default function ProfileScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#080810' },
+  container: { flex: 1, backgroundColor: '#110B1C' },
   header: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 12 },
   headerTitle: { fontSize: 22, fontWeight: '700', color: '#fff', letterSpacing: -0.5 },
   content: { paddingHorizontal: 16, paddingBottom: 40, gap: 12 },
   avatarRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   avatar: {
     width: 56, height: 56, borderRadius: 28,
-    backgroundColor: 'rgba(251,191,36,0.15)', borderWidth: 1, borderColor: 'rgba(251,191,36,0.25)',
+    backgroundColor: 'rgba(195,178,234,0.15)', borderWidth: 1, borderColor: 'rgba(195,178,234,0.25)',
     alignItems: 'center', justifyContent: 'center',
   },
-  avatarText: { fontSize: 22, fontWeight: '700', color: '#FBBF24' },
+  avatarText: { fontSize: 22, fontWeight: '700', color: '#C3B2EA' },
   name: { fontSize: 16, fontWeight: '600', color: '#fff' },
   emailText: { fontSize: 13, color: '#6b7280', marginTop: 2 },
   statsRow: { flexDirection: 'row', gap: 10 },

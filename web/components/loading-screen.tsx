@@ -126,7 +126,7 @@ export function LoadingScreen() {
               width: p.size,
               height: p.size,
               borderRadius: '50%',
-              background: 'var(--accent)',
+              background: 'var(--accent-solid)',
               filter: 'blur(2px)',
               opacity: 0,
               animation: `mist-rise ${p.dur}s ease-out ${p.delay}s infinite`,

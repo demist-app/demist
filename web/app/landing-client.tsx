@@ -10,6 +10,7 @@ import { MAC_SUPPORT_URL, MS_STORE_URL } from '@/lib/links'
 import { PRO_LIVE } from '@/lib/subscription'
 import { SUBJECT_PAGES } from '@/lib/subjectPages'
 import { COMPARE_PAGES } from '@/lib/comparePages'
+import { BrandMark, GracefulMindsMark } from '@/components/BrandMark'
 
 const SPRING = 'cubic-bezier(0.16, 1, 0.3, 1)'
 
@@ -281,7 +282,7 @@ export default function LandingClient() {
             <span
               aria-hidden
               className="hidden sm:inline-block w-1.5 h-1.5 rounded-full shrink-0"
-              style={{ background: 'var(--accent)' }}
+              style={{ background: 'var(--accent-solid)' }}
             />
             {!PRO_LIVE && (waitState === 'sent' || waitState === 'already') ? (
               <p className="flex-1 text-[13px] font-medium truncate" style={{ color: 'var(--accent)' }}>
@@ -300,7 +301,7 @@ export default function LandingClient() {
                 <button
                   onClick={cta}
                   className="px-4 py-1.5 rounded-xl text-[13px] font-semibold text-white whitespace-nowrap transition-all active:scale-[0.97]"
-                  style={{ background: 'var(--accent)' }}
+                  style={{ background: 'var(--accent-solid)' }}
                 >
                   {authed ? 'Upgrade →' : 'Get started →'}
                 </button>
@@ -335,7 +336,7 @@ export default function LandingClient() {
                   onClick={() => { if (waitEmail.trim()) joinWaitlist(); else bannerInputRef.current?.focus() }}
                   disabled={waitState === 'saving'}
                   className="hidden sm:block px-4 py-1.5 rounded-xl text-[13px] font-semibold text-white whitespace-nowrap transition-all active:scale-[0.97] disabled:opacity-40"
-                  style={{ background: 'var(--accent)' }}
+                  style={{ background: 'var(--accent-solid)' }}
                 >
                   {waitState === 'saving' ? 'Joining…' : 'Join'}
                 </button>
@@ -345,7 +346,7 @@ export default function LandingClient() {
                 <a
                   href="#pro-waitlist"
                   className="sm:hidden px-3.5 py-1.5 rounded-xl text-[12px] font-semibold text-white whitespace-nowrap"
-                  style={{ background: 'var(--accent)' }}
+                  style={{ background: 'var(--accent-solid)' }}
                 >
                   Join
                 </a>
@@ -384,9 +385,7 @@ export default function LandingClient() {
         className="relative z-20 flex items-center justify-between px-6 sm:px-12 h-16"
         {...anim(0)}
       >
-        <span className="text-[13px] font-bold tracking-[0.2em] uppercase select-none" style={{ color: 'var(--accent)' }}>
-          Demist
-        </span>
+        <BrandMark />
         <div className="flex items-center gap-4">
           <ThemeToggle />
           <button
@@ -403,6 +402,15 @@ export default function LandingClient() {
 
       {/* ── Hero ── */}
       <section className="relative z-10 min-h-[calc(100dvh-4rem)] flex flex-col items-center justify-center text-center px-6 pb-12">
+
+        <a
+          href="#graceful-minds"
+          className="inline-flex items-center gap-2 mb-7 pl-1.5 pr-3.5 py-1 rounded-full text-[12px] font-medium transition-colors"
+          style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--fg-muted)', ...anim(60).style }}
+        >
+          <GracefulMindsMark height={22} />
+          In partnership with Graceful Minds
+        </a>
 
         <h1 className="text-[44px] sm:text-[66px] lg:text-[76px] font-bold tracking-tight leading-[1.04] mb-6 max-w-3xl" style={{ color: 'var(--fg)' }}>
           {[
@@ -445,7 +453,7 @@ export default function LandingClient() {
         <div className="flex flex-col sm:flex-row items-center gap-3 mb-4" {...anim(320)}>
           <button
             onClick={cta}
-            className="px-8 py-4 rounded-2xl bg-yellow-600 hover:brightness-[1.1] text-white font-semibold text-[15px] transition-all duration-200 hover:shadow-[0_0_24px_rgba(161,98,7,0.25)] active:scale-[0.97] select-none"
+            className="px-8 py-4 rounded-2xl bg-brand-600 hover:brightness-[1.1] text-white font-semibold text-[15px] transition-all duration-200 hover:shadow-[0_0_24px_rgba(91,63,143,0.25)] active:scale-[0.97] select-none"
           >
             {authed ? 'Open app →' : 'Get started free →'}
           </button>
@@ -467,7 +475,7 @@ export default function LandingClient() {
             >
               <AppleIcon />
               Get it on Mac
-              <span className="text-[10px] font-bold tracking-[0.1em] uppercase px-1.5 py-0.5 rounded-md" style={{ background: 'var(--accent)', color: 'white', opacity: 0.85 }}>Beta</span>
+              <span className="text-[10px] font-bold tracking-[0.1em] uppercase px-1.5 py-0.5 rounded-md" style={{ background: 'var(--accent-solid)', color: 'white', opacity: 0.85 }}>Beta</span>
             </a>
           ) : (
             <a
@@ -547,7 +555,7 @@ export default function LandingClient() {
               <div className="flex items-start gap-3">
                 <div
                   className="w-[3px] rounded-full shrink-0"
-                  style={{ alignSelf: 'stretch', minHeight: 48, background: 'var(--accent)' }}
+                  style={{ alignSelf: 'stretch', minHeight: 48, background: 'var(--accent-solid)' }}
                 />
                 <div>
                   <p className="text-[10px] font-bold tracking-[0.18em] uppercase mb-1.5" style={{ color: 'var(--accent)', opacity: 0.7 }}>
@@ -730,7 +738,7 @@ export default function LandingClient() {
             target="_blank" rel="noopener noreferrer"
             onClick={() => capture('ms_store_clicked', { placement: 'section' })}
             className="flex items-center gap-2.5 px-6 py-3.5 rounded-2xl text-white font-semibold text-[15px] transition-all active:scale-[0.97] hover:brightness-[1.1]"
-            style={{ background: 'var(--accent)' }}
+            style={{ background: 'var(--accent-solid)' }}
           >
             <WindowsIcon />
             Get it on the Microsoft Store
@@ -789,7 +797,7 @@ export default function LandingClient() {
             href={MAC_SUPPORT_URL}
             onClick={() => capture('mac_install_guide_clicked', { placement: 'section' })}
             className="flex items-center gap-2.5 px-6 py-3.5 rounded-2xl text-white font-semibold text-[15px] transition-all active:scale-[0.97] hover:brightness-[1.1]"
-            style={{ background: 'var(--accent)' }}
+            style={{ background: 'var(--accent-solid)' }}
           >
             <AppleIcon />
             Get the Mac beta
@@ -858,7 +866,7 @@ export default function LandingClient() {
           <button
             onClick={cta}
             className="px-10 py-5 rounded-2xl text-white font-semibold text-[16px] transition-all duration-200 active:scale-[0.97] select-none"
-            style={{ background: 'var(--accent)' }}
+            style={{ background: 'var(--accent-solid)' }}
           >
             {authed ? 'Open app →' : 'Get started free →'}
           </button>
@@ -889,7 +897,7 @@ export default function LandingClient() {
               <button
                 onClick={cta}
                 className="px-6 py-3 rounded-2xl font-semibold text-[14px] text-white transition-all duration-200 active:scale-[0.97] whitespace-nowrap"
-                style={{ background: 'var(--accent)' }}
+                style={{ background: 'var(--accent-solid)' }}
               >
                 {authed ? 'Upgrade to Pro →' : 'Get started →'}
               </button>
@@ -946,6 +954,31 @@ export default function LandingClient() {
         </div>
       </section>
 
+      {/* ── Graceful Minds ──
+          The partnership (2026-10-02). Kept as one quiet block: who they are,
+          their line, a way to reach them. */}
+      <section id="graceful-minds" className="relative z-10 px-6 py-20 sm:py-24 flex flex-col items-center text-center scroll-mt-8">
+        <GracefulMindsMark height={92} className="mb-7" />
+        <p className="text-[11px] font-bold tracking-[0.2em] uppercase mb-3" style={{ color: 'var(--calm)' }}>
+          A Graceful Minds project
+        </p>
+        <h2 className="text-[26px] sm:text-[32px] font-bold tracking-tight leading-tight mb-4 max-w-xl" style={{ color: 'var(--fg)' }}>
+          We don&apos;t change how you think.<br />We change how you succeed.
+        </h2>
+        <p className="text-[15px] leading-relaxed mb-7 max-w-[520px]" style={{ color: 'var(--fg-muted)' }}>
+          Demist is part of Graceful Minds, a neurodivergent-led organisation creating spaces where people feel safe, supported and seen. They work with universities, employers and families so support actually fits the people it is for.
+        </p>
+        <a
+          href="https://www.graceful-minds.org"
+          target="_blank"
+          rel="noopener"
+          className="px-6 py-3 rounded-2xl text-[14px] font-semibold transition-colors"
+          style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--fg)' }}
+        >
+          Visit Graceful Minds
+        </a>
+      </section>
+
       {/* ── Guides ──
           Plain links to every subject, comparison and how-to page. Without
           these the pages were reachable only through the sitemap, and
@@ -976,12 +1009,12 @@ export default function LandingClient() {
 
       {/* ── Footer ── */}
       <footer className="relative z-10 px-6 sm:px-12 py-8 flex items-center justify-between gap-4" style={{ borderTop: '1px solid var(--border)' }}>
-        <span className="text-[11px] font-bold tracking-[0.2em] uppercase" style={{ color: 'var(--fg-faint)' }}>Demist</span>
+        <BrandMark />
         <div className="flex items-center gap-5">
           <a href="/about" className="text-[12px] transition-colors" style={{ color: 'var(--fg-faint)' }}>About Us</a>
           <a href="/support" className="text-[12px] transition-colors" style={{ color: 'var(--fg-faint)' }}>Support</a>
           <a href="/privacy" className="text-[12px] transition-colors" style={{ color: 'var(--fg-faint)' }}>Privacy</a>
-          <p className="text-[12px]" style={{ color: 'var(--fg-faint)' }}>© {new Date().getFullYear()} Demist</p>
+          <p className="text-[12px]" style={{ color: 'var(--fg-faint)' }}>© {new Date().getFullYear()} Demist · Graceful Minds</p>
         </div>
       </footer>
     </main>

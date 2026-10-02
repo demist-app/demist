@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { MS_STORE_URL } from '@/lib/links'
+import { BrandMark } from '@/components/BrandMark'
 
 export const metadata: Metadata = {
   title: 'Waitlist',
@@ -51,10 +52,10 @@ export default async function WaitlistConfirmedPage({
     >
       <Link
         href="/"
-        className="text-[13px] font-bold tracking-[0.2em] uppercase mb-10"
-        style={{ color: 'var(--accent)' }}
+        aria-label="Demist home"
+        className="mb-10"
       >
-        Demist
+        <BrandMark />
       </Link>
 
       <div
@@ -82,7 +83,7 @@ export default async function WaitlistConfirmedPage({
           <Link
             href={tone === 'good' ? '/login' : '/#pro-waitlist'}
             className="px-6 py-3.5 rounded-2xl text-white font-semibold text-[15px] transition-all active:scale-[0.97]"
-            style={{ background: 'var(--accent)' }}
+            style={{ background: 'var(--accent-solid)' }}
           >
             {tone === 'good' ? 'Start using Demist free →' : 'Back to the homepage'}
           </Link>

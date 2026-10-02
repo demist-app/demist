@@ -78,9 +78,9 @@ export function SurveyModal({ onClose }: { onClose: () => void }) {
 
   const choice = (on: boolean) =>
     `w-full text-left px-4 py-2.5 rounded-xl border text-[14px] transition-colors ${on
-      ? 'dark:bg-yellow-500/[0.08] bg-yellow-50 dark:border-yellow-500/40 border-yellow-600/50 font-medium'
-      : 'dark:bg-white/[0.02] bg-[#FAF9F6] dark:border-white/[0.08] border-black/[0.12]'}`
-  const field = 'w-full px-3.5 py-2.5 rounded-xl text-[14px] dark:bg-white/[0.03] bg-white border dark:border-white/[0.08] border-black/[0.12] focus:outline-none focus:border-yellow-600/60'
+      ? 'dark:bg-brand-500/[0.08] bg-brand-50 dark:border-brand-500/40 border-brand-600/50 font-medium'
+      : 'dark:bg-white/[0.02] bg-[#FFFFFF] dark:border-white/[0.08] border-black/[0.12]'}`
+  const field = 'w-full px-3.5 py-2.5 rounded-xl text-[14px] dark:bg-white/[0.03] bg-white border dark:border-white/[0.08] border-black/[0.12] focus:outline-none focus:border-brand-600/60'
 
   return (
     <div
@@ -90,7 +90,7 @@ export function SurveyModal({ onClose }: { onClose: () => void }) {
       aria-modal="true"
       aria-label="Four quick questions"
     >
-      <div className="w-full sm:max-w-md max-h-[90dvh] overflow-y-auto dark:bg-[#0d0d1c] bg-[#FDFCF9] border dark:border-white/[0.09] border-black/[0.12] rounded-t-[24px] sm:rounded-[24px] p-5 sm:p-6 space-y-5">
+      <div className="w-full sm:max-w-md max-h-[90dvh] overflow-y-auto dark:bg-[#1a1328] bg-[#FFFFFF] border dark:border-white/[0.09] border-black/[0.12] rounded-t-[24px] sm:rounded-[24px] p-5 sm:p-6 space-y-5">
         <div>
           <p className="text-[18px] font-bold">Four quick questions</p>
           <p className="text-[13px] dark:text-white/50 text-gray-600 mt-1">
@@ -137,7 +137,7 @@ export function SurveyModal({ onClose }: { onClose: () => void }) {
           <button
             onClick={submit}
             disabled={!feel || saving}
-            className="px-5 py-3 rounded-2xl bg-yellow-600 hover:brightness-110 text-white text-[14px] font-semibold active:scale-[0.97] transition-all disabled:opacity-40"
+            className="px-5 py-3 rounded-2xl bg-brand-600 hover:brightness-110 text-white text-[14px] font-semibold active:scale-[0.97] transition-all disabled:opacity-40"
           >
             {saving ? 'Sending…' : 'Send'}
           </button>

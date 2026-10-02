@@ -18,6 +18,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { capture } from '@/lib/analytics'
 import { MINIMUM_AGE, meetsMinimumAge } from '@/lib/age'
+import { BrandMark } from '@/components/BrandMark'
 
 type Mode = 'none' | 'ask' | 'blocked'
 
@@ -90,12 +91,12 @@ export function AgeCheck() {
   if (mode === 'blocked') {
     return (
       <div
-        className="fixed inset-0 z-[70] flex items-center justify-center px-4 dark:bg-[#080810] bg-[#EDEAE3]"
+        className="fixed inset-0 z-[70] flex items-center justify-center px-4 dark:bg-[#110B1C] bg-[#F3F0F8]"
         role="dialog"
         aria-modal="true"
       >
         <div className="w-full max-w-sm text-center space-y-4">
-          <p className="text-[11px] font-bold tracking-[0.22em] uppercase" style={{ color: 'var(--accent)' }}>Demist</p>
+          <div className="flex justify-center"><BrandMark /></div>
           <p className="text-[20px] font-bold dark:text-white text-gray-900 leading-snug">
             Demist is for ages {MINIMUM_AGE} and over
           </p>
@@ -121,7 +122,7 @@ export function AgeCheck() {
       role="dialog"
       aria-modal="true"
     >
-      <div className="w-full max-w-sm dark:bg-[#0d0d1c] bg-[#FDFCF9] border dark:border-white/[0.08] border-black/[0.12] rounded-[24px] p-6 space-y-4">
+      <div className="w-full max-w-sm dark:bg-[#1a1328] bg-[#FFFFFF] border dark:border-white/[0.08] border-black/[0.12] rounded-[24px] p-6 space-y-4">
         <p className="text-[17px] font-bold dark:text-white text-gray-900">One quick thing</p>
         <p className="text-[13px] dark:text-white/60 text-gray-600 leading-relaxed">
           Demist is for users aged {MINIMUM_AGE} and over. We didn&apos;t ask when you signed up,
@@ -137,7 +138,7 @@ export function AgeCheck() {
             value={dob}
             onChange={e => { setDob(e.target.value); if (error) setError(null) }}
             max={new Date().toISOString().slice(0, 10)}
-            className="w-full dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.1] border-black/[0.15] rounded-2xl px-4 py-3 dark:text-white text-gray-900 text-[15px] focus:outline-none focus:border-amber-500/50 transition-colors"
+            className="w-full dark:bg-white/[0.05] bg-[#F8F6FB] border dark:border-white/[0.1] border-black/[0.15] rounded-2xl px-4 py-3 dark:text-white text-gray-900 text-[15px] focus:outline-none focus:border-brand-500/50 transition-colors"
           />
         </div>
         {error && <p className="text-[13px] text-red-400">{error}</p>}
@@ -145,7 +146,7 @@ export function AgeCheck() {
           <button
             onClick={save}
             disabled={saving || !dob}
-            className="w-full py-3 rounded-2xl bg-amber-600 hover:brightness-110 text-white text-[14px] font-semibold active:scale-[0.97] transition-[filter,transform] duration-150 disabled:opacity-40"
+            className="w-full py-3 rounded-2xl bg-brand-600 hover:brightness-110 text-white text-[14px] font-semibold active:scale-[0.97] transition-[filter,transform] duration-150 disabled:opacity-40"
           >
             {saving ? 'Saving…' : 'Confirm'}
           </button>

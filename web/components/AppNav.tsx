@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 import { useTheme } from 'next-themes'
 import { useEntitlements } from '@/lib/entitlements'
 import { PaywallModal } from '@/components/PaywallModal'
+import { BrandMark } from '@/components/BrandMark'
 
 const NAV = [
   { href: '/dashboard', label: 'Home',     icon: HomeIcon },
@@ -80,10 +81,10 @@ export function AppNav() {
       >
         <Link
           href="/dashboard"
-          className="text-[15px] font-semibold tracking-tight mr-2 active:scale-[0.97] transition-colors duration-150 select-none"
-          style={{ color: 'var(--accent)' }}
+          aria-label="Demist by Graceful Minds, home"
+          className="mr-2 active:scale-[0.97] transition-transform duration-150"
         >
-          Demist
+          <BrandMark />
         </Link>
 
         {[...NAV, ...DESKTOP_EXTRA].map(({ href, label }) => {
@@ -222,7 +223,7 @@ function UpgradePill({ onClick, compact, label }: { onClick: () => void; compact
   return (
     <button
       onClick={onClick}
-      className={`flex items-center gap-1 rounded-full font-medium transition-opacity hover:opacity-80 active:scale-[0.97] dark:bg-amber-500/[0.12] bg-amber-500/[0.14] border dark:border-amber-500/25 border-amber-600/25 text-amber-700 dark:text-amber-400 ${compact ? 'w-8 h-8 justify-center' : 'text-[12px] px-3 py-1.5'}`}
+      className={`flex items-center gap-1 rounded-full font-medium transition-opacity hover:opacity-80 active:scale-[0.97] dark:bg-brand-500/[0.12] bg-brand-500/[0.14] border dark:border-brand-500/25 border-brand-600/25 text-brand-700 dark:text-brand-400 ${compact ? 'w-8 h-8 justify-center' : 'text-[12px] px-3 py-1.5'}`}
       aria-label={label === 'Upgrade' ? 'Upgrade to Pro' : label}
     >
       <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">

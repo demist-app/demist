@@ -17,12 +17,12 @@ mkdirSync(OUT, { recursive: true })
 
 // Straight from web/app/globals.css, so the Store page and the app agree.
 // --bg-subtle, one step darker than the app's --bg. The icon's own tile is
-// #EDEAE3, so a poster on #EDEAE3 made the icon dissolve into the background
+// #F3F0F8, so a poster on #F3F0F8 made the icon dissolve into the background
 // and lose its shape entirely. One step of separation is enough for the tile
 // to read as an object without introducing a colour the brand does not use.
-const BG = '#E3E0D8'
-const ACCENT = '#A16207'
-const MUTED = 'rgba(15, 15, 20, 0.62)'
+const BG = '#ECE8F4'
+const ACCENT = '#5B3F8F'
+const MUTED = 'rgba(30, 20, 51, 0.62)'
 
 // A poster is seen small, in a crowded grid. Icon large, name unmissable, one
 // line saying what it is. Nothing else survives being 200px wide.
@@ -30,8 +30,8 @@ function poster({ w, h, iconSize, iconY, nameY, nameSize, tagY, tagSize, trackin
   return Buffer.from(`<svg width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <radialGradient id="glow" cx="50%" cy="${(iconY + iconSize / 2) / h * 100}%" r="55%">
-      <stop offset="0%" stop-color="rgba(161,98,7,0.20)"/>
-      <stop offset="100%" stop-color="rgba(161,98,7,0)"/>
+      <stop offset="0%" stop-color="rgba(91,63,143,0.20)"/>
+      <stop offset="100%" stop-color="rgba(91,63,143,0)"/>
     </radialGradient>
   </defs>
   <rect width="${w}" height="${h}" fill="${BG}"/>
@@ -93,7 +93,7 @@ function hero(w, h) {
   const unit = h / 14
   // Same five-bar rhythm as the app icon, mirrored outward from the centre.
   const bars = [0.34, 0.62, 1.0, 0.62, 0.34]
-  const colours = ['#9A5B06', '#B4740E', '#F0A32A', '#B4740E', '#9A5B06']
+  const colours = ['#5B3F8F', '#556EAE', '#2A777A', '#556EAE', '#5B3F8F']
   const gap = unit * 2.1
   const rects = bars.map((scale, i) => {
     const bh = unit * 7.4 * scale
@@ -104,12 +104,12 @@ function hero(w, h) {
   return Buffer.from(`<svg width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#EDEAE3"/>
-      <stop offset="100%" stop-color="#DEDACF"/>
+      <stop offset="0%" stop-color="#F3F0F8"/>
+      <stop offset="100%" stop-color="#E2DBF0"/>
     </linearGradient>
     <radialGradient id="warm" cx="66%" cy="50%" r="46%">
-      <stop offset="0%" stop-color="rgba(161,98,7,0.22)"/>
-      <stop offset="100%" stop-color="rgba(161,98,7,0)"/>
+      <stop offset="0%" stop-color="rgba(91,63,143,0.22)"/>
+      <stop offset="100%" stop-color="rgba(91,63,143,0)"/>
     </radialGradient>
   </defs>
   <rect width="${w}" height="${h}" fill="url(#bg)"/>

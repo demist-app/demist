@@ -32,18 +32,18 @@ export async function GET(
     (
       <div
         style={{
-          width: '1200px', height: '630px', background: '#080810',
+          width: '1200px', height: '630px', background: '#110B1C',
           display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
           justifyContent: 'center', padding: '80px', fontFamily: 'sans-serif',
           position: 'relative', overflow: 'hidden',
         }}
       >
-        <div style={{ position: 'absolute', top: '-200px', right: '-200px', width: '600px', height: '600px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(251,191,36,0.20) 0%, transparent 70%)' }} />
+        <div style={{ position: 'absolute', top: '-200px', right: '-200px', width: '600px', height: '600px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(195,178,234,0.20) 0%, transparent 70%)' }} />
         <div style={{ display: 'flex', marginBottom: '48px' }}>
-          <span style={{ fontSize: '14px', fontWeight: 700, letterSpacing: '0.2em', color: 'rgba(251,191,36,0.75)', textTransform: 'uppercase' }}>Demist</span>
+          <span style={{ fontSize: '14px', fontWeight: 700, letterSpacing: '0.2em', color: 'rgba(195,178,234,0.75)', textTransform: 'uppercase' }}>Demist</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '24px', marginBottom: '48px' }}>
-          <div style={{ width: '72px', height: '72px', borderRadius: '50%', background: 'rgba(251,191,36,0.15)', border: '2px solid rgba(251,191,36,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px', fontWeight: 700, color: '#FBBF24' }}>
+          <div style={{ width: '72px', height: '72px', borderRadius: '50%', background: 'rgba(195,178,234,0.15)', border: '2px solid rgba(195,178,234,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px', fontWeight: 700, color: '#C3B2EA' }}>
             {initials}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -55,8 +55,8 @@ export async function GET(
           <span style={{ fontSize: '56px', fontWeight: 800, color: '#fff', lineHeight: 1 }}>{termsWeek} new concepts</span>
           <span style={{ fontSize: '28px', color: '#6b7280' }}>learned this week with Demist</span>
         </div>
-        <div style={{ display: 'flex', background: 'rgba(251,191,36,0.10)', border: '1px solid rgba(251,191,36,0.22)', borderRadius: '100px', padding: '10px 20px' }}>
-          <span style={{ fontSize: '16px', color: '#FBBF24', fontWeight: 600 }}>{termsTotal} total concepts learned</span>
+        <div style={{ display: 'flex', background: 'rgba(195,178,234,0.10)', border: '1px solid rgba(195,178,234,0.22)', borderRadius: '100px', padding: '10px 20px' }}>
+          <span style={{ fontSize: '16px', color: '#C3B2EA', fontWeight: 600 }}>{termsTotal} total concepts learned</span>
         </div>
       </div>
     ),

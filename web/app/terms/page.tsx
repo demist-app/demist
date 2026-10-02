@@ -11,9 +11,9 @@ export default function Terms() {
   const updated = '16 September 2026'
 
   return (
-    <main className="min-h-dvh bg-[#080810] text-white px-6 py-16">
+    <main className="min-h-dvh bg-[#110B1C] text-white px-6 py-16">
       <div className="max-w-[680px] mx-auto">
-        <Link href="/" className="text-[11px] font-bold tracking-[0.2em] text-yellow-400/70 uppercase hover:text-yellow-400 transition-colors">
+        <Link href="/" className="text-[11px] font-bold tracking-[0.2em] text-brand-700/70 dark:text-brand-400/70 uppercase hover:text-brand-800 dark:hover:text-brand-400 transition-colors">
           ← Demist
         </Link>
 
@@ -90,7 +90,7 @@ export default function Terms() {
           <section>
             <h2 className="text-[17px] font-semibold mb-3">Contact</h2>
             <p className="text-gray-400">
-              Questions about these terms: <a href="mailto:hello@demist.app" className="text-yellow-400 hover:text-yellow-300 transition-colors">hello@demist.app</a>
+              Questions about these terms: <a href="mailto:hello@demist.app" className="text-brand-700 dark:text-brand-400 hover:text-brand-800 dark:hover:text-brand-300 transition-colors">hello@demist.app</a>
             </p>
           </section>
 

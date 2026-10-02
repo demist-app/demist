@@ -67,16 +67,24 @@ export async function sendEmail(opts: {
 // ── templates ───────────────────────────────────────────────────────────────
 // Inline styles and a table shell, because that is what mail clients render.
 // No CSS custom properties, no flexbox, no <style> block - Outlook drops all
-// three. The palette is the app's, hardcoded: --accent #A16207 on the warm
-// greys from globals.css.
+// three. The palette is the app's (Graceful Minds, see globals.css), hardcoded.
+// No logo image either: most clients block images until the reader allows
+// them, so the brand is carried by the three-colour stripe and the wordmark.
 
-const ACCENT = '#A16207'
-const INK = '#0F0F14'
-const MUTED = '#5B5B63'
-const FAINT = '#8A8A92'
-const PAGE_BG = '#EDEAE3'
-const CARD_BG = '#FAF9F6'
-const BORDER = '#DCD8CF'
+const ACCENT = '#5B3F8F'
+const INK = '#1E1433'
+const MUTED = '#57506A'
+const FAINT = '#857F96'
+const PAGE_BG = '#F3F0F8'
+const CARD_BG = '#FFFFFF'
+const BORDER = '#E2DCEE'
+const STRIPE = ['#5B3F8F', '#556EAE', '#2A777A']
+const FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif"
+
+// Plum, periwinkle, teal: the infinity loop in the Graceful Minds logo.
+const stripe = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>${STRIPE.map(
+  (c, i) => `<td height="4" bgcolor="${c}" style="height:4px;line-height:4px;font-size:0;background:${c};${i === 0 ? 'border-radius:16px 0 0 0;' : i === 2 ? 'border-radius:0 16px 0 0;' : ''}">&nbsp;</td>`,
+).join('')}</tr></table>`
 
 function shell(inner: string, preheader: string) {
   return `<!doctype html>
@@ -85,7 +93,7 @@ function shell(inner: string, preheader: string) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="light">
-<title>Demist</title>
+<title>Demist by Graceful Minds</title>
 </head>
 <body style="margin:0;padding:0;background:${PAGE_BG};">
 <!-- Preheader: the grey line clients show next to the subject. Hidden in the
@@ -95,15 +103,16 @@ function shell(inner: string, preheader: string) {
   <tr>
     <td align="center">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:480px;background:${CARD_BG};border:1px solid ${BORDER};border-radius:16px;">
+        <tr><td>${stripe}</td></tr>
         <tr>
-          <td style="padding:32px 32px 36px 32px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
-            <p style="margin:0 0 28px 0;font-size:12px;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;color:${ACCENT};">Demist</p>
+          <td style="padding:28px 32px 36px 32px;font-family:${FONT};">
+            <p style="margin:0 0 28px 0;font-size:16px;line-height:1.2;font-weight:700;color:${INK};">Demist<br><span style="font-size:11px;font-weight:500;color:${FAINT};">by Graceful Minds</span></p>
             ${inner}
           </td>
         </tr>
       </table>
-      <p style="max-width:480px;margin:20px auto 0 auto;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;line-height:1.6;color:${FAINT};text-align:center;">
-        <a href="${APP_URL}" style="color:${FAINT};text-decoration:underline;">demist.app</a>
+      <p style="max-width:480px;margin:20px auto 0 auto;font-family:${FONT};font-size:12px;line-height:1.6;color:${FAINT};text-align:center;">
+        <a href="${APP_URL}" style="color:${FAINT};text-decoration:underline;">demist.app</a> &middot; a <a href="https://www.graceful-minds.org" style="color:${FAINT};text-decoration:underline;">Graceful Minds</a> project
       </p>
     </td>
   </tr>
@@ -114,8 +123,8 @@ function shell(inner: string, preheader: string) {
 
 function button(href: string, label: string) {
   return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 24px 0;">
-  <tr><td style="border-radius:12px;background:${ACCENT};">
-    <a href="${href}" style="display:inline-block;padding:13px 26px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:12px;">${label}</a>
+  <tr><td bgcolor="${ACCENT}" style="border-radius:12px;background:${ACCENT};">
+    <a href="${href}" style="display:inline-block;padding:13px 26px;font-family:${FONT};font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:12px;">${label}</a>
   </td></tr>
 </table>`
 }

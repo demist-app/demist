@@ -64,12 +64,12 @@ export function SessionSummary({ outcome, onClose }: { outcome: SessionOutcome; 
       aria-modal="true"
       aria-label={heading}
     >
-      <div className="w-full max-w-sm dark:bg-[#0d0d1c] bg-[#FDFCF9] border dark:border-white/[0.08] border-black/[0.12] rounded-[24px] p-6 space-y-4">
+      <div className="w-full max-w-sm dark:bg-[#1a1328] bg-[#FFFFFF] border dark:border-white/[0.08] border-black/[0.12] rounded-[24px] p-6 space-y-4">
         <p className="text-[18px] font-bold dark:text-white text-gray-900">{heading}</p>
         <p className="text-[13px] dark:text-white/60 text-gray-600 leading-relaxed">{body}</p>
         <button
           onClick={onClose}
-          className="w-full py-3 rounded-2xl bg-yellow-600 hover:brightness-110 text-white text-[14px] font-semibold active:scale-[0.97] transition-[filter,transform] duration-150"
+          className="w-full py-3 rounded-2xl bg-brand-600 hover:brightness-110 text-white text-[14px] font-semibold active:scale-[0.97] transition-[filter,transform] duration-150"
         >
           OK
         </button>

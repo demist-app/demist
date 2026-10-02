@@ -7,7 +7,7 @@ export async function GET() {
     (
       <div
         style={{
-          background: '#0f0e0b',
+          background: '#130d1f',
           width: '100%',
           height: '100%',
           display: 'flex',
@@ -33,11 +33,11 @@ export async function GET() {
         {/* waveform icon */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 4 }}>
           {[
-            { h: 20, color: '#b36a00' },
-            { h: 36, color: '#c97d10' },
-            { h: 52, color: '#f5a623' },
-            { h: 36, color: '#c97d10' },
-            { h: 20, color: '#b36a00' },
+            { h: 20, color: '#9a82cf' },
+            { h: 36, color: '#8fa5dc' },
+            { h: 52, color: '#7cc9c0' },
+            { h: 36, color: '#8fa5dc' },
+            { h: 20, color: '#9a82cf' },
           ].map((bar, i) => (
             <div
               key={i}
@@ -57,7 +57,7 @@ export async function GET() {
             fontSize: 13,
             fontWeight: 700,
             letterSpacing: '0.22em',
-            color: 'rgba(245,166,35,0.75)',
+            color: 'rgba(195,178,234,0.85)',
             textTransform: 'uppercase',
             margin: 0,
             display: 'flex',
@@ -70,7 +70,7 @@ export async function GET() {
           style={{
             fontSize: 66,
             fontWeight: 800,
-            color: '#f5f3ef',
+            color: '#f6f4fa',
             textAlign: 'center',
             lineHeight: 1.08,
             margin: 0,

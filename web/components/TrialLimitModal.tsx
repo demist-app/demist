@@ -74,8 +74,8 @@ export function TrialLimitModal({
     <button
       onClick={goPro}
       className={primary
-        ? 'w-full py-3 rounded-2xl bg-yellow-600 hover:brightness-110 text-white text-[14px] font-semibold active:scale-[0.97] transition-all'
-        : 'w-full py-3 rounded-2xl text-[14px] font-semibold active:scale-[0.97] transition-all dark:bg-white/[0.06] bg-[#F6F5F2] border dark:border-white/[0.08] border-black/[0.12] dark:text-white text-gray-900'}
+        ? 'w-full py-3 rounded-2xl bg-brand-600 hover:brightness-110 text-white text-[14px] font-semibold active:scale-[0.97] transition-all'
+        : 'w-full py-3 rounded-2xl text-[14px] font-semibold active:scale-[0.97] transition-all dark:bg-white/[0.06] bg-[#F8F6FB] border dark:border-white/[0.08] border-black/[0.12] dark:text-white text-gray-900'}
     >
       Keep recording in the browser with Pro
     </button>
@@ -87,8 +87,8 @@ export function TrialLimitModal({
       target="_blank" rel="noopener noreferrer"
       onClick={() => capture('ms_store_clicked', { placement })}
       className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-[13px] font-semibold active:scale-[0.97] transition-all ${primary
-        ? 'bg-yellow-600 hover:brightness-110 text-white'
-        : 'dark:bg-white/[0.06] bg-[#F6F5F2] border dark:border-white/[0.08] border-black/[0.12] dark:text-white text-gray-900'}`}
+        ? 'bg-brand-600 hover:brightness-110 text-white'
+        : 'dark:bg-white/[0.06] bg-[#F8F6FB] border dark:border-white/[0.08] border-black/[0.12] dark:text-white text-gray-900'}`}
     >
       <WindowsIcon />
       {primary ? 'Get the free Windows app' : 'Windows'}
@@ -99,7 +99,7 @@ export function TrialLimitModal({
     <a
       href={MAC_SUPPORT_URL}
       onClick={() => capture('mac_install_guide_clicked', { placement })}
-      className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-[13px] font-semibold active:scale-[0.97] transition-all dark:bg-white/[0.06] bg-[#F6F5F2] border dark:border-white/[0.08] border-black/[0.12] dark:text-white text-gray-900"
+      className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-[13px] font-semibold active:scale-[0.97] transition-all dark:bg-white/[0.06] bg-[#F8F6FB] border dark:border-white/[0.08] border-black/[0.12] dark:text-white text-gray-900"
     >
       <AppleIcon />
       Mac (beta)
@@ -114,7 +114,7 @@ export function TrialLimitModal({
       aria-modal="true"
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className="w-full max-w-md dark:bg-[#0d0d1c] bg-[#FDFCF9] border dark:border-white/[0.08] border-black/[0.12] rounded-[24px] p-6 space-y-4">
+      <div className="w-full max-w-md dark:bg-[#1a1328] bg-[#FFFFFF] border dark:border-white/[0.08] border-black/[0.12] rounded-[24px] p-6 space-y-4">
         <div className="flex items-start justify-between gap-2">
           <p className="text-[17px] font-bold dark:text-white text-gray-900 leading-snug">You&apos;ve used your free recordings in the browser</p>
           <button onClick={onClose} aria-label="Close" className="text-gray-500 hover:dark:text-white/60 hover:text-gray-900 text-[22px] leading-none shrink-0 mt-[-2px] transition-colors">×</button>

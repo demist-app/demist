@@ -7,7 +7,7 @@ import { startSessionRecording, stopSessionRecording } from '@/lib/analytics'
 import { isElectronNative } from '@/lib/electronNative'
 import { captureFirstTouch } from '@/lib/firstTouch'
 
-const THEME_COLOR = { light: '#EDEAE3', dark: '#080810' }
+const THEME_COLOR = { light: '#F3F0F8', dark: '#110B1C' }
 
 // Session recording is off by default (disable_session_recording: true in
 // instrumentation-client.ts) and enabled ONLY on the exact paths listed

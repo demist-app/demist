@@ -52,14 +52,14 @@ export function InstallPrompt() {
   const external = !isMac
 
   return (
-    <div className="fixed inset-x-4 bottom-6 sm:left-6 sm:right-auto sm:max-w-[340px] z-50 dark:bg-[#0d0d1c] bg-[#FDFCF9] border dark:border-white/[0.08] border-black/[0.10] rounded-2xl p-4 shadow-[0_8px_32px_rgba(0,0,0,0.28)] flex items-start gap-3 animate-step opacity-0" style={{ animationFillMode: 'forwards' }}>
-      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-yellow-600/40 to-amber-600/30 border border-yellow-500/40 flex items-center justify-center shrink-0">
+    <div className="fixed inset-x-4 bottom-6 sm:left-6 sm:right-auto sm:max-w-[340px] z-50 dark:bg-[#1a1328] bg-[#FFFFFF] border dark:border-white/[0.08] border-black/[0.10] rounded-2xl p-4 shadow-[0_8px_32px_rgba(0,0,0,0.28)] flex items-start gap-3 animate-step opacity-0" style={{ animationFillMode: 'forwards' }}>
+      <div className="w-10 h-10 rounded-xl bg-[#EEE9F7] border border-brand-500/30 flex items-center justify-center shrink-0">
         <svg width="18" height="18" viewBox="0 0 32 32" fill="none">
-          <line x1="7" y1="14" x2="7" y2="18" stroke="#f5a623" strokeWidth="2.5" strokeLinecap="round" />
-          <line x1="11" y1="11" x2="11" y2="21" stroke="#f5a623" strokeWidth="2.5" strokeLinecap="round" />
-          <line x1="16" y1="8" x2="16" y2="24" stroke="#f5a623" strokeWidth="3" strokeLinecap="round" />
-          <line x1="21" y1="11" x2="21" y2="21" stroke="#f5a623" strokeWidth="2.5" strokeLinecap="round" />
-          <line x1="25" y1="14" x2="25" y2="18" stroke="#f5a623" strokeWidth="2.5" strokeLinecap="round" />
+          <line x1="7" y1="14" x2="7" y2="18" stroke="#5B3F8F" strokeWidth="2.5" strokeLinecap="round" />
+          <line x1="11" y1="11" x2="11" y2="21" stroke="#556EAE" strokeWidth="2.5" strokeLinecap="round" />
+          <line x1="16" y1="8" x2="16" y2="24" stroke="#2A777A" strokeWidth="3" strokeLinecap="round" />
+          <line x1="21" y1="11" x2="21" y2="21" stroke="#556EAE" strokeWidth="2.5" strokeLinecap="round" />
+          <line x1="25" y1="14" x2="25" y2="18" stroke="#5B3F8F" strokeWidth="2.5" strokeLinecap="round" />
         </svg>
       </div>
 
@@ -75,7 +75,7 @@ export function InstallPrompt() {
           target={external ? '_blank' : undefined}
           rel={external ? 'noopener noreferrer' : undefined}
           onClick={() => { capture(isMac ? 'mac_install_guide_clicked' : 'ms_store_clicked', { placement: 'install_prompt' }); dismiss() }}
-          className="mt-2.5 inline-block px-3.5 py-1.5 rounded-full bg-yellow-600 hover:brightness-[1.1] text-white text-[12px] font-semibold transition-all active:scale-[0.97]"
+          className="mt-2.5 inline-block px-3.5 py-1.5 rounded-full bg-brand-600 hover:brightness-[1.1] text-white text-[12px] font-semibold transition-all active:scale-[0.97]"
         >
           {isMac ? 'Get the Mac beta' : 'Get it on the Microsoft Store'}
         </a>

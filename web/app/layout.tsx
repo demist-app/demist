@@ -26,6 +26,7 @@ export const metadata: Metadata = {
   keywords: ['lecture tool', 'study app', 'university students', 'real-time definitions', 'glossary builder', 'flashcards', 'spaced repetition', 'student productivity'],
   authors: [{ name: 'Demist' }],
   creator: 'Demist',
+  publisher: 'Graceful Minds',
   alternates: { canonical: '/' },
   // Bing Webmaster Tools ownership. ChatGPT's web search leans on Bing's
   // index, and the site had never been verified there. Set
@@ -90,7 +91,7 @@ export default function RootLayout({
         {/* Default light value for pre-hydration paint; kept in sync with the
             actual active theme (manual toggle, not OS preference) by
             ThemeColorSync in providers.tsx once the app mounts. */}
-        <meta name="theme-color" content="#EDEAE3" />
+        <meta name="theme-color" content="#F3F0F8" />
       </head>
       <body className="min-h-full flex flex-col">
         <div id="init-loader" aria-hidden="true" />

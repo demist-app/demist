@@ -675,18 +675,18 @@ export default function ImportPage() {
   const textWorking = ['extracting', 'processing'].includes(textStatus)
 
   return (
-    <div className="min-h-dvh dark:bg-[#080810] bg-[#EDEAE3] pb-20 sm:pb-10">
+    <div className="min-h-dvh dark:bg-[#110B1C] bg-[#F3F0F8] pb-20 sm:pb-10">
       <div aria-hidden className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
-        <div className="absolute -top-32 -left-32 w-[500px] h-[500px] rounded-full bg-yellow-700/[0.05] blur-[120px]" />
+        <div className="absolute -top-32 -left-32 w-[500px] h-[500px] rounded-full bg-brand-700/[0.05] blur-[120px]" />
       </div>
       <div className="relative z-10 w-full max-w-2xl mx-auto px-4 sm:px-6 pt-6 sm:pt-8">
 
         {/* Header */}
         <div className="mb-8 animate-step opacity-0" style={{ animationDelay: '0ms', animationFillMode: 'forwards' }}>
           <h1 className="text-2xl font-bold tracking-tight dark:text-white text-gray-900">Import</h1>
-          <p className="mt-1 text-sm text-gray-700">Upload recordings, slides, or sync with Notion to build your glossary.</p>
+          <p className="mt-1 text-sm dark:text-white/60 text-gray-700">Upload recordings, slides, or sync with Notion to build your glossary.</p>
           {onDevice && (
-            <p className="mt-2 text-xs dark:text-amber-300/80 text-amber-700">
+            <p className="mt-2 text-xs dark:text-brand-300/80 text-brand-700">
               Imports are processed on this computer by the same models the live recorder uses. Nothing you upload here is sent anywhere.
             </p>
           )}
@@ -694,25 +694,25 @@ export default function ImportPage() {
 
         {/* Section 1: Audio */}
         <section className="mb-5 animate-step opacity-0" style={{ animationDelay: '90ms', animationFillMode: 'forwards' }}>
-          <div className="rounded-2xl dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.07] border-black/[0.16] overflow-hidden">
+          <div className="rounded-2xl dark:bg-white/[0.03] bg-[#FFFFFF] border dark:border-white/[0.07] border-black/[0.16] overflow-hidden">
             <div className="px-5 pt-5 pb-4">
               <div className="flex items-center gap-3 mb-1">
-                <span className="flex items-center justify-center w-8 h-8 rounded-xl bg-yellow-500/[0.12] dark:text-yellow-400 text-yellow-700">
+                <span className="flex items-center justify-center w-8 h-8 rounded-xl bg-brand-500/[0.12] dark:text-brand-400 text-brand-700">
                   <MicIcon />
                 </span>
                 <h2 className="text-[15px] font-semibold dark:text-white text-gray-900">Lecture Recording</h2>
               </div>
-              <p className="text-xs text-gray-700 mt-1 ml-11">MP3, WAV, MP4, M4A, WebM, OGG. Up to 50 MB, which covers roughly 2-3 hours at typical recording quality. Large files are split into segments automatically.</p>
+              <p className="text-xs dark:text-white/60 text-gray-700 mt-1 ml-11">MP3, WAV, MP4, M4A, WebM, OGG. Up to 50 MB, which covers roughly 2-3 hours at typical recording quality. Large files are split into segments automatically.</p>
             </div>
 
             <div
               {...audioDropHandlers}
               className={`mx-5 mb-5 rounded-xl border-2 border-dashed transition-colors duration-150 ${
                 audioDragOver
-                  ? 'border-yellow-500/60 bg-yellow-500/[0.07]'
+                  ? 'border-brand-500/60 bg-brand-500/[0.07]'
                   : audioFile
                   ? 'dark:border-white/[0.08] border-black/[0.13]'
-                  : 'dark:border-white/[0.08] border-black/[0.13] hover:border-yellow-500/40 hover:bg-yellow-500/[0.03] cursor-pointer'
+                  : 'dark:border-white/[0.08] border-black/[0.13] hover:border-brand-500/40 hover:bg-brand-500/[0.03] cursor-pointer'
               }`}
               onClick={() => { if (!audioFile) document.getElementById('audio-input')?.click() }}
             >
@@ -744,14 +744,14 @@ export default function ImportPage() {
                     <div className="flex gap-2">
                       <button
                         onClick={() => router.push('/history')}
-                        className="text-xs font-medium dark:text-yellow-400 text-yellow-700 hover:dark:text-yellow-300 text-yellow-700 transition-colors duration-150 active:scale-[0.97]"
+                        className="text-xs font-medium dark:text-brand-400 text-brand-700 hover:dark:text-brand-300 text-brand-700 transition-colors duration-150 active:scale-[0.97]"
                       >
                         View in History
                       </button>
-                      <span className="text-gray-700">·</span>
+                      <span className="dark:text-white/60 text-gray-700">·</span>
                       <button
                         onClick={() => { setAudioRedirect(null); setAudioFile(null); setAudioStatus('idle'); setAudioResult(null) }}
-                        className="text-xs text-gray-700 hover:text-gray-600 transition-colors duration-150 active:scale-[0.97]"
+                        className="text-xs dark:text-white/60 text-gray-700 hover:text-gray-600 transition-colors duration-150 active:scale-[0.97]"
                       >
                         Upload another
                       </button>
@@ -764,13 +764,13 @@ export default function ImportPage() {
               ) : audioFile ? (
                 <div className="p-5 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
-                    <span className="flex-shrink-0 dark:text-yellow-400 text-yellow-700"><AudioFileIcon /></span>
+                    <span className="flex-shrink-0 dark:text-brand-400 text-brand-700"><AudioFileIcon /></span>
                     <div className="min-w-0">
                       <p className="text-sm font-medium dark:text-white text-gray-900 truncate">{audioFile.name}</p>
-                      <p className="text-xs text-gray-700">
+                      <p className="text-xs dark:text-white/60 text-gray-700">
                     {(audioFile.size / 1024 / 1024).toFixed(1)} MB
                     {audioFile.size > 20 * 1024 * 1024 && (
-                      <span className="ml-1.5 text-amber-500/70">· will be split into segments</span>
+                      <span className="ml-1.5 text-brand-500/70">· will be split into segments</span>
                     )}
                   </p>
                     </div>
@@ -785,7 +785,7 @@ export default function ImportPage() {
               ) : (
                 <div className="p-8 flex flex-col items-center gap-2 text-center pointer-events-none">
                   <span className="text-gray-500 mb-0.5"><UploadIcon /></span>
-                  <p className="text-sm dark:text-white/70 text-gray-700">Drag a file here, or <span className="dark:text-yellow-400 text-yellow-700 font-medium">browse</span></p>
+                  <p className="text-sm dark:text-white/70 text-gray-700">Drag a file here, or <span className="dark:text-brand-400 text-brand-700 font-medium">browse</span></p>
                   <p className="text-xs text-gray-600">MP3 · WAV · MP4 · M4A · WebM · OGG · up to 50 MB</p>
                 </div>
               )}
@@ -793,9 +793,9 @@ export default function ImportPage() {
 
             {audioWorking && (
               <div className="mx-5 mb-3">
-                <div className="h-1 rounded-full dark:bg-white/[0.06] bg-[#F3F1EC] overflow-hidden">
+                <div className="h-1 rounded-full dark:bg-white/[0.06] bg-[#F1EEF7] overflow-hidden">
                   <div
-                    className="h-full rounded-full bg-yellow-500 transition-all duration-500 ease-out"
+                    className="h-full rounded-full bg-brand-500 transition-all duration-500 ease-out"
                     style={{ width: `${audioProgress}%` }}
                   />
                 </div>
@@ -814,7 +814,7 @@ export default function ImportPage() {
                     </p>
                     <div className="flex flex-wrap gap-1.5">
                       {liveImportTerms.slice(-12).map((t, i) => (
-                        <span key={`${t.term}-${i}`} className="text-[11px] dark:text-yellow-400/90 text-yellow-700 dark:bg-yellow-500/10 bg-yellow-500/[0.08] border dark:border-yellow-500/20 border-yellow-600/20 rounded-full px-2 py-0.5 animate-step opacity-0" style={{ animationFillMode: 'forwards' }}>
+                        <span key={`${t.term}-${i}`} className="text-[11px] dark:text-brand-400/90 text-brand-700 dark:bg-brand-500/10 bg-brand-500/[0.08] border dark:border-brand-500/20 border-brand-600/20 rounded-full px-2 py-0.5 animate-step opacity-0" style={{ animationFillMode: 'forwards' }}>
                           {t.term.length > 28 ? `${t.term.slice(0, 28)}…` : t.term}
                         </span>
                       ))}
@@ -835,8 +835,8 @@ export default function ImportPage() {
                   disabled={audioWorking}
                   className={`w-full h-10 rounded-xl text-sm font-semibold transition-colors duration-150 active:scale-[0.97] ${
                     audioWorking
-                      ? 'bg-yellow-500/30 dark:text-yellow-300 text-yellow-700 cursor-not-allowed'
-                      : 'bg-yellow-600 hover:brightness-[1.1] dark:text-white text-gray-900'
+                      ? 'bg-brand-500/30 dark:text-brand-300 text-brand-700 cursor-not-allowed'
+                      : 'bg-brand-600 hover:brightness-[1.1] dark:text-white text-gray-900'
                   }`}
                 >
                   {audioWorking ? (
@@ -853,25 +853,25 @@ export default function ImportPage() {
 
         {/* Section 2: PPTX / Transcript */}
         <section className="mb-5 animate-step opacity-0" style={{ animationDelay: '150ms', animationFillMode: 'forwards' }}>
-          <div className="rounded-2xl dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.07] border-black/[0.16] overflow-hidden">
+          <div className="rounded-2xl dark:bg-white/[0.03] bg-[#FFFFFF] border dark:border-white/[0.07] border-black/[0.16] overflow-hidden">
             <div className="px-5 pt-5 pb-4">
               <div className="flex items-center gap-3 mb-1">
-                <span className="flex items-center justify-center w-8 h-8 rounded-xl bg-yellow-500/[0.12] dark:text-yellow-400 text-yellow-700">
+                <span className="flex items-center justify-center w-8 h-8 rounded-xl bg-brand-500/[0.12] dark:text-brand-400 text-brand-700">
                   <SlidesIcon />
                 </span>
                 <h2 className="text-[15px] font-semibold dark:text-white text-gray-900">Slides or Transcript</h2>
               </div>
-              <p className="text-xs text-gray-700 mt-1 ml-11">PPTX, DOCX, or TXT. Text is extracted locally then processed for concepts.</p>
+              <p className="text-xs dark:text-white/60 text-gray-700 mt-1 ml-11">PPTX, DOCX, or TXT. Text is extracted locally then processed for concepts.</p>
             </div>
 
             <div
               {...textDropHandlers}
               className={`mx-5 mb-5 rounded-xl border-2 border-dashed transition-colors duration-150 ${
                 textDragOver
-                  ? 'border-yellow-500/60 bg-yellow-500/[0.07]'
+                  ? 'border-brand-500/60 bg-brand-500/[0.07]'
                   : textFile
                   ? 'dark:border-white/[0.08] border-black/[0.13]'
-                  : 'dark:border-white/[0.08] border-black/[0.13] hover:border-yellow-500/40 hover:bg-yellow-500/[0.03] cursor-pointer'
+                  : 'dark:border-white/[0.08] border-black/[0.13] hover:border-brand-500/40 hover:bg-brand-500/[0.03] cursor-pointer'
               }`}
               onClick={() => { if (!textFile) document.getElementById('text-input')?.click() }}
             >
@@ -903,14 +903,14 @@ export default function ImportPage() {
                     <div className="flex gap-2">
                       <button
                         onClick={() => router.push('/history')}
-                        className="text-xs font-medium dark:text-yellow-400 text-yellow-700 hover:dark:text-yellow-300 text-yellow-700 transition-colors duration-150 active:scale-[0.97]"
+                        className="text-xs font-medium dark:text-brand-400 text-brand-700 hover:dark:text-brand-300 text-brand-700 transition-colors duration-150 active:scale-[0.97]"
                       >
                         View in History
                       </button>
-                      <span className="text-gray-700">·</span>
+                      <span className="dark:text-white/60 text-gray-700">·</span>
                       <button
                         onClick={() => { setTextRedirect(null); setTextFile(null); setTextStatus('idle'); setTextResult(null) }}
-                        className="text-xs text-gray-700 hover:text-gray-600 transition-colors duration-150 active:scale-[0.97]"
+                        className="text-xs dark:text-white/60 text-gray-700 hover:text-gray-600 transition-colors duration-150 active:scale-[0.97]"
                       >
                         Upload another
                       </button>
@@ -923,10 +923,10 @@ export default function ImportPage() {
               ) : textFile ? (
                 <div className="p-5 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
-                    <span className="flex-shrink-0 dark:text-yellow-400 text-yellow-700"><DocFileIcon /></span>
+                    <span className="flex-shrink-0 dark:text-brand-400 text-brand-700"><DocFileIcon /></span>
                     <div className="min-w-0">
                       <p className="text-sm font-medium dark:text-white text-gray-900 truncate">{textFile.name}</p>
-                      <p className="text-xs text-gray-700">{(textFile.size / 1024).toFixed(0)} KB</p>
+                      <p className="text-xs dark:text-white/60 text-gray-700">{(textFile.size / 1024).toFixed(0)} KB</p>
                     </div>
                   </div>
                   <button
@@ -939,7 +939,7 @@ export default function ImportPage() {
               ) : (
                 <div className="p-8 flex flex-col items-center gap-2 text-center pointer-events-none">
                   <span className="text-gray-500 mb-0.5"><UploadIcon /></span>
-                  <p className="text-sm dark:text-white/70 text-gray-700">Drag a file here, or <span className="dark:text-yellow-400 text-yellow-700 font-medium">browse</span></p>
+                  <p className="text-sm dark:text-white/70 text-gray-700">Drag a file here, or <span className="dark:text-brand-400 text-brand-700 font-medium">browse</span></p>
                   <p className="text-xs text-gray-600">PPTX · DOCX · TXT</p>
                 </div>
               )}
@@ -947,9 +947,9 @@ export default function ImportPage() {
 
             {textWorking && (
               <div className="mx-5 mb-3">
-                <div className="h-1 rounded-full dark:bg-white/[0.06] bg-[#F3F1EC] overflow-hidden">
+                <div className="h-1 rounded-full dark:bg-white/[0.06] bg-[#F1EEF7] overflow-hidden">
                   <div
-                    className="h-full rounded-full bg-yellow-500 transition-all duration-500 ease-out"
+                    className="h-full rounded-full bg-brand-500 transition-all duration-500 ease-out"
                     style={{ width: `${textProgress}%` }}
                   />
                 </div>
@@ -968,8 +968,8 @@ export default function ImportPage() {
                   disabled={textWorking}
                   className={`w-full h-10 rounded-xl text-sm font-semibold transition-colors duration-150 active:scale-[0.97] ${
                     textWorking
-                      ? 'bg-yellow-500/30 dark:text-yellow-300 text-yellow-700 cursor-not-allowed'
-                      : 'bg-yellow-600 hover:brightness-[1.1] dark:text-white text-gray-900'
+                      ? 'bg-brand-500/30 dark:text-brand-300 text-brand-700 cursor-not-allowed'
+                      : 'bg-brand-600 hover:brightness-[1.1] dark:text-white text-gray-900'
                   }`}
                 >
                   {textWorking ? (
@@ -986,11 +986,11 @@ export default function ImportPage() {
 
         {/* Section 3: Notion Sync */}
         <section className="animate-step opacity-0" style={{ animationDelay: '210ms', animationFillMode: 'forwards' }}>
-          <div className="rounded-2xl dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.07] border-black/[0.16] overflow-hidden">
+          <div className="rounded-2xl dark:bg-white/[0.03] bg-[#FFFFFF] border dark:border-white/[0.07] border-black/[0.16] overflow-hidden">
             <div className="px-5 pt-5 pb-5">
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-3">
-                  <span className="flex items-center justify-center w-8 h-8 rounded-xl dark:bg-white/[0.06] bg-[#F3F1EC]">
+                  <span className="flex items-center justify-center w-8 h-8 rounded-xl dark:bg-white/[0.06] bg-[#F1EEF7]">
                     <NotionIcon />
                   </span>
                   <h2 className="text-[15px] font-semibold dark:text-white text-gray-900">Notion</h2>
@@ -1004,7 +1004,7 @@ export default function ImportPage() {
               </div>
 
               {!notionIntegration && (
-                <p className="text-xs text-gray-700 mt-1 ml-11 mb-5">
+                <p className="text-xs dark:text-white/60 text-gray-700 mt-1 ml-11 mb-5">
                   Connect your Notion workspace to export your term glossary and session summaries, or scan a Notion page for unfamiliar concepts.
                 </p>
               )}
@@ -1018,7 +1018,7 @@ export default function ImportPage() {
               {!notionIntegration ? (
                 <a
                   href="/api/notion"
-                  className="flex items-center justify-center gap-2 w-full h-10 rounded-xl dark:bg-white/[0.05] bg-[#F6F5F2] hover:dark:bg-white/[0.08] bg-[#EFEDE7] border dark:border-white/[0.08] border-black/[0.13] text-sm font-medium dark:text-white text-gray-900 transition-colors duration-150 active:scale-[0.97]"
+                  className="flex items-center justify-center gap-2 w-full h-10 rounded-xl dark:bg-white/[0.05] bg-[#F8F6FB] hover:dark:bg-white/[0.08] bg-[#ECE8F4] border dark:border-white/[0.08] border-black/[0.13] text-sm font-medium dark:text-white text-gray-900 transition-colors duration-150 active:scale-[0.97]"
                 >
                   <NotionIcon />
                   Connect Notion
@@ -1034,7 +1034,7 @@ export default function ImportPage() {
                   )}
 
                   {/* Push section */}
-                  <div className="rounded-xl dark:bg-white/[0.03] bg-[#F3F1EC] border dark:border-white/[0.06] border-black/[0.08] p-4 flex flex-col gap-2.5">
+                  <div className="rounded-xl dark:bg-white/[0.03] bg-[#F1EEF7] border dark:border-white/[0.06] border-black/[0.08] p-4 flex flex-col gap-2.5">
                     <div>
                       <p className="text-[13px] font-semibold dark:text-white text-gray-900">Export to Notion</p>
                       <p className="text-xs text-gray-600 mt-0.5">Save your term glossary or session summaries as new pages in your workspace.</p>
@@ -1092,7 +1092,7 @@ export default function ImportPage() {
                   </div>
 
                   {/* Pull section */}
-                  <div className="rounded-xl dark:bg-white/[0.03] bg-[#F3F1EC] border dark:border-white/[0.06] border-black/[0.08] p-4 flex flex-col gap-2.5">
+                  <div className="rounded-xl dark:bg-white/[0.03] bg-[#F1EEF7] border dark:border-white/[0.06] border-black/[0.08] p-4 flex flex-col gap-2.5">
                     <div>
                       <p className="text-[13px] font-semibold dark:text-white text-gray-900">Import from Notion</p>
                       <p className="text-xs text-gray-600 mt-0.5">Pick one of your Notion pages and Demist will scan it for unfamiliar concepts, just like a live session.</p>
@@ -1112,10 +1112,10 @@ export default function ImportPage() {
                         <select
                           value={selectedPageId}
                           onChange={e => setSelectedPageId(e.target.value)}
-                          className="w-full h-9 rounded-xl dark:bg-white/[0.04] bg-white border dark:border-white/[0.08] border-black/[0.13] text-sm dark:text-gray-200 text-gray-800 px-3 focus:outline-none focus:border-yellow-500/40 transition-colors duration-150 appearance-none"
+                          className="w-full h-9 rounded-xl dark:bg-white/[0.04] bg-white border dark:border-white/[0.08] border-black/[0.13] text-sm dark:text-gray-200 text-gray-800 px-3 focus:outline-none focus:border-brand-500/40 transition-colors duration-150 appearance-none"
                         >
                           {notionPages.map(p => (
-                            <option key={p.id} value={p.id} className="dark:bg-[#0d0d1c] bg-gray-50">{p.title}</option>
+                            <option key={p.id} value={p.id} className="dark:bg-[#1a1328] bg-gray-50">{p.title}</option>
                           ))}
                         </select>
                         {notionPullStatus === 'done' && notionPullResult ? (
@@ -1126,7 +1126,7 @@ export default function ImportPage() {
                             </span>
                             <button
                               onClick={() => router.push('/history')}
-                              className="text-xs font-medium dark:text-yellow-400 text-yellow-700 hover:dark:text-yellow-300 transition-colors duration-150 active:scale-[0.97]"
+                              className="text-xs font-medium dark:text-brand-400 text-brand-700 hover:dark:text-brand-300 transition-colors duration-150 active:scale-[0.97]"
                             >
                               View in History
                             </button>
@@ -1137,8 +1137,8 @@ export default function ImportPage() {
                             disabled={!selectedPageId || notionPullStatus === 'importing'}
                             className={`w-full h-9 rounded-xl text-xs font-semibold transition-colors duration-150 active:scale-[0.97] ${
                               notionPullStatus === 'importing'
-                                ? 'bg-yellow-500/30 dark:text-yellow-300 text-yellow-700 cursor-not-allowed'
-                                : 'bg-yellow-600 hover:brightness-[1.1] dark:text-white text-white'
+                                ? 'bg-brand-500/30 dark:text-brand-300 text-brand-700 cursor-not-allowed'
+                                : 'bg-brand-600 hover:brightness-[1.1] dark:text-white text-white'
                             }`}
                           >
                             {notionPullStatus === 'importing' ? (

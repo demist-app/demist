@@ -206,7 +206,7 @@ ${translation}` : transcript
           {readAloud.supported && (
             <button
               onClick={() => (readAloud.speaking ? (readAloud.paused ? readAloud.resume() : readAloud.pause()) : readAloud.play())}
-              className="flex items-center gap-1.5 text-[12px] font-medium text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/15 rounded-full px-3 py-1.5 transition-colors"
+              className="flex items-center gap-1.5 text-[12px] font-medium text-brand-700 dark:text-brand-400 hover:text-brand-800 dark:hover:text-brand-300 bg-brand-500/10 hover:bg-brand-500/15 rounded-full px-3 py-1.5 transition-colors"
             >
               {readAloud.speaking && !readAloud.paused ? '⏸ Pause' : readAloud.paused ? '▶ Resume' : '▶ Read aloud'}
             </button>
@@ -223,7 +223,7 @@ ${translation}` : transcript
             <button
               onClick={() => setBilingual(b => !b)}
               className={`flex items-center gap-1.5 text-[12px] font-medium rounded-full px-3 py-1.5 transition-colors ${
-                bilingual ? 'bg-amber-500/20 text-amber-300' : 'bg-amber-500/10 hover:bg-amber-500/15 text-amber-400 hover:text-amber-300'
+                bilingual ? 'bg-brand-500/20 text-brand-300' : 'bg-brand-500/10 hover:bg-brand-500/15 text-brand-400 hover:text-brand-300'
               }`}
             >
               Bilingual
@@ -255,7 +255,7 @@ ${translation}` : transcript
                   {segs.map((seg, j) => seg.highlight ? (
                     <span
                       key={j}
-                      className="text-amber-400/80 underline decoration-amber-500/40 decoration-dotted underline-offset-2 cursor-pointer"
+                      className="text-brand-700/80 dark:text-brand-400/80 underline decoration-brand-500/40 decoration-dotted underline-offset-2 cursor-pointer"
                       onPointerUp={e => handleTermClick(seg.content, seg.definition, seg.context, e)}
                     >
                       {seg.content}
@@ -266,7 +266,7 @@ ${translation}` : transcript
                 </p>
                 <p
                   dir={translationLang === 'ar' ? 'rtl' : undefined}
-                  className="text-[calc(0.8125rem*var(--df-scale))] leading-relaxed dark:text-amber-300/80 text-amber-700"
+                  className="text-[calc(0.8125rem*var(--df-scale))] leading-relaxed dark:text-brand-300/80 text-brand-700"
                 >
                   {tgt ?? ''}
                 </p>
@@ -277,7 +277,7 @@ ${translation}` : transcript
             <p
               key={`extra-${i}`}
               dir={translationLang === 'ar' ? 'rtl' : undefined}
-              className="text-[calc(0.8125rem*var(--df-scale))] leading-relaxed dark:text-amber-300/80 text-amber-700"
+              className="text-[calc(0.8125rem*var(--df-scale))] leading-relaxed dark:text-brand-300/80 text-brand-700"
             >
               {extra}
             </p>
@@ -292,11 +292,11 @@ ${translation}` : transcript
             const segStart = charOffset
             charOffset += seg.content.length
             const isSpoken = !!activeRange && segStart < activeRange.end && segStart + seg.content.length > activeRange.start
-            const spokenClass = isSpoken ? 'bg-amber-500/20 rounded' : ''
+            const spokenClass = isSpoken ? 'bg-brand-500/20 rounded' : ''
             return seg.highlight ? (
               <span
                 key={i}
-                className={`text-amber-400/80 underline decoration-amber-500/40 decoration-dotted underline-offset-2 cursor-pointer ${spokenClass}`}
+                className={`text-brand-400/80 underline decoration-brand-500/40 decoration-dotted underline-offset-2 cursor-pointer ${spokenClass}`}
                 onPointerUp={e => handleTermClick(seg.content, seg.definition, seg.context, e)}
               >
                 {seg.content}
@@ -310,7 +310,7 @@ ${translation}` : transcript
 
       {popup && createPortal(
         <div
-          className="fixed z-[100] w-[260px] bg-[#0e0e1c] border border-amber-500/25 rounded-xl px-4 py-3 shadow-[0_8px_32px_rgba(0,0,0,0.7)]"
+          className="fixed z-[100] w-[260px] bg-[#1a1328] border border-brand-500/25 rounded-xl px-4 py-3 shadow-[0_8px_32px_rgba(0,0,0,0.7)]"
           style={{
             left: popup.x,
             top: popup.flipDown ? popup.y + 8 : popup.y - 8,
@@ -320,7 +320,7 @@ ${translation}` : transcript
           onPointerUp={e => e.stopPropagation()}
         >
           <div className="flex items-start justify-between gap-2 mb-1.5">
-            <p className="text-[10px] font-bold tracking-[0.15em] text-amber-400/60 uppercase truncate">
+            <p className="text-[10px] font-bold tracking-[0.15em] text-brand-700/60 dark:text-brand-400/60 uppercase truncate">
               {popup.term}
             </p>
             {!popup.loading && (popup.definition || popup.context) && readAloud.supported && (
@@ -328,7 +328,7 @@ ${translation}` : transcript
                 onClick={speakPopup}
                 aria-label="Read aloud"
                 title="Read term, sentence, and definition aloud"
-                className="shrink-0 text-amber-400/70 hover:text-amber-300 transition-colors"
+                className="shrink-0 text-brand-700/70 dark:text-brand-400/70 hover:text-brand-800 dark:hover:text-brand-300 transition-colors"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
@@ -352,7 +352,7 @@ ${translation}` : transcript
                 <button
                   onClick={saveFlashcard}
                   disabled={popup.saving || popup.saved}
-                  className="w-full text-[12px] font-medium py-1.5 rounded-lg bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 hover:text-amber-300 transition-all disabled:opacity-50"
+                  className="w-full text-[12px] font-medium py-1.5 rounded-lg bg-brand-600/20 hover:bg-brand-600/30 text-brand-700 dark:text-brand-400 hover:text-brand-800 dark:hover:text-brand-300 transition-all disabled:opacity-50"
                 >
                   {popup.saveFailed ? "Couldn't save, tap to retry" : popup.saved ? 'Saved to flashcards ✓' : popup.saving ? 'Saving...' : '+ Save as flashcard'}
                 </button>

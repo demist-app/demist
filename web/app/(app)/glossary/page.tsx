@@ -396,15 +396,15 @@ export default function Glossary() {
     <div
       key={t.id}
       onClick={selectMode ? () => toggleTermSelect(t.id) : undefined}
-      className={`px-4 py-3.5 transition-colors duration-150 ${i > 0 ? 'border-t dark:border-white/[0.04] border-black/[0.05]' : ''} ${selectMode ? 'cursor-pointer' : ''} ${selectedIds.has(t.id) ? 'dark:bg-yellow-500/[0.06] bg-yellow-50' : editingId === t.id || tagEditingId === t.id ? 'dark:bg-white/[0.03] bg-[#F3F1EC]' : 'hover:bg-yellow-500/[0.02]'}`}
+      className={`px-4 py-3.5 transition-colors duration-150 ${i > 0 ? 'border-t dark:border-white/[0.04] border-black/[0.05]' : ''} ${selectMode ? 'cursor-pointer' : ''} ${selectedIds.has(t.id) ? 'dark:bg-brand-500/[0.06] bg-brand-50' : editingId === t.id || tagEditingId === t.id ? 'dark:bg-white/[0.03] bg-[#F1EEF7]' : 'hover:bg-brand-500/[0.02]'}`}
     >
       <div className="flex items-start gap-2">
         {selectMode && (
           <span
             className="shrink-0 w-5 h-5 mt-0.5 rounded-full border-2 flex items-center justify-center transition-colors"
             style={{
-              borderColor: selectedIds.has(t.id) ? '#D97706' : 'rgba(107,114,128,0.5)',
-              background: selectedIds.has(t.id) ? '#D97706' : 'transparent',
+              borderColor: selectedIds.has(t.id) ? '#5B3F8F' : 'rgba(107,114,128,0.5)',
+              background: selectedIds.has(t.id) ? '#5B3F8F' : 'transparent',
             }}
           >
             {selectedIds.has(t.id) && (
@@ -426,7 +426,7 @@ export default function Glossary() {
                   if (e.key === 'Escape') cancelEditDef()
                 }}
                 placeholder="Term name"
-                className="w-full text-[14px] font-semibold dark:text-white text-gray-900 dark:bg-white/[0.05] bg-[#EFEDE7] border dark:border-amber-500/30 border-amber-500/40 rounded-xl px-3 py-2 focus:outline-none"
+                className="w-full text-[14px] font-semibold dark:text-white text-gray-900 dark:bg-white/[0.05] bg-[#ECE8F4] border dark:border-brand-500/30 border-brand-500/40 rounded-xl px-3 py-2 focus:outline-none"
               />
               <textarea
                 ref={editRef}
@@ -438,10 +438,10 @@ export default function Glossary() {
                 }}
                 rows={3}
                 placeholder="Definition"
-                className="w-full text-[13px] dark:text-white/80 text-gray-700 dark:bg-white/[0.05] bg-[#EFEDE7] border dark:border-amber-500/30 border-amber-500/40 rounded-xl px-3 py-2 resize-none focus:outline-none leading-relaxed"
+                className="w-full text-[13px] dark:text-white/80 text-gray-700 dark:bg-white/[0.05] bg-[#ECE8F4] border dark:border-brand-500/30 border-brand-500/40 rounded-xl px-3 py-2 resize-none focus:outline-none leading-relaxed"
               />
               <div className="flex items-center gap-2">
-                <button onClick={() => saveDefinition(t.id)} disabled={savingId === t.id} className="text-[12px] font-semibold text-amber-400 hover:text-amber-300 disabled:opacity-40 transition-colors">
+                <button onClick={() => saveDefinition(t.id)} disabled={savingId === t.id} className="text-[12px] font-semibold text-brand-700 dark:text-brand-400 hover:text-brand-800 dark:hover:text-brand-300 disabled:opacity-40 transition-colors">
                   {savingId === t.id ? 'Saving…' : 'Save'}
                 </button>
                 <button onClick={cancelEditDef} className="text-[12px] text-gray-600 hover:text-gray-500 transition-colors">Cancel</button>
@@ -454,7 +454,7 @@ export default function Glossary() {
                   <TermContext term={t.term} definition={t.definition} context={t.context}>{t.term}</TermContext>
                 ) : t.term}
               </p>
-              <p className="text-[13px] text-gray-700 mt-1 leading-relaxed">{t.definition}</p>
+              <p className="text-[13px] dark:text-white/60 text-gray-700 mt-1 leading-relaxed">{t.definition}</p>
             </>
           )}
 
@@ -474,7 +474,7 @@ export default function Glossary() {
                       }}
                       placeholder="Group name (e.g. Week 3, Exam prep…)"
                       list={`tag-suggestions-${t.id}`}
-                      className="w-full text-[12px] dark:text-white/80 text-gray-700 dark:bg-white/[0.06] bg-[#EFEDE7] border dark:border-amber-500/30 border-amber-500/40 rounded-lg px-2.5 py-1.5 focus:outline-none"
+                      className="w-full text-[12px] dark:text-white/80 text-gray-700 dark:bg-white/[0.06] bg-[#ECE8F4] border dark:border-brand-500/30 border-brand-500/40 rounded-lg px-2.5 py-1.5 focus:outline-none"
                     />
                     {tagSuggestions.length > 0 && (
                       <datalist id={`tag-suggestions-${t.id}`}>
@@ -482,7 +482,7 @@ export default function Glossary() {
                       </datalist>
                     )}
                   </div>
-                  <button onClick={() => saveTag(t.id)} disabled={savingTagId === t.id} className="text-[11px] font-semibold text-amber-400 hover:text-amber-300 disabled:opacity-40 transition-colors shrink-0">
+                  <button onClick={() => saveTag(t.id)} disabled={savingTagId === t.id} className="text-[11px] font-semibold text-brand-700 dark:text-brand-400 hover:text-brand-800 dark:hover:text-brand-300 disabled:opacity-40 transition-colors shrink-0">
                     {savingTagId === t.id ? '…' : 'Save'}
                   </button>
                   <button onClick={cancelEditTag} className="text-[11px] text-gray-600 hover:text-gray-500 transition-colors shrink-0">Cancel</button>
@@ -490,7 +490,7 @@ export default function Glossary() {
               ) : t.subject ? (
                 <button
                   onClick={() => startEditTag(t)}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium dark:bg-amber-500/10 bg-amber-100 dark:text-amber-400/80 text-amber-700 dark:border-amber-500/20 border-amber-200 border hover:opacity-70 transition-opacity"
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium dark:bg-brand-500/10 bg-brand-100 dark:text-brand-400/80 text-brand-700 dark:border-brand-500/20 border-brand-200 border hover:opacity-70 transition-opacity"
                 >
                   <TagIcon />
                   {t.subject}
@@ -498,7 +498,7 @@ export default function Glossary() {
               ) : (
                 <button
                   onClick={() => startEditTag(t)}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] text-gray-600 dark:bg-white/[0.04] bg-black/[0.04] border dark:border-white/[0.06] border-black/[0.08] hover:dark:border-amber-500/30 hover:border-amber-300 hover:dark:text-amber-400 hover:text-amber-600 transition-all"
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] text-gray-600 dark:bg-white/[0.04] bg-black/[0.04] border dark:border-white/[0.06] border-black/[0.08] hover:dark:border-brand-500/30 hover:border-brand-300 hover:dark:text-brand-400 hover:text-brand-600 transition-all"
                 >
                   <TagIcon />
                   Add group
@@ -511,7 +511,7 @@ export default function Glossary() {
         {/* Action buttons */}
         {editingId !== t.id && tagEditingId !== t.id && (
           <div className="flex items-center gap-0.5 shrink-0 mt-0.5">
-            <button onClick={() => startEditDef(t)} title="Edit definition" className="p-1.5 text-gray-700 hover:dark:text-yellow-400 hover:text-yellow-700 transition-colors rounded-lg hover:dark:bg-white/[0.06] hover:bg-black/[0.05]">
+            <button onClick={() => startEditDef(t)} title="Edit definition" className="p-1.5 text-gray-700 hover:dark:text-brand-400 hover:text-brand-700 transition-colors rounded-lg hover:dark:bg-white/[0.06] hover:bg-black/[0.05]">
               <PencilIcon />
             </button>
             {confirmDeleteId === t.id ? (
@@ -522,7 +522,7 @@ export default function Glossary() {
                 </button>
               </div>
             ) : (
-              <button onClick={() => setConfirmDeleteId(t.id)} title="Delete term" className="p-1.5 text-gray-700 hover:text-red-400 transition-colors rounded-lg hover:dark:bg-white/[0.06] hover:bg-black/[0.05]">
+              <button onClick={() => setConfirmDeleteId(t.id)} title="Delete term" className="p-1.5 dark:text-white/60 text-gray-700 hover:text-red-400 transition-colors rounded-lg hover:dark:bg-white/[0.06] hover:bg-black/[0.05]">
                 <TrashIcon />
               </button>
             )}
@@ -535,9 +535,9 @@ export default function Glossary() {
   const hasMultipleSessions = sessions.length > 1 || orphanTerms.length > 0
 
   return (
-    <main className="min-h-dvh dark:bg-[#080810] bg-[#EDEAE3] dark:text-white text-gray-900 flex flex-col nav-bottom-pad">
+    <main className="min-h-dvh dark:bg-[#110B1C] bg-[#F3F0F8] dark:text-white text-gray-900 flex flex-col nav-bottom-pad">
       <div aria-hidden className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
-        <div className="absolute -top-32 -left-32 w-[500px] h-[500px] rounded-full bg-yellow-700/[0.05] blur-[120px]" />
+        <div className="absolute -top-32 -left-32 w-[500px] h-[500px] rounded-full bg-brand-700/[0.05] blur-[120px]" />
       </div>
 
       <header className="sm:hidden relative z-10 shrink-0 flex items-center px-6 h-14 border-b dark:border-white/[0.05] border-black/[0.06]">
@@ -551,15 +551,15 @@ export default function Glossary() {
       <div className="px-4 sm:px-6 pt-6 pb-5">
         {loading ? (
           <div className="animate-pulse">
-            <div className="h-10 w-24 dark:bg-white/[0.07] bg-[#EFEDE7] rounded-xl mb-2" />
-            <div className="h-3.5 w-48 dark:bg-white/[0.04] bg-[#FAF9F6] rounded-full" />
+            <div className="h-10 w-24 dark:bg-white/[0.07] bg-[#ECE8F4] rounded-xl mb-2" />
+            <div className="h-3.5 w-48 dark:bg-white/[0.04] bg-[#FFFFFF] rounded-full" />
           </div>
         ) : (
           <>
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-[44px] font-bold leading-none tracking-tight">{totalCount}</p>
-                <p className="text-[13px] text-gray-700 mt-1.5">
+                <p className="text-[13px] dark:text-white/60 text-gray-700 mt-1.5">
                   words across{' '}
                   <span className="text-gray-600">{sessions.length} session{sessions.length !== 1 ? 's' : ''}</span>
                 </p>
@@ -567,7 +567,7 @@ export default function Glossary() {
               {totalCount > 0 && (
                 <button
                   onClick={() => { capture('share_card_opened', { termCount: totalCount }); setShowShareCard(true) }}
-                  className="shrink-0 mt-1 flex items-center gap-1.5 px-3.5 py-2 rounded-2xl dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.09] border-black/[0.14] text-[13px] font-medium dark:text-gray-300 text-gray-700 hover:border-yellow-500/30 active:scale-[0.97] transition-all"
+                  className="shrink-0 mt-1 flex items-center gap-1.5 px-3.5 py-2 rounded-2xl dark:bg-white/[0.05] bg-[#F8F6FB] border dark:border-white/[0.09] border-black/[0.14] text-[13px] font-medium dark:text-gray-300 text-gray-700 hover:border-brand-500/30 active:scale-[0.97] transition-all"
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" />
@@ -593,13 +593,13 @@ export default function Glossary() {
                   value={search}
                   onChange={e => setSearch(e.target.value)}
                   placeholder="Search words…"
-                  className="w-full pl-10 pr-4 py-3 dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.08] border-black/[0.13] rounded-2xl text-[14px] dark:text-white text-gray-900 placeholder-gray-700 focus:outline-none focus:border-yellow-500/40 focus:dark:bg-white/[0.07] transition-all"
+                  className="w-full pl-10 pr-4 py-3 dark:bg-white/[0.05] bg-[#F8F6FB] border dark:border-white/[0.08] border-black/[0.13] rounded-2xl text-[14px] dark:text-white text-gray-900 placeholder-gray-700 focus:outline-none focus:border-brand-500/40 focus:dark:bg-white/[0.07] transition-all"
                 />
               </div>
 
               {/* View toggle */}
               {hasMultipleSessions && (
-                <div className="flex items-center dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.08] border-black/[0.13] rounded-2xl p-1 shrink-0">
+                <div className="flex items-center dark:bg-white/[0.05] bg-[#F8F6FB] border dark:border-white/[0.08] border-black/[0.13] rounded-2xl p-1 shrink-0">
                   <button
                     onClick={() => { changeGroupBy('session'); setTagFilter(null) }}
                     className={`text-[12px] font-medium px-3 py-1.5 rounded-xl transition-all ${groupBy === 'session' ? 'dark:bg-white/[0.10] bg-white shadow-sm dark:text-white text-gray-900' : 'text-gray-600 hover:text-gray-500'}`}
@@ -621,7 +621,7 @@ export default function Glossary() {
               <select
                 value={sortMode}
                 onChange={e => changeSortMode(e.target.value as typeof sortMode)}
-                className="text-[12px] font-medium dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.08] border-black/[0.13] rounded-xl px-3 py-2 dark:text-gray-300 text-gray-700 focus:outline-none focus:border-yellow-500/40 appearance-none cursor-pointer"
+                className="text-[12px] font-medium dark:bg-white/[0.05] bg-[#F8F6FB] border dark:border-white/[0.08] border-black/[0.13] rounded-xl px-3 py-2 dark:text-gray-300 text-gray-700 focus:outline-none focus:border-brand-500/40 appearance-none cursor-pointer"
               >
                 <option value="recent">Recently added</option>
                 <option value="alpha">Alphabetical</option>
@@ -650,7 +650,7 @@ export default function Glossary() {
               <div className="flex items-center gap-1.5 flex-wrap">
                 <button
                   onClick={() => setTagFilter(null)}
-                  className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-medium transition-all border ${!tagFilter ? 'dark:bg-amber-500/15 bg-amber-100 dark:text-amber-300 text-amber-700 dark:border-amber-500/30 border-amber-300' : 'dark:bg-white/[0.04] bg-[#FAF9F6] text-gray-600 dark:border-white/[0.07] border-black/[0.10] hover:dark:border-white/[0.12] hover:border-black/[0.16]'}`}
+                  className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-medium transition-all border ${!tagFilter ? 'dark:bg-brand-500/15 bg-brand-100 dark:text-brand-300 text-brand-700 dark:border-brand-500/30 border-brand-300' : 'dark:bg-white/[0.04] bg-[#FFFFFF] text-gray-600 dark:border-white/[0.07] border-black/[0.10] hover:dark:border-white/[0.12] hover:border-black/[0.16]'}`}
                 >
                   All
                 </button>
@@ -658,7 +658,7 @@ export default function Glossary() {
                   <button
                     key={tag}
                     onClick={() => setTagFilter(tagFilter === tag ? null : tag)}
-                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium transition-all border ${tagFilter === tag ? 'dark:bg-amber-500/15 bg-amber-100 dark:text-amber-300 text-amber-700 dark:border-amber-500/30 border-amber-300' : 'dark:bg-white/[0.04] bg-[#FAF9F6] text-gray-600 dark:border-white/[0.07] border-black/[0.10] hover:dark:border-white/[0.12] hover:border-black/[0.16]'}`}
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium transition-all border ${tagFilter === tag ? 'dark:bg-brand-500/15 bg-brand-100 dark:text-brand-300 text-brand-700 dark:border-brand-500/30 border-brand-300' : 'dark:bg-white/[0.04] bg-[#FFFFFF] text-gray-600 dark:border-white/[0.07] border-black/[0.10] hover:dark:border-white/[0.12] hover:border-black/[0.16]'}`}
                   >
                     <TagIcon />
                     {tag}
@@ -677,16 +677,16 @@ export default function Glossary() {
             {[4, 3, 5].map((count, i) => (
               <div key={i}>
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="h-5 w-8 bg-yellow-500/10 rounded-full" />
-                  <div className="h-3 w-28 dark:bg-white/[0.05] bg-[#F6F5F2] rounded-full" />
-                  <div className="flex-1 h-px dark:bg-white/[0.04] bg-[#FAF9F6]" />
+                  <div className="h-5 w-8 bg-brand-500/10 rounded-full" />
+                  <div className="h-3 w-28 dark:bg-white/[0.05] bg-[#F8F6FB] rounded-full" />
+                  <div className="flex-1 h-px dark:bg-white/[0.04] bg-[#FFFFFF]" />
                 </div>
-                <div className="dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl overflow-hidden">
+                <div className="dark:bg-white/[0.03] bg-[#FFFFFF] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl overflow-hidden">
                   {Array.from({ length: count }).map((_, j) => (
                     <div key={j} className={`px-4 py-4 flex gap-3 ${j > 0 ? 'border-t dark:border-white/[0.04] border-black/[0.05]' : ''}`}>
                       <div className="flex-1">
-                        <div className="h-4 w-32 dark:bg-white/[0.08] bg-[#EFEDE7] rounded-full mb-2" />
-                        <div className="h-3 w-full dark:bg-white/[0.05] bg-[#F6F5F2] rounded-full" />
+                        <div className="h-4 w-32 dark:bg-white/[0.08] bg-[#ECE8F4] rounded-full mb-2" />
+                        <div className="h-3 w-full dark:bg-white/[0.05] bg-[#F8F6FB] rounded-full" />
                       </div>
                     </div>
                   ))}
@@ -698,24 +698,24 @@ export default function Glossary() {
 
         {!loading && totalCount === 0 && (
           <div className="flex flex-col items-center justify-center py-20 text-center gap-2">
-            <div className="w-12 h-12 rounded-2xl dark:bg-white/[0.04] bg-[#FAF9F6] border dark:border-white/[0.07] border-black/[0.16] flex items-center justify-center mb-2">
+            <div className="w-12 h-12 rounded-2xl dark:bg-white/[0.04] bg-[#FFFFFF] border dark:border-white/[0.07] border-black/[0.16] flex items-center justify-center mb-2">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="text-gray-600">
                 <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
                 <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
               </svg>
             </div>
             <p className="text-[15px] font-medium text-gray-600">No words yet</p>
-            <p className="text-[13px] text-gray-700">Record or import a lecture and Demist will fill this in automatically.</p>
+            <p className="text-[13px] dark:text-white/60 text-gray-700">Record or import a lecture and Demist will fill this in automatically.</p>
             <div className="flex items-center gap-2 mt-3">
               <Link
                 href="/dashboard"
-                className="px-4 py-2 rounded-xl bg-yellow-600 hover:brightness-110 text-white text-[13px] font-semibold transition-all active:scale-[0.97]"
+                className="px-4 py-2 rounded-xl bg-brand-600 hover:brightness-110 text-white text-[13px] font-semibold transition-all active:scale-[0.97]"
               >
                 Start recording
               </Link>
               <Link
                 href="/import"
-                className="px-4 py-2 rounded-xl dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.08] border-black/[0.13] text-[13px] font-medium dark:text-gray-300 text-gray-700 hover:dark:bg-white/[0.08] transition-all active:scale-[0.97]"
+                className="px-4 py-2 rounded-xl dark:bg-white/[0.05] bg-[#F8F6FB] border dark:border-white/[0.08] border-black/[0.13] text-[13px] font-medium dark:text-gray-300 text-gray-700 hover:dark:bg-white/[0.08] transition-all active:scale-[0.97]"
               >
                 Import a file
               </Link>
@@ -738,16 +738,16 @@ export default function Glossary() {
                   </span>
                   {s.name && <span className="text-[12px] text-gray-600 shrink-0">{fmtDate(s.started_at)}</span>}
                   {s.subject && (
-                    <span className="text-[11px] text-gray-700 dark:bg-white/[0.04] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-full px-2 py-[2px] truncate max-w-[100px]">
+                    <span className="text-[11px] dark:text-white/60 text-gray-700 dark:bg-white/[0.04] bg-[#FFFFFF] border dark:border-white/[0.06] border-black/[0.16] rounded-full px-2 py-[2px] truncate max-w-[100px]">
                       {s.subject}
                     </span>
                   )}
-                  <div className="flex-1 h-px dark:bg-white/[0.05] bg-[#F6F5F2]" />
-                  <span className="text-[11px] text-gray-700 shrink-0 tabular-nums">
+                  <div className="flex-1 h-px dark:bg-white/[0.05] bg-[#F8F6FB]" />
+                  <span className="text-[11px] dark:text-white/60 text-gray-700 shrink-0 tabular-nums">
                     {s.terms.length} word{s.terms.length !== 1 ? 's' : ''}
                   </span>
                 </div>
-                <div className="dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl overflow-hidden">
+                <div className="dark:bg-white/[0.03] bg-[#FFFFFF] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl overflow-hidden">
                   {sortTerms(s.terms).map((t, i) => renderTermRow(t, i))}
                 </div>
               </div>
@@ -757,9 +757,9 @@ export default function Glossary() {
               <div>
                 <div className="flex items-center gap-2.5 mb-3">
                   <span className="text-[11px] font-bold text-gray-600 uppercase tracking-[0.14em]">Other</span>
-                  <div className="flex-1 h-px dark:bg-white/[0.05] bg-[#F6F5F2]" />
+                  <div className="flex-1 h-px dark:bg-white/[0.05] bg-[#F8F6FB]" />
                 </div>
-                <div className="dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl overflow-hidden">
+                <div className="dark:bg-white/[0.03] bg-[#FFFFFF] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl overflow-hidden">
                   {sortTerms(filteredOrphans).map((t, i) => renderTermRow(t, i))}
                 </div>
               </div>
@@ -783,10 +783,10 @@ export default function Glossary() {
                   ) : (
                     <span className="text-[11px] font-bold text-gray-600 uppercase tracking-[0.14em] shrink-0">Untagged</span>
                   )}
-                  <div className="flex-1 h-px dark:bg-white/[0.05] bg-[#F6F5F2]" />
-                  <span className="text-[11px] text-gray-700 shrink-0 tabular-nums">{terms.length} word{terms.length !== 1 ? 's' : ''}</span>
+                  <div className="flex-1 h-px dark:bg-white/[0.05] bg-[#F8F6FB]" />
+                  <span className="text-[11px] dark:text-white/60 text-gray-700 shrink-0 tabular-nums">{terms.length} word{terms.length !== 1 ? 's' : ''}</span>
                 </div>
-                <div className="dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl overflow-hidden">
+                <div className="dark:bg-white/[0.03] bg-[#FFFFFF] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl overflow-hidden">
                   {sortTerms(terms).map((t, i) => renderTermRow(t, i))}
                 </div>
               </div>
@@ -799,7 +799,7 @@ export default function Glossary() {
 
       {/* Bulk action bar */}
       {selectMode && selectedIds.size > 0 && (
-        <div className="fixed bottom-0 inset-x-0 z-50 flex items-center justify-between px-4 sm:px-6 py-4 dark:bg-[#0e0e1c]/95 bg-white/95 border-t dark:border-white/[0.07] border-black/[0.10]" style={{ backdropFilter: 'blur(16px)' }}>
+        <div className="fixed bottom-0 inset-x-0 z-50 flex items-center justify-between px-4 sm:px-6 py-4 dark:bg-[#1a1328]/95 bg-white/95 border-t dark:border-white/[0.07] border-black/[0.10]" style={{ backdropFilter: 'blur(16px)' }}>
           <p className="text-[14px] font-medium dark:text-white/80 text-gray-700">
             {selectedIds.size} term{selectedIds.size !== 1 ? 's' : ''} selected
           </p>
@@ -813,7 +813,7 @@ export default function Glossary() {
             <button
               onClick={bulkMarkKnown}
               disabled={bulkWorking}
-              className="text-[13px] font-semibold text-white bg-yellow-600 hover:brightness-110 disabled:opacity-50 px-4 py-1.5 rounded-xl transition-[filter]"
+              className="text-[13px] font-semibold text-white bg-brand-600 hover:brightness-110 disabled:opacity-50 px-4 py-1.5 rounded-xl transition-[filter]"
             >
               {bulkWorking ? 'Working…' : 'Mark as known'}
             </button>

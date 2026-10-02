@@ -121,7 +121,7 @@ export function SummaryViewer({
   return (
     <div ref={containerRef} className="relative">
       <p
-        className="text-[calc(0.8125rem*var(--df-scale))] text-gray-700 leading-relaxed select-text cursor-text"
+        className="text-[calc(0.8125rem*var(--df-scale))] dark:text-white/60 text-gray-700 leading-relaxed select-text cursor-text"
         onPointerUp={handlePointerUp}
       >
         {synopsis}
@@ -134,7 +134,7 @@ export function SummaryViewer({
         <div
           role="dialog"
           aria-label="Term explanation"
-          className="fixed z-[100] bg-[#0e0e1c] border border-amber-500/25 rounded-xl px-4 py-3 shadow-[0_8px_32px_rgba(0,0,0,0.7)]"
+          className="fixed z-[100] bg-[#1a1328] border border-brand-500/25 rounded-xl px-4 py-3 shadow-[0_8px_32px_rgba(0,0,0,0.7)]"
           style={{
             width: POPUP_WIDTH,
             left: popup.x,
@@ -145,7 +145,7 @@ export function SummaryViewer({
           onPointerUp={e => e.stopPropagation()}
         >
           <div className="flex items-start justify-between gap-2 mb-1.5">
-            <p className="text-[10px] font-bold tracking-[0.15em] text-amber-400/60 uppercase line-clamp-2 leading-snug flex-1">
+            <p className="text-[10px] font-bold tracking-[0.15em] text-brand-700/60 dark:text-brand-400/60 uppercase line-clamp-2 leading-snug flex-1">
               {popup.text}
             </p>
             <button
@@ -165,7 +165,7 @@ export function SummaryViewer({
               <button
                 onClick={saveFlashcard}
                 disabled={popup.saving || popup.saved}
-                className="w-full text-[12px] font-medium py-1.5 rounded-lg bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 hover:text-amber-300 transition-all disabled:opacity-50"
+                className="w-full text-[12px] font-medium py-1.5 rounded-lg bg-brand-600/20 hover:bg-brand-600/30 text-brand-700 dark:text-brand-400 hover:text-brand-800 dark:hover:text-brand-300 transition-all disabled:opacity-50"
               >
                 {popup.saveFailed ? "Couldn't save, tap to retry" : popup.saved ? 'Saved ✓' : popup.saving ? 'Saving…' : '+ Save as flashcard'}
               </button>

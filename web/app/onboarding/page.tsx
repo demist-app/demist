@@ -7,6 +7,7 @@ import { capture, identify, reportWriteFailure } from '@/lib/analytics'
 import { recordFirstTouch } from '@/lib/firstTouch'
 import { MINIMUM_AGE, meetsMinimumAge } from '@/lib/age'
 import { LIMITS, useEntitlements, REVERSE_TRIAL_DAYS } from '@/lib/entitlements'
+import { BrandMark } from '@/components/BrandMark'
 
 const YEARS = [
   { value: 1, label: '1st Year' },
@@ -160,17 +161,15 @@ export default function Onboarding() {
   }
 
   return (
-    <main className="relative min-h-dvh dark:bg-[#080810] bg-[#EDEAE3] dark:text-white text-gray-900 flex items-center justify-center px-6 overflow-y-auto py-12">
+    <main className="relative min-h-dvh dark:bg-[#110B1C] bg-[#F3F0F8] dark:text-white text-gray-900 flex items-center justify-center px-6 overflow-y-auto py-12">
       {/* Background glow */}
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-        <div className="w-[800px] h-[800px] rounded-full dark:bg-amber-600/[0.07] bg-yellow-500/[0.12] blur-[140px]" />
+        <div className="w-[800px] h-[800px] rounded-full dark:bg-brand-600/[0.07] bg-brand-500/[0.12] blur-[140px]" />
       </div>
 
       <div className="relative w-full max-w-[420px]">
         {/* Logo */}
-        <p className="text-[13px] font-semibold tracking-[0.2em] text-amber-400/70 uppercase mb-10">
-          Demist
-        </p>
+        <div className="mb-10"><BrandMark /></div>
 
         {/* Step 1 */}
         {step === 1 && (
@@ -189,12 +188,12 @@ export default function Onboarding() {
               onKeyDown={e => e.key === 'Enter' && course.trim() && setStep(2)}
               placeholder="e.g. Molecular Biology, Computer Science…"
               autoFocus
-              className="w-full dark:bg-white/[0.05] bg-[#FAF9F6] border dark:border-white/[0.1] border-black/[0.15] rounded-2xl px-5 py-4 dark:text-white text-gray-900 text-[15px] placeholder-gray-500 focus:outline-none focus:border-amber-500/50 transition-all"
+              className="w-full dark:bg-white/[0.05] bg-[#FFFFFF] border dark:border-white/[0.1] border-black/[0.15] rounded-2xl px-5 py-4 dark:text-white text-gray-900 text-[15px] placeholder-gray-500 focus:outline-none focus:border-brand-500/50 transition-all"
             />
 
             <button
               onClick={() => setStep(2)}
-              className="mt-4 w-full py-4 rounded-2xl text-[15px] font-semibold transition-all bg-amber-600 hover:brightness-[1.1] text-white"
+              className="mt-4 w-full py-4 rounded-2xl text-[15px] font-semibold transition-all bg-brand-600 hover:brightness-[1.1] text-white"
             >
               {course.trim() ? 'Continue →' : 'Skip for now →'}
             </button>
@@ -218,8 +217,8 @@ export default function Onboarding() {
                   onClick={() => setYear(value)}
                   className={`py-4 rounded-2xl text-[15px] font-medium transition-all ${
                     year === value
-                      ? 'bg-amber-600 border border-amber-400/40 text-white shadow-[0_0_24px_rgba(245,158,11,0.35)]'
-                      : 'dark:bg-white/[0.05] bg-[#FAF9F6] border dark:border-white/[0.08] border-black/[0.12] dark:text-gray-300 text-gray-700 dark:hover:bg-white/[0.09] hover:bg-white hover:border-black/[0.2] dark:hover:border-white/[0.15]'
+                      ? 'bg-brand-600 border border-brand-400/40 text-white shadow-[0_0_24px_rgba(124,98,181,0.35)]'
+                      : 'dark:bg-white/[0.05] bg-[#FFFFFF] border dark:border-white/[0.08] border-black/[0.12] dark:text-gray-300 text-gray-700 dark:hover:bg-white/[0.09] hover:bg-white hover:border-black/[0.2] dark:hover:border-white/[0.15]'
                   }`}
                 >
                   {label}
@@ -230,14 +229,14 @@ export default function Onboarding() {
             <div className="flex gap-2.5 mt-4">
               <button
                 onClick={() => setStep(1)}
-                className="px-6 py-4 rounded-2xl text-[15px] font-medium dark:bg-white/[0.05] bg-[#FAF9F6] border dark:border-white/[0.08] border-black/[0.12] dark:text-gray-400 text-gray-700 dark:hover:bg-white/[0.09] hover:bg-white transition-all"
+                className="px-6 py-4 rounded-2xl text-[15px] font-medium dark:bg-white/[0.05] bg-[#FFFFFF] border dark:border-white/[0.08] border-black/[0.12] dark:text-gray-400 text-gray-700 dark:hover:bg-white/[0.09] hover:bg-white transition-all"
               >
                 ←
               </button>
               <button
                 onClick={() => setStep(3)}
                 disabled={!year}
-                className="flex-1 py-4 rounded-2xl text-[15px] font-semibold bg-amber-600 hover:brightness-[1.1] disabled:opacity-25 disabled:cursor-not-allowed text-white transition-all"
+                className="flex-1 py-4 rounded-2xl text-[15px] font-semibold bg-brand-600 hover:brightness-[1.1] disabled:opacity-25 disabled:cursor-not-allowed text-white transition-all"
               >
                 Continue →
               </button>
@@ -262,8 +261,8 @@ export default function Onboarding() {
                   onClick={() => setSupportNeed(value)}
                   className={`w-full py-4 px-5 rounded-2xl text-[15px] font-medium text-left transition-all ${
                     supportNeed === value
-                      ? 'bg-amber-600 border border-amber-400/40 text-white shadow-[0_0_24px_rgba(245,158,11,0.35)]'
-                      : 'dark:bg-white/[0.05] bg-[#FAF9F6] border dark:border-white/[0.08] border-black/[0.12] dark:text-gray-300 text-gray-700 dark:hover:bg-white/[0.09] hover:bg-white hover:border-black/[0.2] dark:hover:border-white/[0.15]'
+                      ? 'bg-brand-600 border border-brand-400/40 text-white shadow-[0_0_24px_rgba(124,98,181,0.35)]'
+                      : 'dark:bg-white/[0.05] bg-[#FFFFFF] border dark:border-white/[0.08] border-black/[0.12] dark:text-gray-300 text-gray-700 dark:hover:bg-white/[0.09] hover:bg-white hover:border-black/[0.2] dark:hover:border-white/[0.15]'
                   }`}
                 >
                   {label}
@@ -274,14 +273,14 @@ export default function Onboarding() {
             <div className="flex gap-2.5 mt-4">
               <button
                 onClick={() => setStep(2)}
-                className="px-6 py-4 rounded-2xl text-[15px] font-medium dark:bg-white/[0.05] bg-[#FAF9F6] border dark:border-white/[0.08] border-black/[0.12] dark:text-gray-400 text-gray-700 dark:hover:bg-white/[0.09] hover:bg-white transition-all"
+                className="px-6 py-4 rounded-2xl text-[15px] font-medium dark:bg-white/[0.05] bg-[#FFFFFF] border dark:border-white/[0.08] border-black/[0.12] dark:text-gray-400 text-gray-700 dark:hover:bg-white/[0.09] hover:bg-white transition-all"
               >
                 ←
               </button>
               <button
                 onClick={() => setStep(4)}
                 disabled={!supportNeed}
-                className="flex-1 py-4 rounded-2xl text-[15px] font-semibold bg-amber-600 hover:brightness-[1.1] disabled:opacity-25 disabled:cursor-not-allowed text-white transition-all"
+                className="flex-1 py-4 rounded-2xl text-[15px] font-semibold bg-brand-600 hover:brightness-[1.1] disabled:opacity-25 disabled:cursor-not-allowed text-white transition-all"
               >
                 Continue →
               </button>
@@ -307,7 +306,7 @@ export default function Onboarding() {
               onChange={e => { setDob(e.target.value); if (saveError) setSaveError(null) }}
               max={new Date().toISOString().slice(0, 10)}
               aria-label="Date of birth"
-              className="w-full dark:bg-white/[0.05] bg-[#FAF9F6] border dark:border-white/[0.1] border-black/[0.15] rounded-2xl px-5 py-4 dark:text-white text-gray-900 text-[15px] placeholder-gray-500 focus:outline-none focus:border-amber-500/50 transition-all"
+              className="w-full dark:bg-white/[0.05] bg-[#FFFFFF] border dark:border-white/[0.1] border-black/[0.15] rounded-2xl px-5 py-4 dark:text-white text-gray-900 text-[15px] placeholder-gray-500 focus:outline-none focus:border-brand-500/50 transition-all"
             />
             {meetsMinimumAge(dob) === false && (
               <p className="text-[13px] text-red-400 mt-3">
@@ -320,14 +319,14 @@ export default function Onboarding() {
             <div className="flex gap-2.5 mt-4">
               <button
                 onClick={() => setStep(3)}
-                className="px-6 py-4 rounded-2xl text-[15px] font-medium dark:bg-white/[0.05] bg-[#FAF9F6] border dark:border-white/[0.08] border-black/[0.12] dark:text-gray-400 text-gray-700 dark:hover:bg-white/[0.09] hover:bg-white transition-all"
+                className="px-6 py-4 rounded-2xl text-[15px] font-medium dark:bg-white/[0.05] bg-[#FFFFFF] border dark:border-white/[0.08] border-black/[0.12] dark:text-gray-400 text-gray-700 dark:hover:bg-white/[0.09] hover:bg-white transition-all"
               >
                 ←
               </button>
               <button
                 onClick={handleFinish}
                 disabled={saving || meetsMinimumAge(dob) !== true}
-                className="flex-1 py-4 rounded-2xl text-[15px] font-semibold bg-amber-600 hover:brightness-[1.1] disabled:opacity-25 disabled:cursor-not-allowed text-white transition-all"
+                className="flex-1 py-4 rounded-2xl text-[15px] font-semibold bg-brand-600 hover:brightness-[1.1] disabled:opacity-25 disabled:cursor-not-allowed text-white transition-all"
               >
                 {saving ? 'Setting up…' : 'Done →'}
               </button>
@@ -353,8 +352,8 @@ export default function Onboarding() {
                   disabled={saving}
                   className={`w-full py-4 px-5 rounded-2xl text-[15px] font-medium text-left transition-all disabled:opacity-40 ${
                     heardFrom === value
-                      ? 'bg-amber-600 border border-amber-400/40 text-white shadow-[0_0_24px_rgba(245,158,11,0.35)]'
-                      : 'dark:bg-white/[0.05] bg-[#FAF9F6] border dark:border-white/[0.08] border-black/[0.12] dark:text-gray-300 text-gray-700 dark:hover:bg-white/[0.09] hover:bg-white hover:border-black/[0.2] dark:hover:border-white/[0.15]'
+                      ? 'bg-brand-600 border border-brand-400/40 text-white shadow-[0_0_24px_rgba(124,98,181,0.35)]'
+                      : 'dark:bg-white/[0.05] bg-[#FFFFFF] border dark:border-white/[0.08] border-black/[0.12] dark:text-gray-300 text-gray-700 dark:hover:bg-white/[0.09] hover:bg-white hover:border-black/[0.2] dark:hover:border-white/[0.15]'
                   }`}
                 >
                   {label}
@@ -371,12 +370,12 @@ export default function Onboarding() {
                   onKeyDown={e => { if (e.key === 'Enter') finishHeardFrom('other', otherText) }}
                   placeholder="Where? (optional)"
                   aria-label="Where did you hear about Demist?"
-                  className="flex-1 px-4 py-3.5 rounded-2xl text-[15px] dark:bg-white/[0.05] bg-[#FAF9F6] border dark:border-white/[0.08] border-black/[0.12] focus:outline-none focus:border-amber-500/60"
+                  className="flex-1 px-4 py-3.5 rounded-2xl text-[15px] dark:bg-white/[0.05] bg-[#FFFFFF] border dark:border-white/[0.08] border-black/[0.12] focus:outline-none focus:border-brand-500/60"
                 />
                 <button
                   onClick={() => finishHeardFrom('other', otherText)}
                   disabled={saving}
-                  className="px-5 rounded-2xl text-[15px] font-semibold bg-amber-600 hover:brightness-[1.1] text-white disabled:opacity-40"
+                  className="px-5 rounded-2xl text-[15px] font-semibold bg-brand-600 hover:brightness-[1.1] text-white disabled:opacity-40"
                 >
                   Done
                 </button>
@@ -403,11 +402,11 @@ export default function Onboarding() {
 
         {/* Step dots */}
         <div className="flex items-center gap-2 mt-10">
-          <div className={`h-1 rounded-full transition-all duration-400 ${step === 1 ? 'w-8 bg-amber-500' : 'w-2 dark:bg-white/20 bg-black/15'}`} />
-          <div className={`h-1 rounded-full transition-all duration-400 ${step === 2 ? 'w-8 bg-amber-500' : 'w-2 dark:bg-white/20 bg-black/15'}`} />
-          <div className={`h-1 rounded-full transition-all duration-400 ${step === 3 ? 'w-8 bg-amber-500' : 'w-2 dark:bg-white/20 bg-black/15'}`} />
-          <div className={`h-1 rounded-full transition-all duration-400 ${step === 4 ? 'w-8 bg-amber-500' : 'w-2 dark:bg-white/20 bg-black/15'}`} />
-          <div className={`h-1 rounded-full transition-all duration-400 ${step === 5 ? 'w-8 bg-amber-500' : 'w-2 dark:bg-white/20 bg-black/15'}`} />
+          <div className={`h-1 rounded-full transition-all duration-400 ${step === 1 ? 'w-8 bg-brand-500' : 'w-2 dark:bg-white/20 bg-black/15'}`} />
+          <div className={`h-1 rounded-full transition-all duration-400 ${step === 2 ? 'w-8 bg-brand-500' : 'w-2 dark:bg-white/20 bg-black/15'}`} />
+          <div className={`h-1 rounded-full transition-all duration-400 ${step === 3 ? 'w-8 bg-brand-500' : 'w-2 dark:bg-white/20 bg-black/15'}`} />
+          <div className={`h-1 rounded-full transition-all duration-400 ${step === 4 ? 'w-8 bg-brand-500' : 'w-2 dark:bg-white/20 bg-black/15'}`} />
+          <div className={`h-1 rounded-full transition-all duration-400 ${step === 5 ? 'w-8 bg-brand-500' : 'w-2 dark:bg-white/20 bg-black/15'}`} />
         </div>
       </div>
     </main>

@@ -51,14 +51,14 @@ function drawCard(canvas: HTMLCanvasElement, termCount: number, featuredTerm?: {
 
   // Background
   const bg = ctx.createLinearGradient(0, 0, 0, H)
-  bg.addColorStop(0, '#0a0a14')
-  bg.addColorStop(1, '#080810')
+  bg.addColorStop(0, '#130d1f')
+  bg.addColorStop(1, '#110B1C')
   ctx.fillStyle = bg
   ctx.fillRect(0, 0, W, H)
 
   // Amber glow top-left
   const glow1 = ctx.createRadialGradient(200, 400, 0, 200, 400, 700)
-  glow1.addColorStop(0, 'rgba(161,98,7,0.18)')
+  glow1.addColorStop(0, 'rgba(91,63,143,0.18)')
   glow1.addColorStop(1, 'transparent')
   ctx.fillStyle = glow1
   ctx.fillRect(0, 0, W, H)
@@ -78,7 +78,7 @@ function drawCard(canvas: HTMLCanvasElement, termCount: number, featuredTerm?: {
   // Wordmark
   ctx.font = 'bold 52px -apple-system, system-ui, sans-serif'
   ctx.letterSpacing = '0.2em'
-  ctx.fillStyle = '#d97706'
+  ctx.fillStyle = '#5b3f8f'
   ctx.fillText('DEMIST', 88, 140)
   ctx.letterSpacing = '0px'
 
@@ -92,7 +92,7 @@ function drawCard(canvas: HTMLCanvasElement, termCount: number, featuredTerm?: {
 
   // Big number
   ctx.font = `bold 280px -apple-system, system-ui, sans-serif`
-  ctx.fillStyle = '#eab308'
+  ctx.fillStyle = '#7c62b5'
   ctx.textAlign = 'center'
   ctx.fillText(String(termCount), W / 2, H / 2 - 80)
 
@@ -136,7 +136,7 @@ function drawCard(canvas: HTMLCanvasElement, termCount: number, featuredTerm?: {
   ctx.stroke()
 
   // Card accent bar
-  ctx.fillStyle = '#d97706'
+  ctx.fillStyle = '#5b3f8f'
   ctx.beginPath()
   ctx.roundRect(cardX + 44, cardY + 52, 8, cardH - 104, 4)
   ctx.fill()
@@ -213,14 +213,14 @@ export function ShareCard({ termCount, featuredTerm, onClose }: Props) {
       style={{ backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}
       onClick={e => e.target === e.currentTarget && onClose()}
     >
-      <div className="w-full max-w-sm dark:bg-[#0f0f17] bg-[#FDFCF9] border dark:border-white/[0.08] border-black/[0.10] rounded-t-[24px] sm:rounded-[24px] shadow-2xl px-6 py-7 animate-step opacity-0" style={{ animationFillMode: 'forwards' }}>
+      <div className="w-full max-w-sm dark:bg-[#181121] bg-[#FFFFFF] border dark:border-white/[0.08] border-black/[0.10] rounded-t-[24px] sm:rounded-[24px] shadow-2xl px-6 py-7 animate-step opacity-0" style={{ animationFillMode: 'forwards' }}>
         <div className="flex items-center justify-between mb-5">
           <p className="text-[16px] font-bold dark:text-white text-gray-900">Share your stats</p>
           <button onClick={onClose} aria-label="Close" className="w-7 h-7 flex items-center justify-center dark:text-white/30 text-gray-400 dark:hover:text-white/60 hover:text-gray-600 transition-colors text-[20px] leading-none">×</button>
         </div>
 
         {/* Preview */}
-        <div className="relative rounded-2xl overflow-hidden mb-5 aspect-[9/16] dark:bg-[#080810] bg-gray-900 flex items-center justify-center">
+        <div className="relative rounded-2xl overflow-hidden mb-5 aspect-[9/16] dark:bg-[#110B1C] bg-gray-900 flex items-center justify-center">
           <canvas
             ref={canvasRef}
             className="w-full h-full object-contain"
@@ -245,13 +245,13 @@ export function ShareCard({ termCount, featuredTerm, onClose }: Props) {
           <button
             onClick={share}
             disabled={sharing}
-            className="w-full py-3.5 rounded-2xl bg-yellow-600 hover:brightness-110 text-white text-[14px] font-semibold active:scale-[0.97] transition-[filter,transform] duration-150 disabled:opacity-60"
+            className="w-full py-3.5 rounded-2xl bg-brand-600 hover:brightness-110 text-white text-[14px] font-semibold active:scale-[0.97] transition-[filter,transform] duration-150 disabled:opacity-60"
           >
             {sharing ? 'Sharing…' : typeof navigator !== 'undefined' && 'share' in navigator ? 'Share image' : 'Download image'}
           </button>
           <button
             onClick={onClose}
-            className="w-full py-3 rounded-2xl dark:bg-white/[0.04] bg-[#F3F1EC] border dark:border-white/[0.07] border-black/[0.12] text-[14px] font-medium dark:text-gray-300 text-gray-700 active:scale-[0.97] transition-all"
+            className="w-full py-3 rounded-2xl dark:bg-white/[0.04] bg-[#F1EEF7] border dark:border-white/[0.07] border-black/[0.12] text-[14px] font-medium dark:text-gray-300 text-gray-700 active:scale-[0.97] transition-all"
           >
             Cancel
           </button>

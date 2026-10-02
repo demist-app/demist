@@ -512,9 +512,9 @@ export default function History() {
   const allSelected = visibleSessions.length > 0 && visibleSessions.every(s => selectedIds.has(s.id))
 
   return (
-    <main className="min-h-dvh dark:bg-[#080810] bg-[#EDEAE3] dark:text-white text-gray-900 flex flex-col nav-bottom-pad">
+    <main className="min-h-dvh dark:bg-[#110B1C] bg-[#F3F0F8] dark:text-white text-gray-900 flex flex-col nav-bottom-pad">
       <div aria-hidden className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
-        <div className="absolute -top-32 -left-32 w-[500px] h-[500px] rounded-full bg-yellow-700/[0.05] blur-[120px]" />
+        <div className="absolute -top-32 -left-32 w-[500px] h-[500px] rounded-full bg-brand-700/[0.05] blur-[120px]" />
       </div>
 
       <header className="relative z-10 shrink-0 flex items-center justify-between px-4 sm:px-6 h-14 border-b dark:border-white/[0.05] border-black/[0.06]">
@@ -530,7 +530,7 @@ export default function History() {
             <>
               <button
                 onClick={allSelected ? deselectAll : selectAll}
-                className="text-[13px] text-yellow-600 dark:text-yellow-400 hover:opacity-80 transition-opacity px-2 py-1"
+                className="text-[13px] text-brand-600 dark:text-brand-400 hover:opacity-80 transition-opacity px-2 py-1"
               >
                 {allSelected ? 'Deselect all' : 'Select all'}
               </button>
@@ -561,7 +561,7 @@ export default function History() {
               <button
                 key={s}
                 onClick={() => setSubjectFilter(subjectFilter === s ? null : s)}
-                className={`shrink-0 text-[12px] font-medium px-3 py-1.5 rounded-full border transition-colors ${subjectFilter === s ? 'bg-amber-500 text-white border-amber-500' : 'dark:border-white/10 border-black/10 text-gray-600 dark:hover:border-white/20 hover:border-black/20'}`}
+                className={`shrink-0 text-[12px] font-medium px-3 py-1.5 rounded-full border transition-colors ${subjectFilter === s ? 'bg-brand-500 text-white border-brand-500' : 'dark:border-white/10 border-black/10 text-gray-600 dark:hover:border-white/20 hover:border-black/20'}`}
               >
                 {s}
               </button>
@@ -576,17 +576,17 @@ export default function History() {
             <div className="animate-pulse space-y-6">
               {[0,1].map(g => (
                 <div key={g}>
-                  <div className="h-2 w-16 dark:bg-white/[0.05] bg-[#F6F5F2] rounded-full mb-3" />
+                  <div className="h-2 w-16 dark:bg-white/[0.05] bg-[#F8F6FB] rounded-full mb-3" />
                   <div className="space-y-2">
                     {[0,1,2].map(i => (
-                      <div key={i} className="flex items-center gap-3 dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl px-4 py-3">
+                      <div key={i} className="flex items-center gap-3 dark:bg-white/[0.03] bg-[#FFFFFF] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl px-4 py-3">
                         <div className="flex-1 flex flex-col gap-2">
-                          <div className="h-3.5 w-40 dark:bg-white/[0.07] bg-[#EFEDE7] rounded-full" />
-                          <div className="h-3 w-24 dark:bg-white/[0.05] bg-[#F6F5F2] rounded-full" />
+                          <div className="h-3.5 w-40 dark:bg-white/[0.07] bg-[#ECE8F4] rounded-full" />
+                          <div className="h-3 w-24 dark:bg-white/[0.05] bg-[#F8F6FB] rounded-full" />
                         </div>
                         <div className="flex flex-col items-end gap-1.5 mr-8">
-                          <div className="h-4 w-6 dark:bg-white/[0.07] bg-[#EFEDE7] rounded" />
-                          <div className="h-2.5 w-8 dark:bg-white/[0.05] bg-[#F6F5F2] rounded-full" />
+                          <div className="h-4 w-6 dark:bg-white/[0.07] bg-[#ECE8F4] rounded" />
+                          <div className="h-2.5 w-8 dark:bg-white/[0.05] bg-[#F8F6FB] rounded-full" />
                         </div>
                       </div>
                     ))}
@@ -599,10 +599,10 @@ export default function History() {
           {!loading && sessions.length === 0 && lockedSessions.length === 0 && (
             <div className="flex flex-col items-center justify-center py-16 text-center gap-2">
               <p className="text-gray-600 text-[14px] font-medium">No sessions yet</p>
-              <p className="text-gray-700 text-[13px]">Record or import a lecture to get started.</p>
+              <p className="dark:text-white/60 text-gray-700 text-[13px]">Record or import a lecture to get started.</p>
               <div className="flex items-center gap-2 mt-2">
-                <a href="/dashboard" className="px-4 py-2 rounded-xl bg-yellow-600 hover:brightness-110 text-white text-[13px] font-semibold transition-all active:scale-[0.97]">Start recording</a>
-                <a href="/import" className="px-4 py-2 rounded-xl dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.08] border-black/[0.13] text-[13px] font-medium dark:text-gray-300 text-gray-700 hover:dark:bg-white/[0.08] transition-all active:scale-[0.97]">Import a file</a>
+                <a href="/dashboard" className="px-4 py-2 rounded-xl bg-brand-600 hover:brightness-110 text-white text-[13px] font-semibold transition-all active:scale-[0.97]">Start recording</a>
+                <a href="/import" className="px-4 py-2 rounded-xl dark:bg-white/[0.05] bg-[#F8F6FB] border dark:border-white/[0.08] border-black/[0.13] text-[13px] font-medium dark:text-gray-300 text-gray-700 hover:dark:bg-white/[0.08] transition-all active:scale-[0.97]">Import a file</a>
               </div>
             </div>
           )}
@@ -619,10 +619,10 @@ export default function History() {
                     <div
                       key={s.id}
                       id={`session-${s.id}`}
-                      className={`dark:bg-white/[0.03] bg-[#FAF9F6] border rounded-2xl overflow-hidden transition-colors duration-150 ${
+                      className={`dark:bg-white/[0.03] bg-[#FFFFFF] border rounded-2xl overflow-hidden transition-colors duration-150 ${
                         isSelected
-                          ? 'dark:border-yellow-500/40 border-yellow-500/50 dark:bg-yellow-500/[0.05] bg-yellow-50'
-                          : 'dark:border-white/[0.07] border-black/[0.16] hover:bg-yellow-500/[0.04] hover:border-yellow-500/[0.15]'
+                          ? 'dark:border-brand-500/40 border-brand-500/50 dark:bg-brand-500/[0.05] bg-brand-50'
+                          : 'dark:border-white/[0.07] border-black/[0.16] hover:bg-brand-500/[0.04] hover:border-brand-500/[0.15]'
                       }`}
                     >
                       <div className="flex items-center px-4 py-3.5 gap-3">
@@ -631,8 +631,8 @@ export default function History() {
                             onClick={() => toggleSelect(s.id)}
                             className="shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors"
                             style={{
-                              borderColor: isSelected ? '#D97706' : 'rgba(107,114,128,0.5)',
-                              background: isSelected ? '#D97706' : 'transparent',
+                              borderColor: isSelected ? '#5B3F8F' : 'rgba(107,114,128,0.5)',
+                              background: isSelected ? '#5B3F8F' : 'transparent',
                             }}
                           >
                             {isSelected && (
@@ -659,7 +659,7 @@ export default function History() {
                               }}
                               placeholder={sessionLabel(n, s.started_at)}
                               maxLength={80}
-                              className="text-[14px] font-medium bg-transparent border-b border-yellow-500/50 focus:outline-none dark:text-white/90 text-gray-900 w-full pb-0.5"
+                              className="text-[14px] font-medium bg-transparent border-b border-brand-500/50 focus:outline-none dark:text-white/90 text-gray-900 w-full pb-0.5"
                             />
                           ) : (
                             <div
@@ -677,7 +677,7 @@ export default function History() {
                                   title="Click to name this session"
                                 >
                                   {sessionLabel(n, s.started_at)}
-                                  <span className="ml-1.5 text-[11px] text-gray-700 font-normal">+ name</span>
+                                  <span className="ml-1.5 text-[11px] dark:text-white/60 text-gray-700 font-normal">+ name</span>
                                 </button>
                               )}
                             </div>
@@ -688,7 +688,7 @@ export default function History() {
                               {fmtDuration(s.started_at, s.ended_at) && ` · ${fmtDuration(s.started_at, s.ended_at)}`}
                             </p>
                             {s.subject && (
-                              <span className="text-[10px] font-medium dark:text-yellow-400/80 text-yellow-700 dark:bg-yellow-500/10 bg-yellow-500/[0.08] border dark:border-yellow-500/20 border-yellow-600/20 rounded-full px-2 py-px truncate max-w-[120px]">
+                              <span className="text-[10px] font-medium dark:text-brand-400/80 text-brand-700 dark:bg-brand-500/10 bg-brand-500/[0.08] border dark:border-brand-500/20 border-brand-600/20 rounded-full px-2 py-px truncate max-w-[120px]">
                                 {s.subject}
                               </span>
                             )}
@@ -696,7 +696,7 @@ export default function History() {
                           {!s.expanded && s.preview.length > 0 && (
                             <div className="flex items-center gap-1.5 mt-2 overflow-hidden">
                               {s.preview.map((t, ti) => (
-                                <span key={ti} className="text-[11px] dark:text-white/60 text-gray-600 dark:bg-white/[0.04] bg-[#F3F1EC] border dark:border-white/[0.06] border-black/[0.08] rounded-full px-2 py-0.5 truncate shrink-0 max-w-[140px]">
+                                <span key={ti} className="text-[11px] dark:text-white/60 text-gray-600 dark:bg-white/[0.04] bg-[#F1EEF7] border dark:border-white/[0.06] border-black/[0.08] rounded-full px-2 py-0.5 truncate shrink-0 max-w-[140px]">
                                   {t.length > 20 ? `${t.slice(0, 20)}…` : t}
                                 </span>
                               ))}
@@ -709,7 +709,7 @@ export default function History() {
 
                         <div className="flex items-center gap-2 shrink-0">
                           <div className="text-right mr-1">
-                            <p className="text-[14px] font-semibold dark:text-yellow-400 text-yellow-700">{s.termCount}</p>
+                            <p className="text-[14px] font-semibold dark:text-brand-400 text-brand-700">{s.termCount}</p>
                             <p className="text-[11px] text-gray-600">words</p>
                           </div>
 
@@ -719,7 +719,7 @@ export default function History() {
                                 <div className="flex items-center gap-1">
                                   <button
                                     onClick={() => setConfirmingId(null)}
-                                    className="text-[12px] text-gray-700 hover:text-gray-500 transition-colors px-2 py-1"
+                                    className="text-[12px] dark:text-white/60 text-gray-700 hover:text-gray-500 transition-colors px-2 py-1"
                                   >
                                     Cancel
                                   </button>
@@ -736,14 +736,14 @@ export default function History() {
                                   <button
                                     onClick={() => startRename(s)}
                                     title="Rename session"
-                                    className="text-gray-700 hover:dark:text-yellow-400 hover:text-yellow-700 transition-colors p-1"
+                                    className="text-gray-700 hover:dark:text-brand-400 hover:text-brand-700 transition-colors p-1"
                                   >
                                     <PencilIcon />
                                   </button>
                                   <button
                                     onClick={() => setConfirmingId(s.id)}
                                     title="Delete session"
-                                    className="text-gray-700 hover:text-red-400 transition-colors p-1"
+                                    className="dark:text-white/60 text-gray-700 hover:text-red-400 transition-colors p-1"
                                   >
                                     <TrashIcon />
                                   </button>
@@ -768,11 +768,11 @@ export default function History() {
                               <SummaryViewer synopsis={s.synopsis} sessionId={s.id} subject={s.subject} year={null} />
                             </div>
                           ) : generatingIds.has(s.id) ? (
-                            <p className="text-[12px] text-gray-700 pt-3 pb-1">Generating summary…</p>
+                            <p className="text-[12px] dark:text-white/60 text-gray-700 pt-3 pb-1">Generating summary…</p>
                           ) : failedIds.has(s.id) ? (
                             <div className="flex items-center gap-3 pt-3 pb-1">
-                              <p className="text-[12px] text-gray-700">{summaryFailureMessage(failReasons[s.id])}</p>
-                              <button onClick={() => retrySummarize(s)} className="text-[12px] text-yellow-500 hover:dark:text-yellow-400 hover:text-yellow-700 transition-colors shrink-0">Retry</button>
+                              <p className="text-[12px] dark:text-white/60 text-gray-700">{summaryFailureMessage(failReasons[s.id])}</p>
+                              <button onClick={() => retrySummarize(s)} className="text-[12px] text-brand-500 hover:dark:text-brand-400 hover:text-brand-700 transition-colors shrink-0">Retry</button>
                             </div>
                           ) : null}
 
@@ -811,15 +811,15 @@ export default function History() {
                           ) : s.capture_mode === 'microphone' ? (
                             <p className="text-[12px] text-gray-500 dark:text-white/60 mt-2 leading-relaxed">
                               Live sessions keep your glossary, not the lecture transcript.{' '}
-                              <span className="text-amber-600 dark:text-amber-400">Set a support need in your profile, or ask your lecturer, to unlock full notes.</span>
+                              <span className="text-brand-600 dark:text-brand-400">Set a support need in your profile, or ask your lecturer, to unlock full notes.</span>
                             </p>
                           ) : null}
 
-                          {loadingTerms === s.id && <p className="text-gray-700 text-[13px] py-3">Loading…</p>}
+                          {loadingTerms === s.id && <p className="dark:text-white/60 text-gray-700 text-[13px] py-3">Loading…</p>}
                           {s.terms && s.terms.length === 0 && (
                             <div className="py-3">
-                              <p className="text-gray-700 text-[13px]">No terms were detected. Check your microphone is picking up audio clearly.</p>
-                              <a href="/dashboard" className="inline-block mt-1.5 text-[13px] dark:text-yellow-400 text-yellow-700 hover:opacity-80 transition-opacity">
+                              <p className="dark:text-white/60 text-gray-700 text-[13px]">No terms were detected. Check your microphone is picking up audio clearly.</p>
+                              <a href="/dashboard" className="inline-block mt-1.5 text-[13px] dark:text-brand-400 text-brand-700 hover:opacity-80 transition-opacity">
                                 Try another recording →
                               </a>
                             </div>
@@ -838,7 +838,7 @@ export default function History() {
                                           onChange={e => setEditTermName(e.target.value)}
                                           onKeyDown={e => { if (e.key === 'Escape') cancelEditTerm() }}
                                           placeholder="Term name"
-                                          className="w-full text-[13px] font-semibold dark:text-white text-gray-900 dark:bg-white/[0.05] bg-[#EFEDE7] border dark:border-amber-500/30 border-amber-500/40 rounded-lg px-2.5 py-1.5 focus:outline-none"
+                                          className="w-full text-[13px] font-semibold dark:text-white text-gray-900 dark:bg-white/[0.05] bg-[#ECE8F4] border dark:border-brand-500/30 border-brand-500/40 rounded-lg px-2.5 py-1.5 focus:outline-none"
                                         />
                                         <textarea
                                           value={editTermDef}
@@ -849,13 +849,13 @@ export default function History() {
                                           }}
                                           rows={2}
                                           placeholder="Definition"
-                                          className="w-full text-[12px] dark:text-white/80 text-gray-700 dark:bg-white/[0.05] bg-[#EFEDE7] border dark:border-amber-500/30 border-amber-500/40 rounded-lg px-2.5 py-1.5 resize-none focus:outline-none leading-relaxed"
+                                          className="w-full text-[12px] dark:text-white/80 text-gray-700 dark:bg-white/[0.05] bg-[#ECE8F4] border dark:border-brand-500/30 border-brand-500/40 rounded-lg px-2.5 py-1.5 resize-none focus:outline-none leading-relaxed"
                                         />
                                         <div className="flex items-center gap-2">
                                           <button
                                             onClick={() => saveEditTerm(t.id)}
                                             disabled={savingTermId === t.id}
-                                            className="text-[11px] font-semibold text-amber-400 hover:text-amber-300 disabled:opacity-40 transition-colors"
+                                            className="text-[11px] font-semibold text-brand-700 dark:text-brand-400 hover:text-brand-800 dark:hover:text-brand-300 disabled:opacity-40 transition-colors"
                                           >
                                             {savingTermId === t.id ? 'Saving…' : 'Save'}
                                           </button>
@@ -873,7 +873,7 @@ export default function History() {
                                         <button
                                           onClick={() => startEditTerm(t)}
                                           title="Edit term"
-                                          className="shrink-0 mt-0.5 p-0.5 text-gray-700 hover:dark:text-yellow-400 hover:text-yellow-700 transition-colors opacity-0 group-hover:opacity-100"
+                                          className="shrink-0 mt-0.5 p-0.5 text-gray-700 hover:dark:text-brand-400 hover:text-brand-700 transition-colors opacity-0 group-hover:opacity-100"
                                         >
                                           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
@@ -913,9 +913,9 @@ export default function History() {
           {limits.historyDays != null && totalCount > sessions.length && (
             <button
               onClick={() => setPaywall('history_depth')}
-              className="w-full mt-2 rounded-2xl px-5 py-4 text-left border dark:border-amber-500/25 border-amber-600/25 dark:bg-amber-500/[0.06] bg-amber-500/[0.08] hover:brightness-105 active:scale-[0.99] transition-all"
+              className="w-full mt-2 rounded-2xl px-5 py-4 text-left border dark:border-brand-500/25 border-brand-600/25 dark:bg-brand-500/[0.06] bg-brand-500/[0.08] hover:brightness-105 active:scale-[0.99] transition-all"
             >
-              <p className="text-[14px] font-semibold dark:text-amber-300 text-amber-800">
+              <p className="text-[14px] font-semibold dark:text-brand-300 text-brand-800">
                 {totalCount - sessions.length} older {totalCount - sessions.length === 1 ? 'lecture is' : 'lectures are'} waiting in Pro
               </p>
               <p className="text-[12.5px] mt-1 leading-relaxed dark:text-white/55 text-gray-600">
@@ -930,10 +930,10 @@ export default function History() {
                 <button
                   key={l.id}
                   onClick={() => { capture('history_locked_row_clicked', { terms: l.termCount }); setPaywall('history_locked') }}
-                  className="w-full flex items-center gap-3 rounded-2xl px-4 py-3 text-left border dark:border-white/[0.06] border-black/[0.08] dark:bg-white/[0.02] bg-[#FAF9F6] opacity-70 hover:opacity-100 transition-opacity"
+                  className="w-full flex items-center gap-3 rounded-2xl px-4 py-3 text-left border dark:border-white/[0.06] border-black/[0.08] dark:bg-white/[0.02] bg-[#FFFFFF] opacity-70 hover:opacity-100 transition-opacity"
                   aria-label="Locked lecture. Upgrade to Pro to open it."
                 >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 dark:text-amber-400/70 text-amber-700/70" aria-hidden="true">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 dark:text-brand-400/70 text-brand-700/70" aria-hidden="true">
                     <rect x="4" y="11" width="16" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" />
                   </svg>
                   <span className="flex-1 min-w-0">
@@ -956,7 +956,7 @@ export default function History() {
 
       {/* Bulk action bar */}
       {selectMode && selectedIds.size > 0 && (
-        <div className="fixed bottom-0 inset-x-0 z-50 flex items-center justify-between px-4 sm:px-6 py-4 dark:bg-[#0e0e1c]/95 bg-white/95 border-t dark:border-white/[0.07] border-black/[0.10]" style={{ backdropFilter: 'blur(16px)' }}>
+        <div className="fixed bottom-0 inset-x-0 z-50 flex items-center justify-between px-4 sm:px-6 py-4 dark:bg-[#1a1328]/95 bg-white/95 border-t dark:border-white/[0.07] border-black/[0.10]" style={{ backdropFilter: 'blur(16px)' }}>
           <p className="text-[14px] font-medium dark:text-white/80 text-gray-700">
             {selectedIds.size} session{selectedIds.size !== 1 ? 's' : ''} selected
           </p>

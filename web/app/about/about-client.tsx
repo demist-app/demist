@@ -112,7 +112,7 @@ export function AboutClient() {
           <a
             href="/login"
             className="inline-block px-7 py-3.5 rounded-2xl text-[14px] font-semibold transition-colors"
-            style={{ background: 'var(--accent)', color: 'var(--accent-fg, #fff)' }}
+            style={{ background: 'var(--accent-solid)', color: '#fff' }}
           >
             Try Demist free
           </a>

@@ -123,14 +123,14 @@ function offlinePage(reason) {
   :root { color-scheme: dark light }
   body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
          font: 15px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif;
-         background:#12100c; color:#efe9df; text-align:center; padding:2rem }
+         background:#110B1C; color:#EEEAF6; text-align:center; padding:2rem }
   .card { max-width: 30rem }
   h1 { font-size:1.35rem; margin:0 0 .6rem; font-weight:600 }
-  p { margin:0 0 1rem; color:#b6ada0 }
-  code { color:#8d8377; font-size:13px }
+  p { margin:0 0 1rem; color:#B7AECB }
+  code { color:#8E85A3; font-size:13px }
   button { font:inherit; font-weight:600; padding:.6rem 1.4rem; border-radius:999px; cursor:pointer;
-           border:1px solid rgba(234,179,8,.4); background:rgba(234,179,8,.12); color:#f7d67a }
-  button:hover { background:rgba(234,179,8,.2) }
+           border:1px solid rgba(195,178,234,.4); background:rgba(195,178,234,.12); color:#D6CBF1 }
+  button:hover { background:rgba(195,178,234,.2) }
 </style>
 <div class="card">
   <h1>Demist can't reach the internet</h1>

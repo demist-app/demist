@@ -183,16 +183,16 @@ export function PaywallModal({
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
       <div
-        className="w-full max-w-md dark:bg-[#0d0d1c] bg-[#FDFCF9] border dark:border-white/[0.08] border-black/[0.12] rounded-[28px] shadow-2xl overflow-y-auto overscroll-contain"
+        className="w-full max-w-md dark:bg-[#1a1328] bg-[#FFFFFF] border dark:border-white/[0.08] border-black/[0.12] rounded-[28px] shadow-2xl overflow-y-auto overscroll-contain"
         style={{ maxHeight: '90vh' }}
       >
         <div className="p-6 space-y-5">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3">
               <div
-                className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 dark:bg-amber-500/[0.12] bg-amber-500/[0.14] border dark:border-amber-500/25 border-amber-600/25"
+                className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 dark:bg-brand-500/[0.12] bg-brand-500/[0.14] border dark:border-brand-500/25 border-brand-600/25"
               >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="text-amber-600 dark:text-amber-400">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="text-brand-600 dark:text-brand-400">
                   <path fill="currentColor" d="M12 1.5l2.6 6.6 7.1.5-5.5 4.5 1.9 6.9L12 15.9l-6.1 4.1 1.9-6.9-5.5-4.5 7.1-.5z" />
                 </svg>
               </div>
@@ -224,7 +224,7 @@ export function PaywallModal({
           <ul className="space-y-2">
             {PRO_POINTS.map(p => (
               <li key={p} className="text-[13px] dark:text-white/70 text-gray-700 flex items-center gap-2.5">
-                <span className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 dark:bg-amber-500/20 bg-amber-500/20 text-amber-600 dark:text-amber-400">
+                <span className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 dark:bg-brand-500/20 bg-brand-500/20 text-brand-600 dark:text-brand-400">
                   <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
                 </span>
                 {p}
@@ -244,16 +244,16 @@ export function PaywallModal({
                       onClick={() => setCheckoutInterval(i)}
                       className={`relative rounded-2xl p-3 text-left border transition-colors ${
                         active
-                          ? 'bg-amber-600/[0.1] border-amber-600/40'
+                          ? 'bg-brand-600/[0.1] border-brand-600/40'
                           : 'dark:bg-white/[0.03] bg-black/[0.02] dark:border-white/[0.08] border-black/[0.08] hover:dark:bg-white/[0.05] hover:bg-black/[0.04]'
                       }`}
                     >
                       {i === 'year' && savingsPct && (
-                        <span className="absolute -top-2 right-2 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-600 text-white">
+                        <span className="absolute -top-2 right-2 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-brand-600 text-white">
                           Save {savingsPct}%
                         </span>
                       )}
-                      <p className={`text-[12px] font-medium ${active ? 'text-amber-700 dark:text-amber-400' : 'dark:text-white/60 text-gray-600'}`}>
+                      <p className={`text-[12px] font-medium ${active ? 'text-brand-700 dark:text-brand-400' : 'dark:text-white/60 text-gray-600'}`}>
                         {i === 'year' ? 'Annual' : 'Monthly'}
                       </p>
                       <p className="text-[17px] font-bold dark:text-white text-gray-900 mt-0.5 tabular-nums">
@@ -266,7 +266,7 @@ export function PaywallModal({
               <button
                 onClick={startCheckout}
                 disabled={checkoutLoading}
-                className="w-full py-3.5 rounded-2xl bg-amber-600 hover:brightness-110 text-white text-[14px] font-semibold active:scale-[0.97] transition-[filter,transform] duration-150 disabled:opacity-50"
+                className="w-full py-3.5 rounded-2xl bg-brand-600 hover:brightness-110 text-white text-[14px] font-semibold active:scale-[0.97] transition-[filter,transform] duration-150 disabled:opacity-50"
               >
                 {checkoutLoading ? 'Loading checkout…' : `Continue${selectedPriceText ? ` · ${selectedPriceText}/${checkoutInterval === 'year' ? 'year' : 'month'}` : ''}`}
               </button>
@@ -296,7 +296,7 @@ export function PaywallModal({
                 <button
                   onClick={join}
                   disabled={state === 'saving' || !email.trim()}
-                  className="shrink-0 px-4 py-2.5 rounded-xl bg-amber-600 text-white text-[13px] font-semibold active:scale-[0.97] transition-transform disabled:opacity-40"
+                  className="shrink-0 px-4 py-2.5 rounded-xl bg-brand-600 text-white text-[13px] font-semibold active:scale-[0.97] transition-transform disabled:opacity-40"
                 >
                   {state === 'saving' ? '…' : 'Join waitlist'}
                 </button>

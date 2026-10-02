@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase'
 import { isElectronNative } from '@/lib/electronNative'
 import posthog from 'posthog-js'
 import { identify } from '@/lib/analytics'
+import { BrandMark } from '@/components/BrandMark'
 
 type Step = 'email' | 'code'
 
@@ -210,16 +211,14 @@ export default function Login() {
   }
 
   return (
-    <main className="relative min-h-dvh dark:bg-[#080810] bg-[#EDEAE3] dark:text-white text-gray-900 flex items-center justify-center px-6 overflow-y-auto py-12">
+    <main className="relative min-h-dvh dark:bg-[#110B1C] bg-[#F3F0F8] dark:text-white text-gray-900 flex items-center justify-center px-6 overflow-y-auto py-12">
       {/* Ambient glow */}
       <div aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center">
-        <div className="w-[700px] h-[700px] rounded-full dark:bg-yellow-600/[0.07] bg-yellow-500/[0.12] blur-[130px]" />
+        <div className="w-[700px] h-[700px] rounded-full dark:bg-brand-600/[0.07] bg-brand-500/[0.12] blur-[130px]" />
       </div>
 
       <div className="relative w-full max-w-[400px]">
-        <p className="text-[11px] font-bold tracking-[0.22em] uppercase mb-10" style={{ color: 'var(--accent)' }}>
-          Demist
-        </p>
+        <div className="mb-10"><BrandMark /></div>
 
         {/* ── Email step ── */}
         {step === 'email' && (
@@ -228,7 +227,7 @@ export default function Login() {
             <h1 className="text-[30px] sm:text-[36px] font-bold tracking-tight leading-tight mb-2">
               {isDesktop ? 'Get started' : 'Sign in'}
             </h1>
-            <p className="text-gray-700 mb-8">
+            <p className="dark:text-white/60 text-gray-700 mb-8">
               {isDesktop
                 ? 'Demist transcribes on this computer, so your lecture audio never leaves it. You don’t need an account to use it.'
                 : 'We’ll send a code to your email, no password needed.'}
@@ -241,7 +240,7 @@ export default function Login() {
                   onClick={handleGuestStart}
                   disabled={guestLoading}
                   className="w-full py-4 rounded-2xl text-[15px] font-semibold text-white disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-[0.97]"
-                  style={{ background: 'var(--accent)' }}
+                  style={{ background: 'var(--accent-solid)' }}
                 >
                   {guestLoading ? 'Setting up…' : 'Start without an account'}
                 </button>
@@ -274,7 +273,7 @@ export default function Login() {
                 // is meant to be the answer for most people.
                 autoFocus={!isDesktop}
                 required
-                className="w-full dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.1] border-black/[0.15] rounded-2xl px-5 py-4 dark:text-white text-gray-900 text-[15px] placeholder-gray-500 focus:outline-none transition-all"
+                className="w-full dark:bg-white/[0.05] bg-[#F8F6FB] border dark:border-white/[0.1] border-black/[0.15] rounded-2xl px-5 py-4 dark:text-white text-gray-900 text-[15px] placeholder-gray-500 focus:outline-none transition-all"
                 style={{ '--tw-ring-color': 'var(--accent)' } as React.CSSProperties}
                 onFocus={e => (e.target.style.borderColor = 'var(--accent)')}
                 onBlur={e => (e.target.style.borderColor = '')}
@@ -287,10 +286,10 @@ export default function Login() {
                 disabled={loading || !email.trim()}
                 className={`py-4 rounded-2xl text-[15px] font-semibold disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-[0.97] ${
                   isDesktop
-                    ? 'dark:bg-white/[0.06] bg-[#F6F5F2] border dark:border-white/[0.12] border-black/[0.15] dark:text-white text-gray-900'
+                    ? 'dark:bg-white/[0.06] bg-[#F8F6FB] border dark:border-white/[0.12] border-black/[0.15] dark:text-white text-gray-900'
                     : 'text-white'
                 }`}
-                style={isDesktop ? undefined : { background: 'var(--accent)' }}
+                style={isDesktop ? undefined : { background: 'var(--accent-solid)' }}
               >
                 {loading ? 'Sending…' : 'Send code'}
               </button>
@@ -304,7 +303,7 @@ export default function Login() {
             <h1 className="text-[30px] sm:text-[36px] font-bold tracking-tight leading-tight mb-2">
               Check your email
             </h1>
-            <p className="text-gray-700 mb-1">
+            <p className="dark:text-white/60 text-gray-700 mb-1">
               We sent a sign-in code to
             </p>
             <p className="font-medium mb-2">{email}</p>
@@ -333,7 +332,7 @@ export default function Login() {
                   setCode(pasted)
                 }}
                 placeholder="000000"
-                className="w-full dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.1] border-black/[0.15] rounded-2xl px-5 py-4 dark:text-white text-gray-900 text-[22px] font-mono tracking-[0.3em] text-center placeholder-gray-500 focus:outline-none transition-all"
+                className="w-full dark:bg-white/[0.05] bg-[#F8F6FB] border dark:border-white/[0.1] border-black/[0.15] rounded-2xl px-5 py-4 dark:text-white text-gray-900 text-[22px] font-mono tracking-[0.3em] text-center placeholder-gray-500 focus:outline-none transition-all"
                 onFocus={e => (e.target.style.borderColor = 'var(--accent)')}
                 onBlur={e => (e.target.style.borderColor = '')}
               />
@@ -341,7 +340,7 @@ export default function Login() {
                 type="submit"
                 disabled={loading || code.length < 6}
                 className="py-4 rounded-2xl text-[15px] font-semibold text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-[0.97]"
-                style={{ background: 'var(--accent)' }}
+                style={{ background: 'var(--accent-solid)' }}
               >
                 {loading ? 'Verifying…' : 'Verify →'}
               </button>

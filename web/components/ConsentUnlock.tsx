@@ -109,7 +109,7 @@ export function ConsentModal({
       aria-modal="true"
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className="w-full max-w-md dark:bg-[#0d0d1c] bg-[#FDFCF9] border dark:border-white/[0.08] border-black/[0.12] rounded-[24px] p-6 space-y-4">
+      <div className="w-full max-w-md dark:bg-[#1a1328] bg-[#FFFFFF] border dark:border-white/[0.08] border-black/[0.12] rounded-[24px] p-6 space-y-4">
         <div className="flex items-start justify-between gap-2">
           <p className="text-[17px] font-bold dark:text-white text-gray-900 leading-snug">Lecturer consent</p>
           <button onClick={onClose} aria-label="Close" className="text-gray-500 hover:dark:text-white/60 hover:text-gray-900 text-[22px] leading-none transition-colors shrink-0 mt-[-2px]">×</button>
@@ -121,12 +121,12 @@ export function ConsentModal({
           <strong className="dark:text-white/80 text-gray-800">{module}</strong> sessions.
         </p>
 
-        <div className="dark:bg-white/[0.03] bg-[#F6F5F2] border dark:border-white/[0.06] border-black/[0.10] rounded-2xl overflow-hidden">
+        <div className="dark:bg-white/[0.03] bg-[#F8F6FB] border dark:border-white/[0.06] border-black/[0.10] rounded-2xl overflow-hidden">
           <div className="flex items-center justify-between px-4 py-2.5 border-b dark:border-white/[0.06] border-black/[0.08]">
-            <p className="text-[11px] font-bold tracking-[0.14em] dark:text-yellow-400 text-yellow-700 uppercase">Email template</p>
+            <p className="text-[11px] font-bold tracking-[0.14em] dark:text-brand-400 text-brand-700 uppercase">Email template</p>
             <button
               onClick={copyTemplate}
-              className="text-[12px] font-medium dark:text-yellow-400 text-yellow-700 hover:dark:text-yellow-300 hover:text-yellow-900 transition-colors active:scale-[0.97]"
+              className="text-[12px] font-medium dark:text-brand-400 text-brand-700 hover:dark:text-brand-300 hover:text-brand-900 transition-colors active:scale-[0.97]"
             >
               {copied ? 'Copied ✓' : 'Copy'}
             </button>
@@ -144,7 +144,7 @@ export function ConsentModal({
             placeholder="Record how consent was given…"
             rows={2}
             maxLength={300}
-            className="w-full dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.10] border-black/[0.13] rounded-2xl px-4 py-3 dark:text-white text-gray-900 text-[13px] placeholder-gray-600 focus:outline-none focus:border-yellow-500/50 transition-colors resize-none"
+            className="w-full dark:bg-white/[0.05] bg-[#F8F6FB] border dark:border-white/[0.10] border-black/[0.13] rounded-2xl px-4 py-3 dark:text-white text-gray-900 text-[13px] placeholder-gray-600 focus:outline-none focus:border-brand-500/50 transition-colors resize-none"
           />
         </div>
 
@@ -154,14 +154,14 @@ export function ConsentModal({
         <div className="flex gap-2 pt-1">
           <button
             onClick={onClose}
-            className="flex-1 py-3 rounded-2xl text-[14px] font-medium dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.08] border-black/[0.13] dark:text-gray-300 text-gray-700 transition-colors active:scale-[0.97]"
+            className="flex-1 py-3 rounded-2xl text-[14px] font-medium dark:bg-white/[0.05] bg-[#F8F6FB] border dark:border-white/[0.08] border-black/[0.13] dark:text-gray-300 text-gray-700 transition-colors active:scale-[0.97]"
           >
             Cancel
           </button>
           <button
             onClick={saveConsent}
             disabled={saving}
-            className="flex-1 py-3 rounded-2xl text-[14px] font-semibold bg-yellow-600 hover:brightness-[1.1] dark:text-white text-gray-900 disabled:opacity-40 transition-colors active:scale-[0.97]"
+            className="flex-1 py-3 rounded-2xl text-[14px] font-semibold bg-brand-600 hover:brightness-[1.1] dark:text-white text-gray-900 disabled:opacity-40 transition-colors active:scale-[0.97]"
           >
             {saving ? 'Saving…' : 'I have consent'}
           </button>
@@ -218,12 +218,12 @@ export function ConsentManager() {
           onChange={e => setAddingSubject(e.target.value)}
           placeholder="Module or subject name"
           maxLength={100}
-          className="flex-1 dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.10] border-black/[0.13] rounded-xl px-3 py-2 text-[13px] dark:text-white text-gray-900 placeholder-gray-500 focus:outline-none focus:border-yellow-500/50 transition-colors"
+          className="flex-1 dark:bg-white/[0.05] bg-[#F8F6FB] border dark:border-white/[0.10] border-black/[0.13] rounded-xl px-3 py-2 text-[13px] dark:text-white text-gray-900 placeholder-gray-500 focus:outline-none focus:border-brand-500/50 transition-colors"
         />
         <button
           onClick={() => { if (addingSubject.trim()) { capture('consent_modal_opened', { subject: addingSubject.trim() }); setShowAddModal(true) } }}
           disabled={!addingSubject.trim()}
-          className="shrink-0 text-[13px] font-semibold text-yellow-600 dark:text-yellow-400 hover:opacity-80 disabled:opacity-40 transition-opacity px-3"
+          className="shrink-0 text-[13px] font-semibold text-brand-600 dark:text-brand-400 hover:opacity-80 disabled:opacity-40 transition-opacity px-3"
         >
           Add
         </button>
@@ -232,11 +232,11 @@ export function ConsentManager() {
       {loading ? (
         <div className="space-y-2">
           {[0, 1].map(i => (
-            <div key={i} className="h-14 dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl animate-pulse" />
+            <div key={i} className="h-14 dark:bg-white/[0.03] bg-[#FFFFFF] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl animate-pulse" />
           ))}
         </div>
       ) : !consents.length ? (
-        <div className="dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl px-4 py-4">
+        <div className="dark:bg-white/[0.03] bg-[#FFFFFF] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl px-4 py-4">
           <p className="text-[13px] text-gray-600">No lecturer consents recorded yet.</p>
         </div>
       ) : (
@@ -244,7 +244,7 @@ export function ConsentManager() {
           {consents.map(c => (
             <div
               key={c.id}
-              className="dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl px-4 py-3 flex items-center gap-3"
+              className="dark:bg-white/[0.03] bg-[#FFFFFF] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl px-4 py-3 flex items-center gap-3"
             >
               <div className="flex-1 min-w-0">
                 <p className="text-[14px] font-medium dark:text-white/80 text-gray-800 truncate">{c.module_name}</p>

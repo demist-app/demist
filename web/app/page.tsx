@@ -78,6 +78,7 @@ const jsonLd = {
       description: 'Demist transcribes lectures, reads them back, and explains and translates unfamiliar terms in real time, for students who find lectures harder to follow. Builds a personal glossary and uses spaced repetition flashcards for review.',
       url: 'https://www.demist.app',
       audience: { '@type': 'EducationalAudience', educationalRole: 'student' },
+      publisher: { '@type': 'Organization', name: 'Graceful Minds', url: 'https://www.graceful-minds.org' },
     },
     {
       '@type': 'FAQPage',

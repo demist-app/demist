@@ -13,7 +13,7 @@ export default function GlobalError({
 
   return (
     <html lang="en">
-      <body style={{ margin: 0, background: '#080810', color: 'white', fontFamily: 'sans-serif' }}>
+      <body style={{ margin: 0, background: '#110B1C', color: 'white', fontFamily: 'sans-serif' }}>
         <main style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', textAlign: 'center' }}>
           <div style={{ maxWidth: 360 }}>
             <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.18em', color: '#4b5563', textTransform: 'uppercase', marginBottom: 16 }}>
@@ -24,7 +24,7 @@ export default function GlobalError({
             </p>
             <button
               onClick={reset}
-              style={{ padding: '12px 24px', borderRadius: 16, background: '#D97706', color: 'white', fontSize: 14, fontWeight: 600, border: 'none', cursor: 'pointer' }}
+              style={{ padding: '12px 24px', borderRadius: 16, background: '#5B3F8F', color: 'white', fontSize: 14, fontWeight: 600, border: 'none', cursor: 'pointer' }}
             >
               Try again
             </button>

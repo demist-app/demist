@@ -8,24 +8,25 @@
   Same email-client rules as change-email.html: tables for layout, styles
   inline, system fonts, no images.
 -->
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#EDEAE3;margin:0;padding:32px 12px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#F3F0F8;margin:0;padding:32px 12px;">
   <tr>
     <td align="center">
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:460px;background-color:#FAF9F6;border:1px solid rgba(0,0,0,0.10);border-radius:20px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:460px;background-color:#FFFFFF;border:1px solid rgba(30,20,51,0.10);border-radius:20px;">
+        <tr><td style="padding:0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td height="4" bgcolor="#5B3F8F" style="height:4px;line-height:4px;font-size:0;background:#5B3F8F;border-radius:20px 0 0 0;">&nbsp;</td><td height="4" bgcolor="#556EAE" style="height:4px;line-height:4px;font-size:0;background:#556EAE;">&nbsp;</td><td height="4" bgcolor="#2A777A" style="height:4px;line-height:4px;font-size:0;background:#2A777A;border-radius:0 20px 0 0;">&nbsp;</td></tr></table></td></tr>
         <tr>
           <td style="padding:32px 32px 0 32px;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
-            <p style="margin:0 0 28px 0;font-size:11px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:#A16207;">Demist</p>
-            <h1 style="margin:0 0 10px 0;font-size:21px;line-height:1.3;font-weight:700;color:#0F0F14;">Your sign-in code</h1>
-            <p style="margin:0 0 24px 0;font-size:15px;line-height:1.6;color:rgba(15,15,20,0.65);">
+            <p style="margin:0 0 28px 0;font-size:16px;line-height:1.2;font-weight:700;color:#1E1433;">Demist<br><span style="font-size:11px;font-weight:500;color:#857F96;">by Graceful Minds</span></p>
+            <h1 style="margin:0 0 10px 0;font-size:21px;line-height:1.3;font-weight:700;color:#1E1433;">Your sign-in code</h1>
+            <p style="margin:0 0 24px 0;font-size:15px;line-height:1.6;color:rgba(30,20,51,0.65);">
               Enter this code in Demist to sign in. No password needed.
             </p>
           </td>
         </tr>
         <tr>
           <td style="padding:0 32px;">
-            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#EDEAE3;border:1px solid rgba(161,98,7,0.30);border-radius:14px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#F3F0F8;border:1px solid rgba(91,63,143,0.30);border-radius:14px;">
               <tr>
-                <td align="center" style="padding:20px 12px;font-family:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace;font-size:30px;font-weight:700;letter-spacing:8px;color:#0F0F14;">
+                <td align="center" style="padding:20px 12px;font-family:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace;font-size:30px;font-weight:700;letter-spacing:8px;color:#1E1433;">
                   {{ .Token }}
                 </td>
               </tr>
@@ -34,17 +35,17 @@
         </tr>
         <tr>
           <td style="padding:22px 32px 32px 32px;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
-            <p style="margin:0 0 22px 0;font-size:14px;line-height:1.6;color:rgba(15,15,20,0.65);">
-              Or <a href="{{ .ConfirmationURL }}" style="color:#A16207;font-weight:600;text-decoration:underline;">sign in from your browser</a> instead.
+            <p style="margin:0 0 22px 0;font-size:14px;line-height:1.6;color:rgba(30,20,51,0.65);">
+              Or <a href="{{ .ConfirmationURL }}" style="color:#5B3F8F;font-weight:600;text-decoration:underline;">sign in from your browser</a> instead.
             </p>
-            <p style="margin:0;padding-top:20px;border-top:1px solid rgba(0,0,0,0.08);font-size:12px;line-height:1.6;color:rgba(15,15,20,0.42);">
+            <p style="margin:0;padding-top:20px;border-top:1px solid rgba(30,20,51,0.08);font-size:12px;line-height:1.6;color:rgba(30,20,51,0.42);">
               This code expires shortly. If you didn&rsquo;t try to sign in, you can ignore this email.
             </p>
           </td>
         </tr>
       </table>
-      <p style="margin:20px 0 0 0;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:11px;color:rgba(15,15,20,0.42);">
-        Demist &middot; lecture terms, explained as they are said
+      <p style="margin:20px 0 0 0;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:11px;color:rgba(30,20,51,0.42);">
+        Demist &middot; a Graceful Minds project
       </p>
     </td>
   </tr>

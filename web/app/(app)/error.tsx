@@ -13,7 +13,7 @@ export default function AppError({
   useEffect(() => { console.error(error) }, [error])
 
   return (
-    <main className="min-h-dvh dark:bg-[#080810] bg-[#EDEAE3] dark:text-white text-gray-900 flex items-center justify-center px-6">
+    <main className="min-h-dvh dark:bg-[#110B1C] bg-[#F3F0F8] dark:text-white text-gray-900 flex items-center justify-center px-6">
       <div className="text-center max-w-sm">
         <p className="text-[11px] font-bold tracking-[0.18em] dark:text-gray-400 text-gray-600 uppercase mb-4">
           Something went wrong
@@ -25,13 +25,13 @@ export default function AppError({
           <button
             onClick={reset}
             className="px-6 py-3 rounded-2xl text-white text-[14px] font-semibold transition-colors active:scale-[0.97]"
-            style={{ background: 'var(--accent)' }}
+            style={{ background: 'var(--accent-solid)' }}
           >
             Try again
           </button>
           <Link
             href="/dashboard"
-            className="px-6 py-3 rounded-2xl dark:bg-white/[0.05] bg-[#FAF9F6] dark:border-white/[0.08] border-black/[0.12] border dark:text-gray-400 text-gray-700 hover:dark:text-white hover:text-gray-900 text-[14px] font-medium transition-colors"
+            className="px-6 py-3 rounded-2xl dark:bg-white/[0.05] bg-[#FFFFFF] dark:border-white/[0.08] border-black/[0.12] border dark:text-gray-400 text-gray-700 hover:dark:text-white hover:text-gray-900 text-[14px] font-medium transition-colors"
           >
             Go home
           </Link>

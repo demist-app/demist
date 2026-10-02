@@ -501,35 +501,35 @@ export default function Profile() {
   const initials = (displayName || profile?.email || '?').slice(0, 1).toUpperCase()
 
   if (!profile) return (
-    <main className="min-h-dvh dark:bg-[#080810] bg-[#EDEAE3] flex flex-col nav-bottom-pad">
+    <main className="min-h-dvh dark:bg-[#110B1C] bg-[#F3F0F8] flex flex-col nav-bottom-pad">
       <header className="sm:hidden shrink-0 flex items-center px-6 h-14 border-b dark:border-white/[0.05] border-black/[0.06]">
         <span className="font-semibold text-[15px] dark:text-white text-gray-900">Profile</span>
       </header>
       <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-8 w-full max-w-lg mx-auto animate-pulse">
         {/* Avatar */}
         <div className="flex flex-col items-center gap-3 mb-10">
-          <div className="w-20 h-20 rounded-full dark:bg-white/[0.07] bg-[#EFEDE7]" />
-          <div className="h-3 w-28 dark:bg-white/[0.05] bg-[#F6F5F2] rounded-full" />
-          <div className="h-2.5 w-36 dark:bg-white/[0.04] bg-[#FAF9F6] rounded-full" />
+          <div className="w-20 h-20 rounded-full dark:bg-white/[0.07] bg-[#ECE8F4]" />
+          <div className="h-3 w-28 dark:bg-white/[0.05] bg-[#F8F6FB] rounded-full" />
+          <div className="h-2.5 w-36 dark:bg-white/[0.04] bg-[#FFFFFF] rounded-full" />
         </div>
         {/* Fields */}
         {[0,1,2].map(i => (
           <div key={i} className="mb-5">
-            <div className="h-2.5 w-16 dark:bg-white/[0.05] bg-[#F6F5F2] rounded-full mb-2.5" />
-            <div className="h-12 dark:bg-white/[0.04] bg-[#FAF9F6] border dark:border-white/[0.07] border-black/[0.16] rounded-2xl" />
+            <div className="h-2.5 w-16 dark:bg-white/[0.05] bg-[#F8F6FB] rounded-full mb-2.5" />
+            <div className="h-12 dark:bg-white/[0.04] bg-[#FFFFFF] border dark:border-white/[0.07] border-black/[0.16] rounded-2xl" />
           </div>
         ))}
-        <div className="h-12 dark:bg-white/[0.06] bg-[#F3F1EC] rounded-2xl mt-6" />
+        <div className="h-12 dark:bg-white/[0.06] bg-[#F1EEF7] rounded-2xl mt-6" />
       </div>
     </main>
   )
 
   return (
     <main
-      className="min-h-dvh dark:bg-[#080810] bg-[#EDEAE3] dark:text-white text-gray-900 flex flex-col nav-bottom-pad"
+      className="min-h-dvh dark:bg-[#110B1C] bg-[#F3F0F8] dark:text-white text-gray-900 flex flex-col nav-bottom-pad"
     >
       <div aria-hidden className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
-        <div className="absolute -top-32 -left-32 w-[500px] h-[500px] rounded-full bg-yellow-700/[0.05] blur-[120px]" />
+        <div className="absolute -top-32 -left-32 w-[500px] h-[500px] rounded-full bg-brand-700/[0.05] blur-[120px]" />
       </div>
       <header className="sm:hidden relative z-10 shrink-0 flex items-center px-6 h-14 border-b dark:border-white/[0.05] border-black/[0.06]">
         <span className="font-semibold tracking-tight text-[15px]">Profile</span>
@@ -539,12 +539,12 @@ export default function Profile() {
       <div className="w-full max-w-xl mx-auto px-4 sm:px-6 py-6 space-y-6">
         {/* Avatar + name */}
         <div className="flex items-center gap-4 animate-step opacity-0" style={{ animationFillMode: 'forwards' }}>
-          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-yellow-600/40 to-amber-600/30 border border-yellow-500/40 flex items-center justify-center text-[24px] font-bold dark:text-yellow-300 text-yellow-700 shrink-0 shadow-[0_0_24px_rgba(161,98,7,0.22)] dark:shadow-[0_0_24px_rgba(251,191,36,0.22)]">
+          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-brand-600/40 to-brand-600/30 border border-brand-500/40 flex items-center justify-center text-[24px] font-bold dark:text-brand-300 text-brand-700 shrink-0 shadow-[0_0_24px_rgba(91,63,143,0.22)] dark:shadow-[0_0_24px_rgba(195,178,234,0.22)]">
             {initials}
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-[17px] font-bold truncate">{displayName || 'No name set'}</p>
-            <p className="text-[13px] text-gray-700 truncate">
+            <p className="text-[13px] dark:text-white/60 text-gray-700 truncate">
               {profile.email || 'No account, this device only'}
             </p>
           </div>
@@ -563,7 +563,7 @@ export default function Profile() {
             gates below and the post-session nudge, not a permanent slot
             here. */}
         {isPro && (
-          <div className="rounded-2xl px-4 py-4 dark:bg-amber-500/[0.05] bg-amber-50/60 border dark:border-amber-500/20 border-amber-300/50 animate-step opacity-0" style={{ animationFillMode: 'forwards' }}>
+          <div className="rounded-2xl px-4 py-4 dark:bg-brand-500/[0.05] bg-brand-50/60 border dark:border-brand-500/20 border-brand-300/50 animate-step opacity-0" style={{ animationFillMode: 'forwards' }}>
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-[14px] font-semibold">Demist Pro</p>
@@ -582,7 +582,7 @@ export default function Profile() {
               {source !== 'paid' && (
                 <button
                   onClick={() => setPaywall('profile_pro_countdown')}
-                  className="shrink-0 text-[12px] font-semibold px-3 py-1.5 rounded-full bg-amber-600 text-white hover:brightness-[1.1] transition-all"
+                  className="shrink-0 text-[12px] font-semibold px-3 py-1.5 rounded-full bg-brand-600 text-white hover:brightness-[1.1] transition-all"
                 >
                   Keep Pro
                 </button>
@@ -591,7 +591,7 @@ export default function Profile() {
                 <button
                   onClick={openBillingPortal}
                   disabled={portalLoading}
-                  className="shrink-0 text-[12px] font-medium px-3 py-1.5 rounded-full border dark:border-amber-500/30 border-amber-600/30 text-amber-700 dark:text-amber-400 hover:opacity-80 transition-opacity disabled:opacity-40"
+                  className="shrink-0 text-[12px] font-medium px-3 py-1.5 rounded-full border dark:border-brand-500/30 border-brand-600/30 text-brand-700 dark:text-brand-400 hover:opacity-80 transition-opacity disabled:opacity-40"
                 >
                   {portalLoading ? '…' : 'Manage'}
                 </button>
@@ -609,9 +609,9 @@ export default function Profile() {
             type 'email_change'), so every card, session and streak carries
             over and there is nothing to migrate. */}
         {isAnonymous && (
-          <div id="backup" className="scroll-mt-6 rounded-2xl px-4 py-4 dark:bg-amber-500/[0.07] bg-amber-50 border dark:border-amber-500/20 border-amber-300/70 animate-step opacity-0" style={{ animationDelay: '10ms', animationFillMode: 'forwards' }}>
+          <div id="backup" className="scroll-mt-6 rounded-2xl px-4 py-4 dark:bg-brand-500/[0.07] bg-brand-50 border dark:border-brand-500/20 border-brand-300/70 animate-step opacity-0" style={{ animationDelay: '10ms', animationFillMode: 'forwards' }}>
             <p className="text-[14px] font-semibold mb-1">Back up your account</p>
-            <p className="text-[13px] text-gray-700 leading-relaxed mb-3">
+            <p className="text-[13px] dark:text-white/60 text-gray-700 leading-relaxed mb-3">
               You&apos;re using Demist without an account, so everything lives on this
               computer only. Add an email and your terms, flashcards and streak survive a
               reinstall or a new machine. Your lecture audio still never leaves this device.
@@ -643,7 +643,7 @@ export default function Profile() {
                     onClick={handleVerifyLink}
                     disabled={linkBusy || linkCode.length < 6}
                     className="flex-1 py-2.5 rounded-xl text-[13px] font-semibold text-white disabled:opacity-40 transition-all"
-                    style={{ background: 'var(--accent)' }}
+                    style={{ background: 'var(--accent-solid)' }}
                   >
                     {linkBusy ? 'Verifying…' : 'Confirm'}
                   </button>
@@ -668,7 +668,7 @@ export default function Profile() {
                   onClick={handleSendLink}
                   disabled={linkBusy || !linkEmail.trim()}
                   className="py-2.5 px-5 rounded-xl text-[13px] font-semibold text-white disabled:opacity-40 transition-all whitespace-nowrap"
-                  style={{ background: 'var(--accent)' }}
+                  style={{ background: 'var(--accent-solid)' }}
                 >
                   {linkBusy ? 'Sending…' : 'Send code'}
                 </button>
@@ -685,8 +685,8 @@ export default function Profile() {
             { value: recordingMins >= 60 ? `${Math.floor(recordingMins / 60)}h ${recordingMins % 60}m` : `${recordingMins}m`, label: 'recorded' },
             { value: longestStreak.toLocaleString(), label: 'longest streak' },
           ].map(({ value, label }) => (
-            <div key={label} className="dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl px-3 py-4 text-center">
-              <p className="text-[20px] font-bold leading-none dark:text-amber-400 text-amber-700 tabular-nums">{value}</p>
+            <div key={label} className="dark:bg-white/[0.03] bg-[#FFFFFF] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl px-3 py-4 text-center">
+              <p className="text-[20px] font-bold leading-none dark:text-brand-400 text-brand-700 tabular-nums">{value}</p>
               <p className="text-[11px] text-gray-600 mt-1.5">{label}</p>
             </div>
           ))}
@@ -694,11 +694,11 @@ export default function Profile() {
 
         {/* Anki export */}
         {totalTerms > 0 && (
-          <div className="dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl overflow-hidden animate-step opacity-0" style={{ animationDelay: '30ms', animationFillMode: 'forwards' }}>
+          <div className="dark:bg-white/[0.03] bg-[#FFFFFF] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl overflow-hidden animate-step opacity-0" style={{ animationDelay: '30ms', animationFillMode: 'forwards' }}>
             <button
               onClick={exportToAnki}
               disabled={exporting}
-              className="w-full flex items-center justify-between px-4 py-3 hover:dark:bg-white/[0.03] bg-[#FAF9F6] transition-all disabled:opacity-40"
+              className="w-full flex items-center justify-between px-4 py-3 hover:dark:bg-white/[0.03] bg-[#FFFFFF] transition-all disabled:opacity-40"
             >
               <div className="text-left">
                 <p className="text-[14px] dark:text-white/80 text-gray-800 font-medium">Export to Anki</p>
@@ -709,7 +709,7 @@ export default function Profile() {
             {exported && (
               <div className="border-t dark:border-white/[0.05] border-black/[0.06] px-4 py-4 space-y-5">
                 <div>
-                  <p className="text-[11px] font-bold tracking-[0.14em] dark:text-yellow-400 text-yellow-700/70 uppercase mb-3">Android (AnkiDroid)</p>
+                  <p className="text-[11px] font-bold tracking-[0.14em] dark:text-brand-400 text-brand-700/70 uppercase mb-3">Android (AnkiDroid)</p>
                   <ol className="space-y-2">
                     {[
                       'Download the file above',
@@ -719,14 +719,14 @@ export default function Profile() {
                       'Your cards will appear in a new deck',
                     ].map((step, i) => (
                       <li key={i} className="flex items-start gap-2.5">
-                        <span className="text-[11px] font-bold text-yellow-500/50 shrink-0 tabular-nums mt-[2px]">{i + 1}.</span>
-                        <span className="text-[12px] text-gray-700">{step}</span>
+                        <span className="text-[11px] font-bold text-brand-500/50 shrink-0 tabular-nums mt-[2px]">{i + 1}.</span>
+                        <span className="text-[12px] dark:text-white/60 text-gray-700">{step}</span>
                       </li>
                     ))}
                   </ol>
                 </div>
                 <div>
-                  <p className="text-[11px] font-bold tracking-[0.14em] dark:text-yellow-400 text-yellow-700/70 uppercase mb-3">iPhone (AnkiMobile)</p>
+                  <p className="text-[11px] font-bold tracking-[0.14em] dark:text-brand-400 text-brand-700/70 uppercase mb-3">iPhone (AnkiMobile)</p>
                   <ol className="space-y-2">
                     {[
                       'Download the file above',
@@ -736,14 +736,14 @@ export default function Profile() {
                       'AnkiMobile will import the cards automatically',
                     ].map((step, i) => (
                       <li key={i} className="flex items-start gap-2.5">
-                        <span className="text-[11px] font-bold text-yellow-500/50 shrink-0 tabular-nums mt-[2px]">{i + 1}.</span>
-                        <span className="text-[12px] text-gray-700">{step}</span>
+                        <span className="text-[11px] font-bold text-brand-500/50 shrink-0 tabular-nums mt-[2px]">{i + 1}.</span>
+                        <span className="text-[12px] dark:text-white/60 text-gray-700">{step}</span>
                       </li>
                     ))}
                   </ol>
                 </div>
                 <div>
-                  <p className="text-[11px] font-bold tracking-[0.14em] dark:text-yellow-400 text-yellow-700/70 uppercase mb-3">Desktop (Anki)</p>
+                  <p className="text-[11px] font-bold tracking-[0.14em] dark:text-brand-400 text-brand-700/70 uppercase mb-3">Desktop (Anki)</p>
                   <ol className="space-y-2">
                     {[
                       'Download the file above',
@@ -752,13 +752,13 @@ export default function Profile() {
                       'Set "Fields separated by" to Tab, then click Import',
                     ].map((step, i) => (
                       <li key={i} className="flex items-start gap-2.5">
-                        <span className="text-[11px] font-bold text-yellow-500/50 shrink-0 tabular-nums mt-[2px]">{i + 1}.</span>
-                        <span className="text-[12px] text-gray-700">{step}</span>
+                        <span className="text-[11px] font-bold text-brand-500/50 shrink-0 tabular-nums mt-[2px]">{i + 1}.</span>
+                        <span className="text-[12px] dark:text-white/60 text-gray-700">{step}</span>
                       </li>
                     ))}
                   </ol>
                 </div>
-                <p className="text-[11px] text-gray-700">Cards are tagged with your course name so they are easy to find.</p>
+                <p className="text-[11px] dark:text-white/60 text-gray-700">Cards are tagged with your course name so they are easy to find.</p>
               </div>
             )}
           </div>
@@ -776,7 +776,7 @@ export default function Profile() {
               onChange={e => setDisplayName(e.target.value)}
               placeholder="Your name"
               maxLength={50}
-              className="w-full dark:bg-white/[0.05] bg-[#F6F5F2] border border-white/[0.1] rounded-2xl px-5 py-3.5 dark:text-white text-gray-900 text-[15px] placeholder-gray-700 focus:outline-none focus:border-yellow-500/50 transition-all"
+              className="w-full dark:bg-white/[0.05] bg-[#F8F6FB] border border-white/[0.1] rounded-2xl px-5 py-3.5 dark:text-white text-gray-900 text-[15px] placeholder-gray-700 focus:outline-none focus:border-brand-500/50 transition-all"
             />
           </div>
 
@@ -788,7 +788,7 @@ export default function Profile() {
               onChange={e => setCourse(e.target.value)}
               placeholder="e.g. Molecular Biology"
               maxLength={80}
-              className="w-full dark:bg-white/[0.05] bg-[#F6F5F2] border border-white/[0.1] rounded-2xl px-5 py-3.5 dark:text-white text-gray-900 text-[15px] placeholder-gray-700 focus:outline-none focus:border-yellow-500/50 transition-all"
+              className="w-full dark:bg-white/[0.05] bg-[#F8F6FB] border border-white/[0.1] rounded-2xl px-5 py-3.5 dark:text-white text-gray-900 text-[15px] placeholder-gray-700 focus:outline-none focus:border-brand-500/50 transition-all"
             />
           </div>
 
@@ -801,8 +801,8 @@ export default function Profile() {
                   onClick={() => setYear(value)}
                   className={`py-3 rounded-2xl text-[13px] font-medium transition-all ${
                     year === value
-                      ? 'bg-yellow-600 border border-yellow-400/40 dark:text-white text-gray-900'
-                      : 'dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.08] border-black/[0.13] text-gray-600 hover:bg-white/[0.09]'
+                      ? 'bg-brand-600 border border-brand-400/40 dark:text-white text-gray-900'
+                      : 'dark:bg-white/[0.05] bg-[#F8F6FB] border dark:border-white/[0.08] border-black/[0.13] text-gray-600 hover:bg-white/[0.09]'
                   }`}
                 >
                   {label}
@@ -820,8 +820,8 @@ export default function Profile() {
                   onClick={() => setSupportNeed(value)}
                   className={`py-3 px-3 rounded-2xl text-[13px] font-medium transition-all ${
                     supportNeed === value
-                      ? 'bg-yellow-600 border border-yellow-400/40 dark:text-white text-gray-900'
-                      : 'dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.08] border-black/[0.13] text-gray-600 hover:bg-white/[0.09]'
+                      ? 'bg-brand-600 border border-brand-400/40 dark:text-white text-gray-900'
+                      : 'dark:bg-white/[0.05] bg-[#F8F6FB] border dark:border-white/[0.08] border-black/[0.13] text-gray-600 hover:bg-white/[0.09]'
                   }`}
                 >
                   {label}
@@ -837,8 +837,8 @@ export default function Profile() {
                 onClick={() => setTranslateTo(null)}
                 className={`py-3 px-3 rounded-2xl text-[13px] font-medium transition-all ${
                   translateTo === null
-                    ? 'bg-yellow-600 border border-yellow-400/40 dark:text-white text-gray-900'
-                    : 'dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.08] border-black/[0.13] text-gray-600 hover:bg-white/[0.09]'
+                    ? 'bg-brand-600 border border-brand-400/40 dark:text-white text-gray-900'
+                    : 'dark:bg-white/[0.05] bg-[#F8F6FB] border dark:border-white/[0.08] border-black/[0.13] text-gray-600 hover:bg-white/[0.09]'
                 }`}
               >
                 English only
@@ -854,8 +854,8 @@ export default function Profile() {
                   }}
                   className={`py-3 px-3 rounded-2xl text-[13px] font-medium transition-all ${
                     translateTo === value
-                      ? 'bg-yellow-600 border border-yellow-400/40 dark:text-white text-gray-900'
-                      : 'dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.08] border-black/[0.13] text-gray-600 hover:bg-white/[0.09]'
+                      ? 'bg-brand-600 border border-brand-400/40 dark:text-white text-gray-900'
+                      : 'dark:bg-white/[0.05] bg-[#F8F6FB] border dark:border-white/[0.08] border-black/[0.13] text-gray-600 hover:bg-white/[0.09]'
                   }`}
                 >
                   {label}
@@ -881,7 +881,7 @@ export default function Profile() {
               <select
                 value={selectedMicId}
                 onChange={e => handleMicChange(e.target.value)}
-                className="w-full dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.08] border-black/[0.13] rounded-2xl px-4 py-3 dark:text-white text-gray-900 text-[14px] focus:outline-none focus:border-yellow-500/50 transition-colors"
+                className="w-full dark:bg-white/[0.05] bg-[#F8F6FB] border dark:border-white/[0.08] border-black/[0.13] rounded-2xl px-4 py-3 dark:text-white text-gray-900 text-[14px] focus:outline-none focus:border-brand-500/50 transition-colors"
               >
                 <option value="">System default</option>
                 {micDevices.map((d, i) => (
@@ -894,7 +894,7 @@ export default function Profile() {
             {!micLabelsUnlocked && (
               <button
                 onClick={unlockMicLabels}
-                className="text-[12px] dark:text-yellow-400 text-yellow-700 hover:opacity-80 transition-opacity mt-1.5"
+                className="text-[12px] dark:text-brand-400 text-brand-700 hover:opacity-80 transition-opacity mt-1.5"
               >
                 Grant access to see device names
               </button>
@@ -911,8 +911,8 @@ export default function Profile() {
                   onClick={() => handleTextSizeChange(scale)}
                   className={`py-3 rounded-2xl text-[13px] font-medium transition-all ${
                     textSize === scale
-                      ? 'bg-yellow-600 border border-yellow-400/40 dark:text-white text-gray-900'
-                      : 'dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.08] border-black/[0.13] text-gray-600 hover:bg-white/[0.09]'
+                      ? 'bg-brand-600 border border-brand-400/40 dark:text-white text-gray-900'
+                      : 'dark:bg-white/[0.05] bg-[#F8F6FB] border dark:border-white/[0.08] border-black/[0.13] text-gray-600 hover:bg-white/[0.09]'
                   }`}
                 >
                   {FONT_SCALE_LABELS[scale]}
@@ -933,8 +933,8 @@ export default function Profile() {
                     disabled={transcribeTierChanging}
                     className={`py-3 px-3 rounded-2xl text-[13px] font-medium transition-all disabled:opacity-40 ${
                       transcribeTier === tier
-                        ? 'bg-yellow-600 border border-yellow-400/40 dark:text-white text-gray-900'
-                        : 'dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.08] border-black/[0.13] text-gray-600 hover:bg-white/[0.09]'
+                        ? 'bg-brand-600 border border-brand-400/40 dark:text-white text-gray-900'
+                        : 'dark:bg-white/[0.05] bg-[#F8F6FB] border dark:border-white/[0.08] border-black/[0.13] text-gray-600 hover:bg-white/[0.09]'
                     }`}
                   >
                     {tier === 'fast' ? 'Fast' : 'Accurate'}
@@ -958,8 +958,8 @@ export default function Profile() {
                     disabled={tierChanging}
                     className={`py-3 px-3 rounded-2xl text-[13px] font-medium transition-all disabled:opacity-40 ${
                       modelTier === tier
-                        ? 'bg-yellow-600 border border-yellow-400/40 dark:text-white text-gray-900'
-                        : 'dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.08] border-black/[0.13] text-gray-600 hover:bg-white/[0.09]'
+                        ? 'bg-brand-600 border border-brand-400/40 dark:text-white text-gray-900'
+                        : 'dark:bg-white/[0.05] bg-[#F8F6FB] border dark:border-white/[0.08] border-black/[0.13] text-gray-600 hover:bg-white/[0.09]'
                     }`}
                   >
                     {tier === 'tiny' ? 'Tiny' : tier === 'small' ? 'Small' : 'Large'}
@@ -991,7 +991,7 @@ export default function Profile() {
             className={`w-full py-4 rounded-2xl text-[15px] font-semibold transition-all ${
               saved
                 ? 'bg-emerald-600 dark:text-white text-gray-900'
-                : 'bg-yellow-600 hover:brightness-[1.1] dark:text-white text-gray-900 disabled:opacity-40'
+                : 'bg-brand-600 hover:brightness-[1.1] dark:text-white text-gray-900 disabled:opacity-40'
             }`}
           >
             {saved ? 'Saved ✓' : saving ? 'Saving…' : 'Save changes'}
@@ -1002,7 +1002,7 @@ export default function Profile() {
         <div className="space-y-3 animate-step opacity-0" style={{ animationDelay: '120ms', animationFillMode: 'forwards' }}>
           <p className="text-[10px] font-bold tracking-[0.18em] text-gray-600 uppercase">Sharing</p>
 
-          <div className="dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl px-4 py-4 space-y-3">
+          <div className="dark:bg-white/[0.03] bg-[#FFFFFF] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl px-4 py-4 space-y-3">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-[14px] dark:text-white/80 text-gray-800 font-medium">Public profile</p>
@@ -1018,7 +1018,7 @@ export default function Profile() {
                 role="switch"
                 aria-checked={isPublic}
                 aria-label="Public profile"
-                className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${isPublic ? 'bg-yellow-600' : 'bg-white/[0.1]'}`}
+                className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${isPublic ? 'bg-brand-600' : 'bg-white/[0.1]'}`}
               >
                 <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 ${isPublic ? 'translate-x-5' : 'translate-x-0'}`} />
               </button>
@@ -1029,13 +1029,13 @@ export default function Profile() {
             )}
 
             {isPublic && (
-              <div className="flex items-center gap-2 dark:bg-white/[0.04] bg-[#FAF9F6] rounded-xl px-3 py-2">
+              <div className="flex items-center gap-2 dark:bg-white/[0.04] bg-[#FFFFFF] rounded-xl px-3 py-2">
                 <span className="flex-1 text-[12px] text-gray-600 truncate">
                   {typeof window !== 'undefined' ? `${window.location.origin}/u/${userId}` : `/u/${userId}`}
                 </span>
                 <button
                   onClick={copyShareLink}
-                  className="shrink-0 text-[12px] font-medium dark:text-yellow-400 text-yellow-700 hover:dark:text-yellow-300 text-yellow-700 transition-colors"
+                  className="shrink-0 text-[12px] font-medium dark:text-brand-400 text-brand-700 hover:dark:text-brand-300 text-brand-700 transition-colors"
                 >
                   {copied ? 'Copied ✓' : 'Copy'}
                 </button>
@@ -1045,7 +1045,7 @@ export default function Profile() {
 
           <a
             href="/stats"
-            className="flex items-center justify-between w-full dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl px-4 py-3 hover:dark:bg-white/[0.05] bg-[#F6F5F2] transition-colors duration-150 active:scale-[0.97]"
+            className="flex items-center justify-between w-full dark:bg-white/[0.03] bg-[#FFFFFF] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl px-4 py-3 hover:dark:bg-white/[0.05] bg-[#F8F6FB] transition-colors duration-150 active:scale-[0.97]"
           >
             <span className="text-[14px] dark:text-white/80 text-gray-800">View your stats</span>
             <span className="text-gray-600 text-[18px] leading-none">›</span>
@@ -1070,13 +1070,13 @@ export default function Profile() {
               href="https://www.demist.app/support"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex-1 py-3.5 px-4 rounded-2xl text-[14px] font-medium text-center dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] text-gray-700 dark:text-white/80 hover:border-yellow-500/30 transition-all"
+              className="flex-1 py-3.5 px-4 rounded-2xl text-[14px] font-medium text-center dark:bg-white/[0.03] bg-[#FFFFFF] border dark:border-white/[0.06] border-black/[0.16] text-gray-700 dark:text-white/80 hover:border-brand-500/30 transition-all"
             >
               Support &amp; troubleshooting
             </a>
             <a
               href="mailto:hello@demist.app"
-              className="flex-1 py-3.5 px-4 rounded-2xl text-[14px] font-medium text-center dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] text-gray-700 dark:text-white/80 hover:border-yellow-500/30 transition-all"
+              className="flex-1 py-3.5 px-4 rounded-2xl text-[14px] font-medium text-center dark:bg-white/[0.03] bg-[#FFFFFF] border dark:border-white/[0.06] border-black/[0.16] text-gray-700 dark:text-white/80 hover:border-brand-500/30 transition-all"
             >
               Email us
             </a>
@@ -1088,7 +1088,7 @@ export default function Profile() {
         {confirmingSignOut ? (
           <div className="rounded-2xl px-4 py-4 dark:bg-red-500/[0.07] bg-red-50 border dark:border-red-500/20 border-red-300/70 animate-step opacity-0" style={{ animationDelay: '180ms', animationFillMode: 'forwards' }}>
             <p className="text-[14px] font-semibold mb-1">This will delete your account</p>
-            <p className="text-[13px] text-gray-700 leading-relaxed mb-3">
+            <p className="text-[13px] dark:text-white/60 text-gray-700 leading-relaxed mb-3">
               You are signed in without an email, so there is no way to sign back in.
               Your lectures, glossary, flashcards and streak go with it. Add an email
               above first and none of that happens.
@@ -1111,7 +1111,7 @@ export default function Profile() {
         ) : (
           <button
             onClick={handleSignOut}
-            className="w-full py-4 rounded-2xl text-[15px] font-medium dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] text-gray-700 hover:text-red-400 hover:border-red-500/20 transition-all animate-step opacity-0"
+            className="w-full py-4 rounded-2xl text-[15px] font-medium dark:bg-white/[0.03] bg-[#FFFFFF] border dark:border-white/[0.06] border-black/[0.16] dark:text-white/60 text-gray-700 hover:text-red-400 hover:border-red-500/20 transition-all animate-step opacity-0"
             style={{ animationDelay: '180ms', animationFillMode: 'forwards' }}
           >
             Sign out
@@ -1138,7 +1138,7 @@ export default function Profile() {
           role="dialog"
           aria-modal="true"
         >
-          <div className="w-full max-w-sm dark:bg-[#0d0d1c] bg-[#FDFCF9] border dark:border-red-500/20 border-red-300/60 rounded-[24px] p-6">
+          <div className="w-full max-w-sm dark:bg-[#1a1328] bg-[#FFFFFF] border dark:border-red-500/20 border-red-300/60 rounded-[24px] p-6">
             <p className="text-[17px] font-bold dark:text-white text-gray-900 mb-2">Delete your account?</p>
             <p className="text-[13px] dark:text-white/60 text-gray-600 leading-relaxed mb-4">
               This will permanently delete your account, all recordings, terms, and flashcards. This cannot be undone.
@@ -1150,13 +1150,13 @@ export default function Profile() {
               onChange={e => setDeleteConfirmText(e.target.value)}
               placeholder="DELETE"
               autoComplete="off"
-              className="w-full dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.10] border-black/[0.13] rounded-2xl px-4 py-3 dark:text-white text-gray-900 text-[14px] placeholder-gray-700 focus:outline-none focus:border-red-500/50 transition-colors mb-3"
+              className="w-full dark:bg-white/[0.05] bg-[#F8F6FB] border dark:border-white/[0.10] border-black/[0.13] rounded-2xl px-4 py-3 dark:text-white text-gray-900 text-[14px] placeholder-gray-700 focus:outline-none focus:border-red-500/50 transition-colors mb-3"
             />
             {deleteError && <p className="text-[12px] text-red-400 mb-3">{deleteError}</p>}
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setShowDeleteModal(false)}
-                className="flex-1 py-3 rounded-2xl text-[14px] font-medium dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.08] border-black/[0.13] dark:text-gray-300 text-gray-700 transition-colors"
+                className="flex-1 py-3 rounded-2xl text-[14px] font-medium dark:bg-white/[0.05] bg-[#F8F6FB] border dark:border-white/[0.08] border-black/[0.13] dark:text-gray-300 text-gray-700 transition-colors"
               >
                 Cancel
               </button>

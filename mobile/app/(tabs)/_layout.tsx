@@ -2,9 +2,9 @@ import { Tabs } from 'expo-router'
 import { StyleSheet } from 'react-native'
 import Svg, { Path, Circle, Polyline, Rect, Line } from 'react-native-svg'
 
-const ACTIVE = '#FBBF24'
+const ACTIVE = '#C3B2EA'
 const INACTIVE = '#4b5563'
-const BG = '#080810'
+const BG = '#110B1C'
 
 function HomeIcon({ color }: { color: string }) {
   return (
@@ -71,7 +71,7 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   tabBar: {
-    backgroundColor: 'rgba(8,8,16,0.97)',
+    backgroundColor: 'rgba(17,11,28,0.97)',
     borderTopColor: 'rgba(255,255,255,0.05)',
     borderTopWidth: 1,
     paddingTop: 6,

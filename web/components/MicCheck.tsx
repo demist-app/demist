@@ -172,9 +172,9 @@ export function MicCheck({ subject, onStart, onCancel }: Props) {
       className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center sm:px-4 bg-black/30"
       style={{ backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)' }}
     >
-      <div className="w-full max-w-sm dark:bg-[#0f0f17] bg-[#FDFCF9] border dark:border-white/[0.08] border-black/[0.10] rounded-t-[24px] sm:rounded-[24px] shadow-2xl px-6 py-7 animate-step opacity-0" style={{ animationFillMode: 'forwards' }}>
+      <div className="w-full max-w-sm dark:bg-[#181121] bg-[#FFFFFF] border dark:border-white/[0.08] border-black/[0.10] rounded-t-[24px] sm:rounded-[24px] shadow-2xl px-6 py-7 animate-step opacity-0" style={{ animationFillMode: 'forwards' }}>
 
-        <p className="text-[10px] font-bold tracking-[0.18em] uppercase dark:text-amber-400/70 text-amber-700/80 mb-1.5">Mic check</p>
+        <p className="text-[10px] font-bold tracking-[0.18em] uppercase dark:text-brand-400/70 text-brand-700/80 mb-1.5">Mic check</p>
         <p className="text-[18px] font-bold dark:text-white text-gray-900 mb-1">
           {checkState === 'sampling' ? 'Checking your mic…' : checkState === 'good' ? "You're good to go" : checkState === 'quiet' ? 'Mic seems very quiet' : 'Mic access needed'}
         </p>
@@ -214,8 +214,8 @@ export function MicCheck({ subject, onStart, onCancel }: Props) {
               </div>
             )}
             {checkState === 'quiet' && (
-              <div className="w-10 h-10 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgb(245,158,11)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <div className="w-10 h-10 rounded-full bg-brand-500/10 border border-brand-500/30 flex items-center justify-center">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgb(124,98,181)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
                   <line x1="12" y1="9" x2="12" y2="13" />
                   <line x1="12" y1="17" x2="12.01" y2="17" />
@@ -248,14 +248,14 @@ export function MicCheck({ subject, onStart, onCancel }: Props) {
         <div className="flex gap-2">
           <button
             onClick={onCancel}
-            className="flex-1 py-3 rounded-2xl dark:bg-white/[0.04] bg-[#F3F1EC] border dark:border-white/[0.07] border-black/[0.12] text-[14px] font-medium dark:text-gray-300 text-gray-700 active:scale-[0.97] transition-all"
+            className="flex-1 py-3 rounded-2xl dark:bg-white/[0.04] bg-[#F1EEF7] border dark:border-white/[0.07] border-black/[0.12] text-[14px] font-medium dark:text-gray-300 text-gray-700 active:scale-[0.97] transition-all"
           >
             Cancel
           </button>
           <button
             onClick={handleStart}
             disabled={checkState === 'error'}
-            className="flex-1 py-3 rounded-2xl bg-yellow-600 hover:brightness-110 text-white text-[14px] font-semibold active:scale-[0.97] transition-[filter,transform] duration-150 disabled:opacity-40"
+            className="flex-1 py-3 rounded-2xl bg-brand-600 hover:brightness-110 text-white text-[14px] font-semibold active:scale-[0.97] transition-[filter,transform] duration-150 disabled:opacity-40"
           >
             {checkState === 'sampling' ? 'Skip check' : 'Start recording'}
           </button>

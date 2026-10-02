@@ -11,9 +11,9 @@ export default function Privacy() {
   const updated = '24 September 2026'
 
   return (
-    <main className="min-h-dvh dark:bg-[#080810] bg-[#EDEAE3] dark:text-white text-gray-900 px-6 py-16">
+    <main className="min-h-dvh dark:bg-[#110B1C] bg-[#F3F0F8] dark:text-white text-gray-900 px-6 py-16">
       <div className="max-w-[680px] mx-auto">
-        <Link href="/" className="text-[11px] font-bold tracking-[0.2em] dark:text-yellow-400/70 text-yellow-700 uppercase dark:hover:text-yellow-400 hover:text-yellow-600 transition-colors">
+        <Link href="/" className="text-[11px] font-bold tracking-[0.2em] dark:text-brand-400/70 text-brand-700 uppercase dark:hover:text-brand-400 hover:text-brand-600 transition-colors">
           ← Demist
         </Link>
 
@@ -105,14 +105,14 @@ export default function Privacy() {
           <section>
             <h2 className="text-[17px] font-semibold mb-3">Contact</h2>
             <p className="dark:text-gray-400 text-gray-700">
-              Questions about this policy or your data: <a href="mailto:privacy@demist.app" className="dark:text-yellow-400 text-yellow-700 dark:hover:text-yellow-300 hover:text-yellow-600 transition-colors">privacy@demist.app</a>
+              Questions about this policy or your data: <a href="mailto:privacy@demist.app" className="dark:text-brand-400 text-brand-700 dark:hover:text-brand-300 hover:text-brand-600 transition-colors">privacy@demist.app</a>
             </p>
           </section>
 
           <section>
             <h2 className="text-[17px] font-semibold mb-3">Complaints</h2>
             <p className="dark:text-gray-400 text-gray-700">
-              If you have a concern about how we handle your data, email <a href="mailto:privacy@demist.app" className="dark:text-yellow-400 text-yellow-700 dark:hover:text-yellow-300 hover:text-yellow-600 transition-colors">privacy@demist.app</a>. We&apos;ll acknowledge your complaint within 30 days. You also have the right to complain to the UK Information Commissioner&apos;s Office (<a href="https://ico.org.uk" className="dark:text-yellow-400 text-yellow-700 dark:hover:text-yellow-300 hover:text-yellow-600 transition-colors">ico.org.uk</a>).
+              If you have a concern about how we handle your data, email <a href="mailto:privacy@demist.app" className="dark:text-brand-400 text-brand-700 dark:hover:text-brand-300 hover:text-brand-600 transition-colors">privacy@demist.app</a>. We&apos;ll acknowledge your complaint within 30 days. You also have the right to complain to the UK Information Commissioner&apos;s Office (<a href="https://ico.org.uk" className="dark:text-brand-400 text-brand-700 dark:hover:text-brand-300 hover:text-brand-600 transition-colors">ico.org.uk</a>).
             </p>
           </section>
 

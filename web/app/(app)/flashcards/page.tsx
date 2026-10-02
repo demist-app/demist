@@ -47,7 +47,7 @@ const GRADE_LABELS: { grade: 0 | 1 | 2 | 3; label: string; ariaLabel: string; co
   { grade: 0, label: 'Again', ariaLabel: 'Again: forgotten, review again soon',      color: 'border-red-500/40 hover:bg-red-500/10 text-red-400' },
   { grade: 1, label: 'Hard',  ariaLabel: 'Hard: remembered with difficulty',         color: 'border-orange-500/40 hover:bg-orange-500/10 text-orange-400' },
   { grade: 2, label: 'Good',  ariaLabel: 'Good: remembered correctly',               color: 'border-emerald-500/40 hover:bg-emerald-500/10 text-emerald-400' },
-  { grade: 3, label: 'Easy',  ariaLabel: 'Easy: remembered without effort',          color: 'border-yellow-500/40 hover:bg-yellow-500/10 dark:text-yellow-400 text-yellow-700' },
+  { grade: 3, label: 'Easy',  ariaLabel: 'Easy: remembered without effort',          color: 'border-brand-500/40 hover:bg-brand-500/10 dark:text-brand-400 text-brand-700' },
 ]
 
 function TrashIcon() {
@@ -504,9 +504,9 @@ export default function Flashcards() {
   // ── Browse mode ──────────────────────────────────────────────────────────────
   if (browseMode) {
     return (
-      <main className="min-h-dvh dark:bg-[#080810] bg-[#EDEAE3] dark:text-white text-gray-900 flex flex-col nav-bottom-pad">
+      <main className="min-h-dvh dark:bg-[#110B1C] bg-[#F3F0F8] dark:text-white text-gray-900 flex flex-col nav-bottom-pad">
         <div aria-hidden className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
-          <div className="absolute -top-32 -left-32 w-[500px] h-[500px] rounded-full bg-yellow-700/[0.05] blur-[120px]" />
+          <div className="absolute -top-32 -left-32 w-[500px] h-[500px] rounded-full bg-brand-700/[0.05] blur-[120px]" />
         </div>
 
         <header className="relative z-10 shrink-0 flex items-center justify-between px-4 sm:px-6 h-14 border-b dark:border-white/[0.05] border-black/[0.06]">
@@ -526,7 +526,7 @@ export default function Flashcards() {
             {filterSubjects.length > 0 && !browseSearch && (
               <button
                 onClick={() => setBrowseGroup(g => g === 'subject' ? 'none' : 'subject')}
-                className={`text-[12px] font-medium px-2.5 py-1 rounded-full border transition-colors ${browseGroup === 'subject' ? 'bg-yellow-600 border-yellow-600 text-white' : 'dark:bg-white/[0.04] bg-[#F3F1EC] dark:border-white/[0.08] border-black/[0.12] dark:text-gray-400 text-gray-600 hover:border-yellow-500/40'}`}
+                className={`text-[12px] font-medium px-2.5 py-1 rounded-full border transition-colors ${browseGroup === 'subject' ? 'bg-brand-600 border-brand-600 text-white' : 'dark:bg-white/[0.04] bg-[#F1EEF7] dark:border-white/[0.08] border-black/[0.12] dark:text-gray-400 text-gray-600 hover:border-brand-500/40'}`}
               >
                 Group by subject
               </button>
@@ -547,7 +547,7 @@ export default function Flashcards() {
                   value={browseSearch}
                   onChange={e => setBrowseSearch(e.target.value)}
                   placeholder="Search cards..."
-                  className="w-full pl-10 pr-4 py-3 dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.08] border-black/[0.13] rounded-2xl text-[14px] dark:text-white text-gray-900 placeholder-gray-700 focus:outline-none focus:border-yellow-500/40 transition-all"
+                  className="w-full pl-10 pr-4 py-3 dark:bg-white/[0.05] bg-[#F8F6FB] border dark:border-white/[0.08] border-black/[0.13] rounded-2xl text-[14px] dark:text-white text-gray-900 placeholder-gray-700 focus:outline-none focus:border-brand-500/40 transition-all"
                 />
               </div>
             </div>
@@ -556,7 +556,7 @@ export default function Flashcards() {
               {browseLoading ? (
                 <div className="animate-pulse space-y-2 mt-2">
                   {[1,2,3,4,5].map(i => (
-                    <div key={i} className="h-20 dark:bg-white/[0.04] bg-[#FAF9F6] rounded-2xl" />
+                    <div key={i} className="h-20 dark:bg-white/[0.04] bg-[#FFFFFF] rounded-2xl" />
                   ))}
                 </div>
               ) : filteredCards.length === 0 ? (
@@ -572,11 +572,11 @@ export default function Flashcards() {
                           {label ?? 'Other'}
                         </p>
                       )}
-                      <div className="dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl overflow-hidden">
+                      <div className="dark:bg-white/[0.03] bg-[#FFFFFF] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl overflow-hidden">
                         {cards.map((c, i) => (
                           <div
                             key={c.id}
-                            className={`px-4 py-3.5 transition-colors ${i > 0 ? 'border-t dark:border-white/[0.04] border-black/[0.05]' : ''} ${editingId === c.id ? 'dark:bg-white/[0.03] bg-[#F3F1EC]' : 'hover:bg-yellow-500/[0.02]'}`}
+                            className={`px-4 py-3.5 transition-colors ${i > 0 ? 'border-t dark:border-white/[0.04] border-black/[0.05]' : ''} ${editingId === c.id ? 'dark:bg-white/[0.03] bg-[#F1EEF7]' : 'hover:bg-brand-500/[0.02]'}`}
                           >
                             {editingId === c.id ? (
                               <div className="space-y-2">
@@ -585,7 +585,7 @@ export default function Flashcards() {
                                   value={editTerm}
                                   onChange={e => setEditTerm(e.target.value)}
                                   placeholder="Term"
-                                  className="w-full text-[14px] font-semibold dark:text-white text-gray-900 dark:bg-white/[0.05] bg-[#EFEDE7] border dark:border-amber-500/30 border-amber-500/40 rounded-xl px-3 py-2 focus:outline-none"
+                                  className="w-full text-[14px] font-semibold dark:text-white text-gray-900 dark:bg-white/[0.05] bg-[#ECE8F4] border dark:border-brand-500/30 border-brand-500/40 rounded-xl px-3 py-2 focus:outline-none"
                                 />
                                 <textarea
                                   value={editDef}
@@ -593,13 +593,13 @@ export default function Flashcards() {
                                   onKeyDown={e => { if (e.key === 'Escape') cancelEdit() }}
                                   placeholder="Definition"
                                   rows={3}
-                                  className="w-full text-[13px] dark:text-white/80 text-gray-700 dark:bg-white/[0.05] bg-[#EFEDE7] border dark:border-amber-500/30 border-amber-500/40 rounded-xl px-3 py-2 resize-none focus:outline-none leading-relaxed"
+                                  className="w-full text-[13px] dark:text-white/80 text-gray-700 dark:bg-white/[0.05] bg-[#ECE8F4] border dark:border-brand-500/30 border-brand-500/40 rounded-xl px-3 py-2 resize-none focus:outline-none leading-relaxed"
                                 />
                                 <div className="flex items-center gap-2">
                                   <button
                                     onClick={() => saveEdit(c.id)}
                                     disabled={savingEditId === c.id}
-                                    className="text-[12px] font-semibold text-amber-400 hover:text-amber-300 disabled:opacity-40 transition-colors"
+                                    className="text-[12px] font-semibold text-brand-700 dark:text-brand-400 hover:text-brand-800 dark:hover:text-brand-300 disabled:opacity-40 transition-colors"
                                   >
                                     {savingEditId === c.id ? 'Saving…' : 'Save'}
                                   </button>
@@ -616,7 +616,7 @@ export default function Flashcards() {
                                   </p>
                                   <p className="text-[12px] text-gray-600 mt-0.5 leading-relaxed line-clamp-2">{c.definition}</p>
                                   {(c.sm2_review_count ?? 0) > 0 && (
-                                    <p className="text-[11px] text-gray-700 mt-1 tabular-nums">
+                                    <p className="text-[11px] dark:text-white/60 text-gray-700 mt-1 tabular-nums">
                                       {c.sm2_review_count} review{c.sm2_review_count !== 1 ? 's' : ''}
                                       {c.sm2_due_at ? ` · next ${new Date(c.sm2_due_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : ''}
                                     </p>
@@ -626,7 +626,7 @@ export default function Flashcards() {
                                   <button
                                     onClick={() => startEdit(c)}
                                     title="Edit card"
-                                    className="p-1.5 text-gray-700 hover:dark:text-yellow-400 hover:text-yellow-700 transition-colors rounded-lg hover:dark:bg-white/[0.06] hover:bg-black/[0.05]"
+                                    className="p-1.5 text-gray-700 hover:dark:text-brand-400 hover:text-brand-700 transition-colors rounded-lg hover:dark:bg-white/[0.06] hover:bg-black/[0.05]"
                                   >
                                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                       <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
@@ -648,7 +648,7 @@ export default function Flashcards() {
                                     <button
                                       onClick={() => setConfirmDeleteId(c.id)}
                                       title="Delete card"
-                                      className="p-1.5 text-gray-700 hover:text-red-400 transition-colors rounded-lg hover:dark:bg-white/[0.06] hover:bg-black/[0.05]"
+                                      className="p-1.5 dark:text-white/60 text-gray-700 hover:text-red-400 transition-colors rounded-lg hover:dark:bg-white/[0.06] hover:bg-black/[0.05]"
                                     >
                                       <TrashIcon />
                                     </button>
@@ -672,9 +672,9 @@ export default function Flashcards() {
 
   // ── Review mode ──────────────────────────────────────────────────────────────
   return (
-    <main className="h-dvh dark:bg-[#080810] bg-[#EDEAE3] dark:text-white text-gray-900 flex flex-col overflow-hidden nav-bottom-pad">
+    <main className="h-dvh dark:bg-[#110B1C] bg-[#F3F0F8] dark:text-white text-gray-900 flex flex-col overflow-hidden nav-bottom-pad">
       <div aria-hidden className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
-        <div className="absolute -top-32 -left-32 w-[500px] h-[500px] rounded-full bg-yellow-700/[0.05] blur-[120px]" />
+        <div className="absolute -top-32 -left-32 w-[500px] h-[500px] rounded-full bg-brand-700/[0.05] blur-[120px]" />
       </div>
       <header className="sm:hidden relative z-10 shrink-0 flex items-center justify-between px-4 h-14 border-b dark:border-white/[0.05] border-black/[0.06]">
         <div className="flex items-center gap-2">
@@ -706,17 +706,17 @@ export default function Flashcards() {
 
       {phase === 'loading' && (
         <div className="flex-1 flex flex-col px-4 sm:px-6 pt-4 pb-4 animate-pulse">
-          <div className="h-1 dark:bg-white/[0.06] bg-[#F3F1EC] rounded-full mb-6" />
+          <div className="h-1 dark:bg-white/[0.06] bg-[#F1EEF7] rounded-full mb-6" />
           <div className="flex items-center gap-2 mb-4">
-            <div className="h-5 w-16 dark:bg-white/[0.06] bg-[#F3F1EC] rounded-full" />
-            <div className="h-5 w-14 dark:bg-white/[0.06] bg-[#F3F1EC] rounded-full" />
+            <div className="h-5 w-16 dark:bg-white/[0.06] bg-[#F1EEF7] rounded-full" />
+            <div className="h-5 w-14 dark:bg-white/[0.06] bg-[#F1EEF7] rounded-full" />
           </div>
           <div className="flex-1 flex items-center justify-center">
-            <div className="w-full max-w-[380px] dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-[24px] h-[220px]" />
+            <div className="w-full max-w-[380px] dark:bg-white/[0.03] bg-[#FFFFFF] border dark:border-white/[0.06] border-black/[0.16] rounded-[24px] h-[220px]" />
           </div>
           <div className="grid grid-cols-4 gap-2 mt-4">
             {[0,1,2,3].map(i => (
-              <div key={i} className="h-12 dark:bg-white/[0.04] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl" />
+              <div key={i} className="h-12 dark:bg-white/[0.04] bg-[#FFFFFF] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl" />
             ))}
           </div>
         </div>
@@ -728,19 +728,19 @@ export default function Flashcards() {
             {hasAnyTerms ? (
               <>
                 <p className="text-[22px] font-bold">All caught up</p>
-                <p className="text-gray-700 text-[14px] leading-relaxed max-w-xs">
+                <p className="dark:text-white/60 text-gray-700 text-[14px] leading-relaxed max-w-xs">
                   Nothing due today. Check back after your next lecture.
                 </p>
                 <div className="flex items-center gap-2 mt-2">
                   <Link
                     href="/history"
-                    className="px-5 py-2.5 rounded-2xl dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.09] border-black/[0.14] text-[14px] font-medium text-gray-600 hover:dark:text-white text-gray-900 hover:dark:bg-white/[0.08] bg-[#EFEDE7] transition-all"
+                    className="px-5 py-2.5 rounded-2xl dark:bg-white/[0.05] bg-[#F8F6FB] border dark:border-white/[0.09] border-black/[0.14] text-[14px] font-medium text-gray-600 hover:dark:text-white text-gray-900 hover:dark:bg-white/[0.08] bg-[#ECE8F4] transition-all"
                   >
                     Browse sessions
                   </Link>
                   <button
                     onClick={openBrowse}
-                    className="px-5 py-2.5 rounded-2xl dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.09] border-black/[0.14] text-[14px] font-medium text-gray-600 hover:dark:text-white text-gray-900 hover:dark:bg-white/[0.08] bg-[#EFEDE7] transition-all"
+                    className="px-5 py-2.5 rounded-2xl dark:bg-white/[0.05] bg-[#F8F6FB] border dark:border-white/[0.09] border-black/[0.14] text-[14px] font-medium text-gray-600 hover:dark:text-white text-gray-900 hover:dark:bg-white/[0.08] bg-[#ECE8F4] transition-all"
                   >
                     Browse all cards
                   </button>
@@ -748,25 +748,25 @@ export default function Flashcards() {
               </>
             ) : (
               <>
-                <div className="w-14 h-14 rounded-2xl dark:bg-white/[0.04] bg-[#FAF9F6] border dark:border-white/[0.07] border-black/[0.16] flex items-center justify-center mb-1">
+                <div className="w-14 h-14 rounded-2xl dark:bg-white/[0.04] bg-[#FFFFFF] border dark:border-white/[0.07] border-black/[0.16] flex items-center justify-center mb-1">
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="text-gray-600">
                     <rect x="2" y="3" width="20" height="14" rx="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" />
                   </svg>
                 </div>
                 <p className="text-[22px] font-bold">No flashcards yet</p>
-                <p className="text-gray-700 text-[14px] leading-relaxed max-w-xs">
+                <p className="dark:text-white/60 text-gray-700 text-[14px] leading-relaxed max-w-xs">
                   Record or import a lecture: every term Demist detects becomes a flashcard automatically.
                 </p>
                 <div className="flex items-center gap-2 mt-2">
                   <Link
                     href="/dashboard"
-                    className="px-5 py-2.5 rounded-2xl bg-yellow-600 hover:brightness-110 text-white text-[14px] font-semibold transition-all active:scale-[0.97]"
+                    className="px-5 py-2.5 rounded-2xl bg-brand-600 hover:brightness-110 text-white text-[14px] font-semibold transition-all active:scale-[0.97]"
                   >
                     Start recording
                   </Link>
                   <Link
                     href="/import"
-                    className="px-5 py-2.5 rounded-2xl dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.09] border-black/[0.14] text-[14px] font-medium dark:text-gray-300 text-gray-700 hover:dark:bg-white/[0.08] bg-[#EFEDE7] transition-all"
+                    className="px-5 py-2.5 rounded-2xl dark:bg-white/[0.05] bg-[#F8F6FB] border dark:border-white/[0.09] border-black/[0.14] text-[14px] font-medium dark:text-gray-300 text-gray-700 hover:dark:bg-white/[0.08] bg-[#ECE8F4] transition-all"
                   >
                     Import a file
                   </Link>
@@ -783,27 +783,27 @@ export default function Flashcards() {
 
             <div className="flex flex-col items-center text-center gap-1 animate-step opacity-0" style={{ animationFillMode: 'forwards', animationDelay: '0ms' }}>
               <p className="text-[22px] font-bold">Session done</p>
-              <p className="text-gray-700 text-[14px]">
+              <p className="dark:text-white/60 text-gray-700 text-[14px]">
                 {reviewed} card{reviewed !== 1 ? 's' : ''} reviewed
               </p>
             </div>
 
             {streak > 0 && (
-              <div className="flex flex-col items-center gap-1 dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl py-5 animate-step opacity-0" style={{ animationFillMode: 'forwards', animationDelay: '80ms' }}>
-                <p className="text-[40px] font-bold leading-none dark:text-amber-400 text-amber-600 tabular-nums">{displayStreak}</p>
+              <div className="flex flex-col items-center gap-1 dark:bg-white/[0.03] bg-[#FFFFFF] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl py-5 animate-step opacity-0" style={{ animationFillMode: 'forwards', animationDelay: '80ms' }}>
+                <p className="text-[40px] font-bold leading-none dark:text-brand-400 text-brand-600 tabular-nums">{displayStreak}</p>
                 <p className="text-[12px] text-gray-600 mt-1">day streak{streak > 1 ? ' going strong' : ''}</p>
               </div>
             )}
 
             {totalGrades > 0 && (
-              <div className="dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl px-5 py-4 animate-step opacity-0" style={{ animationFillMode: 'forwards', animationDelay: '160ms' }}>
+              <div className="dark:bg-white/[0.03] bg-[#FFFFFF] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl px-5 py-4 animate-step opacity-0" style={{ animationFillMode: 'forwards', animationDelay: '160ms' }}>
                 <p className="text-[10px] font-bold tracking-[0.18em] text-gray-600 uppercase mb-3">This session</p>
                 <div className="space-y-2.5">
                   {([
                     { label: 'Again', count: gradeCounts[0], cls: 'bg-red-500/50' },
                     { label: 'Hard',  count: gradeCounts[1], cls: 'bg-orange-500/50' },
-                    { label: 'Good',  count: gradeCounts[2], cls: 'bg-yellow-500' },
-                    { label: 'Easy',  count: gradeCounts[3], cls: 'bg-amber-400' },
+                    { label: 'Good',  count: gradeCounts[2], cls: 'bg-brand-500' },
+                    { label: 'Easy',  count: gradeCounts[3], cls: 'bg-brand-400' },
                   ]).map(({ label, count, cls }) => (
                     <div key={label} className="flex items-center gap-3">
                       <span className="text-[11px] text-gray-600 w-10 shrink-0">{label}</span>
@@ -830,13 +830,13 @@ export default function Flashcards() {
             <div className="flex flex-col items-center gap-2 animate-step opacity-0" style={{ animationFillMode: 'forwards', animationDelay: '240ms' }}>
               <Link
                 href="/dashboard"
-                className="w-full text-center px-5 py-3 rounded-2xl bg-yellow-600 hover:brightness-110 text-white text-[14px] font-semibold active:scale-[0.97] transition-[filter,transform] duration-150"
+                className="w-full text-center px-5 py-3 rounded-2xl bg-brand-600 hover:brightness-110 text-white text-[14px] font-semibold active:scale-[0.97] transition-[filter,transform] duration-150"
               >
                 Start a new recording
               </Link>
               <button
                 onClick={openBrowse}
-                className="w-full px-5 py-3 rounded-2xl dark:bg-white/[0.05] bg-[#F6F5F2] border dark:border-white/[0.09] border-black/[0.14] text-[14px] font-medium dark:text-gray-300 text-gray-700 hover:dark:bg-white/[0.08] active:scale-[0.97] transition-[background-color,transform] duration-150"
+                className="w-full px-5 py-3 rounded-2xl dark:bg-white/[0.05] bg-[#F8F6FB] border dark:border-white/[0.09] border-black/[0.14] text-[14px] font-medium dark:text-gray-300 text-gray-700 hover:dark:bg-white/[0.08] active:scale-[0.97] transition-[background-color,transform] duration-150"
               >
                 Browse all flashcards
               </button>
@@ -847,13 +847,13 @@ export default function Flashcards() {
                 <p className="text-[10px] font-bold tracking-[0.18em] text-gray-600 uppercase mb-3">Cards you just reviewed</p>
                 <div className="space-y-2">
                   {reviewedCards.map(c => (
-                    <div key={c.id} className="dark:bg-white/[0.03] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl px-4 py-3">
+                    <div key={c.id} className="dark:bg-white/[0.03] bg-[#FFFFFF] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl px-4 py-3">
                       <p className="text-[14px] font-medium dark:text-white/90 text-gray-900">
                         {c.context ? (
                           <TermContext term={c.term} definition={c.definition} context={c.context}>{c.term}</TermContext>
                         ) : c.term}
                       </p>
-                      <p className="text-[12px] text-gray-700 mt-1 leading-relaxed">{c.definition}</p>
+                      <p className="text-[12px] dark:text-white/60 text-gray-700 mt-1 leading-relaxed">{c.definition}</p>
                     </div>
                   ))}
                 </div>
@@ -866,9 +866,9 @@ export default function Flashcards() {
       {phase === 'review' && current && (
         <div className="flex-1 min-h-0 flex flex-col px-4 sm:px-6 pt-4 pb-4">
           {/* Progress bar */}
-          <div className="shrink-0 h-1 dark:bg-white/[0.06] bg-[#F3F1EC] rounded-full mb-2 overflow-hidden">
+          <div className="shrink-0 h-1 dark:bg-white/[0.06] bg-[#F1EEF7] rounded-full mb-2 overflow-hidden">
             <div
-              className="h-full bg-yellow-500 rounded-full transition-all duration-300"
+              className="h-full bg-brand-500 rounded-full transition-all duration-300"
               style={{ width: `${progressPct}%` }}
             />
           </div>
@@ -882,7 +882,7 @@ export default function Flashcards() {
                   <button
                     key={label}
                     onClick={() => { setDeckFilter(f); if (f !== null) capture('flashcard_deck_filtered', { kind: f.kind }) }}
-                    className={`shrink-0 text-[12px] font-medium px-3 py-1.5 rounded-full border transition-colors ${active ? 'bg-yellow-600 border-yellow-600 text-white' : 'dark:bg-white/[0.04] bg-[#F3F1EC] dark:border-white/[0.08] border-black/[0.12] dark:text-gray-400 text-gray-600 hover:border-yellow-500/40'}`}
+                    className={`shrink-0 text-[12px] font-medium px-3 py-1.5 rounded-full border transition-colors ${active ? 'bg-brand-600 border-brand-600 text-white' : 'dark:bg-white/[0.04] bg-[#F1EEF7] dark:border-white/[0.08] border-black/[0.12] dark:text-gray-400 text-gray-600 hover:border-brand-500/40'}`}
                   >
                     {label}
                   </button>
@@ -900,7 +900,7 @@ export default function Flashcards() {
                 </span>
               )}
               {newCount > 0 && (
-                <span className="text-[11px] font-medium dark:text-yellow-400 text-yellow-700/80 bg-yellow-500/10 border border-yellow-500/20 rounded-full px-2 py-0.5">
+                <span className="text-[11px] font-medium dark:text-brand-400 text-brand-700/80 bg-brand-500/10 border border-brand-500/20 rounded-full px-2 py-0.5">
                   {newCount} new
                 </span>
               )}
@@ -934,17 +934,17 @@ export default function Flashcards() {
               >
                 {/* Front */}
                 <div
-                  className="absolute inset-0 dark:bg-[#0d0d1c] bg-gray-50 border dark:border-white/[0.09] border-black/[0.14] rounded-[24px] flex flex-col items-center justify-center p-8"
+                  className="absolute inset-0 dark:bg-[#1a1328] bg-gray-50 border dark:border-white/[0.09] border-black/[0.14] rounded-[24px] flex flex-col items-center justify-center p-8"
                   style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' }}
                 >
                   {current.isNew ? (
-                    <span className="text-[10px] font-bold tracking-[0.18em] dark:text-yellow-400 text-yellow-700/70 bg-yellow-500/10 border border-yellow-500/20 rounded-full px-3 py-1 uppercase mb-4">New</span>
+                    <span className="text-[10px] font-bold tracking-[0.18em] dark:text-brand-400 text-brand-700/70 bg-brand-500/10 border border-brand-500/20 rounded-full px-3 py-1 uppercase mb-4">New</span>
                   ) : (
-                    <span className="text-[10px] font-bold tracking-[0.18em] text-gray-700/70 dark:bg-white/[0.04] bg-[#FAF9F6] border dark:border-white/[0.06] border-black/[0.16] rounded-full px-3 py-1 uppercase mb-4">Review</span>
+                    <span className="text-[10px] font-bold tracking-[0.18em] dark:text-white/40 text-gray-700/70 dark:bg-white/[0.04] bg-[#FFFFFF] border dark:border-white/[0.06] border-black/[0.16] rounded-full px-3 py-1 uppercase mb-4">Review</span>
                   )}
                   <p className="text-[26px] font-bold text-center leading-snug">{current.term}</p>
                   {!flipped && (
-                    <p className="text-[12px] text-gray-700 mt-6">Tap to reveal definition</p>
+                    <p className="text-[12px] dark:text-white/60 text-gray-700 mt-6">Tap to reveal definition</p>
                   )}
                 </div>
 
@@ -959,7 +959,7 @@ export default function Flashcards() {
                     border: '1px solid var(--accent-border)',
                   }}
                 >
-                  <p className="text-[11px] font-bold tracking-[0.18em] dark:text-yellow-400 text-yellow-700/60 uppercase mb-4 shrink-0">Definition</p>
+                  <p className="text-[11px] font-bold tracking-[0.18em] dark:text-brand-400 text-brand-700/60 uppercase mb-4 shrink-0">Definition</p>
                   <p
                     className="text-[16px] text-center leading-relaxed select-text cursor-text"
                     style={{ color: 'var(--fg)' }}
@@ -1004,7 +1004,7 @@ export default function Flashcards() {
             <div className="shrink-0 mt-4">
               <button
                 onClick={() => setFlipped(true)}
-                className="w-full py-4 rounded-2xl text-[15px] font-semibold dark:bg-white/[0.06] bg-[#F3F1EC] border dark:border-white/[0.08] border-black/[0.13] dark:text-white text-gray-900 hover:bg-white/[0.09] active:scale-[0.97] transition-colors duration-150"
+                className="w-full py-4 rounded-2xl text-[15px] font-semibold dark:bg-white/[0.06] bg-[#F1EEF7] border dark:border-white/[0.08] border-black/[0.13] dark:text-white text-gray-900 hover:bg-white/[0.09] active:scale-[0.97] transition-colors duration-150"
               >
                 Show definition
               </button>
@@ -1015,7 +1015,7 @@ export default function Flashcards() {
 
       {defPopup && (
         <div
-          className="fixed z-[200] w-[260px] bg-[#0e0e1c] border border-amber-500/25 rounded-xl px-4 py-3 shadow-[0_8px_32px_rgba(0,0,0,0.7)]"
+          className="fixed z-[200] w-[260px] bg-[#1a1328] border border-brand-500/25 rounded-xl px-4 py-3 shadow-[0_8px_32px_rgba(0,0,0,0.7)]"
           style={{
             left: defPopup.x,
             top: defPopup.flipDown ? defPopup.y + 8 : defPopup.y - 8,
@@ -1025,7 +1025,7 @@ export default function Flashcards() {
           onPointerUp={e => e.stopPropagation()}
         >
           <div className="flex items-start justify-between gap-2 mb-1.5">
-            <p className="text-[10px] font-bold tracking-[0.15em] text-amber-400/60 uppercase line-clamp-1 flex-1">{defPopup.text}</p>
+            <p className="text-[10px] font-bold tracking-[0.15em] text-brand-700/60 dark:text-brand-400/60 uppercase line-clamp-1 flex-1">{defPopup.text}</p>
             <button onClick={() => setDefPopup(null)} aria-label="Close" className="text-gray-400 hover:text-white transition-colors shrink-0 leading-none text-[18px] -mt-0.5">×</button>
           </div>
           {defPopup.loading
