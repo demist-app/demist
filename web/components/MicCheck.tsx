@@ -189,11 +189,11 @@ export function MicCheck({ subject, onStart, onCancel }: Props) {
               : `${4 + level * 44}px`
             const color = done
               ? checkState === 'good'
-                ? 'rgb(234, 179, 8)'
+                ? 'rgb(124, 98, 181)'
                 : checkState === 'error'
                   ? 'rgb(239, 68, 68)'
                   : 'rgb(107, 114, 128)'
-              : 'rgb(234, 179, 8)'
+              : 'rgb(124, 98, 181)'
             return (
               <div
                 key={i}

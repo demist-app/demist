@@ -65,7 +65,7 @@ function drawCard(canvas: HTMLCanvasElement, termCount: number, featuredTerm?: {
 
   // Amber glow bottom-right
   const glow2 = ctx.createRadialGradient(W - 200, H - 600, 0, W - 200, H - 600, 600)
-  glow2.addColorStop(0, 'rgba(234,179,8,0.10)')
+  glow2.addColorStop(0, 'rgba(195,178,234,0.10)')
   glow2.addColorStop(1, 'transparent')
   ctx.fillStyle = glow2
   ctx.fillRect(0, 0, W, H)
@@ -131,7 +131,7 @@ function drawCard(canvas: HTMLCanvasElement, termCount: number, featuredTerm?: {
   ctx.closePath()
   ctx.fillStyle = 'rgba(255,255,255,0.04)'
   ctx.fill()
-  ctx.strokeStyle = 'rgba(234,179,8,0.25)'
+  ctx.strokeStyle = 'rgba(195,178,234,0.25)'
   ctx.lineWidth = 2
   ctx.stroke()
 
@@ -146,7 +146,7 @@ function drawCard(canvas: HTMLCanvasElement, termCount: number, featuredTerm?: {
   // moment it's shown doesn't back up.
   ctx.font = 'bold 28px -apple-system, system-ui, sans-serif'
   ctx.letterSpacing = '0.18em'
-  ctx.fillStyle = 'rgba(217,119,6,0.7)'
+  ctx.fillStyle = 'rgba(195,178,234,0.7)'
   ctx.textAlign = 'left'
   ctx.fillText('RECENTLY LEARNED', cardX + 80, cardY + 100)
   ctx.letterSpacing = '0px'
@@ -232,7 +232,7 @@ export function ShareCard({ termCount, featuredTerm, onClose }: Props) {
               className="flex flex-col items-center gap-2 text-center"
             >
               <div className="w-12 h-12 rounded-2xl dark:bg-white/[0.06] bg-white/10 flex items-center justify-center mb-1">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(234,179,8,0.8)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(195,178,234,0.8)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="23 7 16 12 23 17 23 7" /><rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
                 </svg>
               </div>

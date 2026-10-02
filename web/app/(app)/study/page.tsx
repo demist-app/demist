@@ -106,7 +106,7 @@ export default function StudyPage() {
             <button
               onClick={goFlashcards}
               disabled={loading}
-              className="group text-left rounded-[20px] border dark:border-white/[0.07] border-black/[0.14] dark:bg-white/[0.03] bg-[#FFFFFF] hover:dark:bg-white/[0.06] hover:bg-white hover:border-brand-500/30 hover:shadow-[0_0_0_1px_rgba(234,179,8,0.15)] active:scale-[0.98] transition-all duration-150 overflow-hidden animate-step opacity-0 disabled:pointer-events-none"
+              className="group text-left rounded-[20px] border dark:border-white/[0.07] border-black/[0.14] dark:bg-white/[0.03] bg-[#FFFFFF] hover:dark:bg-white/[0.06] hover:bg-white hover:border-brand-500/30 hover:shadow-[0_0_0_1px_rgba(124,98,181,0.15)] active:scale-[0.98] transition-all duration-150 overflow-hidden animate-step opacity-0 disabled:pointer-events-none"
               style={{ animationFillMode: 'forwards', animationDelay: '80ms' }}
             >
               {/* Card top accent */}
@@ -173,7 +173,7 @@ export default function StudyPage() {
             <button
               onClick={goQuiz}
               disabled={loading || (stats?.totalTerms ?? 0) < 4}
-              className="group text-left rounded-[20px] border dark:border-white/[0.07] border-black/[0.14] dark:bg-white/[0.03] bg-[#FFFFFF] hover:dark:bg-white/[0.06] hover:bg-white hover:border-brand-500/30 hover:shadow-[0_0_0_1px_rgba(234,179,8,0.15)] active:scale-[0.98] transition-all duration-150 overflow-hidden animate-step opacity-0 disabled:opacity-50 disabled:pointer-events-none"
+              className="group text-left rounded-[20px] border dark:border-white/[0.07] border-black/[0.14] dark:bg-white/[0.03] bg-[#FFFFFF] hover:dark:bg-white/[0.06] hover:bg-white hover:border-brand-500/30 hover:shadow-[0_0_0_1px_rgba(124,98,181,0.15)] active:scale-[0.98] transition-all duration-150 overflow-hidden animate-step opacity-0 disabled:opacity-50 disabled:pointer-events-none"
               style={{ animationFillMode: 'forwards', animationDelay: '140ms' }}
             >
               <div className="h-[3px] dark:bg-white/[0.08] bg-black/[0.06] group-hover:bg-brand-500/40 transition-colors" />

@@ -702,7 +702,7 @@ export default function Profile() {
             >
               <div className="text-left">
                 <p className="text-[14px] dark:text-white/80 text-gray-800 font-medium">Export to Anki</p>
-                <p className="text-[12px] text-gray-600 mt-0.5">{totalTerms} concepts ready to export</p>
+                <p className="text-[12px] text-gray-600 mt-0.5">{totalTerms} {totalTerms === 1 ? 'concept' : 'concepts'} ready to export</p>
               </div>
               <span className="text-gray-600 text-[18px] leading-none">{exporting ? '...' : exported ? '✓' : '↓'}</span>
             </button>

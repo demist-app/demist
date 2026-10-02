@@ -161,7 +161,7 @@ export default function Dashboard() {
       if (ring1Ref.current) ring1Ref.current.style.transform = `scale(${1 + level * 2.8})`
       if (ring2Ref.current) ring2Ref.current.style.transform = `scale(${1 + level * 2.0})`
       if (ring3Ref.current) ring3Ref.current.style.transform = `scale(${1 + level * 1.3})`
-      if (btnRef.current) btnRef.current.style.boxShadow = `0 0 ${20 + Math.round(level * 60)}px rgba(239,68,68,${(0.3 + level * 0.5).toFixed(2)})`
+      if (btnRef.current) btnRef.current.style.boxShadow = `0 0 ${20 + Math.round(level * 60)}px rgba(124,98,181,${(0.25 + level * 0.4).toFixed(2)})`
       if (barsRef.current) {
         const bars = barsRef.current.children
         for (let i = 0; i < bars.length && i < bands.length; i++) {
@@ -370,7 +370,7 @@ export default function Dashboard() {
           <>
             {/* Red ambient glow during recording */}
             <div aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center z-0">
-              <div className="w-[600px] h-[600px] rounded-full bg-red-600/[0.06] blur-[120px]" />
+              <div className="w-[600px] h-[600px] rounded-full bg-brand-500/[0.07] blur-[120px]" />
             </div>
 
             {wakeLockUnsupported && (
@@ -429,14 +429,17 @@ export default function Dashboard() {
               )}
 
               <div className="relative flex items-center justify-center mb-6">
-                <span ref={ring1Ref} className="absolute w-[88px] h-[88px] rounded-full bg-red-500/[0.18]" style={{ willChange: 'transform' }} />
-                <span ref={ring2Ref} className="absolute w-[88px] h-[88px] rounded-full bg-red-500/[0.11]" style={{ willChange: 'transform' }} />
-                <span ref={ring3Ref} className="absolute w-[88px] h-[88px] rounded-full bg-red-500/[0.06]" style={{ willChange: 'transform' }} />
+                {/* Plum, not red (2026-10-02). A huge pulsing red button reads as an alarm,
+                    which is the wrong signal for an anxious student mid-lecture. The small
+                    red dot beside the timer still says "recording" in the usual way. */}
+                <span ref={ring1Ref} className="absolute w-[88px] h-[88px] rounded-full bg-brand-500/[0.16]" style={{ willChange: 'transform' }} />
+                <span ref={ring2Ref} className="absolute w-[88px] h-[88px] rounded-full bg-brand-500/[0.10]" style={{ willChange: 'transform' }} />
+                <span ref={ring3Ref} className="absolute w-[88px] h-[88px] rounded-full bg-brand-500/[0.05]" style={{ willChange: 'transform' }} />
                 <button
                   ref={btnRef}
                   onClick={stopRecording}
                   aria-label="Stop recording"
-                  className="relative z-10 w-[88px] h-[88px] rounded-full bg-red-600 hover:bg-red-500 active:scale-[0.97] flex items-center justify-center transition-colors duration-200 select-none"
+                  className="relative z-10 w-[88px] h-[88px] rounded-full bg-brand-600 hover:brightness-110 active:scale-[0.97] flex items-center justify-center transition-colors duration-200 select-none"
                 >
                   <StopIcon />
                 </button>
@@ -447,7 +450,7 @@ export default function Dashboard() {
                   <div
                     key={i}
                     className="w-[3px] rounded-full"
-                    style={{ height: '4px', background: `rgba(239, 68, 68, ${0.4 + (i / 28) * 0.4})`, willChange: 'height' }}
+                    style={{ height: '4px', background: `rgba(124, 98, 181, ${0.35 + (i / 28) * 0.45})`, willChange: 'height' }}
                   />
                 ))}
               </div>
@@ -800,7 +803,7 @@ export default function Dashboard() {
                   <p className="text-[11px] text-gray-600 uppercase tracking-[0.12em]">Streak</p>
                 </div>
                 <p className="text-[28px] font-bold leading-none text-brand-700 dark:text-brand-400">
-                  {stats.streak}<span className="text-[14px] font-normal text-gray-600 ml-1">days</span>
+                  {stats.streak}<span className="text-[14px] font-normal text-gray-600 ml-1">{stats.streak === 1 ? 'day' : 'days'}</span>
                 </p>
               </div>
               <div className="dark:bg-white/[0.03] bg-[#FFFFFF] border dark:border-white/[0.07] border-black/[0.16] rounded-2xl px-4 py-4">
@@ -809,7 +812,7 @@ export default function Dashboard() {
                   <p className="text-[11px] text-gray-600 uppercase tracking-[0.12em]">This week</p>
                 </div>
                 <p className="text-[28px] font-bold leading-none dark:text-brand-400 text-brand-700">
-                  {stats.termsThisWeek}<span className="text-[14px] font-normal text-gray-600 ml-1">concepts</span>
+                  {stats.termsThisWeek}<span className="text-[14px] font-normal text-gray-600 ml-1">{stats.termsThisWeek === 1 ? 'concept' : 'concepts'}</span>
                 </p>
               </div>
             </div>
@@ -1076,7 +1079,7 @@ function EditIcon() {
 }
 
 function StopIcon() {
-  return <div className="w-[22px] h-[22px] rounded-[5px] dark:bg-white bg-gray-800" />
+  return <div className="w-[22px] h-[22px] rounded-[5px] bg-white" />
 }
 
 function DashChevron({ expanded }: { expanded: boolean }) {

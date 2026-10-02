@@ -24,7 +24,7 @@ export async function GET() {
             width: 900,
             height: 900,
             borderRadius: 450,
-            background: 'rgba(200,130,20,0.10)',
+            background: 'rgba(195,178,234,0.10)',
             filter: 'blur(130px)',
             display: 'flex',
           }}
@@ -84,7 +84,7 @@ export async function GET() {
         <p
           style={{
             fontSize: 22,
-            color: 'rgba(130,120,100,1)',
+            color: 'rgba(150,140,172,1)',
             textAlign: 'center',
             margin: 0,
             display: 'flex',

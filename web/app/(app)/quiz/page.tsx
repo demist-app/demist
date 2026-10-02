@@ -229,7 +229,7 @@ export default function QuizPage() {
   // ── Empty ──
   if (phase === 'empty') {
     return (
-      <main className="h-dvh dark:bg-[#110B1C] bg-[#F3F0F8] dark:text-white text-gray-900 flex flex-col items-center justify-center px-6 nav-bottom-pad overflow-hidden">
+      <main className="h-dvh sm:h-[calc(100dvh-3.5rem)] dark:bg-[#110B1C] bg-[#F3F0F8] dark:text-white text-gray-900 flex flex-col items-center justify-center px-6 nav-bottom-pad overflow-hidden">
         <div className="flex flex-col items-center text-center gap-3 max-w-xs">
           <div className="w-14 h-14 rounded-2xl dark:bg-white/[0.04] bg-[#FFFFFF] border dark:border-white/[0.07] border-black/[0.16] flex items-center justify-center mb-1">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="text-gray-600">
@@ -256,7 +256,7 @@ export default function QuizPage() {
   // ── Loading ──
   if (phase === 'loading') {
     return (
-      <main className="h-dvh dark:bg-[#110B1C] bg-[#F3F0F8] flex flex-col nav-bottom-pad overflow-hidden">
+      <main className="h-dvh sm:h-[calc(100dvh-3.5rem)] dark:bg-[#110B1C] bg-[#F3F0F8] flex flex-col nav-bottom-pad overflow-hidden">
         <div className="flex-1 flex items-center justify-center">
           <div className="w-8 h-8 border-2 dark:border-white/20 border-black/20 border-t-brand-500 rounded-full animate-spin" />
         </div>
@@ -267,7 +267,7 @@ export default function QuizPage() {
   // ── Setup ──
   if (phase === 'setup') {
     return (
-      <main className="h-dvh dark:bg-[#110B1C] bg-[#F3F0F8] dark:text-white text-gray-900 flex flex-col overflow-hidden nav-bottom-pad">
+      <main className="h-dvh sm:h-[calc(100dvh-3.5rem)] dark:bg-[#110B1C] bg-[#F3F0F8] dark:text-white text-gray-900 flex flex-col overflow-hidden nav-bottom-pad">
         <header className="sm:hidden shrink-0 flex items-center px-4 h-14 border-b dark:border-white/[0.05] border-black/[0.06]">
           {fromStudy ? (
             <button
@@ -289,7 +289,7 @@ export default function QuizPage() {
 
             <div className="animate-step opacity-0" style={{ animationFillMode: 'forwards', animationDelay: '0ms' }}>
               <p className="text-[22px] font-bold mb-1">Test yourself</p>
-              <p className="text-[13px] text-gray-600">{allTerms.length} terms in your glossary</p>
+              <p className="text-[13px] text-gray-600">{allTerms.length} {allTerms.length === 1 ? 'term' : 'terms'} in your glossary</p>
             </div>
 
             {/* Scope */}
@@ -297,7 +297,7 @@ export default function QuizPage() {
               <p className="text-[10px] font-bold tracking-[0.18em] uppercase text-gray-600 mb-2">Which terms</p>
               <div className="grid grid-cols-3 gap-2">
                 {([
-                  ['all', 'All terms', `${allTerms.length} terms`],
+                  ['all', 'All terms', `${allTerms.length} ${allTerms.length === 1 ? 'term' : 'terms'}`],
                   ['week', 'This week', `${allTerms.filter(t => t.created_at >= new Date(Date.now() - 7 * 86400000).toISOString()).length} terms`],
                   ['blitz', 'Blitz', '10 fill-in-the-blank'],
                 ] as const).map(([val, label, desc]) => (
@@ -406,7 +406,7 @@ export default function QuizPage() {
     const cardIsLong   = cardContent.length > 60
 
     return (
-      <main className="h-dvh dark:bg-[#110B1C] bg-[#F3F0F8] dark:text-white text-gray-900 flex flex-col overflow-hidden nav-bottom-pad">
+      <main className="h-dvh sm:h-[calc(100dvh-3.5rem)] dark:bg-[#110B1C] bg-[#F3F0F8] dark:text-white text-gray-900 flex flex-col overflow-hidden nav-bottom-pad">
         <header className="sm:hidden shrink-0 flex items-center justify-between px-4 h-14 border-b dark:border-white/[0.05] border-black/[0.06]">
           {fromStudy ? (
             <button
@@ -429,7 +429,7 @@ export default function QuizPage() {
           </div>
         </header>
 
-        <div className="flex-1 min-h-0 flex flex-col px-4 sm:px-6 pt-4 pb-4">
+        <div className="flex-1 min-h-0 w-full max-w-2xl mx-auto flex flex-col px-4 sm:px-6 pt-4 pb-4">
           {/* Progress */}
           <div className="shrink-0 h-1 dark:bg-white/[0.06] bg-[#F1EEF7] rounded-full mb-4 overflow-hidden">
             <div className="h-full bg-brand-500 rounded-full transition-all duration-500" style={{ width: `${progress}%` }} />
@@ -591,7 +591,7 @@ export default function QuizPage() {
   const pctFinal = Math.round((correctFinal / questions.length) * 100)
 
   return (
-    <main className="h-dvh dark:bg-[#110B1C] bg-[#F3F0F8] dark:text-white text-gray-900 flex flex-col overflow-hidden nav-bottom-pad">
+    <main className="h-dvh sm:h-[calc(100dvh-3.5rem)] dark:bg-[#110B1C] bg-[#F3F0F8] dark:text-white text-gray-900 flex flex-col overflow-hidden nav-bottom-pad">
       <header className="sm:hidden shrink-0 flex items-center justify-between px-4 h-14 border-b dark:border-white/[0.05] border-black/[0.06]">
         {fromStudy ? (
           <button

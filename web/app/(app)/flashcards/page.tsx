@@ -684,7 +684,7 @@ export default function Flashcards() {
 
   // ── Review mode ──────────────────────────────────────────────────────────────
   return (
-    <main className="h-dvh dark:bg-[#110B1C] bg-[#F3F0F8] dark:text-white text-gray-900 flex flex-col overflow-hidden nav-bottom-pad">
+    <main className="h-dvh sm:h-[calc(100dvh-3.5rem)] dark:bg-[#110B1C] bg-[#F3F0F8] dark:text-white text-gray-900 flex flex-col overflow-hidden nav-bottom-pad">
       <div aria-hidden className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
         <div className="absolute -top-32 -left-32 w-[500px] h-[500px] rounded-full bg-brand-700/[0.05] blur-[120px]" />
       </div>
@@ -985,7 +985,7 @@ export default function Flashcards() {
           {/* Rating buttons */}
           {flipped && (
             <>
-              <div className="shrink-0 grid grid-cols-4 gap-2 mt-4 animate-step">
+              <div className="shrink-0 w-full max-w-xl mx-auto grid grid-cols-4 gap-2 mt-4 animate-step">
                 {GRADE_LABELS.map(({ grade, label, ariaLabel, color }) => (
                   <button
                     key={grade}
