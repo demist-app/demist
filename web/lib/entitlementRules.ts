@@ -19,8 +19,11 @@ export const LIMITS: Record<Plan, {
   ankiExport: boolean
   // Unlimited recording in the browser. The web trial (webTrial.ts) caps free
   // browser recording at 3 lifetime sessions because it bills per use; Pro
-  // lifts that. Measured cost is about $0.023 per lecture-hour, so even heavy
-  // use is pennies against £4.99. Added 2026-09-23 because the trial wall was
+  // lifts that. Real cost is about $0.08-0.12 per lecture-hour (2026-10-02:
+  // ~$0.04 term detection plus Groq transcription, which bills each 5s chunk
+  // as 10s). The old $0.023 figure counted term detection only. A heavy
+  // student (60 lecture-hours a month) costs about £5, so Pro roughly breaks
+  // even at the top end; typical use is well under that. Added 2026-09-23 because the trial wall was
   // the clearest purchase intent in the product (someone who wants to keep
   // recording right now) and it could only send them to a free download:
   // Pro did not actually solve their problem, so it could not be offered.

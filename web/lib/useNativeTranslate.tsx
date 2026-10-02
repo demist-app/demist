@@ -78,7 +78,13 @@ export function NativeTranslateProvider({ children }: { children: ReactNode }) {
     if (inflightRef.current?.lang === tgtLang) return inflightRef.current.promise
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const TranslatorApi = (window as any).Translator
-    if (opts?.onlyIfReady) {
+    // Without a live user gesture, create() can only succeed if the model is
+    // already downloaded, so treat every gestureless call as onlyIfReady. The
+    // profile-load effect in recordingSession.tsx calls this on page load
+    // without the flag, which logged NotAllowedError and flipped status to
+    // 'error' for anyone whose language pack was not yet downloaded.
+    const hasGesture = navigator.userActivation?.isActive ?? true
+    if (opts?.onlyIfReady || !hasGesture) {
       try {
         const availability = await TranslatorApi.availability({ sourceLanguage: 'en', targetLanguage: tgtLang })
         if (availability !== 'available') return

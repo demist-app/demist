@@ -17,6 +17,20 @@ function corsHeaders(origin: string | null) {
   }
 }
 
+// Per-request cost meter. Passed down explicitly, never module-level: one
+// isolate serves concurrent requests, so a shared counter would mix users.
+type Meter = { aiCost: number; aiTokens: number; aiCalls: number; audioCost: number; audioSeconds: number }
+const newMeter = (): Meter => ({ aiCost: 0, aiTokens: 0, aiCalls: 0, audioCost: 0, audioSeconds: 0 })
+// gpt-4o-mini: $0.15 / 1M input, $0.60 / 1M output (same rates as detect-terms)
+// deno-lint-ignore no-explicit-any
+function meterChat(m: Meter, usage: any) {
+  const inTok = usage?.prompt_tokens ?? 0
+  const outTok = usage?.completion_tokens ?? 0
+  m.aiCost += (inTok / 1000) * 0.00015 + (outTok / 1000) * 0.0006
+  m.aiTokens += usage?.total_tokens ?? inTok + outTok
+  m.aiCalls++
+}
+
 function sanitize(s: string) {
   return String(s ?? '').replace(/[<>"]/g, '').trim()
 }
@@ -26,6 +40,7 @@ async function detectTerms(
   subject: string,
   year: number,
   seenTerms: Set<string>,
+  meter: Meter,
 ): Promise<{ term: string; definition: string }[]> {
   const safeChunk = sanitize(chunk).slice(0, CHUNK_SIZE)
   if (!safeChunk) return []
@@ -64,6 +79,7 @@ Return JSON: {"terms": [{"term": "...", "definition": "..."}]}`
   })
   if (!res.ok) return []
   const data = await res.json()
+  meterChat(meter, data.usage)
   const parsed = JSON.parse(data.choices[0].message.content)
   return Array.isArray(parsed.terms) ? parsed.terms : []
 }
@@ -71,6 +87,7 @@ Return JSON: {"terms": [{"term": "...", "definition": "..."}]}`
 async function generateSynopsis(
   termList: { term: string; definition: string }[],
   subject: string | null,
+  meter: Meter,
 ): Promise<string | null> {
   if (!termList.length) return null
   const lines = termList
@@ -100,6 +117,7 @@ Write a 1–2 sentence summary of what this material covered, based only on the 
   })
   if (!res.ok) return null
   const data = await res.json()
+  meterChat(meter, data.usage)
   const parsed = JSON.parse(data.choices[0].message.content)
   return parsed.synopsis?.trim() ?? null
 }
@@ -199,6 +217,7 @@ serve(async (req) => {
     const allTerms: { term: string; definition: string }[] = []
     const seenTermNames = new Set<string>()
 
+    const meter = newMeter()
     const chunks: string[] = []
     for (let i = 0; i < text.length && chunks.length < MAX_CHUNKS; i += CHUNK_SIZE) {
       chunks.push(text.slice(i, i + CHUNK_SIZE))
@@ -208,7 +227,7 @@ serve(async (req) => {
     for (let i = 0; i < chunks.length && allTerms.length < MAX_TERMS; i += 4) {
       const batch = chunks.slice(i, i + 4)
       const results = await Promise.all(
-        batch.map(chunk => detectTerms(chunk, safeSubject ?? 'general', safeYear, seenTermNames))
+        batch.map(chunk => detectTerms(chunk, safeSubject ?? 'general', safeYear, seenTermNames, meter))
       )
       for (const terms of results) {
         for (const t of terms) {
@@ -235,9 +254,15 @@ serve(async (req) => {
     }
 
     // ── Generate synopsis ──
-    const synopsis = await generateSynopsis(allTerms, safeSubject)
+    const synopsis = await generateSynopsis(allTerms, safeSubject, meter)
     if (synopsis) {
       await userClient.from('sessions').update({ synopsis }).eq('id', sessionId)
+    }
+
+    // Usage logging: this import path never logged cost before.
+    if (meter.aiCalls) {
+      userClient.from('usage_events').insert({ user_id: user.id, event_type: 'import_terms', provider: 'openai', tokens_used: meter.aiTokens, cost_usd: meter.aiCost, session_id: sessionId })
+        .then(({ error }: { error: { message: string } | null }) => { if (error) console.error('usage_events insert error:', error.message) })
     }
 
     return new Response(

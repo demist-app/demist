@@ -374,7 +374,7 @@ export default function Dashboard() {
             </div>
 
             {wakeLockUnsupported && (
-              <div className="relative z-10 mx-4 sm:mx-6 mt-4 bg-brand-50 border border-brand-200 rounded-lg px-4 py-2 text-sm text-brand-800">
+              <div className="relative z-10 mx-4 sm:mx-6 mt-4 bg-brand-50 border border-brand-200 dark:bg-brand-500/10 dark:border-brand-500/25 rounded-lg px-4 py-2 text-sm text-brand-800 dark:text-brand-300">
                 Keep your screen on to avoid interrupting the recording.
               </div>
             )}

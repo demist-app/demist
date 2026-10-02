@@ -24,6 +24,20 @@ function corsHeaders(origin: string | null) {
   }
 }
 
+// Per-request cost meter. Passed down explicitly, never module-level: one
+// isolate serves concurrent requests, so a shared counter would mix users.
+type Meter = { aiCost: number; aiTokens: number; aiCalls: number; audioCost: number; audioSeconds: number }
+const newMeter = (): Meter => ({ aiCost: 0, aiTokens: 0, aiCalls: 0, audioCost: 0, audioSeconds: 0 })
+// gpt-4o-mini: $0.15 / 1M input, $0.60 / 1M output (same rates as detect-terms)
+// deno-lint-ignore no-explicit-any
+function meterChat(m: Meter, usage: any) {
+  const inTok = usage?.prompt_tokens ?? 0
+  const outTok = usage?.completion_tokens ?? 0
+  m.aiCost += (inTok / 1000) * 0.00015 + (outTok / 1000) * 0.0006
+  m.aiTokens += usage?.total_tokens ?? inTok + outTok
+  m.aiCalls++
+}
+
 function sanitize(s: string) {
   return String(s ?? '').replace(/[<>"]/g, '').trim()
 }
@@ -39,12 +53,13 @@ const WHISPER_URL = GROQ_KEY
 const WHISPER_MODEL = GROQ_KEY ? 'whisper-large-v3-turbo' : 'whisper-1'
 const WHISPER_AUTH  = GROQ_KEY ?? Deno.env.get('OPENAI_API_KEY') ?? ''
 
-async function whisperSlice(buffer: ArrayBuffer, ext: string, contentType: string): Promise<string> {
+async function whisperSlice(buffer: ArrayBuffer, ext: string, contentType: string, meter: Meter): Promise<string> {
   const file = new File([buffer], `audio.${ext}`, { type: contentType })
   const form = new FormData()
   form.append('file', file)
   form.append('model', WHISPER_MODEL)
-  form.append('response_format', 'json')
+  // verbose_json only for `duration`, so the cost below is billed seconds.
+  form.append('response_format', 'verbose_json')
 
   const res = await fetch(WHISPER_URL, {
     method: 'POST',
@@ -56,6 +71,10 @@ async function whisperSlice(buffer: ArrayBuffer, ext: string, contentType: strin
     return ''
   }
   const data = await res.json()
+  // Groq: $0.04/hour, 10s minimum per request. OpenAI whisper-1: $0.006/min.
+  const secs = Number(data.duration) > 0 ? Number(data.duration) : 0
+  meter.audioSeconds += secs
+  meter.audioCost += GROQ_KEY ? Math.max(10, secs) * (0.04 / 3600) : secs * (0.006 / 60)
   return data.text?.trim() ?? ''
 }
 
@@ -65,9 +84,9 @@ async function whisperSlice(buffer: ArrayBuffer, ext: string, contentType: strin
 // at each seam. That's acceptable for a lecture transcript. Slices are sent
 // sequentially to preserve order and stay within Whisper's rate limits.
 
-async function transcribeAudio(buffer: ArrayBuffer, ext: string, contentType: string): Promise<string> {
+async function transcribeAudio(buffer: ArrayBuffer, ext: string, contentType: string, meter: Meter): Promise<string> {
   if (buffer.byteLength <= WHISPER_SLICE) {
-    return whisperSlice(buffer, ext, contentType)
+    return whisperSlice(buffer, ext, contentType, meter)
   }
 
   const parts: string[] = []
@@ -76,7 +95,7 @@ async function transcribeAudio(buffer: ArrayBuffer, ext: string, contentType: st
   while (offset < buffer.byteLength) {
     const end = Math.min(offset + WHISPER_SLICE, buffer.byteLength)
     console.log(`Transcribing slice ${sliceIndex + 1}: bytes ${offset}–${end} of ${buffer.byteLength}`)
-    const text = await whisperSlice(buffer.slice(offset, end), ext, contentType)
+    const text = await whisperSlice(buffer.slice(offset, end), ext, contentType, meter)
     if (text) parts.push(text)
     offset = end
     sliceIndex++
@@ -91,6 +110,7 @@ async function detectTerms(
   subject: string,
   year: number,
   seenTerms: Set<string>,
+  meter: Meter,
 ): Promise<{ term: string; definition: string }[]> {
   const safeChunk = sanitize(chunk).slice(0, CHUNK_SIZE)
   if (!safeChunk) return []
@@ -129,6 +149,7 @@ Return JSON: {"terms": [{"term": "...", "definition": "..."}]}`
   })
   if (!res.ok) return []
   const data = await res.json()
+  meterChat(meter, data.usage)
   const parsed = JSON.parse(data.choices[0].message.content)
   return Array.isArray(parsed.terms) ? parsed.terms : []
 }
@@ -138,6 +159,7 @@ Return JSON: {"terms": [{"term": "...", "definition": "..."}]}`
 async function generateSynopsis(
   termList: { term: string; definition: string }[],
   subject: string | null,
+  meter: Meter,
 ): Promise<string | null> {
   if (!termList.length) return null
   const lines = termList
@@ -167,6 +189,7 @@ Write a 1–2 sentence summary of what this lecture covered, based only on the t
   })
   if (!res.ok) return null
   const data = await res.json()
+  meterChat(meter, data.usage)
   const parsed = JSON.parse(data.choices[0].message.content)
   return parsed.synopsis?.trim() ?? null
 }
@@ -269,7 +292,8 @@ serve(async (req) => {
     console.log(`Transcribing ${fileMb} MB audio in ${sliceCount} slice(s)`)
 
     // Transcribe: handles multi-slice automatically
-    const transcript = await transcribeAudio(audioBuffer, ext, fileBlob.type || 'audio/webm')
+    const meter = newMeter()
+    const transcript = await transcribeAudio(audioBuffer, ext, fileBlob.type || 'audio/webm', meter)
 
     // Create session
     const now = new Date().toISOString()
@@ -308,7 +332,7 @@ serve(async (req) => {
       for (let i = 0; i < textChunks.length && allTerms.length < MAX_TERMS; i += 3) {
         const batch = textChunks.slice(i, i + 3)
         const results = await Promise.all(
-          batch.map(c => detectTerms(c, safeSubject ?? 'general', safeYear, seenTermNames))
+          batch.map(c => detectTerms(c, safeSubject ?? 'general', safeYear, seenTermNames, meter))
         )
         for (const terms of results) {
           for (const t of terms) {
@@ -336,10 +360,19 @@ serve(async (req) => {
     }
 
     // Generate synopsis
-    const synopsis = await generateSynopsis(allTerms, safeSubject)
+    const synopsis = await generateSynopsis(allTerms, safeSubject, meter)
     if (synopsis) {
       await userClient.from('sessions').update({ synopsis }).eq('id', sessionId)
     }
+
+    // Usage logging. These imports never logged cost at all, so a busy week
+    // of uploads was invisible spend. Fire-and-forget, like the live path.
+    const usageRows = [
+      { user_id: user.id, event_type: 'import_transcribe', provider: GROQ_KEY ? 'groq' : 'openai', tokens_used: null, cost_usd: meter.audioCost, session_id: sessionId },
+      ...(meter.aiCalls ? [{ user_id: user.id, event_type: 'import_terms', provider: 'openai', tokens_used: meter.aiTokens, cost_usd: meter.aiCost, session_id: sessionId }] : []),
+    ]
+    userClient.from('usage_events').insert(usageRows)
+      .then(({ error }: { error: { message: string } | null }) => { if (error) console.error('usage_events insert error:', error.message) })
 
     // Delete from Storage: no longer needed after transcription
     await serviceClient.storage.from('recordings').remove([storage_path])

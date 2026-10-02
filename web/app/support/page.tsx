@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { MAC_RELEASES_URL } from '@/lib/links'
+import { BrandMark } from '@/components/BrandMark'
 
 export const metadata: Metadata = {
   title: 'Support',
@@ -124,9 +125,7 @@ export default function Support() {
   return (
     <main className="min-h-dvh dark:bg-[#110B1C] bg-[#F3F0F8] dark:text-white text-gray-900 px-6 py-16">
       <div className="max-w-[680px] mx-auto">
-        <Link href="/" className="text-[11px] font-bold tracking-[0.2em] dark:text-brand-400/70 text-brand-700 uppercase dark:hover:text-brand-400 hover:text-brand-600 transition-colors">
-          ← Demist
-        </Link>
+        <Link href="/" aria-label="Demist home" className="inline-block active:scale-[0.97] transition-transform"><BrandMark /></Link>
 
         <h1 className="text-[34px] font-bold tracking-tight mt-8 mb-2">Support</h1>
         <p className="dark:text-gray-400 text-gray-700 text-[15px] leading-relaxed mb-4">

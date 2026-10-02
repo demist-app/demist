@@ -49,13 +49,18 @@ export function BrandMark({ endorsed = true, size = 'md' }: { endorsed?: boolean
 
 /** The Graceful Minds butterfly-infinity mark. Works on light and dark. */
 export function GracefulMindsMark({ height = 28, className = '' }: { height?: number; className?: string }) {
+  // Width pinned to the same integer as the attribute: with width:auto the
+  // browser lays out a fractional width (115.66px at height 72) whose integer
+  // differs from the attribute, and Next warns about a distorted image.
+  const width = Math.round(height * (461 / 287))
   return (
     <Image
       src="/graceful-minds-mark.png"
       alt="Graceful Minds"
-      width={Math.round(height * (461 / 287))}
+      width={width}
       height={height}
       className={className}
+      style={{ height, width }}
     />
   )
 }

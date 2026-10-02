@@ -698,7 +698,7 @@ export default function Profile() {
             <button
               onClick={exportToAnki}
               disabled={exporting}
-              className="w-full flex items-center justify-between px-4 py-3 hover:dark:bg-white/[0.03] bg-[#FFFFFF] transition-all disabled:opacity-40"
+              className="w-full flex items-center justify-between px-4 py-3 dark:bg-transparent hover:dark:bg-white/[0.03] bg-[#FFFFFF] transition-all disabled:opacity-40"
             >
               <div className="text-left">
                 <p className="text-[14px] dark:text-white/80 text-gray-800 font-medium">Export to Anki</p>

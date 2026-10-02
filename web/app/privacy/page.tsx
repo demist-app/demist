@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { BrandMark } from '@/components/BrandMark'
 
 export const metadata: Metadata = {
   title: 'Privacy Policy',
@@ -13,9 +14,7 @@ export default function Privacy() {
   return (
     <main className="min-h-dvh dark:bg-[#110B1C] bg-[#F3F0F8] dark:text-white text-gray-900 px-6 py-16">
       <div className="max-w-[680px] mx-auto">
-        <Link href="/" className="text-[11px] font-bold tracking-[0.2em] dark:text-brand-400/70 text-brand-700 uppercase dark:hover:text-brand-400 hover:text-brand-600 transition-colors">
-          ← Demist
-        </Link>
+        <Link href="/" aria-label="Demist home" className="inline-block active:scale-[0.97] transition-transform"><BrandMark /></Link>
 
         <h1 className="text-[34px] font-bold tracking-tight mt-8 mb-2">Privacy Policy</h1>
         <p className="dark:text-gray-600 text-gray-500 text-[14px] mb-12">Last updated {updated}</p>

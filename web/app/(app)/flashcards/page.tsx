@@ -190,9 +190,21 @@ export default function Flashcards() {
 
       const subjects = [...new Set((subjectRows ?? []).map(r => (r as { subject: string }).subject).filter(Boolean))]
       setFilterSubjects(subjects)
-      setFilterSessions((recentSessions ?? []).map(s => ({
-        id: s.id,
-        label: (s as { name?: string | null }).name ?? new Date(s.started_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
+      // Unnamed sessions are labelled by date, and two lectures on the same
+      // day gave two identical "1 Sept" chips you could not tell apart (and a
+      // duplicate React key). Those get the start time added.
+      const sessionLabels = (recentSessions ?? []).map(s => {
+        const name = (s as { name?: string | null }).name
+        const d = new Date(s.started_at)
+        return { id: s.id, name, d, day: d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) }
+      })
+      const dayCounts = new Map<string, number>()
+      for (const x of sessionLabels) if (!x.name) dayCounts.set(x.day, (dayCounts.get(x.day) ?? 0) + 1)
+      setFilterSessions(sessionLabels.map(x => ({
+        id: x.id,
+        label: x.name ?? ((dayCounts.get(x.day) ?? 0) > 1
+          ? `${x.day}, ${x.d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`
+          : x.day),
       })))
 
       const due = (reviews ?? []).map(c => ({ ...c, isNew: false })) as FlashCard[]
@@ -880,7 +892,7 @@ export default function Flashcards() {
                 const active = f === null ? deckFilter === null : deckFilter !== null && deckFilter.kind === f.kind && deckFilter.value === f.value
                 return (
                   <button
-                    key={label}
+                    key={f ? `${f.kind}:${f.value}` : 'all'}
                     onClick={() => { setDeckFilter(f); if (f !== null) capture('flashcard_deck_filtered', { kind: f.kind }) }}
                     className={`shrink-0 text-[12px] font-medium px-3 py-1.5 rounded-full border transition-colors ${active ? 'bg-brand-600 border-brand-600 text-white' : 'dark:bg-white/[0.04] bg-[#F1EEF7] dark:border-white/[0.08] border-black/[0.12] dark:text-gray-400 text-gray-600 hover:border-brand-500/40'}`}
                   >

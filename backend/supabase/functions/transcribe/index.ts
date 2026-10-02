@@ -181,14 +181,22 @@ serve(async (req) => {
     let cleanText = collapseRepeats(text.trim())
     if (HALLUCINATION_PATTERNS.some(re => re.test(cleanText))) cleanText = ''
 
-    // Fire-and-forget usage logging: never block the response on this
-    const estMinutes = 5 / 60 // chunks are ~5s
+    // Fire-and-forget usage logging: never block the response on this.
+    // Billed seconds, not a guess: verbose_json carries the audio duration.
+    // Groq whisper-large-v3-turbo is $0.04/hour with a 10-second MINIMUM per
+    // request, so a 5s chunk bills as 10s; OpenAI whisper-1 is $0.006/minute
+    // per second. The old flat "5s at $0.0002/min" logged roughly 1/6 of the
+    // real Groq cost. Re-check console.groq.com/pricing if these change.
+    const audioSeconds = Number(data.duration) > 0 ? Number(data.duration) : 5
+    const cost = GROQ_KEY
+      ? Math.max(10, audioSeconds) * (0.04 / 3600)
+      : audioSeconds * (0.006 / 60)
     supabase.from('usage_events').insert({
       user_id: user.id,
       event_type: 'transcribe',
       provider: GROQ_KEY ? 'groq' : 'openai',
       tokens_used: null,
-      cost_usd: (GROQ_KEY ? 0.0002 : 0.006) * estMinutes,
+      cost_usd: cost,
       session_id: sessionId,
     }).then(({ error }) => { if (error) console.error('usage_events insert error:', error.message) })
 
