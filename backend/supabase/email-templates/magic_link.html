@@ -27,27 +27,88 @@ HOW TO APPLY (Supabase dashboard is the only path):
   4. Paste everything below the divider as the message body (source/HTML mode,
      not the rich text editor - it will otherwise escape the Go template tags)
   5. Save, then send yourself a real code from /login to confirm it renders
+
+  Dark-mode note (2026-10-02): the template live in the dashboard before the
+  rebrand forced light rendering (color-scheme: light only, plus !important
+  classes) so Gmail and Apple Mail dark mode do not invert the colours. Kept.
 -->
 <!-- ============================== BODY BELOW ============================== -->
-<div style="margin:0;padding:32px 16px;background:#F3F0F8;">
-  <div style="max-width:480px;margin:0 auto;background:#FFFFFF;border:1px solid #E2DCEE;border-radius:16px;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td height="4" bgcolor="#5B3F8F" style="height:4px;line-height:4px;font-size:0;background:#5B3F8F;">&nbsp;</td><td height="4" bgcolor="#556EAE" style="height:4px;line-height:4px;font-size:0;background:#556EAE;">&nbsp;</td><td height="4" bgcolor="#2A777A" style="height:4px;line-height:4px;font-size:0;background:#2A777A;">&nbsp;</td></tr></table>
-    <div style="padding:28px 32px 36px 32px;">
-    <p style="margin:0 0 28px 0;font-size:16px;line-height:1.2;font-weight:700;color:#1E1433;">Demist<br><span style="font-size:11px;font-weight:500;color:#857F96;">by Graceful Minds</span></p>
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light only" />
+  <meta name="supported-color-schemes" content="light only" />
+  <style>
+    :root { color-scheme: light only; }
+    body { background-color: #F3F0F8 !important; }
+    .bg-outer { background-color: #F3F0F8 !important; }
+    .bg-card   { background-color: #FFFFFF !important; }
+    .bg-otp    { background-color: #F6F3FC !important; }
+    .text-heading { color: #1E1433 !important; }
+    .text-body    { color: #57506A !important; }
+    .text-muted   { color: #857F96 !important; }
+    .text-otp     { color: #1E1433 !important; }
+  </style>
+</head>
+<body bgcolor="#F3F0F8" class="bg-outer" style="margin:0;padding:0;background-color:#F3F0F8;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#F3F0F8" class="bg-outer" style="background-color:#F3F0F8;padding:40px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:480px;">
 
-    <h1 style="margin:0 0 12px 0;font-size:22px;line-height:1.3;font-weight:700;color:#1E1433;">Your sign-in code</h1>
-    <p style="margin:0 0 24px 0;font-size:15px;line-height:1.65;color:#57506A;">Enter this code on the Demist sign-in screen. It expires shortly and works once.</p>
+          <!-- Card -->
+          <tr>
+            <td bgcolor="#FFFFFF" class="bg-card" style="background-color:#FFFFFF;border:1px solid #E2DCEE;border-radius:20px;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
 
-    <div style="margin:0 0 24px 0;padding:20px;background:#F8F6FB;border:1px solid #E2DCEE;border-radius:12px;text-align:center;">
-      <span style="font-family:'SF Mono',SFMono-Regular,Consolas,'Liberation Mono',Menlo,monospace;font-size:32px;font-weight:700;letter-spacing:0.35em;color:#1E1433;">{{ .Token }}</span>
-    </div>
+              <!-- Brand stripe: plum, periwinkle, teal (the Graceful Minds logo) -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td height="4" bgcolor="#5B3F8F" style="height:4px;line-height:4px;font-size:0;background-color:#5B3F8F;border-radius:20px 0 0 0;">&nbsp;</td>
+                  <td height="4" bgcolor="#556EAE" style="height:4px;line-height:4px;font-size:0;background-color:#556EAE;">&nbsp;</td>
+                  <td height="4" bgcolor="#2A777A" style="height:4px;line-height:4px;font-size:0;background-color:#2A777A;border-radius:0 20px 0 0;">&nbsp;</td>
+                </tr>
+              </table>
 
-    <p style="margin:0 0 16px 0;font-size:13px;line-height:1.65;color:#857F96;">Didn&rsquo;t request this? Ignore it and no one gets signed in. Only someone with access to this inbox can use the code.</p>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td style="padding:32px 36px 36px 36px;">
 
-    <p style="margin:0;font-size:13px;line-height:1.65;color:#857F96;">Landed in spam or junk? Mark it &ldquo;Not spam&rdquo; so the next code reaches your inbox directly.</p>
-    </div>
-  </div>
-  <p style="max-width:480px;margin:20px auto 0 auto;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;line-height:1.6;color:#857F96;text-align:center;">
-    <a href="https://demist.app" style="color:#857F96;text-decoration:underline;">demist.app</a> &middot; a <a href="https://www.graceful-minds.org" style="color:#857F96;text-decoration:underline;">Graceful Minds</a> project
-  </p>
-</div>
+                    <!-- Wordmark -->
+                    <p class="text-heading" style="margin:0 0 28px;font-size:16px;line-height:1.2;font-weight:700;color:#1E1433;">Demist<br><span class="text-muted" style="font-size:11px;font-weight:500;color:#857F96;">by Graceful Minds</span></p>
+
+                    <p class="text-heading" style="margin:0 0 8px;font-size:22px;font-weight:700;color:#1E1433;letter-spacing:-0.5px;">Your sign-in code</p>
+                    <p class="text-body" style="margin:0 0 28px;font-size:15px;color:#57506A;line-height:1.6;">Enter this code on the Demist sign-in screen. It expires shortly and works once.</p>
+
+                    <!-- OTP Code -->
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:28px;">
+                      <tr>
+                        <td bgcolor="#F6F3FC" class="bg-otp" align="center" style="background-color:#F6F3FC;border:1px solid #D2C5F0;border-radius:14px;padding:20px;">
+                          <span class="text-otp" style="font-family:'SF Mono',SFMono-Regular,Consolas,'Liberation Mono',Menlo,monospace;font-size:32px;font-weight:700;letter-spacing:12px;color:#1E1433;">{{ .Token }}</span>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <p class="text-muted" style="margin:0 0 14px;font-size:13px;color:#857F96;line-height:1.6;">Didn&rsquo;t request this? Ignore it and no one gets signed in. Only someone with access to this inbox can use the code.</p>
+                    <p class="text-muted" style="margin:0;font-size:13px;color:#857F96;line-height:1.6;">Landed in spam or junk? Mark it &ldquo;Not spam&rdquo; so the next code reaches your inbox directly.</p>
+
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td bgcolor="#F3F0F8" class="bg-outer" style="background-color:#F3F0F8;padding-top:24px;text-align:center;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+              <p class="text-muted" style="margin:0;font-size:12px;color:#857F96;"><a href="https://demist.app" style="color:#857F96;text-decoration:underline;">demist.app</a> &middot; a <a href="https://www.graceful-minds.org" style="color:#857F96;text-decoration:underline;">Graceful Minds</a> project</p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
