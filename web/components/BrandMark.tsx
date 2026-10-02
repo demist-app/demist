@@ -1,6 +1,6 @@
 import Image from 'next/image'
 
-// The Demist waveform, recoloured for the Graceful Minds partnership (2026-10-02):
+// The Demist waveform, recoloured in the Graceful Minds palette (2026-10-02):
 // plum outer bars, periwinkle, teal centre, matching the infinity loop in their logo.
 // Dark mode lifts each bar to its pastel so it does not sink into the plum-black page.
 const BARS = [
@@ -47,20 +47,34 @@ export function BrandMark({ endorsed = true, size = 'md' }: { endorsed?: boolean
   )
 }
 
-/** The Graceful Minds butterfly-infinity mark. Works on light and dark. */
-export function GracefulMindsMark({ height = 28, className = '' }: { height?: number; className?: string }) {
-  // Width pinned to the same integer as the attribute: with width:auto the
-  // browser lays out a fractional width (115.66px at height 72) whose integer
-  // differs from the attribute, and Next warns about a distorted image.
-  const width = Math.round(height * (461 / 287))
+/**
+ * The full Graceful Minds logo with its slogan. Demist IS Graceful Minds, so
+ * this stands on its own: no "in partnership with" framing around it.
+ *
+ * Two files, not one: the plum script wordmark disappears on the dark theme's
+ * plum-black page, so graceful-minds-logo-dark.png has the wordmark and slogan
+ * in light lavender (the watercolour is untouched). A white plate behind the
+ * logo would have worked too, but reads as a pasted-in sticker.
+ *
+ * The slogan is lettering, so it needs width to stay readable: about 240px is
+ * the floor. The source is 461x454, so anything over ~230px is upscaled on a
+ * retina screen; ask Graceful Minds for a larger original if it looks soft.
+ */
+export function GracefulMindsLogo({ width = 280, className = '' }: { width?: number; className?: string }) {
+  const height = Math.round(width * (454 / 461))
+  const img = (src: string, cls: string) => (
+    <Image src={src} alt="" width={width} height={height} className={cls} style={{ width, height }} />
+  )
   return (
-    <Image
-      src="/graceful-minds-mark.png"
-      alt="Graceful Minds"
-      width={width}
-      height={height}
-      className={className}
-      style={{ height, width }}
-    />
+    <a
+      href="https://www.graceful-minds.org"
+      target="_blank"
+      rel="noopener"
+      aria-label="Graceful Minds: we don't change how you think, we change how you succeed"
+      className={`block w-fit rounded-2xl transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-4 ${className}`}
+    >
+      {img('/graceful-minds-logo.png', 'block dark:hidden')}
+      {img('/graceful-minds-logo-dark.png', 'hidden dark:block')}
+    </a>
   )
 }

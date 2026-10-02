@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { AppNav } from '@/components/AppNav'
-import { GracefulMindsMark } from '@/components/BrandMark'
+import { GracefulMindsLogo } from '@/components/BrandMark'
 
 const useCases = [
   {
@@ -42,32 +42,16 @@ export function AboutClient() {
           <a href="/" className="text-[12px] font-medium" style={{ color: 'var(--fg-faint)' }}>&larr; Demist</a>
         )}
 
-        <h1 className={`text-[32px] sm:text-[42px] font-bold tracking-tight mb-4 leading-tight ${authed ? '' : 'mt-8'}`}>
+        {/* Who makes Demist, said with their own logo rather than a sentence
+            about it: Demist is Graceful Minds. */}
+        <GracefulMindsLogo width={240} className={`mb-10 ${authed ? '' : 'mt-8'}`} />
+
+        <h1 className="text-[32px] sm:text-[42px] font-bold tracking-tight mb-4 leading-tight">
           Built for students who find lectures harder to follow
         </h1>
         <p className="text-[16px] leading-relaxed mb-14" style={{ color: 'var(--fg-muted)' }}>
           Demist explains unfamiliar terms the moment they&apos;re said, then turns every lecture into a personal glossary and a set of flashcards. No manual note-taking required. The core of it is free for students, with an optional paid plan that keeps your whole term&apos;s history.
         </p>
-
-        <section className="mb-16">
-          <h2 className="text-[13px] font-bold tracking-[0.16em] uppercase mb-6" style={{ color: 'var(--fg-faint)' }}>
-            Part of Graceful Minds
-          </h2>
-          <div className="rounded-2xl p-7 flex flex-col sm:flex-row gap-6 sm:items-center" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-            <GracefulMindsMark height={72} className="shrink-0" />
-            <div>
-              <p className="text-[15px] leading-relaxed mb-3" style={{ color: 'var(--fg)' }}>
-                Demist sits under the Graceful Minds umbrella.
-              </p>
-              <p className="text-[14px] leading-relaxed mb-4" style={{ color: 'var(--fg-muted)' }}>
-                Graceful Minds is a neurodivergent-led organisation creating spaces where people feel safe, supported and seen. They work with universities, employers and local authorities so that support actually fits the people it is for, and Demist is part of that work.
-              </p>
-              <a href="https://www.graceful-minds.org" target="_blank" rel="noopener" className="text-[14px] font-semibold underline underline-offset-2" style={{ color: 'var(--accent)' }}>
-                Visit Graceful Minds
-              </a>
-            </div>
-          </div>
-        </section>
 
         <section className="mb-16">
           <h2 className="text-[13px] font-bold tracking-[0.16em] uppercase mb-6" style={{ color: 'var(--fg-faint)' }}>

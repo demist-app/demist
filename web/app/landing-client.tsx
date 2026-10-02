@@ -10,7 +10,7 @@ import { MAC_SUPPORT_URL, MS_STORE_URL } from '@/lib/links'
 import { PRO_LIVE } from '@/lib/subscription'
 import { SUBJECT_PAGES } from '@/lib/subjectPages'
 import { COMPARE_PAGES } from '@/lib/comparePages'
-import { BrandMark, GracefulMindsMark } from '@/components/BrandMark'
+import { BrandMark, GracefulMindsLogo } from '@/components/BrandMark'
 
 const SPRING = 'cubic-bezier(0.16, 1, 0.3, 1)'
 
@@ -402,15 +402,6 @@ export default function LandingClient() {
 
       {/* ── Hero ── */}
       <section className="relative z-10 min-h-[calc(100dvh-4rem)] flex flex-col items-center justify-center text-center px-6 pb-12">
-
-        <a
-          href="#graceful-minds"
-          className="inline-flex items-center gap-2 mb-7 pl-1.5 pr-3.5 py-1 rounded-full text-[12px] font-medium transition-colors"
-          style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--fg-muted)', ...anim(60).style }}
-        >
-          <GracefulMindsMark height={22} />
-          In partnership with Graceful Minds
-        </a>
 
         <h1 className="text-[44px] sm:text-[66px] lg:text-[76px] font-bold tracking-tight leading-[1.04] mb-6 max-w-3xl" style={{ color: 'var(--fg)' }}>
           {[
@@ -955,28 +946,11 @@ export default function LandingClient() {
       </section>
 
       {/* ── Graceful Minds ──
-          The partnership (2026-10-02). Kept as one quiet block: who they are,
-          their line, a way to reach them. */}
-      <section id="graceful-minds" className="relative z-10 px-6 py-20 sm:py-24 flex flex-col items-center text-center scroll-mt-8">
-        <GracefulMindsMark height={92} className="mb-7" />
-        <p className="text-[11px] font-bold tracking-[0.2em] uppercase mb-3" style={{ color: 'var(--calm)' }}>
-          A Graceful Minds project
-        </p>
-        <h2 className="text-[26px] sm:text-[32px] font-bold tracking-tight leading-tight mb-4 max-w-xl" style={{ color: 'var(--fg)' }}>
-          We don&apos;t change how you think.<br />We change how you succeed.
-        </h2>
-        <p className="text-[15px] leading-relaxed mb-7 max-w-[520px]" style={{ color: 'var(--fg-muted)' }}>
-          Demist is part of Graceful Minds, a neurodivergent-led organisation creating spaces where people feel safe, supported and seen. They work with universities, employers and families so support actually fits the people it is for.
-        </p>
-        <a
-          href="https://www.graceful-minds.org"
-          target="_blank"
-          rel="noopener"
-          className="px-6 py-3 rounded-2xl text-[14px] font-semibold transition-colors"
-          style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--fg)' }}
-        >
-          Visit Graceful Minds
-        </a>
+          Demist is Graceful Minds, so this is their logo and slogan on its own,
+          not a block explaining a relationship. 300px keeps the slogan
+          lettering readable; the logo itself links to their site. */}
+      <section id="graceful-minds" className="relative z-10 px-6 py-16 sm:py-24 flex justify-center">
+        <GracefulMindsLogo width={300} />
       </section>
 
       {/* ── Guides ──
@@ -1014,7 +988,7 @@ export default function LandingClient() {
           <a href="/about" className="text-[12px] transition-colors" style={{ color: 'var(--fg-faint)' }}>About Us</a>
           <a href="/support" className="text-[12px] transition-colors" style={{ color: 'var(--fg-faint)' }}>Support</a>
           <a href="/privacy" className="text-[12px] transition-colors" style={{ color: 'var(--fg-faint)' }}>Privacy</a>
-          <p className="text-[12px]" style={{ color: 'var(--fg-faint)' }}>© {new Date().getFullYear()} Demist · Graceful Minds</p>
+          <p className="text-[12px]" style={{ color: 'var(--fg-faint)' }}>© {new Date().getFullYear()} Graceful Minds</p>
         </div>
       </footer>
     </main>

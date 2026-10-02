@@ -112,7 +112,7 @@ function shell(inner: string, preheader: string) {
         </tr>
       </table>
       <p style="max-width:480px;margin:20px auto 0 auto;font-family:${FONT};font-size:12px;line-height:1.6;color:${FAINT};text-align:center;">
-        <a href="${APP_URL}" style="color:${FAINT};text-decoration:underline;">demist.app</a> &middot; a <a href="https://www.graceful-minds.org" style="color:${FAINT};text-decoration:underline;">Graceful Minds</a> project
+        <a href="${APP_URL}" style="color:${FAINT};text-decoration:underline;">demist.app</a> &middot; <a href="https://www.graceful-minds.org" style="color:${FAINT};text-decoration:underline;">graceful-minds.org</a>
       </p>
     </td>
   </tr>

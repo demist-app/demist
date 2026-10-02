@@ -3,7 +3,7 @@ import { AboutClient } from './about-client'
 
 export const metadata: Metadata = {
   title: 'About Demist',
-  description: 'Demist, part of Graceful Minds, helps students who struggle to listen and take notes at the same time. Real-time term explanations, automatic notes, and flashcards from every lecture.',
+  description: 'Demist by Graceful Minds helps students who struggle to listen and take notes at the same time. Real-time term explanations, automatic notes, and flashcards from every lecture.',
   alternates: { canonical: 'https://www.demist.app/about' },
 }
 
