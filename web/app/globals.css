@@ -114,7 +114,7 @@
 @theme inline {
   --color-background: var(--bg);
   --color-foreground: var(--fg);
-  --font-sans: var(--font-jakarta);
+  --font-sans: 'Plus Jakarta Sans Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
   --font-mono: var(--font-geist-mono);
 
   --color-brand-50:  var(--brand-50);

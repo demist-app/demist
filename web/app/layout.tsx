@@ -1,14 +1,12 @@
 import type { Metadata, Viewport } from "next";
-import { Plus_Jakarta_Sans, Geist_Mono } from "next/font/google";
+import { Geist_Mono } from "next/font/google";
+// Self-hosted, not next/font/google: on 2026-10-02 Vercel's build failed
+// because Turbopack could not parse the font URLs Google returned for Plus
+// Jakarta Sans ("next/font/google queries have exactly one entry"), with no
+// code change to the font. Bundling the files removes Google from the build.
+import "@fontsource-variable/plus-jakarta-sans";
 import { PHProvider } from "./providers";
 import "./globals.css";
-
-const jakartaSans = Plus_Jakarta_Sans({
-  variable: "--font-jakarta",
-  subsets: ["latin"],
-  weight: ['400', '500', '600', '700'],
-  display: 'swap',
-});
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
@@ -69,7 +67,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${jakartaSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <head>

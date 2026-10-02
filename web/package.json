@@ -12,6 +12,7 @@
     "postbuild": "node scripts/indexnow.mjs"
   },
   "dependencies": {
+    "@fontsource-variable/plus-jakarta-sans": "5.3.0",
     "@stripe/react-stripe-js": "^6.10.0",
     "@stripe/stripe-js": "^9.16.0",
     "@supabase/ssr": "^0.10.3",
