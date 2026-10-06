@@ -864,14 +864,14 @@ export default function Profile() {
             </div>
             <p className="text-[12px] text-gray-500 mt-1.5">
               {isElectronNative()
-                ? "Shows a one-line translation under each term's definition, and a live bilingual transcript. Runs fully on-device using the desktop app's bundled model: nothing leaves your computer."
-                : "Shows a one-line translation under each term's definition, and a live bilingual transcript in browsers with on-device translation (Chrome). Runs on-device automatically where supported: nothing to download or configure. Elsewhere, definitions are translated by the same OpenAI service that already generates them; the live bilingual transcript needs on-device support either way."}
+                ? "Shows a one-line translation under each term's definition, and a live bilingual transcript. It all happens on your computer: nothing leaves it."
+                : "Shows a one-line translation under each term's definition, and a live bilingual transcript in browsers that can translate on your device (Chrome). Nothing to download or set up. In other browsers, definitions are translated online and the live bilingual transcript is not available."}
             </p>
             {!isElectronNative() && translateTo && localTranslate.status === 'downloading' && (
-              <p className="text-[12px] text-gray-600 mt-1.5">Chrome is downloading its on-device translation model… {localTranslate.progress}%, a one-time download shared by every site, not just Demist. Cloud translation covers definitions in the meantime.</p>
+              <p className="text-[12px] text-gray-600 mt-1.5">Chrome is downloading its translation pack… {localTranslate.progress}%, a one-time download shared by every site, not just Demist. Definitions are translated online in the meantime.</p>
             )}
             {!isElectronNative() && translateTo && localTranslate.status === 'error' && (
-              <p className="text-[12px] text-red-400 mt-1.5">On-device translation isn&apos;t available right now. Term definitions are still translated in the cloud.</p>
+              <p className="text-[12px] text-red-400 mt-1.5">Translation on this device isn&apos;t available right now. Term definitions are still translated online.</p>
             )}
           </div>
 
@@ -924,7 +924,7 @@ export default function Profile() {
 
           {isElectronNative() && (
             <div>
-              <label className="text-[12px] text-gray-600 mb-1.5 block">On-device transcription model</label>
+              <label className="text-[12px] text-gray-600 mb-1.5 block">Speech recognition</label>
               <div className="grid grid-cols-2 gap-2">
                 {(['fast', 'accurate'] as const).map(tier => (
                   <button
@@ -942,14 +942,14 @@ export default function Profile() {
                 ))}
               </div>
               <p className="text-[12px] text-gray-500 mt-1.5">
-                Both ship inside the app, so neither is downloaded. Accurate catches meaningfully more of what you actually said and is the default on machines with 10GB of RAM or more; Fast uses about half the memory and runs roughly twice as quickly, and is the default below that. Changing this loads the other model now, so the record button is briefly unavailable.
+                Both ship inside the app, so neither is downloaded. Accurate catches meaningfully more of what you actually said and is the default on machines with 10GB of RAM or more; Fast uses about half the memory and runs roughly twice as quickly, and is the default below that. Changing this switches over now, so the record button is briefly unavailable.
               </p>
             </div>
           )}
 
           {isElectronNative() && (
             <div>
-              <label className="text-[12px] text-gray-600 mb-1.5 block">On-device term detection model</label>
+              <label className="text-[12px] text-gray-600 mb-1.5 block">Term detection</label>
               <div className="grid grid-cols-3 gap-2">
                 {(['tiny', 'small', 'large'] as const).map(tier => (
                   <button
@@ -967,7 +967,7 @@ export default function Profile() {
                 ))}
               </div>
               <p className="text-[12px] text-gray-500 mt-1.5">
-                Small (~2.5GB in memory) is the default on machines with 8GB of RAM or more. Tiny (~1.4GB) is the default below that; it finds the same terms but is looser about ordinary speech, so it double-checks each one before showing a card. Large is closer to cloud-quality term detection but needs 8GB+ RAM free and downloads a bigger model on first use. Demist picks a default from your machine&apos;s memory; choosing here overrides it.
+                Small (~2.5GB in memory) is the default on machines with 8GB of RAM or more. Tiny (~1.4GB) is the default below that; it finds the same terms but is looser about ordinary speech, so it double-checks each one before showing a card. Large finds terms most reliably but needs 8GB+ RAM free and downloads a bigger model on first use. Demist picks a default from your machine&apos;s memory; choosing here overrides it.
               </p>
               {/* Required by the Llama 3.2/3.1 Community License's redistribution
                   terms: "prominently display 'Built with Llama'". This is the

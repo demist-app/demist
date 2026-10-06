@@ -134,7 +134,7 @@ function offlinePage(reason) {
 </style>
 <div class="card">
   <h1>Demist can't reach the internet</h1>
-  <p>Demist needs a connection to load and to sign you in. Your on-device models
+  <p>Demist needs a connection to load and to sign you in. Your downloads
      and anything you've already recorded are safe on this computer.</p>
   <button onclick="location.replace(${JSON.stringify(APP_START_URL)})">Try again</button>
   <p><code>${String(reason).replace(/[<&]/g, (c) => (c === '<' ? '&lt;' : '&amp;'))}</code></p>
@@ -186,6 +186,12 @@ function offlinePage(reason) {
 // Independent threads mean a slow Llama generation no longer blocks Whisper
 // or translation (or vice versa); genuine CPU contention between them on
 // weaker hardware is a separate, real hardware limit this doesn't remove.
+// How each worker is named in messages the student sees. Plain words, no
+// "engine"/"on-device" jargon (2026-10-06). The phrases "stopped responding",
+// "stopped unexpectedly" and "still busy loading" must stay: the renderer's
+// nativeMessageCode() classifies these messages by them for analytics.
+const ROLE_NAME = { transcribe: 'Transcription', terms: 'Term detection' }
+
 const CALL_ROLE = {
   startSession: 'transcribe',
   stopSession: 'transcribe',
@@ -304,7 +310,7 @@ function getWorkerState(role) {
       stopPcmFlushing()
       mainWindow?.webContents.send('demist:event', {
         event: 'sessionLost',
-        payload: { message: 'On-device transcription stopped unexpectedly. Stop and restart the recording to resume.' },
+        payload: { message: 'Transcription on this computer stopped unexpectedly. Stop and restart the recording to resume.' },
       })
     }
   })
@@ -472,10 +478,10 @@ function callWorker(type, ...args) {
           console.error(`[demist] '${type}' got no reply from the ${role} worker in ${timeoutMs}ms and it has been silent for ${quietFor}ms; restarting it`)
           try { state.worker.kill() } catch { /* already gone */ }
           if (workerStates[role] === state) workerStates[role] = null
-          reject(new Error(`On-device ${role} engine stopped responding. Try starting the recording again.`))
+          reject(new Error(`${ROLE_NAME[role] ?? 'Demist'} stopped responding. Try starting the recording again.`))
         } else {
           console.error(`[demist] '${type}' got no reply from the ${role} worker in ${timeoutMs}ms, but it was active ${quietFor}ms ago - leaving it alone (still busy)`)
-          reject(new Error(`The on-device ${role} engine is still busy loading. Try starting the recording again in a moment.`))
+          reject(new Error(`${ROLE_NAME[role] ?? 'Demist'} is still busy loading. Try starting the recording again in a moment.`))
         }
       }, timeoutMs)
     }

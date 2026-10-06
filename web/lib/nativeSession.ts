@@ -170,7 +170,7 @@ export async function startNativeSession(
       if (msg.payload.verbose) dlog('[demist][native]', msg.payload.message)
       else console.info('[demist][native]', msg.payload.message)
     } else if (msg.event === 'sessionLost') {
-      callbacks.onError?.(msg.payload.message ?? 'On-device transcription stopped unexpectedly.')
+      callbacks.onError?.(msg.payload.message ?? 'Transcription on this computer stopped unexpectedly.')
     } else if (msg.event === 'sessionNotice') {
       // Deliberately allowed through empty: '' is how the worker retracts a
       // notice once the condition clears (see whisper.js's quiet-audio check),
@@ -564,8 +564,8 @@ export async function startNativeSession(
     noticeAt += 20_000
     console.warn(`[demist] still waiting for the on-device transcription engine after ${waited}s`)
     callbacks.onError?.(waited < 60
-      ? `Still preparing on-device transcription (${waited}s). Your audio is being recorded and will appear once it is ready.`
-      : `The on-device transcription engine hasn't responded in ${waited}s. Your audio is still being recorded and will be transcribed if it comes back.`)
+      ? `Still getting transcription ready (${waited}s). Your audio is being recorded and will appear once it is ready.`
+      : `Transcription hasn't responded in ${waited}s. Your audio is still being recorded and will be transcribed if it comes back.`)
   }, 5_000)
 
   try {
@@ -587,7 +587,7 @@ export async function startNativeSession(
     console.warn('[demist] startNativeSession: recording moved on while startSession was pending; abandoning this attempt. Its capture graph is being torn down; if audio keeps flowing after this line, TWO graphs are running.')
     await teardownGraph()
     unsubscribe()
-    throw new Error('Recording was restarted before on-device transcription finished starting.')
+    throw new Error('Recording was restarted before transcription finished starting.')
   }
 
   // Backend is ready: release everything captured while it was loading, in

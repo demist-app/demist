@@ -294,7 +294,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     const missing = missingOnDeviceCapabilities()
     if (!missing.length) return
     const list = missing.length === 1 ? missing[0] : missing.slice(0, -1).join(', ') + ' and ' + missing[missing.length - 1]
-    setStaleShellWarning(`This version of the Demist app is out of date, so ${list} still runs in the cloud instead of on your device. Update the app to keep everything local.`)
+    setStaleShellWarning(`This version of the Demist app is out of date, so ${list} still runs online instead of on your computer. Update the app to keep everything on your computer.`)
     capture('stale_shell_cloud_fallback', { missing })
   }, [])
   // Whether the desktop app's bundled translation model is loaded and can
@@ -701,8 +701,8 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
         // the screenshot will say why.
         const reason = (err as Error)?.message?.trim()
         setNativeModelsError(reason
-          ? `Couldn't load the transcription model: ${reason.slice(0, 200)}`
-          : "Couldn't load the transcription model. Check your connection and try again.")
+          ? `Couldn't get transcription ready: ${reason.slice(0, 200)}`
+          : "Couldn't get transcription ready. Check your connection and try again.")
         setNativeModelProgress(null)
         return
       }
@@ -732,7 +732,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       setNativeModelsReady(true)
       setNativeModelProgress(null)
       if (degraded.length) {
-        setModelWarning(`Couldn't load the ${degraded.join(' and ')} model${degraded.length > 1 ? 's' : ''}. Recording and transcription work normally; you just won't get ${degraded.includes('term detection') ? 'term cards' : 'translations'}.`)
+        setModelWarning(`Couldn't get ${degraded.join(' and ')} ready. Recording and transcription work normally; you just won't get ${degraded.includes('term detection') ? 'term cards' : 'translations'}.`)
       }
     })()
   }
@@ -1590,7 +1590,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     // let a session start into an in-progress model download, which would
     // otherwise silently lose whatever's said until the download finishes.
     if (isElectronNative() && !nativeModelsReady) {
-      setRecordingError(nativeModelsError ?? 'Still preparing on-device models, one moment…')
+      setRecordingError(nativeModelsError ?? 'Still getting ready, one moment…')
       return
     }
     startingRef.current = true
@@ -1866,7 +1866,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
         const myEpoch = ++sessionEpochRef.current
         // Audio is captured from this moment, but the native model may still
         // be loading; say so rather than showing an empty transcript.
-        setRecordingWarning('Preparing on-device transcription… your audio is being recorded and will appear shortly.')
+        setRecordingWarning('Getting transcription ready… your audio is being recorded and will appear shortly.')
         // Share the audio graph attachAudioGraph already built rather than
         // letting nativeSession stand up a second AudioContext. Two contexts
         // pulling one microphone compete, and the measured result was the
@@ -1974,7 +1974,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
         // any failure path it used to sit on screen forever, telling the user
         // to keep waiting for something that had already given up.
         setRecordingWarning(null)
-        setRecordingError('Could not start on-device transcription, so this recording was stopped. Try again; if it keeps happening, restart Demist.')
+        setRecordingError('Could not start transcription, so this recording was stopped. Try again; if it keeps happening, restart Demist.')
         // Stop, don't carry on. The recording used to keep running with the
         // error on screen and nothing listening, and a student who missed the
         // message could record a whole lecture into nothing: that is the

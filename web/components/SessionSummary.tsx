@@ -27,7 +27,7 @@ const FAILURE_COPY: Record<FailureReason, { heading: string; body: (native: bool
   detection_errors: {
     heading: 'Term detection did not work this time',
     body: native => (native
-      ? 'The term model on this computer kept hitting errors during this lecture'
+      ? 'Term detection on this computer kept hitting errors during this lecture'
       : 'Demist could not reach the service that finds terms for most of this lecture')
       + ', so an empty list here does not mean there were no terms. We have been told about it.',
   },

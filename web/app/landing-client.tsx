@@ -774,7 +774,7 @@ export default function LandingClient() {
           style={{ color: 'var(--fg)', ...scrollAnim(macRef.visible, 80).style }}
         >
           Now in beta for Apple Silicon.{' '}
-          <span style={{ color: 'var(--fg-muted)', fontWeight: 400 }}>Same on-device transcription.</span>
+          <span style={{ color: 'var(--fg-muted)', fontWeight: 400 }}>Same transcription, on your own computer.</span>
         </h2>
         <p
           className="text-[15px] leading-relaxed mb-10 max-w-[490px] mx-auto"

@@ -35,7 +35,7 @@ const SECTIONS: { title: string; id?: string; items: { q: string; a: React.React
       },
       {
         q: 'Is my audio actually staying on my machine, same as Windows?',
-        a: <>Yes - same code, same models, same on-device transcription, term detection and translation as the Windows app. Nothing about running unsigned changes what the app does with your audio; it only changes what Gatekeeper shows you the first time you open it.</>,
+        a: <>Yes - the same app, with the same transcription, term detection and translation on your own computer as the Windows app. Nothing about running unsigned changes what the app does with your audio; it only changes what Gatekeeper shows you the first time you open it.</>,
       },
       {
         q: 'Something’s not working right',
@@ -48,11 +48,11 @@ const SECTIONS: { title: string; id?: string; items: { q: string; a: React.React
     items: [
       {
         q: 'The first launch is taking a long time. Is it stuck?',
-        a: <>Almost certainly not. Transcription is built into the app, so recording works straight away with nothing to download. What takes time is the term-detection model, which is several gigabytes and downloads in the background the first time you open Demist. Its progress shows under the record button. Until it finishes you get a live transcript without term cards, rather than nothing at all, and it only happens once.</>,
+        a: <>Almost certainly not. Transcription is built into the app, so recording works straight away with nothing to download. What takes time is term detection, which is several gigabytes and downloads in the background the first time you open Demist. Its progress shows under the record button. Until it finishes you get a live transcript without term cards, rather than nothing at all, and it only happens once.</>,
       },
       {
         q: 'The record button is greyed out',
-        a: <>It unlocks once the transcription model has loaded into memory, which normally takes a few seconds. The text underneath says <em>Preparing on-device models…</em> while that happens. If it stays greyed out, or reads <em>Couldn’t load on-device models</em>, press <em>Retry</em>. If that doesn’t help, close the app fully and reopen it.</>,
+        a: <>It unlocks once transcription is ready, which normally takes a few seconds. The text underneath says <em>Getting ready…</em> while that happens. If it stays greyed out, or reads <em>Couldn’t get ready</em>, press <em>Retry</em>. If that doesn’t help, close the app fully and reopen it.</>,
       },
       {
         q: 'Do I need an account?',
@@ -60,7 +60,7 @@ const SECTIONS: { title: string; id?: string; items: { q: string; a: React.React
       },
       {
         q: 'It says Demist can’t reach the internet',
-        a: <>Demist loads its interface from demist.app, so it needs a connection to start even though the transcription itself runs on your computer. Check your connection and press <em>Try again</em>. Your downloaded models and anything already recorded are safe.</>,
+        a: <>Demist loads its interface from demist.app, so it needs a connection to start even though the transcription itself runs on your computer. Check your connection and press <em>Try again</em>. Your downloads and anything already recorded are safe.</>,
       },
     ],
   },
@@ -77,11 +77,11 @@ const SECTIONS: { title: string; id?: string; items: { q: string; a: React.React
       },
       {
         q: 'The transcript lags behind the speaker',
-        a: <>A second or two behind is normal and expected, because Demist transcribes complete phrases rather than individual words. If it drifts much further than that, close other heavy applications: transcription runs entirely on your computer’s processor, so it competes with whatever else is running. On a slower machine you can switch the transcription model to <em>Fast</em> in Settings, which roughly halves the work at some cost to accuracy.</>,
+        a: <>A second or two behind is normal and expected, because Demist transcribes complete phrases rather than individual words. If it drifts much further than that, close other heavy applications: transcription runs entirely on your computer’s processor, so it competes with whatever else is running. On a slower machine you can switch <em>Speech recognition</em> to <em>Fast</em> in Settings, which roughly halves the work at some cost to accuracy.</>,
       },
       {
         q: 'The transcript is inaccurate',
-        a: <>The most common cause is a quiet or distant microphone. Move closer to it, or raise the input level in <em>Windows Settings → System → Sound → Input</em>. If your machine has the memory for it, make sure the transcription model in Demist’s Settings is set to <em>Accurate</em> rather than <em>Fast</em>. Background noise and heavy crosstalk will also reduce accuracy.</>,
+        a: <>The most common cause is a quiet or distant microphone. Move closer to it, or raise the input level in <em>Windows Settings → System → Sound → Input</em>. If your machine has the memory for it, make sure <em>Speech recognition</em> in Demist’s Settings is set to <em>Accurate</em> rather than <em>Fast</em>. Background noise and heavy crosstalk will also reduce accuracy.</>,
       },
     ],
   },
@@ -90,11 +90,11 @@ const SECTIONS: { title: string; id?: string; items: { q: string; a: React.React
     items: [
       {
         q: 'No term cards are appearing',
-        a: <>Term cards only appear for subject-specific vocabulary a student would plausibly need explained, so an introduction or general discussion may produce none at all. They also arrive a little after the transcript, because the term-detection model runs once enough has been said to judge it. If none appear across a whole lecture, check Settings shows a term-detection model as loaded.</>,
+        a: <>Term cards only appear for subject-specific vocabulary a student would plausibly need explained, so an introduction or general discussion may produce none at all. They also arrive a little after the transcript, because term detection waits until enough has been said to judge it. If none appear across a whole lecture, check <em>Term detection</em> in Settings has finished downloading.</>,
       },
       {
         q: 'It’s flagging ordinary words',
-        a: <>Open Settings and check which term-detection model is selected. The smallest one is less able to tell jargon from ordinary speech and is only intended for machines with under 8GB of memory. If yours has more, choose <em>Small</em>, which is noticeably more precise. You can dismiss any card you don’t want and it won’t be saved.</>,
+        a: <>Open Settings and check which <em>Term detection</em> option is selected. The smallest one is less able to tell jargon from ordinary speech and is only intended for machines with under 8GB of memory. If yours has more, choose <em>Small</em>, which is noticeably more precise. You can dismiss any card you don’t want and it won’t be saved.</>,
       },
       {
         q: 'Can I use Demist for a subject in another language?',

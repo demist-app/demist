@@ -48,7 +48,7 @@ const translators = new Map() // lang -> loaded pipeline, cached across calls
 
 async function getTranslator(lang, emitProgress) {
   const modelId = MODEL_BY_LANG[lang]
-  if (!modelId) throw new Error(`No on-device translation model configured for "${lang}"`)
+  if (!modelId) throw new Error(`Translation into "${lang}" isn't available in this version of Demist`)
   if (!translators.has(lang)) {
     // Store the in-flight promise itself, synchronously, before awaiting
     // anything: otherwise two overlapping calls for the same language (e.g.
@@ -78,7 +78,7 @@ async function getTranslator(lang, emitProgress) {
     // filtered networks llm.js does - see native/networkBlock.js.
     const loadPromise = importTransformers().then(({ pipeline }) => pipeline('translation', modelId, {
       dtype: 'q8',
-      progress_callback: makeProgressLogger(`translation model (${lang})`, emitProgress),
+      progress_callback: makeProgressLogger(`translation (${lang})`, emitProgress),
     })).catch(err => {
       console.error(`[demist] translation model download failed (${modelId}):`, err?.message ?? err)
       throw explainModelDownloadFailure(err, 'Translation')

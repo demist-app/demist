@@ -68,7 +68,7 @@ export function InstallPrompt() {
           {isMac ? 'Get Demist for Mac' : 'Get Demist for Windows'}
         </p>
         <p className="text-[12px] dark:text-white/50 text-gray-600 mt-0.5 leading-relaxed">
-          Runs entirely on your own computer: transcription and term detection never touch the cloud, and it's unlimited, free.
+          Runs entirely on your own computer: transcription and term detection never leave it, and it's unlimited, free.
         </p>
         <a
           href={href}

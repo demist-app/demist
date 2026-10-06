@@ -175,7 +175,7 @@ function getTranscriber(emitProgress) {
     }
     const loadPromise = pipeline('automatic-speech-recognition', MODEL_BY_TIER[tier], {
       dtype: DTYPE,
-      progress_callback: makeProgressLogger(`transcription model (${tier})`, emitProgress),
+      progress_callback: makeProgressLogger(`transcription (${tier})`, emitProgress),
     }).catch((err) => {
       // Re-thrown with an actionable explanation up front, not just "fetch
       // failed" - that raw string sent a real user (and me, diagnosing it
@@ -189,7 +189,7 @@ function getTranscriber(emitProgress) {
       // failure with local models actually present (a future tier that
       // isn't bundled yet, say) still surfaces its original error unmodified.
       if (!localAvailable) {
-        throw new Error(`The bundled model wasn't found, and Hugging Face is unreachable - a school or work network may be blocking huggingface.co. Try a different network, or reinstall Demist. (expected the bundle at ${path.join(env.localModelPath, MODEL_BY_TIER[tier])}; underlying error: ${err?.message ?? err})`)
+        throw new Error(`Demist's speech recognition files weren't found, and Hugging Face is unreachable - a school or work network may be blocking huggingface.co. Try a different network, or reinstall Demist. (expected the bundle at ${path.join(env.localModelPath, MODEL_BY_TIER[tier])}; underlying error: ${err?.message ?? err})`)
       }
       throw err
     }).then(async (transcriber) => {

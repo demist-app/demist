@@ -507,7 +507,7 @@ export default function Dashboard() {
                       ))}
                     </div>
                     {localTranslate.status === 'downloading' && (
-                      <span className="text-[11px] text-gray-600 shrink-0" title="A one-time Chrome download shared by every site, not specific to Demist">Chrome downloading translation model… {localTranslate.progress}%</span>
+                      <span className="text-[11px] text-gray-600 shrink-0" title="A one-time Chrome download shared by every site, not specific to Demist">Chrome downloading translation pack… {localTranslate.progress}%</span>
                     )}
                     {/* The desktop equivalent. Chrome's Translator is excluded
                         in Electron, so the line above never appears there and
@@ -632,7 +632,7 @@ export default function Dashboard() {
                     beginRecordingFlow()
                   }}
                   disabled={!nativeModelsReady}
-                  aria-label={nativeModelsReady ? 'Start recording' : nativeModelsError ? 'On-device models failed to load' : 'Preparing on-device models'}
+                  aria-label={nativeModelsReady ? 'Start recording' : nativeModelsError ? 'Demist could not get ready' : 'Getting ready'}
                   className="relative z-10 w-[96px] h-[96px] rounded-full dark:bg-white/[0.08] bg-[#FFFFFF] border border-brand-500/40 hover:bg-brand-500/10 hover:border-brand-500/60 hover:shadow-[0_0_48px_rgba(91,63,143,0.30)] dark:hover:shadow-[0_0_48px_rgba(195,178,234,0.30)] active:scale-[0.97] flex items-center justify-center transition-all duration-200 select-none shadow-sm disabled:opacity-40 disabled:pointer-events-none disabled:hover:shadow-none"
                 >
                   <MicIcon />
@@ -642,7 +642,7 @@ export default function Dashboard() {
                 <p className="dark:text-white/90 text-gray-900 font-semibold text-[17px]">
                   {nativeModelsReady
                     ? sessionSubject ? `Ready for ${sessionSubject}` : 'Start recording'
-                    : nativeModelsError ? 'Couldn\'t load on-device models' : 'Preparing on-device models…'}
+                    : nativeModelsError ? 'Couldn\'t get ready' : 'Getting ready…'}
                 </p>
                 {nativeModelsReady && (
                   <button
@@ -680,7 +680,7 @@ export default function Dashboard() {
                   <p className="text-gray-600 text-[12px] text-center mb-1.5">
                     {gatingProgress
                       ? `${gatingProgress.downloading ? 'Downloading' : 'Preparing'} ${friendlyModelName(gatingProgress.label)}… ${gatingProgress.pct}%`
-                      : 'Loading models into memory…'}
+                      : 'Getting ready…'}
                   </p>
                   <div className="h-1 rounded-full dark:bg-white/[0.08] bg-black/[0.08] overflow-hidden">
                     <div
@@ -688,7 +688,7 @@ export default function Dashboard() {
                       style={{ width: `${gatingProgress?.pct ?? 8}%` }}
                     />
                   </div>
-                  <p className="text-gray-500 text-[11px] text-center mt-1.5">One-time setup. Only needed the first time, or after a model change.</p>
+                  <p className="text-gray-500 text-[11px] text-center mt-1.5">One-time setup. Only needed the first time, or after you change a setting.</p>
                 </div>
               )}
 

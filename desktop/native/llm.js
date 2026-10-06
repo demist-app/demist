@@ -315,7 +315,7 @@ async function doLoad(tier, emitProgress, calledBy) {
     // either way. Logging at 10% steps makes that distinction visible; the
     // shared logger also pushes to the renderer when a preload caller wants
     // visible progress (see preload() below).
-    const label = `term-detection model (${tier})`
+    const label = `term detection (${tier})`
     const logger = makeProgressLogger(label, emitProgress)
     logger({ status: 'initiate', file: MODEL_URI[tier] })
     // Unlike whisper.js's models, these are NOT bundled - they are fetched

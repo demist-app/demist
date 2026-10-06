@@ -152,7 +152,7 @@ export async function nativeImportAudio(opts: {
   onTerms?: (terms: { term: string; definition: string }[]) => void
 }): Promise<NativeImportResult> {
   const native = getDemistNative()
-  if (!native?.transcribeBuffer) throw new Error('This build of the desktop app cannot import audio on-device.')
+  if (!native?.transcribeBuffer) throw new Error('This version of the desktop app cannot import audio. Update Demist from the Microsoft Store.')
 
   opts.onProgress?.(2, 'decoding')
   const pcm = await decodeToMono16k(opts.file, p => opts.onProgress?.(p, 'decoding'))
