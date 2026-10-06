@@ -127,7 +127,7 @@ export default async function SubjectLanding(props: PageProps<'/for/[subject]'>)
             <h2 className="text-[19px] font-semibold mb-3">Where your lecture audio goes</h2>
             <p className="dark:text-gray-400 text-gray-700 mb-4">
               In the Windows app, live recording is transcribed, and its terms detected and
-              explained, by AI models running on your own machine, so the audio of a live lecture
+              explained, by software running on your own machine, so the audio of a live lecture
               never leaves your computer. Your transcript and glossary sync to your account so you
               can see them on the web and keep your history if you reinstall.
             </p>

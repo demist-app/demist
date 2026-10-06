@@ -54,7 +54,7 @@ const SUPPORT_NEEDS: { value: SupportNeed; label: string }[] = [
 // because the channel we are not listing is the one we most need to hear
 // about.
 const HEARD_FROM: { value: string; label: string }[] = [
-  { value: 'ai_assistant', label: 'ChatGPT or another AI assistant' },
+  { value: 'ai_assistant', label: 'ChatGPT, Gemini or a similar assistant' },
   { value: 'google', label: 'Google' },
   { value: 'bing', label: 'Bing' },
   { value: 'microsoft_store', label: 'The Microsoft Store' },
@@ -314,7 +314,7 @@ export default function Onboarding() {
               </p>
             )}
             <p className="text-[12px] dark:text-gray-500 text-gray-600 mt-3 leading-relaxed">
-              Demist&apos;s explanations are AI-generated and occasionally imperfect. Always check anything important against your course materials.
+              Demist&apos;s explanations are generated automatically and are occasionally imperfect. Always check anything important against your course materials.
             </p>
             <div className="flex gap-2.5 mt-4">
               <button

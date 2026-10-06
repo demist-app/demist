@@ -45,7 +45,7 @@ function explainModelDownloadFailure(err, what) {
   if (!looksNetworkBlocked(err)) return err
   return new Error(
     `${what} could not download because this network blocks it. `
-    + `School and work networks often block huggingface.co as "AI content". `
+    + `School and work networks often block huggingface.co, where the speech models download from. `
     + `Open demist.app in your browser instead - it needs no download and works on this network. `
     + `(underlying error: ${err?.message ?? err})`,
   )

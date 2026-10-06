@@ -62,7 +62,7 @@ const FEATURES = [
     tag: null as string | null,
   },
   {
-    title: 'AI session summaries',
+    title: 'Session summaries',
     body: 'When you stop recording, Demist generates a summary of your lecture. Find it in your history alongside the term list and transcript.',
     Icon: SummaryIcon,
     tag: null as string | null,
@@ -107,7 +107,7 @@ const STEPS = [
   {
     n: '03',
     title: 'Your glossary and flashcards build themselves',
-    body: <>Every concept is saved with its definition and an AI summary of the session. Flashcards queue with <span style={{ color: "var(--accent)", fontWeight: 500 }}>spaced repetition</span> on a schedule built around when you&apos;ll forget.</>,
+    body: <>Every concept is saved with its definition and a summary of the session. Flashcards queue with <span style={{ color: "var(--accent)", fontWeight: 500 }}>spaced repetition</span> on a schedule built around when you&apos;ll forget.</>,
   },
 ]
 
@@ -720,7 +720,7 @@ export default function LandingClient() {
           className="text-[15px] leading-relaxed mb-10 max-w-[490px] mx-auto"
           style={{ color: 'var(--fg-muted)', ...scrollAnim(winRef.visible, 160).style }}
         >
-          The desktop app runs speech recognition locally, on your computer&apos;s own processor. Your lecture audio is never uploaded, not to us and not to anyone&apos;s AI service. Install it once and record straight from your laptop.
+          The desktop app runs speech recognition locally, on your computer&apos;s own processor. Your lecture audio is never uploaded, not to us and not to anyone else. Install it once and record straight from your laptop.
         </p>
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3" style={scrollAnim(winRef.visible, 240).style}>
@@ -881,7 +881,7 @@ export default function LandingClient() {
               </p>
               <p className="text-[13px] mb-4 leading-relaxed" style={{ color: 'var(--fg-muted)' }}>
                 Every lecture from your term kept and sorted by module, recording in the browser
-                with no limit, unlimited AI summaries and Anki export. New accounts get Pro free for
+                with no limit, unlimited summaries and Anki export. New accounts get Pro free for
                 their first 30 days, with no card. Live definitions, your glossary and flashcards
                 stay free, same as always.
               </p>

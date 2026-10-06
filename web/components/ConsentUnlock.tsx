@@ -30,7 +30,7 @@ export function useMicModeAcknowledged(subject: string) {
 // ── ConsentModal ───────────────────────────────────────────────────────────────
 
 function emailTemplate(module: string) {
-  return `Subject: Permission to use AI study aid during ${module} lectures
+  return `Subject: Permission to use a study aid during ${module} lectures
 
 Dear [Lecturer name],
 

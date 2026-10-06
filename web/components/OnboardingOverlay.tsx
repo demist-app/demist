@@ -132,7 +132,7 @@ export function OnboardingOverlay() {
                   {[
                     'Audio is processed in real time and is not stored permanently',
                     'Only transcribed text and detected terms are saved to your account',
-                    'Nothing is shared with third parties except the AI transcription service',
+                    'Nothing is shared with third parties except the transcription service',
                   ].map((item, i) => (
                     <li key={i} className="flex items-start gap-2 text-[12px] text-gray-600">
                       <span className="mt-0.5 text-emerald-600 shrink-0">✓</span>

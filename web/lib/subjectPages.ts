@@ -161,7 +161,7 @@ export const SUBJECT_PAGES: SubjectPage[] = [
     ],
     note: {
       heading: 'For understanding lectures, not for dosing',
-      body: 'Demist explains what a term means so you can follow the lecture. It is not a prescribing reference and its explanations are AI-generated, so never use them for doses, interactions or anything clinical. Your course will point you to the proper references for that.',
+      body: 'Demist explains what a term means so you can follow the lecture. It is not a prescribing reference and its explanations are generated automatically, so never use them for doses, interactions or anything clinical. Your course will point you to the proper references for that.',
     },
   },
   {

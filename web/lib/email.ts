@@ -232,7 +232,7 @@ export function proLaunchedEmail(monthlyPriceText: string | null, onWaitlist: bo
         P(
           onWaitlist
             ? 'You were on the waitlist, so your free month of Pro is already active on your account - nothing to do, nothing to pay yet.'
-            : `Unlimited session history, unlimited AI summaries, and Anki export.${priceLine} Everything you already use stays free, same as always.`,
+            : `Unlimited session history, unlimited session summaries, and Anki export.${priceLine} Everything you already use stays free, same as always.`,
         ) +
         button(`${APP_URL}/profile`, onWaitlist ? 'See your Pro account' : 'Upgrade to Pro') +
         P(
@@ -246,7 +246,7 @@ export function proLaunchedEmail(monthlyPriceText: string | null, onWaitlist: bo
       '',
       onWaitlist
         ? 'You were on the waitlist, so your free month of Pro is already active on your account - nothing to do, nothing to pay yet.'
-        : `Unlimited session history, unlimited AI summaries, and Anki export.${priceLine} Everything you already use stays free, same as always.`,
+        : `Unlimited session history, unlimited session summaries, and Anki export.${priceLine} Everything you already use stays free, same as always.`,
       '',
       `${APP_URL}/profile`,
       '',

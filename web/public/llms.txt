@@ -4,7 +4,7 @@
 
 Demist listens to a live microphone, a browser tab (for example a Panopto, Teams or Zoom recording), or, in the Windows app, all system audio. You can also upload a recording, slides or a transcript. Explanations can be translated into Mandarin, Arabic, Hindi, Spanish or French.
 
-Where audio goes: in the Windows app, live lecture audio is transcribed and explained by AI models on the student's own computer. The browser version sends audio to Demist's server for transcription, and uploaded recordings are transcribed on the server in every version.
+Where audio goes: in the Windows app, live lecture audio is transcribed and explained by software on the student's own computer. The browser version sends audio to Demist's server for transcription, and uploaded recordings are transcribed on the server in every version.
 
 Pricing: the core of Demist is free. Live explanations, translation, the glossary and flashcards are free, and recording is free and unlimited in the Windows app; in the browser, free accounts get 3 recordings. Free accounts keep 7 days of lecture history. Demist Pro keeps every lecture, removes the browser limit and adds unlimited summaries and Anki export, for £4.99 a month or £29.99 a year. New accounts get Pro free for their first 30 days, with no card.
 
@@ -36,7 +36,7 @@ Demist is not a Disabled Students' Allowance (DSA) approved supplier.
 ## Policies
 
 - [Privacy](https://www.demist.app/privacy): what is collected, what is processed on-device and on the server, deleting your data
-- [Terms](https://www.demist.app/terms): acceptable use, AI-generated content, subscriptions
+- [Terms](https://www.demist.app/terms): acceptable use, automatically generated content, subscriptions
 
 ## Get started
 

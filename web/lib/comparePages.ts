@@ -75,14 +75,14 @@ export const COMPARE_PAGES: ComparePage[] = [
     description:
       'How Demist and Genio Notes compare for students: live term explanations, transcripts, quizzes and flashcards, translation and pricing.',
     verdict:
-      'Genio Notes is a note-taking tool built around recording a lecture and organising your own notes against the audio, with transcripts generated after class and an AI quiz feature. Demist does less of the note-taking and more of the understanding: it explains unfamiliar terms live, during the lecture, and builds flashcards from them. If you want structured notes you write yourself, Genio suits you. If you lose the thread when an unfamiliar term goes past, Demist does.',
+      'Genio Notes is a note-taking tool built around recording a lecture and organising your own notes against the audio, with transcripts generated after class and a quiz feature. Demist does less of the note-taking and more of the understanding: it explains unfamiliar terms live, during the lecture, and builds flashcards from them. If you want structured notes you write yourself, Genio suits you. If you lose the thread when an unfamiliar term goes past, Demist does.',
     rows: [
       { label: 'Price for students', demist: DEMIST_PRICE, them: 'Individual plans from £12 a month, with a 30-day free trial and no payment details needed. Also sold to departments and institutions' },
       { label: 'Transcripts', demist: 'Live, as the lecture happens', them: 'Generated after class' },
       { label: 'Live captions', demist: 'The live transcript is shown as the lecturer speaks', them: 'Not available on individual plans' },
       { label: 'Explains terms during the lecture', demist: DEMIST_LIVE, them: 'Not listed' },
       { label: 'Translation', demist: DEMIST_TRANSLATION, them: 'Transcription in multiple languages; translation not listed' },
-      { label: 'Quizzes and flashcards', demist: DEMIST_FLASHCARDS, them: 'AI-generated "Quiz Me" questions. Flashcards not listed' },
+      { label: 'Quizzes and flashcards', demist: DEMIST_FLASHCARDS, them: 'Auto-generated "Quiz Me" questions. Flashcards not listed' },
       { label: 'Where audio is processed', demist: DEMIST_AUDIO, them: 'Not stated on its pricing pages' },
     ],
     themBetter: [
@@ -111,7 +111,7 @@ export const COMPARE_PAGES: ComparePage[] = [
     verdict:
       'NotebookLM, now called Gemini Notebook, is a free study tool that works from sources you give it, such as PDFs, websites, YouTube videos and audio, including lectures recorded with its mobile app. It turns them into audio and video overviews, quizzes and flashcards. Demist works while the lecture is happening: it listens live and explains unfamiliar terms as they are said. They fit together: Demist to follow the lecture, Gemini Notebook to study from it and your readings afterwards.',
     rows: [
-      { label: 'Price for students', demist: DEMIST_PRICE, them: 'Free, with daily limits. Some students can claim Google AI Pro or AI Plus free for higher limits, until 31 December 2026' },
+      { label: 'Price for students', demist: DEMIST_PRICE, them: 'Free, with daily limits. Some students can claim a free Google subscription for higher limits, until 31 December 2026' },
       { label: 'Free plan limits', demist: 'Unlimited recording in the Windows app; 3 recordings in the browser. 7 days of lecture history', them: 'Up to 100 notebooks of up to 50 sources each, 50 chat queries a day, and up to 10 quizzes or flashcard sets a day' },
       { label: 'Explains terms during the lecture', demist: DEMIST_LIVE, them: 'Not described. Its mobile app can record a lecture to use as a source afterwards' },
       { label: 'What it works from', demist: 'A live lecture (microphone, a browser tab, or system audio in the Windows app), or an uploaded recording, slides or transcript', them: 'PDFs, websites, YouTube videos, audio files, Google Docs and Google Slides' },

@@ -267,7 +267,7 @@ root.innerHTML = `
       <span class="panel-close" id="panel-close">×</span>
     </div>
     <div class="panel-summary" id="panel-summary" style="display:none">
-      <div class="panel-summary-label">AI Summary</div>
+      <div class="panel-summary-label">Summary</div>
       <div class="panel-summary-text" id="panel-summary-text"></div>
     </div>
     <div class="panel-terms" id="panel-terms">
