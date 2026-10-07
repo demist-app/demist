@@ -449,7 +449,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
   // Per-session detection health, for the end-of-session summary: it is what
   // lets "this lecture had no jargon" be told apart from "detection broke"
   // (see sessionOutcome.ts). Counts only, nothing from the lecture.
-  const detectionStatsRef = useRef({ ok: 0, failed: 0, lastFailure: null as string | null, unclearChunks: 0, clearChunks: 0, confBuckets: [0, 0, 0, 0] })
+  const detectionStatsRef = useRef({ ok: 0, failed: 0, lastFailure: null as string | null, lastFailureDetail: null as string | null, unclearChunks: 0, clearChunks: 0, silentChunks: 0, confBuckets: [0, 0, 0, 0] })
   // Detection calls still in flight. Stop waits for these (briefly) before
   // deciding what the session caught, or the final flush's terms would arrive
   // after the summary had already said there were none.
@@ -459,6 +459,11 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     p.finally(() => inflightDetectionsRef.current.delete(p))
   }
   const chunkPeakRef = useRef(0)           // max audio level seen during current chunk
+  // Loudest raw sample in the current chunk, from public/level-worklet.js.
+  // Preferred over chunkPeakRef, which only updates while the dashboard is on
+  // screen and visible (see processChunk).
+  const samplePeakRef = useRef(0)
+  const levelMeterActiveRef = useRef(false)
   const webSpeechFinalRef = useRef('')     // accumulated final Web Speech results (fallback transcript)
   // Transcript autosave. The transcript used to exist ONLY in transcriptRef
   // for the whole lecture and was written once, in a setTimeout 6 seconds
@@ -991,6 +996,12 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
         console.error('native detectTerms error:', e)
         detectionStatsRef.current.failed++
         detectionStatsRef.current.lastFailure = 'native_error'
+        // The label alone could not explain a 2026-10 case: 308 detection
+        // runs and 112 native errors on a 16-core machine, zero terms, and no
+        // way to see why. Keep the error text, scrubbed of anything quoted
+        // (which is where lecture text could appear) and capped.
+        detectionStatsRef.current.lastFailureDetail = String((e as Error)?.message ?? e)
+          .replace(/"[^"]*"|'[^']*'/g, '""').replace(/\s+/g, ' ').slice(0, 120)
         setRecordingWarning('Term detection hit an error on that segment. Recording continues normally.')
         return
       }
@@ -1369,11 +1380,23 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
   // ── Whisper path: transcribe audio blob then detect terms ─────────────────────
   // Skips Whisper entirely if audio level was below silence threshold.
 
+  // Silence gate (2026-10-07 fix). The level used to come only from
+  // chunkPeakRef, which the DASHBOARD fills from a requestAnimationFrame loop.
+  // That loop stops in a background tab and does not exist on any other
+  // Demist page, so the moment a student switched to their slides or opened
+  // the glossary, every chunk read 0 and was dropped as "silent". Measured on
+  // real lectures: 30-50 transcription calls in the first five minutes, then
+  // none for the remaining hour. The worklet level keeps flowing regardless.
+  // Thresholds differ because the scales do: raw sample peak vs the
+  // dashboard's averaged spectrum.
   const processChunk = async (blob: Blob, sessionId: string) => {
-    const peak = chunkPeakRef.current
+    const meter = levelMeterActiveRef.current
+    const peak = meter ? samplePeakRef.current : chunkPeakRef.current
+    samplePeakRef.current = 0
     chunkPeakRef.current = 0
-    if (peak < 0.015) {
-      dlog('[demist] silent chunk skipped (peak', peak.toFixed(3) + ')')
+    if (peak < (meter ? 0.02 : 0.015)) {
+      detectionStatsRef.current.silentChunks++
+      dlog('[demist] silent chunk skipped (peak', peak.toFixed(3), meter ? 'worklet)' : 'visual)')
       return
     }
     if (blob.size < 500) return
@@ -1472,6 +1495,28 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     gain.connect(compressor)
     compressor.connect(dest)
     processedStreamRef.current = dest.stream
+    void attachLevelMeter(ctx, src, dest)
+  }
+
+  // Off-screen loudness for the silence gate (see processChunk). Measures the
+  // RAW mic signal, before the gain stage, so "silence" means the room and not
+  // our own amplification of it. Its output is silence routed into the
+  // recorder's destination, which only exists to keep the node pulled by the
+  // graph. If worklets are unavailable the visual meter remains the fallback.
+  const attachLevelMeter = async (ctx: AudioContext, src: MediaStreamAudioSourceNode, dest: MediaStreamAudioDestinationNode) => {
+    try {
+      await ctx.audioWorklet.addModule('/level-worklet.js')
+      const node = new AudioWorkletNode(ctx, 'level-meter', { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1] })
+      node.port.onmessage = (e: MessageEvent<number>) => {
+        if (e.data > samplePeakRef.current) samplePeakRef.current = e.data
+      }
+      src.connect(node)
+      node.connect(dest)
+      levelMeterActiveRef.current = true
+    } catch (e) {
+      levelMeterActiveRef.current = false
+      console.warn('[demist] level meter unavailable; silence gate falls back to the on-screen meter:', e)
+    }
   }
 
   // Chrome has been observed (mic-mode, desktop) silently ending the
@@ -1760,7 +1805,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     lastDetectionTimeRef.current = Date.now()
     chunkIntervalRef.current = 5_000
     zeroTermChunksRef.current = 0
-    detectionStatsRef.current = { ok: 0, failed: 0, lastFailure: null, unclearChunks: 0, clearChunks: 0, confBuckets: [0, 0, 0, 0] }
+    detectionStatsRef.current = { ok: 0, failed: 0, lastFailure: null, lastFailureDetail: null, unclearChunks: 0, clearChunks: 0, silentChunks: 0, confBuckets: [0, 0, 0, 0] }
     setSessionSummary(null)
     chunkPeakRef.current = 0
     recordingStartedAtRef.current = Date.now()
@@ -2187,6 +2232,8 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       detect_ok: stats.ok,
       detect_failed: stats.failed,
       unclear_chunks: stats.unclearChunks,
+      last_failure_detail: stats.lastFailureDetail,
+      silent_chunks: stats.silentChunks,
       clear_chunks: stats.clearChunks,
       conf_high: stats.confBuckets[0],
       conf_mid: stats.confBuckets[1],
