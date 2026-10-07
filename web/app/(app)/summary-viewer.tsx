@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { explainSelection, ExplainUnavailableError, EXPLAIN_TIMEOUT_MS } from '@/lib/explainSelection'
 import { reportWriteFailure } from '@/lib/analytics'
+import { ReadAloudButton } from '@/components/ReadAloudButton'
 
 const POPUP_WIDTH = 280
 const POPUP_HALF  = POPUP_WIDTH / 2
@@ -126,9 +127,12 @@ export function SummaryViewer({
       >
         {synopsis}
       </p>
-      <p className="text-[11px] text-gray-600 mt-1.5 select-none">
-        Select any text to explain or save as a flashcard
-      </p>
+      <div className="flex items-center justify-between gap-3 mt-1.5">
+        <p className="text-[11px] text-gray-600 select-none">
+          Select any text to explain or save as a flashcard
+        </p>
+        <ReadAloudButton text={synopsis} label="Read the summary aloud" className="shrink-0" />
+      </div>
 
       {popup && (
         <div

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
+import { useComfort } from '@/lib/comfortPrefs'
 
 interface DayBar { label: string; count: number }
 interface WeekBar { label: string; count: number }
@@ -46,6 +47,7 @@ function get8WeekBars(termTimestamps: string[]): WeekBar[] {
 }
 
 export default function Stats() {
+  const { showProgress } = useComfort()
   const router = useRouter()
   const [loading, setLoading] = useState(true)
 
@@ -184,7 +186,7 @@ export default function Stats() {
           </div>
 
           {/* Key numbers: 2 cols mobile, 4 cols desktop */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 animate-step opacity-0" style={{ animationDelay: '50ms', animationFillMode: 'forwards' }}>
+          <div className={`grid grid-cols-2 ${showProgress ? 'sm:grid-cols-4' : 'sm:grid-cols-3'} gap-3 animate-step opacity-0`} style={{ animationDelay: '50ms', animationFillMode: 'forwards' }}>
             <div className="dark:bg-white/[0.03] bg-[#FFFFFF] border dark:border-white/[0.07] border-black/[0.16] rounded-2xl px-4 py-4">
               <div className="flex items-center gap-1.5 mb-2">
                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
@@ -202,14 +204,14 @@ export default function Stats() {
               </div>
               <p className="text-[28px] font-bold leading-none dark:text-brand-400 text-brand-700">{totalSessions}</p>
             </div>
-            <div className="dark:bg-white/[0.03] bg-[#FFFFFF] border dark:border-white/[0.07] border-black/[0.16] rounded-2xl px-4 py-4">
+            {showProgress && (<div className="dark:bg-white/[0.03] bg-[#FFFFFF] border dark:border-white/[0.07] border-black/[0.16] rounded-2xl px-4 py-4">
               <div className="flex items-center gap-1.5 mb-2">
                 <div className="w-1.5 h-1.5 rounded-full bg-brand-500" />
                 <p className="text-[11px] text-gray-600 uppercase tracking-[0.12em]">Streak</p>
               </div>
               <p className="text-[28px] font-bold leading-none text-brand-700 dark:text-brand-400">{streak}</p>
               <p className="text-[11px] text-gray-600 mt-1.5">{streak === 1 ? 'day' : 'days'}</p>
-            </div>
+            </div>)}
             <div className="dark:bg-white/[0.03] bg-[#FFFFFF] border dark:border-white/[0.07] border-black/[0.16] rounded-2xl px-4 py-4">
               <div className="flex items-center gap-1.5 mb-2">
                 <div className="w-1.5 h-1.5 rounded-full bg-brand-400" />

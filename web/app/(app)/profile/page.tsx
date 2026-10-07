@@ -9,8 +9,10 @@ import { useEntitlements } from '@/lib/entitlements'
 import { PaywallModal } from '@/components/PaywallModal'
 import { useNativeTranslate } from '@/lib/useNativeTranslate'
 import { FontScale, FONT_SCALE_LABELS, getFontScale, setFontScale } from '@/lib/fontScale'
+import { ComfortSettings } from '@/components/ComfortSettings'
 import { getDemistNative, isElectronNative } from '@/lib/electronNative'
 import { useRecordingSession } from '@/lib/recordingSession'
+import { useComfort } from '@/lib/comfortPrefs'
 
 interface ProfileData {
   display_name: string | null
@@ -80,6 +82,7 @@ export default function Profile() {
   const [totalTerms, setTotalTerms] = useState(0)
   const [recordingMins, setRecordingMins] = useState(0)
   const [longestStreak, setLongestStreak] = useState(0)
+  const { showProgress } = useComfort()
   const [userId, setUserId] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
   const [exported, setExported] = useState(false)
@@ -679,11 +682,11 @@ export default function Profile() {
         )}
 
         {/* All-time stats */}
-        <div className="grid grid-cols-3 gap-2 animate-step opacity-0" style={{ animationDelay: '20ms', animationFillMode: 'forwards' }}>
+        <div className={`grid ${showProgress ? 'grid-cols-3' : 'grid-cols-2'} gap-2 animate-step opacity-0`} style={{ animationDelay: '20ms', animationFillMode: 'forwards' }}>
           {[
             { value: totalTerms.toLocaleString(), label: totalTerms === 1 ? 'term learned' : 'terms learned' },
             { value: recordingMins >= 60 ? `${Math.floor(recordingMins / 60)}h ${recordingMins % 60}m` : `${recordingMins}m`, label: 'recorded' },
-            { value: longestStreak.toLocaleString(), label: 'longest streak' },
+            ...(showProgress ? [{ value: longestStreak.toLocaleString(), label: 'longest streak' }] : []),
           ].map(({ value, label }) => (
             <div key={label} className="dark:bg-white/[0.03] bg-[#FFFFFF] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl px-3 py-4 text-center">
               <p className="text-[20px] font-bold leading-none dark:text-brand-400 text-brand-700 tabular-nums">{value}</p>
@@ -801,7 +804,7 @@ export default function Profile() {
                   onClick={() => setYear(value)}
                   className={`py-3 rounded-2xl text-[13px] font-medium transition-all ${
                     year === value
-                      ? 'bg-brand-600 border border-brand-400/40 dark:text-white text-gray-900'
+                      ? 'bg-brand-600 border border-brand-400/40 text-white'
                       : 'dark:bg-white/[0.05] bg-[#F8F6FB] border dark:border-white/[0.08] border-black/[0.13] text-gray-600 hover:bg-white/[0.09]'
                   }`}
                 >
@@ -820,7 +823,7 @@ export default function Profile() {
                   onClick={() => setSupportNeed(value)}
                   className={`py-3 px-3 rounded-2xl text-[13px] font-medium transition-all ${
                     supportNeed === value
-                      ? 'bg-brand-600 border border-brand-400/40 dark:text-white text-gray-900'
+                      ? 'bg-brand-600 border border-brand-400/40 text-white'
                       : 'dark:bg-white/[0.05] bg-[#F8F6FB] border dark:border-white/[0.08] border-black/[0.13] text-gray-600 hover:bg-white/[0.09]'
                   }`}
                 >
@@ -837,7 +840,7 @@ export default function Profile() {
                 onClick={() => setTranslateTo(null)}
                 className={`py-3 px-3 rounded-2xl text-[13px] font-medium transition-all ${
                   translateTo === null
-                    ? 'bg-brand-600 border border-brand-400/40 dark:text-white text-gray-900'
+                    ? 'bg-brand-600 border border-brand-400/40 text-white'
                     : 'dark:bg-white/[0.05] bg-[#F8F6FB] border dark:border-white/[0.08] border-black/[0.13] text-gray-600 hover:bg-white/[0.09]'
                 }`}
               >
@@ -854,7 +857,7 @@ export default function Profile() {
                   }}
                   className={`py-3 px-3 rounded-2xl text-[13px] font-medium transition-all ${
                     translateTo === value
-                      ? 'bg-brand-600 border border-brand-400/40 dark:text-white text-gray-900'
+                      ? 'bg-brand-600 border border-brand-400/40 text-white'
                       : 'dark:bg-white/[0.05] bg-[#F8F6FB] border dark:border-white/[0.08] border-black/[0.13] text-gray-600 hover:bg-white/[0.09]'
                   }`}
                 >
@@ -911,7 +914,7 @@ export default function Profile() {
                   onClick={() => handleTextSizeChange(scale)}
                   className={`py-3 rounded-2xl text-[13px] font-medium transition-all ${
                     textSize === scale
-                      ? 'bg-brand-600 border border-brand-400/40 dark:text-white text-gray-900'
+                      ? 'bg-brand-600 border border-brand-400/40 text-white'
                       : 'dark:bg-white/[0.05] bg-[#F8F6FB] border dark:border-white/[0.08] border-black/[0.13] text-gray-600 hover:bg-white/[0.09]'
                   }`}
                 >
@@ -921,6 +924,8 @@ export default function Profile() {
             </div>
             <p className="text-[12px] text-gray-500 mt-1.5">Size of the live transcript, definitions, and summaries.</p>
           </div>
+
+          <ComfortSettings />
 
           {isElectronNative() && (
             <div>
@@ -933,7 +938,7 @@ export default function Profile() {
                     disabled={transcribeTierChanging}
                     className={`py-3 px-3 rounded-2xl text-[13px] font-medium transition-all disabled:opacity-40 ${
                       transcribeTier === tier
-                        ? 'bg-brand-600 border border-brand-400/40 dark:text-white text-gray-900'
+                        ? 'bg-brand-600 border border-brand-400/40 text-white'
                         : 'dark:bg-white/[0.05] bg-[#F8F6FB] border dark:border-white/[0.08] border-black/[0.13] text-gray-600 hover:bg-white/[0.09]'
                     }`}
                   >
@@ -958,7 +963,7 @@ export default function Profile() {
                     disabled={tierChanging}
                     className={`py-3 px-3 rounded-2xl text-[13px] font-medium transition-all disabled:opacity-40 ${
                       modelTier === tier
-                        ? 'bg-brand-600 border border-brand-400/40 dark:text-white text-gray-900'
+                        ? 'bg-brand-600 border border-brand-400/40 text-white'
                         : 'dark:bg-white/[0.05] bg-[#F8F6FB] border dark:border-white/[0.08] border-black/[0.13] text-gray-600 hover:bg-white/[0.09]'
                     }`}
                   >
@@ -991,7 +996,7 @@ export default function Profile() {
             className={`w-full py-4 rounded-2xl text-[15px] font-semibold transition-all ${
               saved
                 ? 'bg-emerald-600 dark:text-white text-gray-900'
-                : 'bg-brand-600 hover:brightness-[1.1] dark:text-white text-gray-900 disabled:opacity-40'
+                : 'bg-brand-600 hover:brightness-[1.1] text-white disabled:opacity-40'
             }`}
           >
             {saved ? 'Saved ✓' : saving ? 'Saving…' : 'Save changes'}
@@ -1018,7 +1023,7 @@ export default function Profile() {
                 role="switch"
                 aria-checked={isPublic}
                 aria-label="Public profile"
-                className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${isPublic ? 'bg-brand-600' : 'bg-white/[0.1]'}`}
+                className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${isPublic ? 'bg-brand-600' : 'dark:bg-white/[0.15] bg-black/[0.15]'}`}
               >
                 <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 ${isPublic ? 'translate-x-5' : 'translate-x-0'}`} />
               </button>

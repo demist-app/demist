@@ -154,6 +154,41 @@
   --animate-float:      glow-float 8s ease-in-out infinite;
 }
 
+/* ── Reading comfort (lib/comfortPrefs.ts) ──
+   Set as attributes on <html> so they reach every screen, including the many
+   surfaces that hardcode colours rather than using tokens. */
+html[data-read-font="atkinson"] body,
+html[data-read-font="atkinson"] .font-sans {
+  font-family: 'Atkinson Hyperlegible', ui-sans-serif, system-ui, sans-serif !important;
+}
+html[data-read-font="lexend"] body,
+html[data-read-font="lexend"] .font-sans {
+  font-family: 'Lexend Variable', ui-sans-serif, system-ui, sans-serif !important;
+}
+/* Reading surfaces are the ones sized with --df-scale (transcript, term
+   definitions, summaries); the class name itself carries the variable. */
+html[data-spacing="relaxed"] [class*="df-scale"] {
+  line-height: 1.9 !important;
+  word-spacing: 0.08em;
+  letter-spacing: 0.01em;
+}
+/* A screen-wide coloured overlay, like the acetate overlays many dyslexic
+   readers use on paper. Multiply tints everything underneath, hardcoded
+   colours included, without touching contrast ratios much. Light mode only:
+   on the plum-black dark theme it would only muddy the colours. */
+html:not(.dark)[data-tint]:not([data-tint="none"])::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2147483000;
+  mix-blend-mode: multiply;
+}
+html:not(.dark)[data-tint="cream"]::after { background: rgba(255, 236, 190, 0.45); }
+html:not(.dark)[data-tint="blue"]::after  { background: rgba(196, 220, 255, 0.45); }
+html:not(.dark)[data-tint="green"]::after { background: rgba(200, 238, 208, 0.45); }
+html:not(.dark)[data-tint="rose"]::after  { background: rgba(255, 210, 222, 0.45); }
+
 /* ── Base ── */
 *, *::before, *::after { box-sizing: border-box; }
 

@@ -9,6 +9,7 @@ import { AgeCheck } from '@/components/AgeCheck'
 import { NativeTranslateProvider, useNativeTranslate } from '@/lib/useNativeTranslate'
 import { RecordingSessionProvider } from '@/lib/recordingSession'
 import { applyStoredFontScale } from '@/lib/fontScale'
+import { applyComfort } from '@/lib/comfortPrefs'
 
 function TranslateWarmup() {
   const nativeTranslate = useNativeTranslate()
@@ -30,6 +31,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     applyStoredFontScale()
+    applyComfort()
     createClient().auth.getSession().then(({ data }) => {
       if (!data.session) { router.replace('/login'); return }
       setReady(true)

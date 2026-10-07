@@ -161,7 +161,7 @@ export function ConsentModal({
           <button
             onClick={saveConsent}
             disabled={saving}
-            className="flex-1 py-3 rounded-2xl text-[14px] font-semibold bg-brand-600 hover:brightness-[1.1] dark:text-white text-gray-900 disabled:opacity-40 transition-colors active:scale-[0.97]"
+            className="flex-1 py-3 rounded-2xl text-[14px] font-semibold bg-brand-600 hover:brightness-[1.1] text-white disabled:opacity-40 transition-colors active:scale-[0.97]"
           >
             {saving ? 'Saving…' : 'I have consent'}
           </button>

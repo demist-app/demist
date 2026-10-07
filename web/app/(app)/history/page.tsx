@@ -10,6 +10,7 @@ import { summaryFailureMessage } from '@/lib/summaryFailure'
 import { useRecordingSession } from '@/lib/recordingSession'
 import { getDemistNative } from '@/lib/electronNative'
 import { isEligibleForSummary } from '@/lib/summaryEligibility'
+import { LostMoments } from '@/components/LostMoments'
 
 const SummaryViewer = dynamic(() => import('../summary-viewer').then(m => ({ default: m.SummaryViewer })), { ssr: false })
 const TranscriptViewer = dynamic(() => import('../transcript-viewer').then(m => ({ default: m.TranscriptViewer })), { ssr: false })
@@ -775,6 +776,8 @@ export default function History() {
                               <button onClick={() => retrySummarize(s)} className="text-[12px] text-brand-500 hover:dark:text-brand-400 hover:text-brand-700 transition-colors shrink-0">Retry</button>
                             </div>
                           ) : null}
+
+                          <LostMoments sessionId={s.id} startedAt={s.started_at} transcript={s.transcript ?? null} />
 
                           {s.transcript ? (
                             <details className="mt-3 group">

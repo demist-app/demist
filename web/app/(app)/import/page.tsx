@@ -836,7 +836,7 @@ export default function ImportPage() {
                   className={`w-full h-10 rounded-xl text-sm font-semibold transition-colors duration-150 active:scale-[0.97] ${
                     audioWorking
                       ? 'bg-brand-500/30 dark:text-brand-300 text-brand-700 cursor-not-allowed'
-                      : 'bg-brand-600 hover:brightness-[1.1] dark:text-white text-gray-900'
+                      : 'bg-brand-600 hover:brightness-[1.1] text-white'
                   }`}
                 >
                   {audioWorking ? (
@@ -969,7 +969,7 @@ export default function ImportPage() {
                   className={`w-full h-10 rounded-xl text-sm font-semibold transition-colors duration-150 active:scale-[0.97] ${
                     textWorking
                       ? 'bg-brand-500/30 dark:text-brand-300 text-brand-700 cursor-not-allowed'
-                      : 'bg-brand-600 hover:brightness-[1.1] dark:text-white text-gray-900'
+                      : 'bg-brand-600 hover:brightness-[1.1] text-white'
                   }`}
                 >
                   {textWorking ? (

@@ -21,9 +21,12 @@ import { ProExpiryNotice } from '@/components/ProExpiryNotice'
 import { PaywallModal } from '@/components/PaywallModal'
 import { TrialLimitModal } from '@/components/TrialLimitModal'
 import { DesktopAppDialog } from '@/components/DesktopAppDialog'
+import { useComfort } from '@/lib/comfortPrefs'
 import { detectDesktopPlatform, isMobileUA } from '@/lib/platform'
 import { TranscriptBilingual } from '@/components/TranscriptBilingual'
 import { BrandMark } from '@/components/BrandMark'
+import { ReadAloudButton } from '@/components/ReadAloudButton'
+import { LostMoments } from '@/components/LostMoments'
 
 function fmtTime(s: number) {
   return `${String(Math.floor(s / 60)).padStart(2,'0')}:${String(s % 60).padStart(2,'0')}`
@@ -69,7 +72,7 @@ export default function Dashboard() {
     webTrialBlocked, setWebTrialBlocked, webTrialRemaining, localTranslate, liveTranslateAvailable, translationReady,
     nativeModelsReady, nativeModelProgress, nativeModelsError, retryNativeModelPreload,
     vizAnalyserRef, chunkPeakRef, startRecording, stopRecording, dismissTerm, pinTerm, markKnown,
-    retrySessionSummarize, toggleExpandSession,
+    retrySessionSummarize, toggleExpandSession, lostMarks, markLost,
   } = useRecordingSession()
 
   // Deep link into the paywall, from the Pro expiry emails:
@@ -109,6 +112,8 @@ export default function Dashboard() {
   // server, and the desktop shell itself loads this same page.
   const [isWindowsWeb, setIsWindowsWeb] = useState(false)
   const [showDesktopPush, setShowDesktopPush] = useState(false)
+  // Streaks are opt-in (Settings > Streaks): see comfortPrefs.ts.
+  const { showProgress } = useComfort()
   useEffect(() => {
     // Web only, never inside the desktop app. demistNative is the shell's own
     // bridge (every build has it); the Electron UA check is a second guard in
@@ -476,6 +481,8 @@ export default function Dashboard() {
               </div>
             </div>
 
+            <LostButton count={lostMarks.length} lastAtMs={lostMarks.at(-1)?.atMs ?? null} onPress={markLost} />
+
             {!wakeLockUnsupported && (
               <p className="relative z-10 text-[11px] text-gray-600 text-center -mt-1 mb-1 px-4">
                 Switching tabs is fine. Your screen stays awake while recording; locking your phone stops the mic.
@@ -809,13 +816,13 @@ export default function Dashboard() {
                   <div>
                     <p className="text-[14px] font-semibold dark:text-brand-300 text-brand-800">{stats.dueFlashcards} flashcard{stats.dueFlashcards !== 1 ? 's' : ''} due</p>
                     <p className="text-[12px] dark:text-brand-400/50 text-brand-700/80 mt-0.5">
-                      {stats.streak > 1 ? `Don't break your ${stats.streak}-day streak` : 'Review now: spaced repetition only works if you show up'}
+                      {showProgress && stats.streak > 1 ? `Keep your ${stats.streak}-day streak going` : 'A few minutes now helps them stick'}
                     </p>
                   </div>
                   <span className="dark:text-brand-400/60 text-brand-700/50 dark:group-hover:text-brand-300 group-hover:text-brand-900 transition-colors text-[20px] leading-none">›</span>
                 </Link>
               )}
-              <div className="dark:bg-white/[0.03] bg-[#FFFFFF] border dark:border-white/[0.07] border-black/[0.16] rounded-2xl px-4 py-4">
+              {showProgress && <div className="dark:bg-white/[0.03] bg-[#FFFFFF] border dark:border-white/[0.07] border-black/[0.16] rounded-2xl px-4 py-4">
                 <div className="flex items-center gap-1.5 mb-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-brand-500" />
                   <p className="text-[11px] text-gray-600 uppercase tracking-[0.12em]">Streak</p>
@@ -823,8 +830,8 @@ export default function Dashboard() {
                 <p className="text-[28px] font-bold leading-none text-brand-700 dark:text-brand-400">
                   {stats.streak}<span className="text-[14px] font-normal text-gray-600 ml-1">{stats.streak === 1 ? 'day' : 'days'}</span>
                 </p>
-              </div>
-              <div className="dark:bg-white/[0.03] bg-[#FFFFFF] border dark:border-white/[0.07] border-black/[0.16] rounded-2xl px-4 py-4">
+              </div>}
+              <div className={`${showProgress ? '' : 'col-span-2 '}dark:bg-white/[0.03] bg-[#FFFFFF] border dark:border-white/[0.07] border-black/[0.16] rounded-2xl px-4 py-4`}>
                 <div className="flex items-center gap-1.5 mb-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-brand-500" />
                   <p className="text-[11px] text-gray-600 uppercase tracking-[0.12em]">This week</p>
@@ -868,6 +875,7 @@ export default function Dashboard() {
 
                         {s.expanded && (
                           <div className="px-4 pb-4 border-t dark:border-white/[0.04] border-black/[0.05]">
+                            <LostMoments sessionId={s.id} startedAt={s.started_at} transcript={s.transcript ?? null} />
                             {s.synopsis ? (
                               <div className="pt-3">
                                 <SummaryViewer synopsis={s.synopsis} sessionId={s.id} subject={profile?.course ?? null} year={profile?.year_of_study ?? null} />
@@ -1038,7 +1046,7 @@ function TermCard({
               </button>
             </div>
             <p className="text-[15px] font-semibold truncate dark:text-white/95 text-gray-900">{term}</p>
-            <p className="text-[13px] leading-relaxed mt-1 dark:text-white/55 text-gray-600">{definition}</p>
+            <p className="text-[calc(0.8125rem*var(--df-scale))] leading-relaxed mt-1 dark:text-white/55 text-gray-600">{definition}</p>
             {translation && (
               <p className="text-[13px] leading-relaxed mt-1 dark:text-brand-300/80 text-brand-700">{translation}</p>
             )}
@@ -1046,12 +1054,15 @@ function TermCard({
         </div>
 
         <div className="mt-3 pt-2.5 border-t dark:border-white/[0.06] border-black/[0.07] ml-[15px] flex items-center justify-between">
-          <button
-            onClick={e => { e.stopPropagation(); onKnown() }}
-            className="text-[12px] dark:text-white/60 text-gray-500 dark:hover:text-brand-400 hover:text-brand-700 transition-colors"
-          >
-            I already know this
-          </button>
+          <div className="flex items-center gap-4">
+            <ReadAloudButton text={`${term}. ${definition}`} label={`Read ${term} aloud`} />
+            <button
+              onClick={e => { e.stopPropagation(); onKnown() }}
+              className="text-[12px] dark:text-white/60 text-gray-500 dark:hover:text-brand-400 hover:text-brand-700 transition-colors"
+            >
+              I already know this
+            </button>
+          </div>
           {reported ? (
             <span className="text-[11px] text-gray-600 dark:text-white/25">Reported ✓</span>
           ) : (
@@ -1100,6 +1111,39 @@ function EditIcon() {
       <path d="M12 20h9" />
       <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
     </svg>
+  )
+}
+
+// "I'm lost" (2026-10-07). One tap marks this moment of the lecture; press it
+// as often as needed. Afterwards each mark shows the transcript and terms
+// from around it (LostMoments). Deliberately quiet: no dialog, no question,
+// just a short "Marked at 12:34" so the student knows it worked.
+function LostButton({ count, lastAtMs, onPress }: { count: number; lastAtMs: number | null; onPress: () => void }) {
+  const [justMarked, setJustMarked] = useState(false)
+  useEffect(() => {
+    if (!count) return
+    setJustMarked(true)
+    const t = setTimeout(() => setJustMarked(false), 3500)
+    return () => clearTimeout(t)
+  }, [count])
+  const at = lastAtMs !== null ? fmtTime(Math.floor(lastAtMs / 1000)) : ''
+  return (
+    <div className="relative z-10 flex flex-col items-center gap-1.5 mb-3 px-4">
+      <button
+        onClick={onPress}
+        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-[14px] font-semibold border dark:border-brand-400/40 border-brand-600/40 dark:text-brand-300 text-brand-700 dark:bg-brand-500/10 bg-white hover:bg-brand-50 dark:hover:bg-brand-500/20 active:scale-[0.96] transition-all"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M4 22V4" /><path d="M4 4h11l-1.5 4L15 12H4" />
+        </svg>
+        I&apos;m lost
+      </button>
+      <p className="text-[12px] text-gray-600 min-h-[18px] text-center" aria-live="polite">
+        {justMarked
+          ? `Marked at ${at}. You can come back to it after the lecture.`
+          : count > 0 ? `${count} ${count === 1 ? 'moment' : 'moments'} marked` : ''}
+      </p>
+    </div>
   )
 }
 

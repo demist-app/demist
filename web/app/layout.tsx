@@ -5,6 +5,11 @@ import { Geist_Mono } from "next/font/google";
 // Jakarta Sans ("next/font/google queries have exactly one entry"), with no
 // code change to the font. Bundling the files removes Google from the build.
 import "@fontsource-variable/plus-jakarta-sans";
+// Reading-comfort fonts (lib/comfortPrefs.ts). @font-face only downloads the
+// files when a student actually picks one, so these cost nothing otherwise.
+import "@fontsource/atkinson-hyperlegible/400.css";
+import "@fontsource/atkinson-hyperlegible/700.css";
+import "@fontsource-variable/lexend";
 import { PHProvider } from "./providers";
 import "./globals.css";
 

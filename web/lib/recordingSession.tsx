@@ -185,6 +185,14 @@ function isLatinTerm(term: string): boolean {
   return /^[\x20-\x7EÀ-ɏͰ-Ͽ\s'-]+$/.test(term)
 }
 
+// A moment the student marked with "I'm lost" (2026-10-07). As many per
+// lecture as they like. atMs is time since recording started; transcriptOffset
+// is how much transcript existed at that instant, so the moment can be found
+// again in the saved transcript. No text is stored with the mark itself: the
+// transcript is only saved where recording consent allows (persistTranscript),
+// and a mark must not become a way round that.
+export interface LostMark { atMs: number; transcriptOffset: number }
+
 interface RecordingSessionValue {
   loading: boolean
   isRecording: boolean
@@ -248,6 +256,8 @@ interface RecordingSessionValue {
   maybeGenerateOnDashboard: (s: RecentSession) => Promise<void>
   retrySessionSummarize: (s: RecentSession) => void
   toggleExpandSession: (id: string) => Promise<void>
+  lostMarks: LostMark[]
+  markLost: () => void
 }
 
 const RecordingSessionContext = createContext<RecordingSessionValue | null>(null)
@@ -496,6 +506,11 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
   const sessionEpochRef = useRef(0)
   // See the warmupHoldoff comment in accumulateAndMaybeDetect.
   const recordingStartedAtRef = useRef(0)
+  const [lostMarks, setLostMarks] = useState<LostMark[]>([])
+  const lostMarksRef = useRef<LostMark[]>([])
+  // Marks pressed before the session row existed (no connection at start):
+  // saved on stop, once the row has been created. Same idea as terms.
+  const unsavedMarksRef = useRef<LostMark[]>([])
   const firstDetectionDoneRef = useRef(false)
   const firstTranscriptLoggedRef = useRef(false)
   // Desktop engine health for this session (see nativeMessageCode).
@@ -1749,6 +1764,9 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     setSessionSummary(null)
     chunkPeakRef.current = 0
     recordingStartedAtRef.current = Date.now()
+    lostMarksRef.current = []
+    unsavedMarksRef.current = []
+    setLostMarks([])
     backgroundedDuringRecordingRef.current = false
     firstDetectionDoneRef.current = false
     firstTranscriptLoggedRef.current = false
@@ -2360,6 +2378,11 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     micSourceRef.current = null
     streamRef.current?.getTracks().forEach(t => t.stop())
     const sid = sessionIdRef.current
+    if (sid && unsavedMarksRef.current.length) {
+      const pending = unsavedMarksRef.current
+      unsavedMarksRef.current = []
+      await saveLostMarks(sid, pending)
+    }
     if (sid) {
       const supabase = createClient()
       // 12 of 61 sessions had a null ended_at, which makes a lecture look like
@@ -2636,6 +2659,39 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     maybeGenerateOnDashboard({ ...target, terms })
   }
 
+  const saveLostMarks = async (sessionId: string, marks: LostMark[]) => {
+    const { error } = await createClient().from('session_marks').insert(marks.map(m => ({
+      session_id: sessionId,
+      user_id: userIdRef.current,
+      at_ms: Math.round(m.atMs),
+      transcript_offset: m.transcriptOffset,
+    })))
+    // Until migration 042 is applied the table does not exist. That is a
+    // known state, not a failure worth an alert on every press.
+    if (error && (error.code === 'PGRST205' || error.code === '42P01')) {
+      console.warn('[demist] session_marks table missing; apply migration 042 to keep lost-moment marks')
+      return
+    }
+    reportWriteFailure('session_marks.insert', error, { count: marks.length })
+  }
+
+  // "I'm lost": never blocks, never asks anything, can be pressed again and
+  // again. The student is already struggling; the button's only job is to
+  // remember the moment so they can come back to it.
+  const markLost = () => {
+    if (!isActiveRef.current) return
+    const mark: LostMark = {
+      atMs: Date.now() - recordingStartedAtRef.current,
+      transcriptOffset: currentTranscriptText().length,
+    }
+    lostMarksRef.current = [...lostMarksRef.current, mark]
+    setLostMarks(lostMarksRef.current)
+    capture('lost_marked', { count: lostMarksRef.current.length, minute: Math.floor(mark.atMs / 60000) })
+    const sid = sessionIdRef.current
+    if (sid) void saveLostMarks(sid, [mark])
+    else unsavedMarksRef.current.push(mark)
+  }
+
   startRecordingRef.current = startRecording
   stopRecordingRef.current = stopRecording
 
@@ -2648,7 +2704,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     webTrialBlocked, setWebTrialBlocked, webTrialRemaining, localTranslate, localTranslateUsable, liveTranslateAvailable, translationReady,
     nativeModelsReady, nativeModelProgress, nativeModelsError, retryNativeModelPreload,
     vizAnalyserRef, chunkPeakRef, startRecording, stopRecording, dismissTerm, pinTerm, markKnown,
-    maybeGenerateOnDashboard, retrySessionSummarize, toggleExpandSession,
+    maybeGenerateOnDashboard, retrySessionSummarize, toggleExpandSession, lostMarks, markLost,
   }
 
   return <RecordingSessionContext.Provider value={value}>{children}</RecordingSessionContext.Provider>

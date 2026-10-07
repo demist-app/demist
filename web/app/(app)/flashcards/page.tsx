@@ -8,6 +8,8 @@ import { createClient } from '@/lib/supabase'
 import { explainSelection, ExplainUnavailableError } from '@/lib/explainSelection'
 import { capture } from '@/lib/analytics'
 import { TermContext } from '@/components/TermContext'
+import { useComfort } from '@/lib/comfortPrefs'
+import { ReadAloudButton } from '@/components/ReadAloudButton'
 
 const NEW_CARDS_PER_DAY = 15
 
@@ -91,6 +93,7 @@ export default function Flashcards() {
   const [gradeCounts, setGradeCounts] = useState<[number, number, number, number]>([0, 0, 0, 0])
   const [streak, setStreak] = useState(0)
   const [displayStreak, setDisplayStreak] = useState(0)
+  const { showProgress } = useComfort()
   const doneTrackedRef = useRef(false)
 
   // Browse mode
@@ -800,7 +803,7 @@ export default function Flashcards() {
               </p>
             </div>
 
-            {streak > 0 && (
+            {showProgress && streak > 0 && (
               <div className="flex flex-col items-center gap-1 dark:bg-white/[0.03] bg-[#FFFFFF] border dark:border-white/[0.06] border-black/[0.16] rounded-2xl py-5 animate-step opacity-0" style={{ animationFillMode: 'forwards', animationDelay: '80ms' }}>
                 <p className="text-[40px] font-bold leading-none dark:text-brand-400 text-brand-600 tabular-nums">{displayStreak}</p>
                 <p className="text-[12px] text-gray-600 mt-1">day streak{streak > 1 ? ' going strong' : ''}</p>
@@ -973,10 +976,11 @@ export default function Flashcards() {
                 >
                   <p className="text-[11px] font-bold tracking-[0.18em] dark:text-brand-400 text-brand-700/60 uppercase mb-4 shrink-0">Definition</p>
                   <p
-                    className="text-[16px] text-center leading-relaxed select-text cursor-text"
+                    className="text-[calc(1rem*var(--df-scale))] text-center leading-relaxed select-text cursor-text"
                     style={{ color: 'var(--fg)' }}
                     onPointerUp={handleDefinitionPointerUp}
                   >{current.definition}</p>
+                  <ReadAloudButton text={`${current.term}. ${current.definition}`} label={`Read ${current.term} aloud`} className="mt-5 shrink-0" />
                 </div>
               </div>
             </div>
