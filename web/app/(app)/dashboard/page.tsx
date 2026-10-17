@@ -747,14 +747,16 @@ export default function Dashboard() {
                 </div>
               )}
 
-              {/* Capture mode toggle */}
+              {/* Capture mode toggle. Selected = white tab, not a plum pill (2026-10-18):
+                  as a solid plum pill it looked like the start button, and 6 people
+                  rage-clicked "Live mic capture" trying to begin recording. */}
               <div className="mt-4 w-full max-w-xs">
                 <div className="flex dark:bg-white/[0.07] bg-black/[0.06] rounded-full p-1">
                   <button
                     onClick={() => setCaptureMode('microphone')}
                     className={`flex-1 text-[13px] font-medium px-4 py-2.5 rounded-full transition-all duration-200 active:scale-[0.97] ${
                       captureMode === 'microphone'
-                        ? 'bg-brand-500 text-white shadow-sm'
+                        ? 'dark:bg-white/[0.14] bg-white dark:text-white text-brand-700 shadow-sm'
                         : 'text-gray-500 dark:text-white/45 hover:text-gray-700 dark:hover:text-white/65'
                     }`}
                   >
@@ -776,7 +778,7 @@ export default function Dashboard() {
                         !tabCaptureSupportedState
                           ? 'text-gray-400 dark:text-white/20 cursor-not-allowed'
                           : captureMode === 'tab'
-                            ? 'bg-brand-500 text-white shadow-sm'
+                            ? 'dark:bg-white/[0.14] bg-white dark:text-white text-brand-700 shadow-sm'
                             : 'text-gray-500 dark:text-white/45 hover:text-gray-700 dark:hover:text-white/65'
                       }`}
                     >
