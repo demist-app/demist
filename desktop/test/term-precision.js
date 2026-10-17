@@ -38,6 +38,16 @@ const TECHNICAL = [
   ['econ', 'A Giffen good violates the law of demand. That happens because the income effect outweighs the substitution effect, so demand rises as the price rises.', 'Economics'],
   ['chem', 'The enthalpy change of the reaction is measured by calorimetry. The activation energy determines the reaction rate, which is why a catalyst speeds things up.', 'Chemistry'],
 ]
+// Mis-transcribed jargon (2026-10-18). These SOUND technical, so extraction
+// proposes them; the verification pass exists to drop them. None may come
+// back. Taken from the 2026-09 production audit. Added alongside the fix for
+// verification rejecting EVERY term on the small tier: the suite had no case
+// for what verification is for, so "reject everything" passed it.
+const GARBLED = [
+  ['purkinje', 'The impulse then spreads through the Patriarchs fibres to the ventricles, which contract together.', 'Medicine', 'patriarchs'],
+  ['sanode', 'Every heartbeat begins in the S-mode, which is the natural pacemaker of the heart.', 'Medicine', 's-mode'],
+  ['depolar', 'This is called spontaneous dechloridation and it is what drives the pacemaker potential.', 'Medicine', 'dechloridation'],
+]
 
 ;(async () => {
   // Pin the tier, so the two can be compared directly rather than whichever
@@ -71,7 +81,17 @@ const TECHNICAL = [
     else console.log(`  ok   ${name.padEnd(12)} -> ${JSON.stringify(got)}`)
   }
 
+  let garbledKept = 0
+  console.log('\nGARBLED (the mis-heard term must not come back)')
+  for (const [name, text, subject, bad] of GARBLED) {
+    const terms = await llm.detectTerms(text, '', subject, 2)
+    const got = terms.map(t => t.term)
+    if (got.some(t => t.toLowerCase().includes(bad))) { garbledKept++; console.log(`  FAIL ${name.padEnd(12)} -> ${JSON.stringify(got)}`) }
+    else console.log(`  ok   ${name.padEnd(12)} -> ${got.length ? JSON.stringify(got) : '(none)'}`)
+  }
+
   console.log(`\nfalse positives on mundane speech: ${falsePositives}/${MUNDANE.length}`)
   console.log(`missed technical excerpts:          ${missed}/${TECHNICAL.length}`)
-  process.exit(falsePositives === 0 && missed === 0 ? 0 : 1)
+  console.log(`mis-heard terms that got through:   ${garbledKept}/${GARBLED.length}`)
+  process.exit(falsePositives === 0 && missed === 0 && garbledKept === 0 ? 0 : 1)
 })()

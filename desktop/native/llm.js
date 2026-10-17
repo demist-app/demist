@@ -713,14 +713,26 @@ const NEEDS_VERIFICATION = new Set(['tiny', 'small', 'large'])
 // it to agree with itself. It gets the term and the sentence it was said in,
 // and nothing else.
 async function verifyTerm(term, sentence, subject) {
-  const who = subject ? `the subject ${subject}` : 'an academic subject'
-  const prompt = `Answer with JSON only.
+  // Rewritten 2026-10-18. The previous wording was almost entirely about when
+  // to say no ("answer false if you do not recognise it, if it looks like a
+  // mis-transcription, if it is ordinary English..."), and the 3B model took
+  // the hint: on test/term-precision.js it rejected EVERY candidate on all 5
+  // technical excerpts, ATP synthase and activation energy included. Since
+  // 8c59724 (2026-09-20) widened verification to every tier, that meant
+  // desktop users on 'small' got almost no term cards for four weeks; in
+  // production, 506 detections with 0 errors produced 0 terms. Ask the
+  // question plainly, show what yes and no look like, and keep the
+  // mis-hearing examples that are the reason this pass exists.
+  const who = subject ? `in ${subject}` : 'in an academic subject'
+  const prompt = `Answer with JSON only: {"technical": true} or {"technical": false}.
 
-Sentence from a lecture: "${sentence}"
+Sentence from a lecture (written by speech recognition): "${sentence}"
+Candidate: "${term}"
 
-Is "${term}" a real, established term in ${who}, spelled the way a specialist would spell it?
+Is the candidate a recognised technical or academic term ${who}?
 
-This sentence came from speech recognition, which mis-hears specialist vocabulary often. A mis-heard term still SOUNDS technical, so "does it sound technical" is the wrong test: "Patriarchs" (for Purkinje) and "S-mode" (for SA node) both sound technical and are both wrong. Answer {"technical": false} if you do not recognise it as a real term in this subject, if it looks like a mis-transcription of a different word, or if it is an ordinary English word or everyday phrase.`
+Yes, true: genuine terms, including well-known ones. Examples: "ATP synthase", "catalyst", "datagram", "income effect", "activation energy", "loss function".
+No, false: everyday words or phrases ("take care", "jacket", "five or six seconds"), and words speech recognition mis-heard, which sound technical but are not real terms. Examples: "Patriarchs fibres" (really "Purkinje fibres"), "S-mode" (really "SA node"), "dechloridation" (really "depolarisation").`
   try {
     session.resetChatHistory()
     const response = await session.prompt(prompt, { grammar: verdictGrammar })
