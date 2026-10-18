@@ -1,158 +1,147 @@
-import { useState, useRef, useEffect } from 'react'
-import {
-  View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView,
-  Platform, StyleSheet, ActivityIndicator, TextInput as RNTextInput,
-} from 'react-native'
-import { router } from 'expo-router'
+import { useEffect, useRef, useState } from 'react'
+import { Image, KeyboardAvoidingView, Linking, Platform, Pressable, TextInput, View } from 'react-native'
 import { supabase } from '../lib/supabase'
+import { capture } from '../lib/analytics'
+import { usePrefs } from '../lib/prefs'
+import { Button, Screen, T } from '../components/ui'
+import { radius } from '../lib/theme'
 
-type Step = 'email' | 'code'
+type Step = 'email' | 'code' | 'password'
+
+// App Review cannot receive a sign-in email, so this one address signs in
+// with a password instead (set by web/scripts/set-review-password.mjs).
+// Everyone else only ever sees the emailed code.
+const REVIEW_EMAIL = 'store-demo@demist.app'
 
 export default function Login() {
+  const { c, font, size } = usePrefs()
   const [step, setStep] = useState<Step>('email')
   const [email, setEmail] = useState('')
   const [code, setCode] = useState('')
+  const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
-  const [resending, setResending] = useState(false)
-  const [resent, setResent] = useState(false)
   const [error, setError] = useState('')
-  const codeRef = useRef<RNTextInput>(null)
+  const [cooldown, setCooldown] = useState(0)
+  const codeRef = useRef<TextInput>(null)
 
   useEffect(() => {
-    if (step === 'code') setTimeout(() => codeRef.current?.focus(), 100)
-  }, [step])
+    if (cooldown <= 0) return
+    const t = setTimeout(() => setCooldown(cooldown - 1), 1000)
+    return () => clearTimeout(t)
+  }, [cooldown])
 
-  const handleSendCode = async () => {
-    if (!email.trim()) return
-    setLoading(true); setError('')
-    const { error } = await supabase.auth.signInWithOtp({
-      email: email.trim(),
-      options: { shouldCreateUser: true },
-    })
-    setLoading(false)
-    if (error) { setError(error.message); return }
-    setStep('code')
+  const input = {
+    backgroundColor: c.surface, borderWidth: 1, borderColor: c.border, borderRadius: radius.lg,
+    paddingHorizontal: 18, paddingVertical: 16, color: c.fg, fontSize: size(16), fontFamily: font(400), marginBottom: 12,
   }
 
-  const handleVerifyCode = async () => {
+  const sendCode = async () => {
+    const e = email.trim().toLowerCase()
+    if (!e) return
+    if (e === REVIEW_EMAIL) { setStep('password'); return }
+    setLoading(true); setError('')
+    const { error } = await supabase.auth.signInWithOtp({ email: e, options: { shouldCreateUser: true } })
+    setLoading(false)
+    if (error) {
+      setError(error.status === 429 ? 'Please wait a minute before asking for another code.' : 'Could not send a code. Check the address and your connection.')
+      return
+    }
+    setStep('code'); setCooldown(60)
+    setTimeout(() => codeRef.current?.focus(), 150)
+  }
+
+  const verify = async () => {
     if (code.length < 6) return
     setLoading(true); setError('')
-    const { error } = await supabase.auth.verifyOtp({
-      email: email.trim(),
-      token: code.trim(),
-      type: 'email',
-    })
+    const { error } = await supabase.auth.verifyOtp({ email: email.trim().toLowerCase(), token: code.trim(), type: 'email' })
     setLoading(false)
-    if (error) { setError('Invalid or expired code. Try again.'); return }
-    router.replace('/(tabs)/')
+    if (error) { setError('That code did not work. Check your email and try again.'); capture('otp_verify_failed', { platform: 'ios' }); return }
+    capture('signed_in', { platform: 'ios', method: 'otp' })
   }
 
-  const handleResend = async () => {
-    setResending(true); setError('')
-    await supabase.auth.signInWithOtp({ email: email.trim(), options: { shouldCreateUser: true } })
-    setResending(false); setResent(true)
-    setTimeout(() => setResent(false), 3000)
+  const signInWithPassword = async () => {
+    setLoading(true); setError('')
+    const { error } = await supabase.auth.signInWithPassword({ email: REVIEW_EMAIL, password })
+    setLoading(false)
+    if (error) setError('That password did not work.')
   }
 
   return (
-    <KeyboardAvoidingView
-      style={s.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <View style={s.inner}>
-        <Text style={s.brand}>Demist</Text>
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: c.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <Screen scroll={false} edges={['top', 'bottom']} style={{ justifyContent: 'center', maxWidth: 440 }}>
+        <View style={{ marginBottom: 40, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <Image source={c.dark ? require('../assets/graceful-minds-logo-dark.png') : require('../assets/graceful-minds-logo.png')}
+            style={{ width: 44, height: 44 }} resizeMode="contain" accessibilityIgnoresInvertColors accessible={false} />
+          <View>
+            <T size={18} weight={700}>Demist</T>
+            <T size={12} tone="muted">by Graceful Minds</T>
+          </View>
+        </View>
 
-        {step === 'email' ? (
+        {step === 'email' && (
           <>
-            <Text style={s.title}>Sign in</Text>
-            <Text style={s.subtitle}>We'll send a code to your email.</Text>
+            <T size={30} weight={700} style={{ marginBottom: 8 }}>Sign in</T>
+            <T tone="muted" style={{ marginBottom: 28 }}>We will email you a 6-digit code. No password needed.</T>
             <TextInput
-              style={s.input}
-              value={email}
-              onChangeText={setEmail}
-              placeholder="your@email.com"
-              placeholderTextColor="#4b5563"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-              autoFocus
-              returnKeyType="done"
-              onSubmitEditing={handleSendCode}
+              style={input} value={email} onChangeText={setEmail}
+              placeholder="you@university.ac.uk" placeholderTextColor={c.fgFaint}
+              keyboardType="email-address" autoCapitalize="none" autoCorrect={false} autoComplete="email"
+              textContentType="emailAddress" returnKeyType="next" onSubmitEditing={sendCode}
+              accessibilityLabel="Email address"
             />
-            <TouchableOpacity
-              style={[s.btn, (!email.trim() || loading) && s.btnDisabled]}
-              onPress={handleSendCode}
-              disabled={!email.trim() || loading}
-              activeOpacity={0.8}
-            >
-              {loading ? <ActivityIndicator color="#fff" /> : <Text style={s.btnText}>Send code</Text>}
-            </TouchableOpacity>
+            <Button label="Send code" onPress={sendCode} loading={loading} disabled={!email.trim()} />
           </>
-        ) : (
+        )}
+
+        {step === 'code' && (
           <>
-            <Text style={s.title}>Check your email</Text>
-            <Text style={s.subtitle}>We sent a code to <Text style={s.emailHighlight}>{email}</Text></Text>
+            <T size={30} weight={700} style={{ marginBottom: 8 }}>Check your email</T>
+            <T tone="muted" style={{ marginBottom: 28 }}>We sent a code to {email.trim()}.</T>
             <TextInput
               ref={codeRef}
-              style={[s.input, s.codeInput]}
-              value={code}
-              onChangeText={t => setCode(t.replace(/\D/g, '').slice(0, 6))}
-              placeholder="000000"
-              placeholderTextColor="#374151"
-              keyboardType="number-pad"
-              maxLength={6}
-              returnKeyType="done"
-              onSubmitEditing={handleVerifyCode}
+              style={[input, { fontSize: size(26), letterSpacing: 10, textAlign: 'center' }]}
+              value={code} onChangeText={t => setCode(t.replace(/\D/g, '').slice(0, 6))}
+              placeholder="000000" placeholderTextColor={c.fgFaint}
+              keyboardType="number-pad" textContentType="oneTimeCode" autoComplete="one-time-code"
+              maxLength={6} onSubmitEditing={verify} accessibilityLabel="6-digit code"
             />
-            <TouchableOpacity
-              style={[s.btn, (code.length < 6 || loading) && s.btnDisabled]}
-              onPress={handleVerifyCode}
-              disabled={code.length < 6 || loading}
-              activeOpacity={0.8}
-            >
-              {loading ? <ActivityIndicator color="#fff" /> : <Text style={s.btnText}>Verify →</Text>}
-            </TouchableOpacity>
-
-            <View style={s.row}>
-              <TouchableOpacity onPress={() => { setStep('email'); setCode(''); setError('') }}>
-                <Text style={s.link}>← Different email</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={handleResend} disabled={resending}>
-                <Text style={s.link}>
-                  {resent ? 'Code sent ✓' : resending ? 'Sending…' : 'Resend code'}
-                </Text>
-              </TouchableOpacity>
+            <Button label="Continue" onPress={verify} loading={loading} disabled={code.length < 6} />
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 18 }}>
+              <Pressable hitSlop={10} onPress={() => { setStep('email'); setCode(''); setError('') }} accessibilityRole="button">
+                <T size={14} tone="muted">Use a different email</T>
+              </Pressable>
+              <Pressable hitSlop={10} disabled={cooldown > 0} onPress={sendCode} accessibilityRole="button">
+                <T size={14} tone={cooldown > 0 ? 'faint' : 'accent'}>{cooldown > 0 ? `Send again in ${cooldown}s` : 'Send again'}</T>
+              </Pressable>
             </View>
           </>
         )}
 
-        {!!error && <Text style={s.error}>{error}</Text>}
-      </View>
+        {step === 'password' && (
+          <>
+            <T size={30} weight={700} style={{ marginBottom: 8 }}>Review account</T>
+            <T tone="muted" style={{ marginBottom: 28 }}>Enter the password for {REVIEW_EMAIL}.</T>
+            <TextInput style={input} value={password} onChangeText={setPassword} secureTextEntry autoCapitalize="none"
+              textContentType="password" onSubmitEditing={signInWithPassword} accessibilityLabel="Password" />
+            <Button label="Sign in" onPress={signInWithPassword} loading={loading} disabled={!password} />
+            <Pressable hitSlop={10} style={{ marginTop: 18 }} onPress={() => { setStep('email'); setPassword('') }} accessibilityRole="button">
+              <T size={14} tone="muted">Back</T>
+            </Pressable>
+          </>
+        )}
+
+        {!!error && <T size={14} tone="danger" center style={{ marginTop: 14 }}>{error}</T>}
+
+        <T size={12} tone="faint" center style={{ marginTop: 36 }}>By continuing you agree to our</T>
+        <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 16, marginTop: 4 }}>
+          <Pressable onPress={() => Linking.openURL('https://demist.app/terms')} accessibilityRole="link" hitSlop={8}>
+            <T size={12} tone="accent">Terms</T>
+          </Pressable>
+          <Pressable onPress={() => Linking.openURL('https://demist.app/privacy')} accessibilityRole="link" hitSlop={8}>
+            <T size={12} tone="accent">Privacy Policy</T>
+          </Pressable>
+        </View>
+      </Screen>
     </KeyboardAvoidingView>
   )
 }
-
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#110B1C' },
-  inner: { flex: 1, justifyContent: 'center', paddingHorizontal: 28, paddingBottom: 40 },
-  brand: { fontSize: 11, fontWeight: '700', letterSpacing: 3, color: 'rgba(195,178,234,0.75)', textTransform: 'uppercase', marginBottom: 40 },
-  title: { fontSize: 32, fontWeight: '700', color: '#fff', letterSpacing: -0.5, marginBottom: 8 },
-  subtitle: { fontSize: 15, color: '#6b7280', marginBottom: 32, lineHeight: 22 },
-  emailHighlight: { color: '#fff', fontWeight: '600' },
-  input: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 18, paddingHorizontal: 20, paddingVertical: 16,
-    color: '#fff', fontSize: 15, marginBottom: 12,
-  },
-  codeInput: { fontSize: 24, letterSpacing: 12, textAlign: 'center', fontVariant: ['tabular-nums'] },
-  btn: {
-    backgroundColor: '#5B3F8F', borderRadius: 18,
-    paddingVertical: 18, alignItems: 'center', marginBottom: 16,
-  },
-  btnDisabled: { opacity: 0.3 },
-  btnText: { color: '#fff', fontSize: 15, fontWeight: '600' },
-  row: { flexDirection: 'row', justifyContent: 'space-between' },
-  link: { color: '#6b7280', fontSize: 13 },
-  error: { color: '#f87171', fontSize: 13, textAlign: 'center', marginTop: 12 },
-})

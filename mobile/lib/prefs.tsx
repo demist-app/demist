@@ -1,0 +1,113 @@
+// Reading comfort and appearance, the phone's version of web/lib/comfortPrefs.ts.
+// Stored on the device only (AsyncStorage), like the web's localStorage copy:
+// these are how the screen looks to one person, not account data.
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useColorScheme } from 'react-native'
+import AsyncStorage from '@react-native-async-storage/async-storage'
+import { light, dark, TINTS, type Palette, type Tint } from './theme'
+
+export type ReadingFont = 'standard' | 'atkinson' | 'lexend'
+export type Spacing = 'normal' | 'relaxed'
+export type Appearance = 'system' | 'light' | 'dark'
+export type TextSize = 'small' | 'default' | 'large' | 'larger'
+
+export interface Prefs {
+  font: ReadingFont
+  spacing: Spacing
+  tint: Tint
+  appearance: Appearance
+  textSize: TextSize
+  showProgress: boolean
+}
+
+export const DEFAULT_PREFS: Prefs = {
+  font: 'standard', spacing: 'normal', tint: 'none', appearance: 'system', textSize: 'default', showProgress: false,
+}
+
+export const FONT_OPTIONS: { value: ReadingFont; label: string }[] = [
+  { value: 'standard', label: 'Standard' },
+  { value: 'atkinson', label: 'Atkinson Hyperlegible' },
+  { value: 'lexend', label: 'Lexend' },
+]
+export const TINT_OPTIONS: { value: Tint; label: string }[] = [
+  { value: 'none', label: 'None' },
+  { value: 'cream', label: 'Cream' },
+  { value: 'blue', label: 'Blue' },
+  { value: 'green', label: 'Green' },
+  { value: 'rose', label: 'Rose' },
+]
+export const TEXT_SIZES: { value: TextSize; label: string; scale: number }[] = [
+  { value: 'small', label: 'Small', scale: 0.92 },
+  { value: 'default', label: 'Default', scale: 1 },
+  { value: 'large', label: 'Large', scale: 1.12 },
+  { value: 'larger', label: 'Larger', scale: 1.25 },
+]
+
+type Weight = 400 | 500 | 600 | 700
+const FAMILIES: Record<ReadingFont, Record<Weight, string>> = {
+  standard: { 400: 'PlusJakartaSans_400Regular', 500: 'PlusJakartaSans_500Medium', 600: 'PlusJakartaSans_600SemiBold', 700: 'PlusJakartaSans_700Bold' },
+  // Atkinson ships two weights; the in-between ones round to the nearer.
+  atkinson: { 400: 'AtkinsonHyperlegible_400Regular', 500: 'AtkinsonHyperlegible_400Regular', 600: 'AtkinsonHyperlegible_700Bold', 700: 'AtkinsonHyperlegible_700Bold' },
+  lexend: { 400: 'Lexend_400Regular', 500: 'Lexend_500Medium', 600: 'Lexend_600SemiBold', 700: 'Lexend_700Bold' },
+}
+
+const KEY = 'demist_prefs'
+
+interface Ctx {
+  prefs: Prefs
+  setPrefs: (patch: Partial<Prefs>) => void
+  c: Palette
+  /** Font family for a weight, in the student's chosen reading font. */
+  font: (w?: Weight) => string
+  /** Scales a font size by the chosen text size. */
+  size: (px: number) => number
+  /** Line height for a font size, looser when spacing is relaxed. */
+  lh: (px: number) => number
+  letterSpacing: number
+}
+
+const PrefsContext = createContext<Ctx | null>(null)
+
+export function PrefsProvider({ children }: { children: ReactNode }) {
+  const [prefs, setPrefsState] = useState<Prefs>(DEFAULT_PREFS)
+  const scheme = useColorScheme()
+
+  useEffect(() => {
+    AsyncStorage.getItem(KEY).then(raw => {
+      if (!raw) return
+      try { setPrefsState({ ...DEFAULT_PREFS, ...JSON.parse(raw) }) } catch { /* keep defaults */ }
+    }).catch(() => {})
+  }, [])
+
+  const value = useMemo<Ctx>(() => {
+    const isDark = prefs.appearance === 'dark' || (prefs.appearance === 'system' && scheme === 'dark')
+    let c = isDark ? dark : light
+    // Tints are light-mode only, as on the web: a coloured overlay on a dark
+    // page lowers contrast instead of easing glare.
+    const tint = TINTS[prefs.tint]
+    if (!isDark && tint) c = { ...c, bg: tint, bgSubtle: tint, tabBar: tint }
+    const scale = TEXT_SIZES.find(t => t.value === prefs.textSize)?.scale ?? 1
+    const relaxed = prefs.spacing === 'relaxed'
+    return {
+      prefs,
+      setPrefs: (patch) => setPrefsState(prev => {
+        const next = { ...prev, ...patch }
+        AsyncStorage.setItem(KEY, JSON.stringify(next)).catch(() => {})
+        return next
+      }),
+      c,
+      font: (w = 400) => FAMILIES[prefs.font][w],
+      size: (px) => Math.round(px * scale),
+      lh: (px) => Math.round(px * scale * (relaxed ? 1.9 : 1.5)),
+      letterSpacing: relaxed ? 0.3 : 0,
+    }
+  }, [prefs, scheme])
+
+  return <PrefsContext.Provider value={value}>{children}</PrefsContext.Provider>
+}
+
+export function usePrefs(): Ctx {
+  const ctx = useContext(PrefsContext)
+  if (!ctx) throw new Error('usePrefs outside PrefsProvider')
+  return ctx
+}

@@ -1,0 +1,506 @@
+// The iOS recorder. Lives above the tabs so a lecture keeps going while the
+// student opens Glossary or Flashcards, and (with UIBackgroundModes audio)
+// while the phone is locked in their pocket.
+//
+// Speech to text is Apple's on-device recogniser. The audio is never sent
+// anywhere: requiresOnDeviceRecognition is set, and recording refuses to start
+// on a phone that cannot do it, because SFSpeechRecognizer otherwise falls
+// back to Apple's servers without telling anyone.
+//
+// Things that went wrong on the web and are designed out here from the start:
+// - Nothing that keeps recording alive depends on a screen being visible
+//   (web/public/level-worklet.js, 2026-10-07).
+// - Supabase writes resolve with { error }; every one is checked.
+// - The transcript is only stored where recording consent allows
+//   (lecturer consent for the subject, or a declared support need), the same
+//   gate as web persistTranscript and the summarize-session function.
+// - A session row that fails to insert is retried at stop, not given up on.
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
+import { AppState, Linking } from 'react-native'
+import { getLocales } from 'expo-localization'
+import { ExpoSpeechRecognitionModule } from 'expo-speech-recognition'
+import { supabase } from './supabase'
+import { useAccount } from './account'
+import { capture, reportWriteFailure, reportError } from './analytics'
+import { detectTerms, splitSentences, type DetectState, type DetectedTerm } from './detect'
+
+export type RecStatus = 'idle' | 'starting' | 'recording' | 'stopping'
+
+export interface LiveCard { id: string; term: string; definition: string; pinned: boolean }
+export interface LostMark { atMs: number; transcriptOffset: number }
+
+interface Ctx {
+  status: RecStatus
+  subject: string
+  setSubject: (s: string) => void
+  transcript: string        // settled text
+  interim: string           // the sentence still being heard
+  cards: LiveCard[]
+  sessionTerms: DetectedTerm[]
+  lostCount: number
+  elapsedMs: number
+  level: number             // 0..1, for the calm level meter
+  notice: string | null     // gentle, non-blocking
+  error: string | null      // blocking, recording did not start or stopped
+  /** Set when a recording has just finished, so the screen can open it. */
+  finishedSessionId: string | null
+  start: () => Promise<void>
+  stop: () => Promise<void>
+  markLost: () => void
+  pinCard: (id: string) => void
+  dismissCard: (id: string) => void
+  clearFinished: () => void
+  clearError: () => void
+}
+
+const RecordingContext = createContext<Ctx | null>(null)
+
+const CARD_MS = 10_000
+const DETECT_EVERY_MS = 15_000
+const AUTOSAVE_MS = 45_000
+
+function pickLang(): string {
+  const tag = getLocales()[0]?.languageTag ?? 'en-GB'
+  return tag.toLowerCase().startsWith('en') ? tag : 'en-GB'
+}
+
+export function RecordingProvider({ children }: { children: ReactNode }) {
+  const { session, profile } = useAccount()
+  const userId = session?.user.id ?? null
+
+  const [status, setStatus] = useState<RecStatus>('idle')
+  const [subject, setSubject] = useState('')
+  const [transcript, setTranscript] = useState('')
+  const [interim, setInterim] = useState('')
+  const [cards, setCards] = useState<LiveCard[]>([])
+  const [sessionTerms, setSessionTerms] = useState<DetectedTerm[]>([])
+  const [lostCount, setLostCount] = useState(0)
+  const [elapsedMs, setElapsedMs] = useState(0)
+  const [level, setLevel] = useState(0)
+  const [notice, setNotice] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [finishedSessionId, setFinishedSessionId] = useState<string | null>(null)
+
+  // Refs: event listeners and timers outlive renders.
+  const wantRef = useRef(false)                 // the student wants to be recording
+  const statusRef = useRef<RecStatus>('idle')
+  const sessionIdRef = useRef<string | null>(null)
+  const startedAtRef = useRef(0)
+  const finalRef = useRef('')                   // settled transcript
+  const interimRef = useRef('')
+  const segSentencesSentRef = useRef(0)         // sentences of the current segment already queued
+  const pendingRef = useRef<string[]>([])       // sentences waiting for detection
+  const detectingRef = useRef(false)
+  const detectStateRef = useRef<DetectState>({ known: new Set(), sent: new Set(), sessionTerms: [] })
+  const termsRef = useRef<DetectedTerm[]>([])
+  const marksRef = useRef<LostMark[]>([])
+  const unsavedMarksRef = useRef<LostMark[]>([])
+  const eligibleRef = useRef<boolean | null>(null)
+  const lastSavedRef = useRef('')
+  const cardTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>())
+  const subjectRef = useRef('')
+  const restartsRef = useRef<number[]>([])
+  const statsRef = useRef({ detectOk: 0, detectFailed: 0, lastFailure: null as string | null, restarts: 0, termsSaved: 0 })
+  const endWaiterRef = useRef<(() => void) | null>(null)
+  const profileRef = useRef(profile)
+  const userIdRef = useRef(userId)
+  userIdRef.current = userId
+  profileRef.current = profile
+  subjectRef.current = subject
+
+  const setStatusBoth = (s: RecStatus) => { statusRef.current = s; setStatus(s) }
+  const fullText = () => [finalRef.current, interimRef.current].filter(Boolean).join(' ').trim()
+  const subjectFor = () => subjectRef.current.trim() || profileRef.current?.course || null
+
+  // ---- recognition -------------------------------------------------------
+
+  const startRecognizer = useCallback(() => {
+    const known = Array.from(detectStateRef.current.known).slice(-80)
+    const s = subjectFor()
+    ExpoSpeechRecognitionModule.start({
+      lang: pickLang(),
+      interimResults: true,
+      continuous: true,
+      requiresOnDeviceRecognition: true,
+      addsPunctuation: true,
+      maxAlternatives: 1,
+      iosTaskHint: 'dictation',
+      // Biases recognition toward the student's own vocabulary, so a term
+      // they have met before is less likely to come back mis-heard.
+      contextualStrings: s ? [s, ...known] : known,
+      iosCategory: {
+        category: 'playAndRecord',
+        categoryOptions: ['defaultToSpeaker', 'allowBluetooth'],
+        mode: 'default',
+      },
+      volumeChangeEventOptions: { enabled: true, intervalMillis: 250 },
+    })
+  }, [])
+
+  // Sentences from the segment being heard that are complete (a later
+  // sentence has begun), so they can go to detection before the segment
+  // ends. On iOS 17 a segment can be the whole lecture.
+  const queueSegment = (segmentText: string, isFinal: boolean) => {
+    const sentences = splitSentences(segmentText)
+    const complete = isFinal ? sentences : sentences.slice(0, -1)
+    if (complete.length > segmentSentencesSent()) {
+      pendingRef.current.push(...complete.slice(segmentSentencesSent()))
+      segSentencesSentRef.current = complete.length
+    }
+    if (isFinal) segSentencesSentRef.current = 0
+    if (pendingRef.current.length >= 3) void runDetection()
+  }
+  const segmentSentencesSent = () => segSentencesSentRef.current
+
+  useEffect(() => {
+    const subs = [
+      ExpoSpeechRecognitionModule.addListener('result', e => {
+        const text = (e.results[0]?.transcript ?? '').trim()
+        if (e.isFinal) {
+          if (text) finalRef.current = finalRef.current ? `${finalRef.current} ${text}` : text
+          interimRef.current = ''
+          setTranscript(finalRef.current)
+          setInterim('')
+          queueSegment(text, true)
+        } else {
+          interimRef.current = text
+          setInterim(text)
+          queueSegment(text, false)
+        }
+      }),
+      ExpoSpeechRecognitionModule.addListener('volumechange', e => {
+        setLevel(Math.max(0, Math.min(1, (e.value + 2) / 12)))
+      }),
+      ExpoSpeechRecognitionModule.addListener('error', e => {
+        // no-speech and aborted are normal in a long lecture (a quiet stretch,
+        // our own stop). 'end' follows every error and handles the restart.
+        if (e.error === 'no-speech' || e.error === 'aborted') return
+        if (e.error === 'not-allowed') {
+          wantRef.current = false
+          setError('Demist needs the microphone and speech recognition. You can allow both in Settings.')
+        } else if (e.error === 'language-not-supported' || e.error === 'service-not-allowed') {
+          wantRef.current = false
+          setError(NEEDS_DICTATION)
+        }
+        statsRef.current.lastFailure = `speech_${e.error}`
+        capture('ios_speech_error', { code: e.error })
+      }),
+      ExpoSpeechRecognitionModule.addListener('end', () => {
+        // Whatever was mid-sentence is kept, not dropped.
+        if (interimRef.current) {
+          const t = interimRef.current
+          finalRef.current = finalRef.current ? `${finalRef.current} ${t}` : t
+          queueSegment(t, true)
+          interimRef.current = ''
+          setTranscript(finalRef.current)
+          setInterim('')
+        }
+        segSentencesSentRef.current = 0
+        setLevel(0)
+        if (endWaiterRef.current) { endWaiterRef.current(); endWaiterRef.current = null }
+        if (!wantRef.current) return
+        // The recogniser ended on its own: a phone call, Siri, a long
+        // silence, or an iOS limit. Start it again, unless it is failing in a
+        // tight loop, in which case say so instead of spinning.
+        const now = Date.now()
+        restartsRef.current = [...restartsRef.current.filter(t => now - t < 60_000), now]
+        statsRef.current.restarts++
+        if (restartsRef.current.length > 8) {
+          setNotice('Listening keeps pausing. Recording will carry on when it can.')
+          setTimeout(() => { if (wantRef.current) startRecognizer() }, 5_000)
+        } else {
+          setTimeout(() => { if (wantRef.current) startRecognizer() }, 300)
+        }
+      }),
+    ]
+    return () => subs.forEach(s => s.remove())
+  }, [startRecognizer])
+
+  // ---- detection ---------------------------------------------------------
+
+  const runDetection = useCallback(async () => {
+    if (detectingRef.current || !pendingRef.current.length) return
+    detectingRef.current = true
+    const batch = pendingRef.current.splice(0, pendingRef.current.length)
+    const newText = batch.join(' ')
+    const settled = finalRef.current
+    const context = settled.slice(Math.max(0, settled.length - newText.length - 400), Math.max(0, settled.length - newText.length))
+    try {
+      const out = await detectTerms(newText, context, detectStateRef.current, {
+        subject: subjectFor(), year: profileRef.current?.year_of_study ?? null,
+      })
+      if (out.kind === 'terms') {
+        statsRef.current.detectOk++
+        await onTerms(out.terms)
+      } else if (out.kind === 'none') {
+        statsRef.current.detectOk++
+      } else {
+        statsRef.current.detectFailed++
+        statsRef.current.lastFailure = out.kind === 'unavailable' ? out.detail : out.kind
+        if (out.kind === 'rate_limited') setNotice('New words will pause for a little while. Your lecture is still being written down.')
+        else if (out.kind === 'signed_out') setNotice('You have been signed out, so new words cannot be saved. Your lecture is still being written down.')
+        else setNotice("New words can't be explained right now (no connection). Your lecture is still being written down.")
+      }
+    } catch (e) {
+      statsRef.current.detectFailed++
+      reportError('ios_detect_threw', { message: String((e as Error)?.message ?? e).slice(0, 120) })
+    } finally {
+      detectingRef.current = false
+    }
+  }, [])
+
+  const onTerms = async (terms: DetectedTerm[]) => {
+    setNotice(null)
+    termsRef.current = [...terms, ...termsRef.current]
+    setSessionTerms(termsRef.current)
+    const shown = terms.slice(0, 2).map(t => ({ id: `${Date.now()}-${Math.random()}`, term: t.term, definition: t.definition, pinned: false }))
+    setCards(prev => [...prev, ...shown].slice(-3))
+    shown.forEach(c => {
+      capture('term_card_shown', { chars: c.term.length })
+      cardTimers.current.set(c.id, setTimeout(() => dismissCard(c.id), CARD_MS))
+    })
+    const sid = sessionIdRef.current
+    const uid = userIdRef.current
+    if (!sid || !uid) return
+    const { error } = await supabase.from('terms').insert(terms.map(t => ({
+      user_id: uid, session_id: sid, term: t.term, definition: t.definition,
+      context: t.context ?? null, subject: subjectFor(),
+    })))
+    if (!reportWriteFailure('terms.insert', error, { count: terms.length })) statsRef.current.termsSaved += terms.length
+  }
+
+  // Detection on a timer as well as on sentence count, so a slow speaker's
+  // terms still arrive. Plain setInterval: it keeps running in the
+  // background, where the audio session holds the app awake.
+  useEffect(() => {
+    if (status !== 'recording') return
+    const detect = setInterval(() => { void runDetection() }, DETECT_EVERY_MS)
+    const save = setInterval(() => { void persistTranscript() }, AUTOSAVE_MS)
+    const tick = setInterval(() => setElapsedMs(Date.now() - startedAtRef.current), 1000)
+    return () => { clearInterval(detect); clearInterval(save); clearInterval(tick) }
+  }, [status, runDetection])
+
+  // ---- persistence -------------------------------------------------------
+
+  const createSessionRow = async (): Promise<string | null> => {
+    const uid = userIdRef.current
+    if (!uid) return null
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      const { data, error } = await supabase.from('sessions').insert({
+        user_id: uid,
+        subject: subjectFor(),
+        year_of_study: profileRef.current?.year_of_study ?? null,
+        capture_mode: 'microphone',
+        started_at: new Date(startedAtRef.current).toISOString(),
+      }).select('id').single()
+      if (!error && data?.id) return data.id as string
+      if (attempt === 3) capture('session_create_failed', { code: error?.code ?? 'no_row', message: error?.message?.slice(0, 200) ?? null })
+      await new Promise(r => setTimeout(r, attempt * 800))
+    }
+    return null
+  }
+
+  const transcriptAllowed = async (): Promise<boolean> => {
+    if (eligibleRef.current !== null) return eligibleRef.current
+    const need = profileRef.current?.support_need
+    if (need && need !== 'none') return (eligibleRef.current = true)
+    const subj = (subjectFor() ?? '').trim().replace(/[%_]/g, c => '\\' + c)
+    if (!subj) return (eligibleRef.current = false)
+    const { data } = await supabase.from('lecturer_consents').select('id').ilike('module_name', subj).maybeSingle()
+    return (eligibleRef.current = !!data)
+  }
+
+  const persistTranscript = async () => {
+    const sid = sessionIdRef.current
+    const tx = fullText()
+    if (!sid || !tx || tx === lastSavedRef.current) return
+    if (!(await transcriptAllowed())) return
+    const { error } = await supabase.from('sessions').update({ transcript: tx }).eq('id', sid)
+    if (!reportWriteFailure('session.transcript', error, { chars: tx.length })) lastSavedRef.current = tx
+  }
+
+  const saveMarks = async (sid: string, marks: LostMark[]) => {
+    const uid = userIdRef.current
+    if (!marks.length || !uid) return true
+    const { error } = await supabase.from('session_marks').insert(marks.map(m => ({
+      session_id: sid, user_id: uid, at_ms: Math.round(m.atMs), transcript_offset: m.transcriptOffset,
+    })))
+    // Table missing until migration 042 is applied: a known state, not an alert.
+    if (error && (error.code === 'PGRST205' || error.code === '42P01')) return true
+    return !reportWriteFailure('session_marks.insert', error, { count: marks.length })
+  }
+
+  // ---- public actions ----------------------------------------------------
+
+  const start = useCallback(async () => {
+    if (statusRef.current !== 'idle' || !userId) return
+    setError(null); setNotice(null); setFinishedSessionId(null)
+    setStatusBoth('starting')
+
+    const perm = await ExpoSpeechRecognitionModule.requestPermissionsAsync()
+    if (!perm.granted) {
+      setStatusBoth('idle')
+      setError('Demist needs the microphone and speech recognition. You can allow both in Settings.')
+      capture('ios_permission_denied', { can_ask_again: perm.canAskAgain })
+      return
+    }
+    if (!ExpoSpeechRecognitionModule.isRecognitionAvailable() || !ExpoSpeechRecognitionModule.supportsOnDeviceRecognition()) {
+      setStatusBoth('idle')
+      setError(NEEDS_DICTATION)
+      capture('ios_on_device_unavailable', { available: ExpoSpeechRecognitionModule.isRecognitionAvailable() })
+      return
+    }
+
+    // Fresh session state.
+    finalRef.current = ''; interimRef.current = ''; pendingRef.current = []
+    segSentencesSentRef.current = 0; termsRef.current = []; marksRef.current = []; unsavedMarksRef.current = []
+    eligibleRef.current = null; lastSavedRef.current = ''; restartsRef.current = []
+    statsRef.current = { detectOk: 0, detectFailed: 0, lastFailure: null, restarts: 0, termsSaved: 0 }
+    setTranscript(''); setInterim(''); setCards([]); setSessionTerms([]); setLostCount(0); setElapsedMs(0)
+
+    // Words already in the glossary are never carded again.
+    const { data: knownRows } = await supabase.from('terms').select('term').eq('user_id', userId).order('created_at', { ascending: false }).limit(1000)
+    detectStateRef.current = {
+      known: new Set((knownRows ?? []).map(r => String(r.term).toLowerCase())),
+      sent: new Set(),
+      sessionTerms: [],
+    }
+
+    startedAtRef.current = Date.now()
+    wantRef.current = true
+    try {
+      startRecognizer()
+    } catch (e) {
+      wantRef.current = false
+      setStatusBoth('idle')
+      setError('Recording could not start. Please try again.')
+      reportError('ios_recognizer_start_threw', { message: String((e as Error)?.message ?? e).slice(0, 120) })
+      return
+    }
+    setStatusBoth('recording')
+    capture('recording_started', { mode: 'microphone', platform: 'ios' })
+    sessionIdRef.current = await createSessionRow()
+    if (!sessionIdRef.current) setNotice('Your lecture is being written down, but could not be saved to your account yet. We will try again when you stop.')
+  }, [userId, startRecognizer])
+
+  const stop = useCallback(async () => {
+    if (statusRef.current !== 'recording') return
+    setStatusBoth('stopping')
+    wantRef.current = false
+    await new Promise<void>(resolve => {
+      endWaiterRef.current = resolve
+      try { ExpoSpeechRecognitionModule.stop() } catch { resolve() }
+      setTimeout(resolve, 2500)
+    })
+    cardTimers.current.forEach(t => clearTimeout(t)); cardTimers.current.clear()
+
+    // Last words through detection, bounded so a slow network cannot hold
+    // the student on a spinner.
+    await Promise.race([
+      (async () => { while (detectingRef.current) await new Promise(r => setTimeout(r, 200)); await runDetection() })(),
+      new Promise(r => setTimeout(r, 8_000)),
+    ])
+
+    let sid = sessionIdRef.current
+    if (!sid) {
+      sid = await createSessionRow()
+      sessionIdRef.current = sid
+      const uid = userIdRef.current
+      if (sid && termsRef.current.length && uid) {
+        const { error } = await supabase.from('terms').insert(termsRef.current.map(t => ({
+          user_id: uid, session_id: sid, term: t.term, definition: t.definition, context: t.context ?? null, subject: subjectFor(),
+        })))
+        reportWriteFailure('terms.insert_late', error, { count: termsRef.current.length })
+      }
+    }
+    const durationSec = Math.round((Date.now() - startedAtRef.current) / 1000)
+    if (sid) {
+      const { error } = await supabase.from('sessions').update({ ended_at: new Date().toISOString() }).eq('id', sid)
+      reportWriteFailure('session.ended_at', error)
+      await persistTranscript()
+      if (unsavedMarksRef.current.length && await saveMarks(sid, unsavedMarksRef.current)) unsavedMarksRef.current = []
+      // The function checks consent itself; this only asks.
+      if (termsRef.current.length) {
+        void supabase.functions.invoke('summarize-session', {
+          body: { session_id: sid, subject: subjectFor(), terms: termsRef.current.map(t => ({ term: t.term, definition: t.definition })) },
+        }).catch(() => {})
+      }
+    }
+    const words = fullText().split(/\s+/).filter(Boolean).length
+    capture('recording_stopped', {
+      duration_seconds: durationSec, platform: 'ios', words, terms: termsRef.current.length,
+      lost_marks: marksRef.current.length, restarts: statsRef.current.restarts,
+      detect_ok: statsRef.current.detectOk, detect_failed: statsRef.current.detectFailed,
+      last_failure: statsRef.current.lastFailure, saved: !!sid,
+    })
+    setStatusBoth('idle')
+    setLevel(0)
+    setCards([])
+    setNotice(sid ? null : 'This lecture could not be saved to your account. Check your connection; the text is still on screen.')
+    if (sid) setFinishedSessionId(sid)
+  }, [runDetection])
+
+  // "I'm lost": never asks anything, never blocks, as many as needed.
+  const markLost = useCallback(() => {
+    if (statusRef.current !== 'recording') return
+    const mark = { atMs: Date.now() - startedAtRef.current, transcriptOffset: fullText().length }
+    marksRef.current.push(mark)
+    setLostCount(marksRef.current.length)
+    capture('lost_marked', { at_seconds: Math.round(mark.atMs / 1000), count: marksRef.current.length, platform: 'ios' })
+    const sid = sessionIdRef.current
+    if (!sid) { unsavedMarksRef.current.push(mark); return }
+    void saveMarks(sid, [mark]).then(ok => { if (!ok) unsavedMarksRef.current.push(mark) })
+  }, [])
+
+  const dismissCard = useCallback((id: string) => {
+    const t = cardTimers.current.get(id)
+    if (t) clearTimeout(t)
+    cardTimers.current.delete(id)
+    setCards(prev => prev.filter(c => c.id !== id))
+  }, [])
+
+  const pinCard = useCallback((id: string) => {
+    const t = cardTimers.current.get(id)
+    if (t) clearTimeout(t)
+    cardTimers.current.delete(id)
+    setCards(prev => prev.map(c => c.id === id ? { ...c, pinned: true } : c))
+  }, [])
+
+  // Signing out mid-lecture stops the recording rather than orphaning it.
+  useEffect(() => {
+    if (!userId && statusRef.current === 'recording') void stop()
+  }, [userId, stop])
+
+  // Coming back to the app after a long time locked: show the latest text.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', s => {
+      if (s === 'active' && statusRef.current === 'recording') {
+        setTranscript(finalRef.current)
+        setElapsedMs(Date.now() - startedAtRef.current)
+      }
+    })
+    return () => sub.remove()
+  }, [])
+
+  return (
+    <RecordingContext.Provider value={{
+      status, subject, setSubject, transcript, interim, cards, sessionTerms, lostCount, elapsedMs, level,
+      notice, error, finishedSessionId, start, stop, markLost, pinCard, dismissCard,
+      clearFinished: () => setFinishedSessionId(null),
+      clearError: () => setError(null),
+    }}>
+      {children}
+    </RecordingContext.Provider>
+  )
+}
+
+export const NEEDS_DICTATION =
+  "This iPhone can't turn speech into text by itself yet. Turn on Dictation in Settings, General, Keyboard, wait a minute for it to finish setting up, then try again."
+
+export function openSettings() { void Linking.openSettings() }
+
+export function useRecording(): Ctx {
+  const ctx = useContext(RecordingContext)
+  if (!ctx) throw new Error('useRecording outside RecordingProvider')
+  return ctx
+}

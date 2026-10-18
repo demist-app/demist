@@ -1,187 +1,180 @@
-import { useEffect, useState } from 'react'
-import {
-  View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator,
-} from 'react-native'
+import { useEffect, useRef } from 'react'
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, TextInput, View } from 'react-native'
+import { router } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { supabase } from '../../lib/supabase'
+import { useRecording, openSettings } from '../../lib/recording'
+import { useAccount } from '../../lib/account'
+import { usePrefs } from '../../lib/prefs'
+import { radius } from '../../lib/theme'
+import { Button, Card, ReadAloud, T } from '../../components/ui'
+import { clockFromMs } from '../../lib/format'
+import { CloseIcon, FlagIcon, MicIcon, StopIcon } from '../../components/icons'
 
-interface Term {
-  id: string
-  term: string
-  definition: string
-  known: boolean
-  session_id: string
-}
-
-interface Session {
-  id: string
-  subject: string | null
-  started_at: string
-  terms: Term[]
-}
-
-function fmtLabel(subject: string | null, startedAt: string): string {
-  if (subject) return subject
-  const d = new Date(startedAt)
-  return `${d.toLocaleDateString('en-GB', { weekday: 'short' })} ${d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`
-}
-
-export default function Glossary() {
-  const [sessions, setSessions] = useState<Session[]>([])
-  const [loading, setLoading] = useState(true)
-  const [expandedId, setExpandedId] = useState<string | null>(null)
-
-  useEffect(() => {
-    ;(async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      const { data: sessionsRaw } = await supabase
-        .from('sessions')
-        .select('id, subject, started_at')
-        .eq('user_id', user.id)
-        .order('started_at', { ascending: false })
-        .limit(50)
-
-      if (!sessionsRaw?.length) { setLoading(false); return }
-
-      const { data: termsRaw } = await supabase
-        .from('terms')
-        .select('id, term, definition, known, session_id')
-        .in('session_id', sessionsRaw.map(s => s.id))
-        .order('created_at', { ascending: true })
-
-      const termMap: Record<string, Term[]> = {}
-      for (const t of termsRaw ?? []) {
-        if (!termMap[t.session_id]) termMap[t.session_id] = []
-        termMap[t.session_id].push(t as Term)
-      }
-
-      setSessions(sessionsRaw.map(s => ({ ...s, terms: termMap[s.id] ?? [] })))
-      setLoading(false)
-    })()
-  }, [])
-
-  const toggleKnown = async (termId: string, currently: boolean) => {
-    await supabase.from('terms').update({ known: !currently }).eq('id', termId)
-    setSessions(prev =>
-      prev.map(s => ({
-        ...s,
-        terms: s.terms.map(t => t.id === termId ? { ...t, known: !currently } : t),
-      }))
-    )
-  }
-
-  if (loading) {
-    return (
-      <View style={[s.container, s.center]}>
-        <ActivityIndicator color="#5B3F8F" />
-      </View>
-    )
-  }
-
-  if (!sessions.length) {
-    return (
-      <SafeAreaView style={s.container}>
-        <View style={s.header}><Text style={s.headerTitle}>Glossary</Text></View>
-        <View style={s.center}>
-          <Text style={s.emptyText}>No sessions yet.</Text>
-          <Text style={s.emptySubtext}>Use the web app to record a lecture.</Text>
-        </View>
-      </SafeAreaView>
-    )
-  }
-
+// Five bars in the shape of the Demist mark, moving gently with the room's
+// sound. Purely visual: nothing about recording depends on it.
+function Level({ level }: { level: number }) {
+  const { c } = usePrefs()
+  const shape = [0.45, 0.75, 1, 0.75, 0.45]
   return (
-    <SafeAreaView style={s.container} edges={['top']}>
-      <View style={s.header}><Text style={s.headerTitle}>Glossary</Text></View>
-      <FlatList
-        data={sessions}
-        keyExtractor={item => item.id}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 16 }}
-        ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
-        renderItem={({ item: session }) => {
-          const expanded = expandedId === session.id
-          return (
-            <View style={s.sessionCard}>
-              <TouchableOpacity
-                style={s.sessionHeader}
-                onPress={() => setExpandedId(expanded ? null : session.id)}
-                activeOpacity={0.7}
-              >
-                <View style={{ flex: 1 }}>
-                  <Text style={s.sessionTitle} numberOfLines={1}>
-                    {fmtLabel(session.subject, session.started_at)}
-                  </Text>
-                  <Text style={s.sessionMeta}>
-                    {new Date(session.started_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
-                  </Text>
-                </View>
-                <View style={s.termCount}>
-                  <Text style={s.termCountNum}>{session.terms.length}</Text>
-                  <Text style={s.termCountLabel}>terms</Text>
-                </View>
-                <Text style={[s.chevron, expanded && s.chevronUp]}>›</Text>
-              </TouchableOpacity>
-
-              {expanded && (
-                <View style={s.termList}>
-                  {session.terms.length === 0 && (
-                    <Text style={s.emptySubtext}>No words detected.</Text>
-                  )}
-                  {session.terms.map(term => (
-                    <View key={term.id} style={s.termRow}>
-                      <View style={s.dot} />
-                      <View style={{ flex: 1 }}>
-                        <Text style={[s.termName, term.known && s.termKnown]}>{term.term}</Text>
-                        <Text style={s.termDef}>{term.definition}</Text>
-                      </View>
-                      <TouchableOpacity
-                        onPress={() => toggleKnown(term.id, term.known)}
-                        style={s.knownBtn}
-                        hitSlop={8}
-                      >
-                        <Text style={[s.checkmark, term.known && s.checkmarkActive]}>✓</Text>
-                      </TouchableOpacity>
-                    </View>
-                  ))}
-                </View>
-              )}
-            </View>
-          )
-        }}
-      />
-    </SafeAreaView>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, height: 22 }} accessible={false}>
+      {shape.map((k, i) => (
+        <View key={i} style={{ width: 4, borderRadius: 2, backgroundColor: i === 2 ? c.calm : c.accent, height: 6 + 16 * k * Math.max(0.15, level) }} />
+      ))}
+    </View>
   )
 }
 
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#110B1C' },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  header: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 16 },
-  headerTitle: { fontSize: 22, fontWeight: '700', color: '#fff', letterSpacing: -0.5 },
-  emptyText: { color: '#4b5563', fontSize: 15 },
-  emptySubtext: { color: '#374151', fontSize: 13, marginTop: 4 },
-  sessionCard: {
-    backgroundColor: 'rgba(255,255,255,0.03)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)',
-    borderRadius: 18, overflow: 'hidden',
-  },
-  sessionHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14 },
-  sessionTitle: { fontSize: 14, fontWeight: '500', color: 'rgba(255,255,255,0.9)' },
-  sessionMeta: { fontSize: 12, color: '#4b5563', marginTop: 2 },
-  termCount: { marginRight: 12, alignItems: 'flex-end' },
-  termCountNum: { fontSize: 16, fontWeight: '600', color: '#C3B2EA' },
-  termCountLabel: { fontSize: 11, color: '#4b5563' },
-  chevron: { fontSize: 20, color: '#4b5563', transform: [{ rotate: '90deg' }] },
-  chevronUp: { transform: [{ rotate: '-90deg' }] },
-  termList: { borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.04)', paddingHorizontal: 16, paddingVertical: 12, gap: 12 },
-  termRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  dot: { width: 4, height: 4, borderRadius: 2, backgroundColor: 'rgba(195,178,234,0.45)', marginTop: 7, flexShrink: 0 },
-  termName: { fontSize: 13, fontWeight: '500', color: 'rgba(255,255,255,0.9)' },
-  termKnown: { color: '#4b5563', textDecorationLine: 'line-through' },
-  termDef: { fontSize: 12, color: '#6b7280', marginTop: 2, lineHeight: 18 },
-  knownBtn: { paddingLeft: 8 },
-  checkmark: { fontSize: 18, color: '#374151' },
-  checkmarkActive: { color: '#10b981' },
-})
+export default function Record() {
+  const rec = useRecording()
+  const { profile } = useAccount()
+  const { c, font, size } = usePrefs()
+  const scrollRef = useRef<ScrollView>(null)
+
+  useEffect(() => {
+    if (rec.finishedSessionId) {
+      const id = rec.finishedSessionId
+      rec.clearFinished()
+      router.push({ pathname: '/session/[id]', params: { id, fresh: '1' } })
+    }
+  }, [rec.finishedSessionId])
+
+  const live = rec.status === 'recording' || rec.status === 'stopping'
+
+  if (!live) {
+    return (
+      <KeyboardAvoidingView style={{ flex: 1, backgroundColor: c.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <SafeAreaView edges={['top']} style={{ flex: 1 }}>
+          <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40, maxWidth: 560, width: '100%', alignSelf: 'center', flexGrow: 1, justifyContent: 'center' }} keyboardShouldPersistTaps="handled">
+            <T size={28} weight={700} style={{ marginBottom: 6 }}>Record a lecture</T>
+            <T tone="muted" style={{ marginBottom: 24 }}>New words are explained as they come up, and everything is saved for later.</T>
+
+            <T size={13} weight={600} tone="muted" style={{ marginBottom: 8 }}>Module or subject</T>
+            <TextInput
+              value={rec.subject}
+              onChangeText={rec.setSubject}
+              placeholder={profile?.course || 'e.g. Cell Biology'}
+              placeholderTextColor={c.fgFaint}
+              style={{
+                backgroundColor: c.surface, borderWidth: 1, borderColor: c.border, borderRadius: radius.lg,
+                paddingHorizontal: 16, paddingVertical: 14, color: c.fg, fontSize: size(16), fontFamily: font(500),
+              }}
+              returnKeyType="done"
+              accessibilityLabel="Module or subject"
+            />
+
+            <View style={{ alignItems: 'center', marginTop: 40, marginBottom: 28 }}>
+              <Pressable
+                onPress={rec.start}
+                disabled={rec.status === 'starting'}
+                accessibilityRole="button"
+                accessibilityLabel="Start recording"
+                style={({ pressed }) => ({
+                  width: 132, height: 132, borderRadius: 66, backgroundColor: c.accentSolid,
+                  alignItems: 'center', justifyContent: 'center', opacity: rec.status === 'starting' ? 0.6 : pressed ? 0.85 : 1,
+                  shadowColor: c.accentSolid, shadowOpacity: 0.35, shadowRadius: 24, shadowOffset: { width: 0, height: 10 },
+                })}
+              >
+                <MicIcon color="#fff" size={44} />
+              </Pressable>
+              <T weight={600} style={{ marginTop: 16 }}>{rec.status === 'starting' ? 'Getting ready…' : 'Tap to start'}</T>
+            </View>
+
+            {rec.error ? (
+              <Card style={{ backgroundColor: c.dangerSoft, borderColor: 'transparent', gap: 12 }}>
+                <T tone="fg">{rec.error}</T>
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  <Button kind="secondary" label="Open Settings" onPress={openSettings} style={{ flex: 1, minHeight: 44 }} />
+                  <Button kind="quiet" label="Dismiss" onPress={rec.clearError} style={{ minHeight: 44 }} />
+                </View>
+              </Card>
+            ) : rec.notice ? (
+              <Card><T tone="muted">{rec.notice}</T></Card>
+            ) : (
+              <View style={{ gap: 8 }}>
+                <T size={13} tone="muted" center>Your phone writes the lecture down by itself. The sound never leaves it.</T>
+                <T size={13} tone="muted" center>You can lock your phone. Demist keeps listening.</T>
+              </View>
+            )}
+          </ScrollView>
+        </SafeAreaView>
+      </KeyboardAvoidingView>
+    )
+  }
+
+  const text = rec.transcript
+  return (
+    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: c.bg }}>
+      <View style={{ flex: 1, width: '100%', maxWidth: 760, alignSelf: 'center' }}>
+        {/* Status row */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 12 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <Level level={rec.level} />
+            <T weight={600} tone="calm">{rec.status === 'stopping' ? 'Saving…' : 'Listening'}</T>
+          </View>
+          <T weight={600} tone="muted" style={{ fontVariant: ['tabular-nums'] }} >{clockFromMs(rec.elapsedMs)}</T>
+        </View>
+        {rec.subject || profile?.course ? <T size={13} tone="faint" style={{ paddingHorizontal: 20, marginTop: -6, marginBottom: 6 }}>{rec.subject || profile?.course}</T> : null}
+
+        {/* Transcript */}
+        <ScrollView
+          ref={scrollRef}
+          onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
+          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 24 }}
+          accessibilityLabel="Live transcript"
+        >
+          {!text && !rec.interim ? (
+            <T tone="faint" style={{ marginTop: 24 }}>Words will appear here as the lecturer speaks.</T>
+          ) : (
+            <T size={17} selectable>
+              {text}{text && rec.interim ? ' ' : ''}<T size={17} tone="faint">{rec.interim}</T>
+            </T>
+          )}
+        </ScrollView>
+
+        {/* Term cards */}
+        {rec.cards.length > 0 && (
+          <View style={{ paddingHorizontal: 16, gap: 8, paddingBottom: 8 }} accessibilityLiveRegion="polite">
+            {rec.cards.map(card => (
+              <Card key={card.id} onPress={() => rec.pinCard(card.id)} accessibilityLabel={`${card.term}. ${card.definition}`}
+                style={{ borderColor: c.accentBorder, padding: 14 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
+                  <View style={{ flex: 1 }}>
+                    <T weight={700} tone="accent">{card.term}</T>
+                    <T size={15} style={{ marginTop: 2 }} numberOfLines={card.pinned ? undefined : 3}>{card.definition}</T>
+                  </View>
+                  <ReadAloud text={`${card.term}. ${card.definition}`} />
+                  <Pressable onPress={() => rec.dismissCard(card.id)} hitSlop={12} accessibilityRole="button" accessibilityLabel={`Close ${card.term}`}
+                    style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}>
+                    <CloseIcon color={c.fgFaint} />
+                  </Pressable>
+                </View>
+              </Card>
+            ))}
+          </View>
+        )}
+
+        {rec.notice ? <T size={13} tone="muted" style={{ paddingHorizontal: 20, paddingBottom: 6 }}>{rec.notice}</T> : null}
+
+        {/* Controls */}
+        <View style={{ flexDirection: 'row', gap: 12, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12, borderTopWidth: 1, borderTopColor: c.border }}>
+          <Button
+            kind="secondary"
+            style={{ flex: 1, minHeight: 60 }}
+            label={rec.lostCount ? `I'm lost (${rec.lostCount})` : "I'm lost"}
+            accessibilityHint="Marks this moment so you can come back to it after the lecture"
+            icon={<FlagIcon color={c.accent} />}
+            onPress={rec.markLost}
+            disabled={rec.status !== 'recording'}
+          />
+          <Button
+            style={{ minHeight: 60, paddingHorizontal: 22 }}
+            label="Stop"
+            icon={<StopIcon color="#fff" size={14} />}
+            loading={rec.status === 'stopping'}
+            onPress={rec.stop}
+          />
+        </View>
+      </View>
+    </SafeAreaView>
+  )
+}
