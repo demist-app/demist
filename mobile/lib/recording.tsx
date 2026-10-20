@@ -21,6 +21,8 @@ import { getLocales } from 'expo-localization'
 import { ExpoSpeechRecognitionModule } from 'expo-speech-recognition'
 import { supabase } from './supabase'
 import { useAccount } from './account'
+import { usePrefs } from './prefs'
+import type { LectureLanguage } from './shared/lectureLanguage'
 import { capture, reportWriteFailure, reportError } from './analytics'
 import { detectTerms, splitSentences, type DetectState, type DetectedTerm } from './detect'
 
@@ -59,13 +61,24 @@ const CARD_MS = 10_000
 const DETECT_EVERY_MS = 15_000
 const AUTOSAVE_MS = 45_000
 
-function pickLang(): string {
-  const tag = getLocales()[0]?.languageTag ?? 'en-GB'
-  return tag.toLowerCase().startsWith('en') ? tag : 'en-GB'
+// The speech locale for a lecture language. Apple's recogniser needs the
+// language up front (it cannot detect it), so the student picks it on the
+// Record screen. The phone's own region is kept when it matches, so a Belgian
+// phone recording Dutch gets nl-BE rather than nl-NL.
+const DEFAULT_LOCALE: Record<LectureLanguage, string> = {
+  en: 'en-GB', fr: 'fr-FR', nl: 'nl-NL', de: 'de-DE', es: 'es-ES', it: 'it-IT', pt: 'pt-PT',
+}
+function speechLocale(lang: LectureLanguage): string {
+  const device = getLocales()[0]
+  if (device?.languageCode === lang && device.languageTag) return device.languageTag
+  return DEFAULT_LOCALE[lang]
 }
 
 export function RecordingProvider({ children }: { children: ReactNode }) {
   const { session, profile } = useAccount()
+  const { lectureLanguage } = usePrefs()
+  const langRef = useRef<LectureLanguage>(lectureLanguage)
+  langRef.current = lectureLanguage
   const userId = session?.user.id ?? null
 
   const [status, setStatus] = useState<RecStatus>('idle')
@@ -100,6 +113,11 @@ export function RecordingProvider({ children }: { children: ReactNode }) {
   const cardTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>())
   const subjectRef = useRef('')
   const restartsRef = useRef<number[]>([])
+  // Whether this recording has heard anything at all. A recogniser that ends
+  // over and over before its first word cannot run on this phone in this
+  // language (on-device is required, see patches/expo-speech-recognition).
+  const heardAnythingRef = useRef(false)
+  const stopRef = useRef<() => Promise<void>>(async () => {})
   const statsRef = useRef({ detectOk: 0, detectFailed: 0, lastFailure: null as string | null, restarts: 0, termsSaved: 0 })
   const endWaiterRef = useRef<(() => void) | null>(null)
   const profileRef = useRef(profile)
@@ -118,7 +136,7 @@ export function RecordingProvider({ children }: { children: ReactNode }) {
     const known = Array.from(detectStateRef.current.known).slice(-80)
     const s = subjectFor()
     ExpoSpeechRecognitionModule.start({
-      lang: pickLang(),
+      lang: speechLocale(langRef.current),
       interimResults: true,
       continuous: true,
       requiresOnDeviceRecognition: true,
@@ -156,6 +174,7 @@ export function RecordingProvider({ children }: { children: ReactNode }) {
     const subs = [
       ExpoSpeechRecognitionModule.addListener('result', e => {
         const text = (e.results[0]?.transcript ?? '').trim()
+        if (text) heardAnythingRef.current = true
         if (e.isFinal) {
           if (text) finalRef.current = finalRef.current ? `${finalRef.current} ${text}` : text
           interimRef.current = ''
@@ -205,6 +224,12 @@ export function RecordingProvider({ children }: { children: ReactNode }) {
         const now = Date.now()
         restartsRef.current = [...restartsRef.current.filter(t => now - t < 60_000), now]
         statsRef.current.restarts++
+        if (!heardAnythingRef.current && restartsRef.current.length >= 3) {
+          capture('ios_recognizer_never_started', { lang: langRef.current, last_failure: statsRef.current.lastFailure })
+          wantRef.current = false
+          void stopRef.current().then(() => setError(needsDictation(langRef.current)))
+          return
+        }
         if (restartsRef.current.length > 8) {
           setNotice('Listening keeps pausing. Recording will carry on when it can.')
           setTimeout(() => { if (wantRef.current) startRecognizer() }, 5_000)
@@ -227,7 +252,7 @@ export function RecordingProvider({ children }: { children: ReactNode }) {
     const context = settled.slice(Math.max(0, settled.length - newText.length - 400), Math.max(0, settled.length - newText.length))
     try {
       const out = await detectTerms(newText, context, detectStateRef.current, {
-        subject: subjectFor(), year: profileRef.current?.year_of_study ?? null,
+        subject: subjectFor(), year: profileRef.current?.year_of_study ?? null, lang: langRef.current,
       })
       if (out.kind === 'terms') {
         statsRef.current.detectOk++
@@ -291,7 +316,9 @@ export function RecordingProvider({ children }: { children: ReactNode }) {
         subject: subjectFor(),
         year_of_study: profileRef.current?.year_of_study ?? null,
         capture_mode: 'microphone',
-        started_at: new Date(startedAtRef.current).toISOString(),
+        // No started_at: the server's clock stamps it, as on the web. A phone
+        // whose clock is wrong would otherwise make lectures that end before
+        // they start (migration 041).
       }).select('id').single()
       if (!error && data?.id) return data.id as string
       if (attempt === 3) capture('session_create_failed', { code: error?.code ?? 'no_row', message: error?.message?.slice(0, 200) ?? null })
@@ -352,6 +379,7 @@ export function RecordingProvider({ children }: { children: ReactNode }) {
     }
 
     // Fresh session state.
+    heardAnythingRef.current = false
     finalRef.current = ''; interimRef.current = ''; pendingRef.current = []
     segSentencesSentRef.current = 0; termsRef.current = []; marksRef.current = []; unsavedMarksRef.current = []
     eligibleRef.current = null; lastSavedRef.current = ''; restartsRef.current = []
@@ -439,6 +467,7 @@ export function RecordingProvider({ children }: { children: ReactNode }) {
     setNotice(sid ? null : 'This lecture could not be saved to your account. Check your connection; the text is still on screen.')
     if (sid) setFinishedSessionId(sid)
   }, [runDetection])
+  stopRef.current = stop
 
   // "I'm lost": never asks anything, never blocks, as many as needed.
   const markLost = useCallback(() => {
@@ -496,6 +525,16 @@ export function RecordingProvider({ children }: { children: ReactNode }) {
 
 export const NEEDS_DICTATION =
   "This iPhone can't turn speech into text by itself yet. Turn on Dictation in Settings, General, Keyboard, wait a minute for it to finish setting up, then try again."
+
+const LANGUAGE_IN_ENGLISH: Record<LectureLanguage, string> = {
+  en: 'English', fr: 'French', nl: 'Dutch', de: 'German', es: 'Spanish', it: 'Italian', pt: 'Portuguese',
+}
+/** For a lecture language this phone cannot transcribe by itself. */
+export function needsDictation(lang: LectureLanguage): string {
+  if (lang === 'en') return NEEDS_DICTATION
+  const name = LANGUAGE_IN_ENGLISH[lang]
+  return `This iPhone can't turn ${name} speech into text by itself yet. Add ${name} as a keyboard in Settings, General, Keyboard, make sure Dictation is on, wait a minute for it to set up, then try again.`
+}
 
 export function openSettings() { void Linking.openSettings() }
 

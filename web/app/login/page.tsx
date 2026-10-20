@@ -105,14 +105,23 @@ export default function Login() {
     setGuestLoading(true)
     setError('')
     const supabase = createClient()
-    const { data, error } = await supabase.auth.signInAnonymously()
+    let { data, error } = await supabase.auth.signInAnonymously()
+    // Every recorded failure (7 of them, Sep-Oct 2026) was "Failed to fetch":
+    // a dropped connection, not a refusal. The one in October retried by hand
+    // and got in 17 seconds later, so retry once before saying anything.
+    const networkError = (e: typeof error) => !!e && /fetch|network/i.test(e.message ?? '')
+    if (networkError(error)) {
+      await new Promise(r => setTimeout(r, 1500))
+      ;({ data, error } = await supabase.auth.signInAnonymously())
+    }
     if (error || !data.session) {
-      // The most likely cause by far is anonymous sign-ins being switched off
-      // for the Supabase project, which is a dashboard setting and produces a
-      // 422 that means nothing to a user.
       console.error('anonymous sign-in failed:', error)
-      setError("Couldn't start without an account. Try signing in with an email instead.")
-      posthog.capture('guest_start_failed', { error_message: error?.message })
+      // Only a non-network failure means guest sign-in itself is unavailable
+      // (anonymous sign-ins switched off for the project returns a 422).
+      setError(networkError(error)
+        ? "Couldn't reach Demist. Check your internet connection and try again."
+        : "Couldn't start without an account. Try signing in with an email instead.")
+      posthog.capture('guest_start_failed', { error_message: error?.message, retried: networkError(error) })
       setGuestLoading(false)
       return
     }

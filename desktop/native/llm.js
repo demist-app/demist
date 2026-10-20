@@ -348,6 +348,9 @@ async function doLoad(tier, emitProgress, calledBy) {
     // covers both instead of picking one at the cost of the other.
     if (!llama) {
       try {
+        // DEMIST_LLM_GPU=off pins CPU, for measuring what a laptop without a
+        // dedicated GPU pays (test/footprint-8gb.js).
+        if (process.env.DEMIST_LLM_GPU === 'off') throw new Error('GPU disabled by DEMIST_LLM_GPU=off')
         llama = await getLlama({ gpu: 'auto' })
         model = await llama.loadModel({ modelPath })
         context = await model.createContext({ contextSize: CONTEXT_SIZE })

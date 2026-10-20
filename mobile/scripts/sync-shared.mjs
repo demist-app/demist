@@ -15,7 +15,7 @@ const webLib = join(here, '..', '..', 'web', 'lib')
 const out = join(here, '..', 'lib', 'shared')
 
 // Only modules with no React, no DOM and no imports outside this list.
-const FILES = ['termQuality.ts', 'termSimilarity.ts', 'extractTerms.ts', 'entitlementRules.ts', 'age.ts']
+const FILES = ['termQuality.ts', 'termSimilarity.ts', 'extractTerms.ts', 'lectureLanguage.ts', 'entitlementRules.ts', 'age.ts']
 
 const check = process.argv.includes('--check')
 let stale = 0

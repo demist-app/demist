@@ -12,6 +12,7 @@ import { capture } from './analytics'
 import { extractCandidates } from './shared/extractTerms'
 import { isLikelyJargon, isConfidentDefinition } from './shared/termQuality'
 import { collidesWith } from './shared/termSimilarity'
+import type { LectureLanguage } from './shared/lectureLanguage'
 
 export interface DetectedTerm { term: string; definition: string; context?: string | null }
 
@@ -41,9 +42,9 @@ export async function detectTerms(
   newText: string,
   context: string,
   state: DetectState,
-  profile: { subject: string | null; year: number | null },
+  profile: { subject: string | null; year: number | null; lang: LectureLanguage },
 ): Promise<DetectOutcome> {
-  const candidates = splitSentences(newText).flatMap(s => extractCandidates(s, state.known, state.sent))
+  const candidates = splitSentences(newText).flatMap(s => extractCandidates(s, state.known, state.sent, profile.lang))
   if (state.sent.size > 500) state.sent = new Set(Array.from(state.sent).slice(-500))
   if (!candidates.length) return { kind: 'none' }
 
@@ -61,6 +62,7 @@ export async function detectTerms(
         subject: profile.subject || 'general',
         year: profile.year ?? 1,
         known_terms: Array.from(state.known).slice(-300),
+        lecture_language: profile.lang,
       }),
     })
   } catch {

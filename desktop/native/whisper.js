@@ -115,6 +115,11 @@ function defaultTier() {
 }
 
 function getTier() {
+  // Pins the tier for test harnesses WITHOUT writing TIER_FILE, which the
+  // running app re-reads (same reason as DEMIST_LLM_TIER in llm.js: a test
+  // must never change the tier of a live session).
+  const override = process.env.DEMIST_TRANSCRIBE_TIER
+  if (override && MODEL_BY_TIER[override]) return override
   try {
     const tier = JSON.parse(fsSync.readFileSync(TIER_FILE, 'utf8')).tier
     return MODEL_BY_TIER[tier] ? tier : defaultTier()

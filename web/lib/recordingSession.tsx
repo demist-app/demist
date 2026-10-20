@@ -25,6 +25,7 @@ import { detectDesktopPlatform, isMobileUA } from '@/lib/platform'
 import { useEntitlements, fetchEntitlement, LIMITS } from '@/lib/entitlements'
 import { useNativeTranslate } from '@/lib/useNativeTranslate'
 import { extractCandidates } from '@/lib/extractTerms'
+import { detectLectureLanguage, type LectureLanguage } from '@/lib/lectureLanguage'
 import { isElectronNative, getDemistNative, missingOnDeviceCapabilities, dlog, type DemistNative } from '@/lib/electronNative'
 import { startNativeSession, type NativeSessionHandle } from '@/lib/nativeSession'
 import { isEligibleForSummary } from '@/lib/summaryEligibility'
@@ -85,6 +86,17 @@ export function deviceProfile(): { device_memory_gb: number | null; cpu_cores: n
   if (typeof navigator === 'undefined') return { device_memory_gb: null, cpu_cores: null }
   const mem = (navigator as { deviceMemory?: number }).deviceMemory
   return { device_memory_gb: typeof mem === 'number' ? mem : null, cpu_cores: navigator.hardwareConcurrency ?? null }
+}
+
+// Whether the Demist window was visible and focused, and the machine's rough
+// size, attached to every on-device failure. Added 2026-10-20 for the open
+// question behind capture_starved: four students' audio capture slowed to a
+// trickle mid-lecture, and the two live hypotheses (the machine running out
+// of memory, or Windows deprioritising a minimised or covered window) predict
+// different values here.
+function nativeFailureContext() {
+  if (typeof document === 'undefined') return {}
+  return { window_visible: document.visibilityState === 'visible', window_focused: document.hasFocus(), ...deviceProfile() }
 }
 
 // If a desktop session has produced no transcript this long after its engine
@@ -418,6 +430,10 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const knownTermsRef = useRef<Set<string>>(new Set())
   const sentTermsRef = useRef<Set<string>>(new Set())  // lowercased candidate terms already sent to detect-terms this session
+  // The lecture's language, from its own transcript (lectureLanguage.ts). Null
+  // until there is enough text to tell; English is assumed until then.
+  const lectureLangRef = useRef<LectureLanguage | null>(null)
+  const langChecksRef = useRef(0)
   const termFrequencyRef = useRef<Map<string, number>>(new Map())
   const sessionSummarizingRef = useRef(new Set<string>())
   const transcriptRef = useRef<string>('')
@@ -1009,7 +1025,17 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       // Client-side candidate extraction: only isolated terms + one sentence each
       // leave the device, never full transcript windows.
       const newSentences = transcript.split(/(?<=[.!?])\s+/).filter(s => s.trim())
-      const candidates = newSentences.flatMap(s => extractCandidates(s, knownTermsRef.current, sentTermsRef.current))
+      // Re-checked every tenth batch rather than once: the first minute of a
+      // lecture is often greetings or a different language from the rest.
+      if (!lectureLangRef.current || ++langChecksRef.current % 10 === 0) {
+        const detected = detectLectureLanguage(`${currentTranscriptText()} ${transcript}`.slice(-3000))
+        if (detected && detected !== lectureLangRef.current) {
+          lectureLangRef.current = detected
+          if (detected !== 'en') capture('lecture_language_detected', { lang: detected })
+        }
+      }
+      const lectureLang = lectureLangRef.current ?? 'en'
+      const candidates = newSentences.flatMap(s => extractCandidates(s, knownTermsRef.current, sentTermsRef.current, lectureLang))
       if (sentTermsRef.current.size > 500) {
         sentTermsRef.current = new Set(Array.from(sentTermsRef.current).slice(-500))
       }
@@ -1039,6 +1065,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
           year: profileRef.current?.year_of_study ?? 1,
           known_terms: Array.from(knownTermsRef.current),
           target_lang_name: cloudTargetLangName,
+          lecture_language: lectureLang,
         }),
         })
       } catch (e) {
@@ -1794,6 +1821,8 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     isActiveRef.current = true
     termFrequencyRef.current = new Map()
     sentTermsRef.current = new Set()
+    lectureLangRef.current = null
+    langChecksRef.current = 0
     sentenceCountRef.current = 0
     transcriptRef.current = ''
     // Per-session, not global: eligibility depends on this session's subject.
@@ -2008,7 +2037,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
           // invisible outside DevTools.
           onError: (message) => {
             console.error('[demist] native session error:', message)
-            capture('native_session_error', { ...nativeMessageCode(message), capture_mode: mode, secs_in: Math.round((Date.now() - recordingStartedAtRef.current) / 1000) })
+            capture('native_session_error', { ...nativeMessageCode(message), ...nativeFailureContext(), capture_mode: mode, secs_in: Math.round((Date.now() - recordingStartedAtRef.current) / 1000) })
             setRecordingWarning(message)
           },
           // Not an error, and retractable: the worker sends '' once the
@@ -2016,7 +2045,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
           onNotice: (message) => {
             if (message) {
               console.warn('[demist] session notice:', message)
-              capture('native_session_notice', { ...nativeMessageCode(message), capture_mode: mode, secs_in: Math.round((Date.now() - recordingStartedAtRef.current) / 1000) })
+              capture('native_session_notice', { ...nativeMessageCode(message), ...nativeFailureContext(), capture_mode: mode, secs_in: Math.round((Date.now() - recordingStartedAtRef.current) / 1000) })
             }
             setRecordingWarning(message || null)
           },
@@ -2031,7 +2060,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
         }
       } catch (e) {
         console.error('[demist] failed to start native session:', e)
-        capture('native_session_start_failed', { ...nativeMessageCode(String((e as Error)?.message ?? e)), capture_mode: mode })
+        capture('native_session_start_failed', { ...nativeMessageCode(String((e as Error)?.message ?? e)), ...nativeFailureContext(), capture_mode: mode })
         // Clear the "Preparing on-device transcription…" notice: it is set
         // just before startNativeSession and only cleared by onReady, so on
         // any failure path it used to sit on screen forever, telling the user

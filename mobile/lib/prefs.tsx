@@ -4,7 +4,9 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useColorScheme } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import { getLocales } from 'expo-localization'
 import { light, dark, TINTS, type Palette, type Tint } from './theme'
+import type { LectureLanguage } from './shared/lectureLanguage'
 
 export type ReadingFont = 'standard' | 'atkinson' | 'lexend'
 export type Spacing = 'normal' | 'relaxed'
@@ -18,10 +20,27 @@ export interface Prefs {
   appearance: Appearance
   textSize: TextSize
   showProgress: boolean
+  /** The language lectures are given in. Apple's speech recognition must be
+   *  told up front; it cannot detect it. */
+  lectureLanguage: LectureLanguage
+}
+
+// Each language named in itself, so a student who does not read English can
+// still find theirs.
+export const LECTURE_LANGUAGES: { value: LectureLanguage; label: string }[] = [
+  { value: 'en', label: 'English' }, { value: 'fr', label: 'Français' }, { value: 'nl', label: 'Nederlands' },
+  { value: 'de', label: 'Deutsch' }, { value: 'es', label: 'Español' }, { value: 'it', label: 'Italiano' },
+  { value: 'pt', label: 'Português' },
+]
+
+function deviceLectureLanguage(): LectureLanguage {
+  const code = getLocales()[0]?.languageCode ?? 'en'
+  return LECTURE_LANGUAGES.some(l => l.value === code) ? code as LectureLanguage : 'en'
 }
 
 export const DEFAULT_PREFS: Prefs = {
   font: 'standard', spacing: 'normal', tint: 'none', appearance: 'system', textSize: 'default', showProgress: false,
+  lectureLanguage: deviceLectureLanguage(),
 }
 
 export const FONT_OPTIONS: { value: ReadingFont; label: string }[] = [
@@ -64,6 +83,7 @@ interface Ctx {
   /** Line height for a font size, looser when spacing is relaxed. */
   lh: (px: number) => number
   letterSpacing: number
+  lectureLanguage: LectureLanguage
 }
 
 const PrefsContext = createContext<Ctx | null>(null)
@@ -100,6 +120,7 @@ export function PrefsProvider({ children }: { children: ReactNode }) {
       size: (px) => Math.round(px * scale),
       lh: (px) => Math.round(px * scale * (relaxed ? 1.9 : 1.5)),
       letterSpacing: relaxed ? 0.3 : 0,
+      lectureLanguage: prefs.lectureLanguage,
     }
   }, [prefs, scheme])
 

@@ -4,9 +4,9 @@ import { router } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRecording, openSettings } from '../../lib/recording'
 import { useAccount } from '../../lib/account'
-import { usePrefs } from '../../lib/prefs'
+import { usePrefs, LECTURE_LANGUAGES } from '../../lib/prefs'
 import { radius } from '../../lib/theme'
-import { Button, Card, ReadAloud, T } from '../../components/ui'
+import { Button, Card, Chip, ReadAloud, T } from '../../components/ui'
 import { clockFromMs } from '../../lib/format'
 import { CloseIcon, FlagIcon, MicIcon, StopIcon } from '../../components/icons'
 
@@ -27,7 +27,7 @@ function Level({ level }: { level: number }) {
 export default function Record() {
   const rec = useRecording()
   const { profile } = useAccount()
-  const { c, font, size } = usePrefs()
+  const { c, font, size, prefs, setPrefs } = usePrefs()
   const scrollRef = useRef<ScrollView>(null)
 
   useEffect(() => {
@@ -61,6 +61,13 @@ export default function Record() {
               returnKeyType="done"
               accessibilityLabel="Module or subject"
             />
+
+            <T size={13} weight={600} tone="muted" style={{ marginTop: 18, marginBottom: 8 }}>Lecture language</T>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }} accessibilityRole="radiogroup">
+              {LECTURE_LANGUAGES.map(l => (
+                <Chip key={l.value} label={l.label} selected={prefs.lectureLanguage === l.value} onPress={() => setPrefs({ lectureLanguage: l.value })} />
+              ))}
+            </ScrollView>
 
             <View style={{ alignItems: 'center', marginTop: 40, marginBottom: 28 }}>
               <Pressable

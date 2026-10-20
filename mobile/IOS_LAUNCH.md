@@ -125,6 +125,7 @@ Use **TestFlight** for a day or two with real students, then go to the version p
 8. **Reading comfort.** Try each font, text size, tint, and light and dark mode.
 9. **Pro.** Sign in with an account that has Pro on the web. Lectures older than 7 days should show, and no upgrade prompt should appear anywhere.
 10. **Delete account** on a throwaway account. You should be signed out, and the data gone on the web too.
+11. **Lecture language.** Pick Français on the Record screen and speak French. The text should be French and the explanations should come back in French. Then pick a language the phone has no dictation for (remove it under Settings, General, Keyboard). Recording should stop within a few seconds and explain how to add it, and must never fall back to Apple's servers (`patches/expo-speech-recognition+56.0.4.patch` enforces this).
 
 ## Next version (v1.1), not built yet
 

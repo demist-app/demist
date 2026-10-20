@@ -36,6 +36,7 @@
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
+    "patch-package": "^8.0.1",
     "typescript": "~6.0.3"
   },
   "scripts": {
@@ -47,7 +48,8 @@
     "build:dev": "eas build -p ios --profile development",
     "build:preview": "eas build -p ios --profile preview",
     "build:ios": "eas build -p ios --profile production",
-    "submit:ios": "eas submit -p ios --profile production --latest"
+    "submit:ios": "eas submit -p ios --profile production --latest",
+    "postinstall": "patch-package"
   },
   "private": true
 }

@@ -8,6 +8,7 @@ import { recordFirstTouch } from '@/lib/firstTouch'
 import { MINIMUM_AGE, meetsMinimumAge } from '@/lib/age'
 import { LIMITS, useEntitlements, REVERSE_TRIAL_DAYS } from '@/lib/entitlements'
 import { BrandMark } from '@/components/BrandMark'
+import { DateOfBirthInput } from '@/components/DateOfBirthInput'
 
 const YEARS = [
   { value: 1, label: '1st Year' },
@@ -300,13 +301,9 @@ export default function Onboarding() {
             <p className="text-[12px] dark:text-gray-600 text-gray-500 mb-6">
               Recording a lecture captures your lecturer too, and our Terms make that your responsibility.
             </p>
-            <input
-              type="date"
+            <DateOfBirthInput
               value={dob}
-              onChange={e => { setDob(e.target.value); if (saveError) setSaveError(null) }}
-              max={new Date().toISOString().slice(0, 10)}
-              aria-label="Date of birth"
-              className="w-full dark:bg-white/[0.05] bg-[#FFFFFF] border dark:border-white/[0.1] border-black/[0.15] rounded-2xl px-5 py-4 dark:text-white text-gray-900 text-[15px] placeholder-gray-500 focus:outline-none focus:border-brand-500/50 transition-all"
+              onChange={iso => { setDob(iso); if (saveError) setSaveError(null) }}
             />
             {meetsMinimumAge(dob) === false && (
               <p className="text-[13px] text-red-400 mt-3">

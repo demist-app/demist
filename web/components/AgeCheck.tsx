@@ -15,6 +15,7 @@
 // and the prompt reappears until it is answered.
 
 import { useEffect, useState } from 'react'
+import { DateOfBirthInput } from '@/components/DateOfBirthInput'
 import { createClient } from '@/lib/supabase'
 import { capture } from '@/lib/analytics'
 import { MINIMUM_AGE, meetsMinimumAge } from '@/lib/age'
@@ -128,19 +129,12 @@ export function AgeCheck() {
           Demist is for users aged {MINIMUM_AGE} and over. We didn&apos;t ask when you signed up,
           so we&apos;re asking now. We never share this.
         </p>
-        <div>
-          <label htmlFor="age-check-dob" className="block text-[12px] dark:text-white/50 text-gray-500 mb-1.5">
-            Date of birth
-          </label>
-          <input
-            id="age-check-dob"
-            type="date"
-            value={dob}
-            onChange={e => { setDob(e.target.value); if (error) setError(null) }}
-            max={new Date().toISOString().slice(0, 10)}
-            className="w-full dark:bg-white/[0.05] bg-[#F8F6FB] border dark:border-white/[0.1] border-black/[0.15] rounded-2xl px-4 py-3 dark:text-white text-gray-900 text-[15px] focus:outline-none focus:border-brand-500/50 transition-colors"
-          />
-        </div>
+        <DateOfBirthInput
+          idPrefix="age-check-dob"
+          compact
+          value={dob}
+          onChange={iso => { setDob(iso); if (error) setError(null) }}
+        />
         {error && <p className="text-[13px] text-red-400">{error}</p>}
         <div className="flex flex-col gap-2 pt-1">
           <button
