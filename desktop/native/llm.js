@@ -1110,4 +1110,4 @@ Write a 1-2 sentence summary of what this lecture covered, based only on the ter
 // cards, and a transcript check that silently rejected correctly-spelled terms
 // cost the best ones. Both are checkable in milliseconds without loading a 2GB
 // model, which is the only reason either bug survived as long as it did.
-module.exports = { detectTerms, defineCandidates, explain, summarize, preload, getTier, setTier, matchTermLine, saidInTranscript, normalize }
+module.exports = { detectTerms, defineCandidates, explain, summarize, preload, getTier, setTier, matchTermLine, saidInTranscript, normalize, engineInUse: () => engine }

@@ -21,7 +21,7 @@ const path = require('path')
 
 // __dirname is app.asar.unpacked/native in a packaged build; llama-server/ is
 // asarUnpack'd next to it (an exe cannot run from inside an asar archive).
-const DIR = path.join(__dirname.replace('app.asar', 'app.asar.unpacked'), '..', 'llama-server')
+const DIR = path.join(__dirname.replace(/app\.asar(?!\.unpacked)/, 'app.asar.unpacked'), '..', 'llama-server')
 const EXE = path.join(DIR, process.platform === 'win32' ? 'llama-server.exe' : 'llama-server')
 const PID_FILE = path.join(os.homedir(), '.demist', 'llama-server.pid')
 const READY_TIMEOUT_MS = 120_000

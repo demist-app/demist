@@ -24,7 +24,8 @@
     "test:vcredist": "node test/vcredist-bundled.js",
     "test:mac-verify": "node test/mac-hardware-verify.js",
     "fetch:llama-server": "node scripts/fetch-llama-server.mjs",
-    "test:define": "node test/define-precision.js"
+    "test:define": "node test/define-precision.js",
+    "test:packaged": "node scripts/run-packaged-test.js"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.2.0",

@@ -49,7 +49,13 @@ env.cacheDir = path.join(os.homedir(), '.demist', 'model-cache')
 // reads these off the filesystem. In development the same relative path lands
 // on desktop/models, so both cases take the identical code path.
 env.allowLocalModels = true
-env.localModelPath = path.join(__dirname.replace('app.asar', 'app.asar.unpacked'), '..', 'models')
+// The lookahead matters. Workers run from app.asar.unpacked/native, and the
+// plain replace('app.asar', 'app.asar.unpacked') this used until 2026-10-21
+// turned that into app.asar.unpacked.unpacked: the bundled models were never
+// found in a packaged build, and transcription silently downloaded them from
+// Hugging Face instead - failing outright on networks that block it, the very
+// case bundling them was for. Caught by test/packaged-layout.js.
+env.localModelPath = path.join(__dirname.replace(/app\.asar(?!\.unpacked)/, 'app.asar.unpacked'), '..', 'models')
 // Remote stays ENABLED as a fallback. If a bundled file is ever missing, or a
 // future tier is added without being bundled, the app should degrade to
 // downloading rather than refusing to transcribe.

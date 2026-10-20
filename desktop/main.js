@@ -14,7 +14,7 @@ const { fork } = require('child_process')
 // process cannot execute a script from inside an asar archive. In a packaged
 // build __dirname points at app.asar, so the unpacked twin has to be named
 // explicitly; in development the replace is a no-op.
-const NATIVE_DIR = path.join(__dirname.replace('app.asar', 'app.asar.unpacked'), 'native')
+const NATIVE_DIR = path.join(__dirname.replace(/app\.asar(?!\.unpacked)/, 'app.asar.unpacked'), 'native')
 
 const APP_URL = process.env.DEMIST_DESKTOP_URL || 'https://www.demist.app'
 
