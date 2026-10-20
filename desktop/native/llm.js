@@ -32,6 +32,7 @@ const fs = require('fs')
 const { makeProgressLogger } = require('./progressLog')
 const { isEverydayWord } = require('./common-words')
 const { explainModelDownloadFailure } = require('./networkBlock')
+const llamaServer = require('./llamaServer')
 
 const MODEL_DIR = path.join(os.homedir(), '.demist', 'llm-models')
 const MODEL_URI = {
@@ -266,6 +267,25 @@ function setTier(tier) {
   return tier
 }
 
+// Which engine the loaded model runs on: 'server' (llama-server.exe) or
+// 'inproc' (node-llama-cpp in this process, the fallback).
+let engine = null
+
+// The server engine presented with the two things the rest of this file uses
+// from node-llama-cpp: session.prompt()/resetChatHistory() and grammar.parse().
+// Every prompt is a single independent turn here anyway (resetChatHistory runs
+// before each), and a JSON schema constrains the reply exactly as the grammar
+// did, so the callers do not change.
+const serverSession = {
+  resetChatHistory() {},
+  prompt(text, { grammar, maxTokens } = {}) {
+    return llamaServer.complete(text, { schema: grammar?.schema, maxTokens: maxTokens ?? 512 })
+  },
+}
+function serverGrammar(schema) {
+  return { schema, parse: (text) => JSON.parse(text) }
+}
+
 async function ensureLoaded(emitProgress, calledBy = 'unknown') {
   const tier = getTier()
   if (session && loadedTier === tier) return
@@ -335,6 +355,35 @@ async function doLoad(tier, emitProgress, calledBy) {
       throw explainModelDownloadFailure(err, 'Term detection')
     }
     console.log('[demist] term-detection model downloaded, loading into memory...')
+
+    // llama.cpp's own server first (see native/llamaServer.js and
+    // scripts/fetch-llama-server.mjs: about 10x faster than node-llama-cpp
+    // in-process on a CPU). Everything below this block is the previous
+    // in-process engine, kept as the fallback if the server cannot start.
+    if (llamaServer.available()) {
+      try {
+        // A fallback in-process model from earlier must not stay resident
+        // alongside the server's copy.
+        try { await context?.dispose() } catch { /* best-effort */ }
+        try { await model?.dispose() } catch { /* best-effort */ }
+        context = null
+        model = null
+        await llamaServer.start(modelPath, { contextSize: CONTEXT_SIZE })
+        session = serverSession
+        summaryGrammar = serverGrammar(SUMMARY_SCHEMA)
+        verdictGrammar = serverGrammar(VERDICT_SCHEMA)
+        explainGrammar = serverGrammar(EXPLAIN_SCHEMA)
+        engine = 'server'
+        loadedTier = tier
+        console.log(`[demist] term-detection: tier '${tier}' running on llama-server (${llamaServer.threadCount()} threads)`)
+        logger({ status: 'ready' })
+        return
+      } catch (e) {
+        console.error('[demist] llama-server could not start; using in-process term detection instead:', e?.message ?? e)
+        llamaServer.stop()
+      }
+    }
+    engine = 'inproc'
 
     // Try GPU first: direct testing measured ~4x faster inference on a
     // dedicated GPU (12s vs 40-60s per detectTerms call on the same
@@ -727,15 +776,26 @@ async function verifyTerm(term, sentence, subject) {
   // question plainly, show what yes and no look like, and keep the
   // mis-hearing examples that are the reason this pass exists.
   const who = subject ? `in ${subject}` : 'in an academic subject'
+  // Fixed text FIRST, the sentence and candidate LAST (reordered 2026-10-20).
+  // llama.cpp reuses whatever start of the prompt is already evaluated in the
+  // context, so with this order each check after the first only reads the
+  // new sentence and word, not the ~150 tokens of instructions and examples
+  // again. On a CPU, reading those was most of each check's ~15s.
+  // The question is asked again AFTER the candidate: with it only before, the
+  // 1.5B model turned much stricter (test/define-precision.js: 3 of 5
+  // technical excerpts lost, "income effect" and "datagram" among them). The
+  // short repeated question costs a few tokens; the examples stay reusable.
   const prompt = `Answer with JSON only: {"technical": true} or {"technical": false}.
+
+You will be asked whether a candidate is a recognised technical or academic term ${who}.
+
+Yes, true: genuine terms, including well-known ones. Examples: "ATP synthase", "catalyst", "datagram", "income effect", "activation energy", "loss function".
+No, false: everyday words or phrases ("take care", "jacket", "five or six seconds"), and words speech recognition mis-heard, which sound technical but are not real terms. Examples: "Patriarchs fibres" (really "Purkinje fibres"), "S-mode" (really "SA node"), "dechloridation" (really "depolarisation").
 
 Sentence from a lecture (written by speech recognition): "${sentence}"
 Candidate: "${term}"
 
-Is the candidate a recognised technical or academic term ${who}?
-
-Yes, true: genuine terms, including well-known ones. Examples: "ATP synthase", "catalyst", "datagram", "income effect", "activation energy", "loss function".
-No, false: everyday words or phrases ("take care", "jacket", "five or six seconds"), and words speech recognition mis-heard, which sound technical but are not real terms. Examples: "Patriarchs fibres" (really "Purkinje fibres"), "S-mode" (really "SA node"), "dechloridation" (really "depolarisation").`
+Is "${term}" a recognised technical or academic term ${who}?`
   try {
     session.resetChatHistory()
     const response = await session.prompt(prompt, { grammar: verdictGrammar })
@@ -843,6 +903,135 @@ async function detectTerms(transcript, recentContext, subject, year, emitProgres
   return result
 }
 
+// ── Candidates-first term detection (2026-10-20) ────────────────────────────
+//
+// detectTerms above asks the model to READ an excerpt and WRITE up to two
+// TERM|DEFINITION|CONTEXT lines, then verifies each one. Every 4-second window
+// pays for that, including the many that are greetings and admin. On a laptop
+// with no graphics card a call measured 20-86s (CPU only), the renderer asks
+// every ~4s, so calls merged, grew and timed out: two 8GB laptops logged about
+// 240 failed detections in a single lecture each, and students got no cards.
+//
+// This path takes candidates already picked by the renderer's rule-based
+// extractor (web/lib/extractTerms.ts, the same one the web uses, instant and
+// free), so a window with no candidates never reaches the model at all. For
+// the rest the model only:
+//   1. answers yes/no per candidate (verifyTerm, a few output tokens), and
+//   2. writes a definition for at most DEFINE_MAX_PER_WINDOW that pass.
+// Writing is what costs on a CPU, and this writes one or two short
+// definitions instead of whole term lines for every window. Same models, same
+// device, nothing leaves the machine.
+const DEFINE_MAX_CANDIDATES = 6
+const DEFINE_MAX_PER_WINDOW = 2
+
+async function defineOne(term, sentence, subject, year) {
+  const who = subject ? `a ${year ? `Year ${year} ` : ''}${subject} student` : 'a university student'
+  // Fixed text first, the variable part last, for prefix reuse (see verifyTerm).
+  const prompt = `Return JSON with a single field "definition": ONE short plain-English sentence, at most 25 words, explaining what the term below means as it is used in its sentence, for ${who} who has not met it before. Say what it actually is or does. Do not use the term itself as its own explanation.
+
+Sentence from a lecture: "${sentence}"
+Term: "${term}"`
+  session.resetChatHistory()
+  // Writing is the expensive part on a CPU (~5 tokens/s measured), so the
+  // budget is tight. The 1.5B model still sometimes runs on into a second or
+  // third sentence; a reply cut off mid-string is not valid JSON, and that
+  // used to throw and lose the whole window ("income effect", 2026-10-20).
+  const response = await session.prompt(prompt, { grammar: explainGrammar, maxTokens: 64 })
+  try {
+    return explainGrammar.parse(response)?.definition?.trim() || null
+  } catch {
+    return salvageDefinition(response)
+  }
+}
+
+// The complete sentences of a definition whose JSON was cut off, or null.
+function salvageDefinition(raw) {
+  const m = /"definition"\s*:\s*"([\s\S]*)/.exec(raw ?? '')
+  if (!m) return null
+  const text = m[1].replace(/\\"/g, '"')
+  const end = text.search(/[.!?](?:\s|$)[^.!?]*$/)
+  const sentence = end > 0 ? text.slice(0, end + 1).trim() : ''
+  return sentence.length >= 25 ? sentence : null
+}
+
+async function runDefineOnce(candidates, subject, year, knownTerms) {
+  const known = new Set((knownTerms ?? []).map(t => String(t).toLowerCase()))
+  const run = queue.then(async () => {
+    // All the yes/no checks first, then all the definitions: consecutive
+    // prompts of the same kind share their opening, which llama.cpp reuses
+    // instead of re-reading. Alternating check/define/check threw that away.
+    // Extractor order is phrases first, then single words, so the most
+    // specific candidates get the limited definition budget.
+    const accepted = []
+    for (const c of candidates) {
+      if (accepted.length >= DEFINE_MAX_PER_WINDOW) break
+      if (known.has(c.term.toLowerCase())) continue
+      if (await verifyTerm(c.term, c.sentence, subject)) accepted.push(c)
+      else console.warn(`[demist] dropped "${c.term}": the model itself judged it not a technical term`)
+    }
+    const kept = []
+    for (const c of accepted) {
+      // One failed definition must not cost the window its other term.
+      const definition = await defineOne(c.term, c.sentence, subject, year).catch((e) => {
+        console.error(`[demist] defining "${c.term}" failed:`, e?.message ?? e)
+        return null
+      })
+      if (definition) kept.push({ term: c.term, definition, context: c.sentence })
+    }
+    return kept
+  })
+  queue = run.catch(() => {})
+  try {
+    return await run
+  } catch (e) {
+    console.error('[demist] defineCandidates generation failed:', e?.message ?? e)
+    return []
+  }
+}
+
+// One window at a time. Windows that arrive meanwhile are MERGED (newest
+// candidates kept, capped), not queued, so a slow machine falls behind by at
+// most one batch instead of an ever-growing queue that ends in timeouts.
+let defineBusy = false
+let definePending = null
+let definePendingWaiters = []
+
+async function defineCandidates(candidates, subject, year, emitProgress, knownTerms) {
+  const list = (candidates ?? [])
+    .filter(c => c && typeof c.term === 'string' && c.term.trim() && typeof c.sentence === 'string')
+    .slice(0, DEFINE_MAX_CANDIDATES)
+  if (!list.length) return []
+  await ensureLoaded(emitProgress, 'defineCandidates')
+
+  if (defineBusy) {
+    if (definePending) {
+      const seen = new Set(list.map(c => c.term.toLowerCase()))
+      const older = definePending.candidates.filter(c => !seen.has(c.term.toLowerCase()))
+      definePending.candidates = [...list, ...older].slice(0, DEFINE_MAX_CANDIDATES)
+      definePending.knownTerms = knownTerms
+    } else {
+      definePending = { candidates: list, subject, year, knownTerms }
+    }
+    return new Promise(resolve => definePendingWaiters.push(resolve))
+  }
+
+  defineBusy = true
+  try {
+    const result = await runDefineOnce(list, subject, year, knownTerms)
+    while (definePending) {
+      const batch = definePending
+      definePending = null
+      const waiters = definePendingWaiters
+      definePendingWaiters = []
+      const batchResult = await runDefineOnce(batch.candidates, batch.subject, batch.year, batch.knownTerms)
+      waiters.forEach(resolve => resolve(batchResult))
+    }
+    return result
+  } finally {
+    defineBusy = false
+  }
+}
+
 // On-device replacement for the detect-terms edge function's `explain_mode`,
 // which is what the "select a phrase and ask what it means" popups in the
 // transcript, the summary and the flashcard reader call.
@@ -921,4 +1110,4 @@ Write a 1-2 sentence summary of what this lecture covered, based only on the ter
 // cards, and a transcript check that silently rejected correctly-spelled terms
 // cost the best ones. Both are checkable in milliseconds without loading a 2GB
 // model, which is the only reason either bug survived as long as it did.
-module.exports = { detectTerms, explain, summarize, preload, getTier, setTier, matchTermLine, saidInTranscript, normalize }
+module.exports = { detectTerms, defineCandidates, explain, summarize, preload, getTier, setTier, matchTermLine, saidInTranscript, normalize }

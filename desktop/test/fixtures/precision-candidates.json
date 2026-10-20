@@ -1,0 +1,255 @@
+{
+ "MUNDANE": [
+  {
+   "label": "raspberry",
+   "text": "Oh, did you put the raspberry ones in the bag and said they were normal ones?",
+   "subject": null,
+   "bad": null,
+   "candidates": []
+  },
+  {
+   "label": "goodbye",
+   "text": "Yeah. Bye. See you later, take care.",
+   "subject": null,
+   "bad": null,
+   "candidates": []
+  },
+  {
+   "label": "admin",
+   "text": "The reading is chapter four and the tutorial is on Thursday, so please come prepared.",
+   "subject": null,
+   "bad": null,
+   "candidates": [
+    {
+     "term": "please",
+     "sentence": "The reading is chapter four and the tutorial is on Thursday, so please come prepared."
+    }
+   ]
+  },
+  {
+   "label": "smalltalk",
+   "text": "I am going to use this one because the other one was a bit broken yesterday.",
+   "subject": null,
+   "bad": null,
+   "candidates": []
+  },
+  {
+   "label": "weather",
+   "text": "It is really cold outside today and I forgot my jacket again, which was silly of me.",
+   "subject": null,
+   "bad": null,
+   "candidates": [
+    {
+     "term": "outside",
+     "sentence": "It is really cold outside today and I forgot my jacket again, which was silly of me."
+    }
+   ]
+  },
+  {
+   "label": "timing",
+   "text": "Just give it five or six seconds and then it should settle down on its own.",
+   "subject": null,
+   "bad": null,
+   "candidates": []
+  },
+  {
+   "label": "workingout",
+   "text": "So we are working out how many of these we need before the end of the week.",
+   "subject": null,
+   "bad": null,
+   "candidates": []
+  }
+ ],
+ "TECHNICAL": [
+  {
+   "label": "biology",
+   "text": "Chemiosmosis drives ATP synthase using the proton motive force across the inner mitochondrial membrane. This gradient is what actually couples respiration to ATP production.",
+   "subject": "Biology",
+   "bad": null,
+   "candidates": [
+    {
+     "term": "ATP synthase",
+     "sentence": "Chemiosmosis drives ATP synthase using the proton motive force across the inner mitochondrial membrane."
+    },
+    {
+     "term": "proton motive force",
+     "sentence": "Chemiosmosis drives ATP synthase using the proton motive force across the inner mitochondrial membrane."
+    },
+    {
+     "term": "inner mitochondrial membrane",
+     "sentence": "Chemiosmosis drives ATP synthase using the proton motive force across the inner mitochondrial membrane."
+    },
+    {
+     "term": "Chemiosmosis",
+     "sentence": "Chemiosmosis drives ATP synthase using the proton motive force across the inner mitochondrial membrane."
+    },
+    {
+     "term": "ATP production",
+     "sentence": "This gradient is what actually couples respiration to ATP production."
+    },
+    {
+     "term": "respiration",
+     "sentence": "This gradient is what actually couples respiration to ATP production."
+    }
+   ]
+  },
+  {
+   "label": "ml",
+   "text": "Today we look at Bayesian ridge regularization. The prior acts as a penalty term in the loss function, which shrinks the coefficients toward zero and controls overfitting.",
+   "subject": "Machine Learning",
+   "bad": null,
+   "candidates": [
+    {
+     "term": "regularization",
+     "sentence": "Today we look at Bayesian ridge regularization."
+    },
+    {
+     "term": "loss function",
+     "sentence": "The prior acts as a penalty term in the loss function, which shrinks the coefficients toward zero and controls overfitting."
+    },
+    {
+     "term": "coefficients",
+     "sentence": "The prior acts as a penalty term in the loss function, which shrinks the coefficients toward zero and controls overfitting."
+    },
+    {
+     "term": "overfitting",
+     "sentence": "The prior acts as a penalty term in the loss function, which shrinks the coefficients toward zero and controls overfitting."
+    }
+   ]
+  },
+  {
+   "label": "networks",
+   "text": "Packet switching means each datagram is routed independently. Because of that the network adapter may receive them out of order, and the transport layer has to reassemble them.",
+   "subject": "Computer Science",
+   "bad": null,
+   "candidates": [
+    {
+     "term": "switching",
+     "sentence": "Packet switching means each datagram is routed independently."
+    },
+    {
+     "term": "datagram",
+     "sentence": "Packet switching means each datagram is routed independently."
+    },
+    {
+     "term": "independently",
+     "sentence": "Packet switching means each datagram is routed independently."
+    },
+    {
+     "term": "transport layer",
+     "sentence": "Because of that the network adapter may receive them out of order, and the transport layer has to reassemble them."
+    },
+    {
+     "term": "reassemble",
+     "sentence": "Because of that the network adapter may receive them out of order, and the transport layer has to reassemble them."
+    }
+   ]
+  },
+  {
+   "label": "econ",
+   "text": "A Giffen good violates the law of demand. That happens because the income effect outweighs the substitution effect, so demand rises as the price rises.",
+   "subject": "Economics",
+   "bad": null,
+   "candidates": [
+    {
+     "term": "income effect",
+     "sentence": "That happens because the income effect outweighs the substitution effect, so demand rises as the price rises."
+    },
+    {
+     "term": "substitution effect",
+     "sentence": "That happens because the income effect outweighs the substitution effect, so demand rises as the price rises."
+    },
+    {
+     "term": "outweighs",
+     "sentence": "That happens because the income effect outweighs the substitution effect, so demand rises as the price rises."
+    }
+   ]
+  },
+  {
+   "label": "chem",
+   "text": "The enthalpy change of the reaction is measured by calorimetry. The activation energy determines the reaction rate, which is why a catalyst speeds things up.",
+   "subject": "Chemistry",
+   "bad": null,
+   "candidates": [
+    {
+     "term": "reaction",
+     "sentence": "The enthalpy change of the reaction is measured by calorimetry."
+    },
+    {
+     "term": "calorimetry",
+     "sentence": "The enthalpy change of the reaction is measured by calorimetry."
+    },
+    {
+     "term": "activation energy",
+     "sentence": "The activation energy determines the reaction rate, which is why a catalyst speeds things up."
+    },
+    {
+     "term": "reaction rate",
+     "sentence": "The activation energy determines the reaction rate, which is why a catalyst speeds things up."
+    },
+    {
+     "term": "determines",
+     "sentence": "The activation energy determines the reaction rate, which is why a catalyst speeds things up."
+    }
+   ]
+  }
+ ],
+ "GARBLED": [
+  {
+   "label": "purkinje",
+   "text": "The impulse then spreads through the Patriarchs fibres to the ventricles, which contract together.",
+   "subject": "Medicine",
+   "bad": "patriarchs",
+   "candidates": [
+    {
+     "term": "Patriarchs fibres",
+     "sentence": "The impulse then spreads through the Patriarchs fibres to the ventricles, which contract together."
+    },
+    {
+     "term": "ventricles",
+     "sentence": "The impulse then spreads through the Patriarchs fibres to the ventricles, which contract together."
+    }
+   ]
+  },
+  {
+   "label": "sanode",
+   "text": "Every heartbeat begins in the S-mode, which is the natural pacemaker of the heart.",
+   "subject": "Medicine",
+   "bad": "s-mode",
+   "candidates": [
+    {
+     "term": "heartbeat",
+     "sentence": "Every heartbeat begins in the S-mode, which is the natural pacemaker of the heart."
+    },
+    {
+     "term": "S-mode",
+     "sentence": "Every heartbeat begins in the S-mode, which is the natural pacemaker of the heart."
+    },
+    {
+     "term": "pacemaker",
+     "sentence": "Every heartbeat begins in the S-mode, which is the natural pacemaker of the heart."
+    }
+   ]
+  },
+  {
+   "label": "depolar",
+   "text": "This is called spontaneous dechloridation and it is what drives the pacemaker potential.",
+   "subject": "Medicine",
+   "bad": "dechloridation",
+   "candidates": [
+    {
+     "term": "pacemaker potential",
+     "sentence": "This is called spontaneous dechloridation and it is what drives the pacemaker potential."
+    },
+    {
+     "term": "spontaneous",
+     "sentence": "This is called spontaneous dechloridation and it is what drives the pacemaker potential."
+    },
+    {
+     "term": "dechloridation",
+     "sentence": "This is called spontaneous dechloridation and it is what drives the pacemaker potential."
+    }
+   ]
+  }
+ ]
+}

@@ -64,6 +64,10 @@ contextBridge.exposeInMainWorld('demistNative', {
   // "What does this selected phrase mean?" - the on-device replacement for the
   // detect-terms edge function's explain_mode, used by the transcript, summary
   // and flashcard reader popups.
+  // Desktop 1.0.7+: define candidates the renderer's extractor already picked
+  // (see llm.js defineCandidates). Feature-detected by the renderer.
+  defineCandidates: (candidates, subject, year, knownTerms) =>
+    ipcRenderer.invoke('demist:defineCandidates', candidates, subject, year, knownTerms),
   explain: (text, subject, year) => ipcRenderer.invoke('demist:explain', text, subject, year),
   summarize: (termRows, subject) => ipcRenderer.invoke('demist:summarize', termRows, subject),
   getModelTier: () => ipcRenderer.invoke('demist:getModelTier'),

@@ -10,6 +10,11 @@ files:
   # download that Store certification watched fail (10.1.2.10). 315MB for the
   # pair - the multi-gigabyte numbers elsewhere here are resident memory.
   - models/**/*
+  # llama.cpp's official llama-server, fetched by scripts/fetch-llama-server.mjs
+  # (pinned + checksummed). Term detection runs on it: ~10x faster than
+  # node-llama-cpp in-process on a CPU, the difference between term cards
+  # during a lecture and none at all on laptops without a graphics card.
+  - llama-server/**/*
   # onnxruntime-node ships prebuilt binaries for every platform it supports,
   # and two copies of the package end up installed (a top-level one and one
   # nested under @huggingface/transformers). In a Windows-only AppX the macOS
@@ -98,6 +103,8 @@ asarUnpack:
   # env.localModelPath at app.asar.unpacked/models, so they cannot live
   # inside the archive.
   - models/**/*
+  # An exe cannot be run from inside an asar archive.
+  - llama-server/**/*
 
 # Target is "appx", not "msix": confirmed by an actual build attempt that
 # the installed electron-builder (26.15.3) only ships AppXOptions, not

@@ -73,6 +73,10 @@ const handlers = {
   translate: (text, targetLang) => (translate ??= require('./translate')).translate(text, targetLang, emitProgress),
   detectTerms: (transcript, context, subject, year, knownTerms) =>
     (llm ??= require('./llm')).detectTerms(transcript, context, subject, year, emitProgress, knownTerms),
+  // Candidates-first term detection (llm.js defineCandidates): the renderer
+  // has already picked the candidates, so windows without any never get here.
+  defineCandidates: (candidates, subject, year, knownTerms) =>
+    (llm ??= require('./llm')).defineCandidates(candidates, subject, year, emitProgress, knownTerms),
   explain: (text, subject, year) => (llm ??= require('./llm')).explain(text, subject, year),
   summarize: (termRows, subject) => (llm ??= require('./llm')).summarize(termRows, subject),
   getModelTier: () => (llm ??= require('./llm')).getTier(),

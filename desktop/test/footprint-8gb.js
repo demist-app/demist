@@ -48,9 +48,11 @@ function spawn(name) {
 }
 
 // Working set and private bytes for a set of pids, in MB, via PowerShell.
+// Includes llama-server.exe, which the terms worker now runs as its own child
+// process (native/llamaServer.js): its memory is the term model's memory.
 function sample(pids) {
   const out = execFileSync('powershell', ['-NoProfile', '-Command',
-    `Get-Process -Id ${pids.join(',')} | ForEach-Object { "$($_.Id) $($_.WorkingSet64) $($_.PrivateMemorySize64)" }`], { encoding: 'utf8' })
+    `@(Get-Process -Id ${pids.join(',')}) + @(Get-Process -Name llama-server -ErrorAction SilentlyContinue) | ForEach-Object { "$($_.Id) $($_.WorkingSet64) $($_.PrivateMemorySize64)" }`], { encoding: 'utf8' })
   const res = {}
   for (const line of out.trim().split(/\r?\n/)) {
     const [pid, ws, priv] = line.trim().split(/\s+/).map(Number)
@@ -78,7 +80,9 @@ const EXCERPTS = [
   const pids = [tx.pid, terms.pid]
   const peak = { [tx.pid]: { ws: 0, priv: 0 }, [terms.pid]: { ws: 0, priv: 0 } }
   const take = (label) => {
-    const s = sample(pids)
+    const raw = sample(pids)
+    // Everything that is not the transcribe worker is term detection.
+    const s = { [tx.pid]: raw[tx.pid], [terms.pid]: Object.entries(raw).filter(([p]) => Number(p) !== tx.pid).reduce((a, [, v]) => ({ ws: a.ws + v.ws, priv: a.priv + v.priv }), { ws: 0, priv: 0 }) }
     for (const p of pids) if (s[p]) { peak[p].ws = Math.max(peak[p].ws, s[p].ws); peak[p].priv = Math.max(peak[p].priv, s[p].priv) }
     if (label) console.log(`${label.padEnd(22)} transcribe ws ${s[tx.pid]?.ws}MB priv ${s[tx.pid]?.priv}MB | terms ws ${s[terms.pid]?.ws}MB priv ${s[terms.pid]?.priv}MB`)
   }

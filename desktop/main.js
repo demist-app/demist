@@ -215,6 +215,7 @@ const CALL_ROLE = {
 
   preloadTermDetection: 'terms',
   detectTerms: 'terms',
+  defineCandidates: 'terms',
   explain: 'terms',
   summarize: 'terms',
   getModelTier: 'terms',
@@ -407,6 +408,7 @@ const CALL_TIMEOUT_MS = {
   preloadTranslation: 600_000,
   transcribeBuffer: 300_000,
   detectTerms: 300_000,
+  defineCandidates: 300_000,
   explain: 300_000,
   summarize: 300_000,
   translate: 300_000,
@@ -597,6 +599,8 @@ ipcMain.handle('demist:preloadTranslation', (_event, lang) => callWorker('preloa
 ipcMain.handle('demist:translate', (_event, text, targetLang) => callWorker('translate', text, targetLang))
 ipcMain.handle('demist:detectTerms', (_event, transcript, context, subject, year, knownTerms) =>
   callWorker('detectTerms', transcript, context, subject, year, knownTerms))
+ipcMain.handle('demist:defineCandidates', (_event, candidates, subject, year, knownTerms) =>
+  callWorker('defineCandidates', candidates, subject, year, knownTerms))
 ipcMain.handle('demist:explain', (_event, text, subject, year) => callWorker('explain', text, subject, year))
 ipcMain.handle('demist:summarize', (_event, termRows, subject) => callWorker('summarize', termRows, subject))
 // Settings reads and writes the model choices HERE, not through the workers.

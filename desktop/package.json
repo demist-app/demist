@@ -1,6 +1,6 @@
 {
   "name": "demist-desktop",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "Demist desktop app: adds fully on-device transcription, translation, and term detection to the existing web app via a native bridge. No lecture audio or text ever leaves the device through this app.",
   "main": "main.js",
   "author": "Demist",
@@ -22,7 +22,9 @@
     "test:electron": "node test/electron-vs-node.js",
     "test:contention": "node test/three-way-contention.js",
     "test:vcredist": "node test/vcredist-bundled.js",
-    "test:mac-verify": "node test/mac-hardware-verify.js"
+    "test:mac-verify": "node test/mac-hardware-verify.js",
+    "fetch:llama-server": "node scripts/fetch-llama-server.mjs",
+    "test:define": "node test/define-precision.js"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.2.0",

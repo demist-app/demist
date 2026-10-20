@@ -45,7 +45,9 @@ exports.default = async function bundleVcRedist(context) {
     for (const e of entries) {
       const p = path.join(dir, e.name)
       if (e.isDirectory()) walk(p)
-      else if (e.name.toLowerCase().endsWith('.node')) dirsWithNativeModules.add(dir)
+      // .exe too: llama-server.exe and its DLLs need the same runtime, and an
+      // exe's own directory is the first place Windows looks for its DLLs.
+      else if (/\.(node|exe)$/i.test(e.name)) dirsWithNativeModules.add(dir)
     }
   })(path.join(appDir, 'resources'))
 

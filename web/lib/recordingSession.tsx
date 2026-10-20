@@ -994,12 +994,30 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     let terms: { term: string; definition: string; context?: string; translation?: string }[]
 
     if (native) {
-      // Fully on-device: the raw transcript chunk goes straight to the local
-      // model. No candidate pre-filtering (below) and no cloud call at all:
-      // that filtering exists purely to minimize what leaves the device on
-      // the cloud path, which doesn't apply here since nothing leaves it.
+      // Fully on-device, no cloud call. Desktop 1.0.7+ is candidates-first:
+      // the same rule-based extractor as the web picks candidates here, and
+      // the local model only judges and defines those. A window with no
+      // candidates (most of a lecture) never reaches the model. Measured
+      // 2026-10-20: the older path below took 20-86s per window on a laptop
+      // without a graphics card, so on 8GB machines calls piled up and timed
+      // out and students got no cards at all.
       try {
-        terms = await native.detectTerms(
+        if (native.defineCandidates) {
+          const candidates = transcript.split(/(?<=[.!?])\s+/).filter(x => x.trim())
+            // Desktop transcription is English-only (whisper .en models).
+            .flatMap(x => extractCandidates(x, knownTermsRef.current, sentTermsRef.current, 'en'))
+          if (sentTermsRef.current.size > 500) sentTermsRef.current = new Set(Array.from(sentTermsRef.current).slice(-500))
+          if (!candidates.length) {
+            detectionStatsRef.current.ok++
+            return
+          }
+          terms = await native.defineCandidates(
+            candidates,
+            sessionSubjectRef.current || profileRef.current?.course || null,
+            profileRef.current?.year_of_study ?? null,
+            sessionTermNamesRef.current.slice(-40),
+          )
+        } else terms = await native.detectTerms(
           transcript,
           context,
           sessionSubjectRef.current || profileRef.current?.course || null,

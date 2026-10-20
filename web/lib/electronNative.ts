@@ -53,6 +53,15 @@ export interface DemistNative {
   transcribeBuffer: (arrayBuffer: ArrayBuffer) => Promise<string>
   onEvent: (callback: (msg: NativeEvent) => void) => () => void
   translate: (text: string, targetLang: string) => Promise<string>
+  // Desktop 1.0.7+ (absent on older builds, so always feature-detect):
+  // judge and define candidates the renderer's extractor already picked.
+  // Much cheaper on a CPU than detectTerms, which reads the whole excerpt.
+  defineCandidates?: (
+    candidates: { term: string; sentence: string }[],
+    subject: string | null,
+    year: number | null,
+    knownTerms?: string[],
+  ) => Promise<{ term: string; definition: string; context?: string }[]>
   detectTerms: (
     transcript: string,
     context: string,

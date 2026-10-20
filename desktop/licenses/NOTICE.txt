@@ -18,3 +18,9 @@ Apache License, Version 2.0. See APACHE_2.0_LICENSE.txt. Used for on-device tran
 
 Whisper (OpenAI, ONNX export by Xenova) is licensed under the MIT License. Used for
 on-device transcription.
+
+llama.cpp (the ggml authors) is licensed under the MIT License. See LLAMA_CPP_MIT_LICENSE.txt.
+Its llama-server program (release b9842, official Windows CPU build) runs on-device term
+detection. It listens only on this computer (127.0.0.1) and sends nothing anywhere. It is
+built with the LLVM OpenMP runtime (libomp140.x86_64.dll, redistributed with Microsoft
+Visual C++).
