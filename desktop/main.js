@@ -18,6 +18,18 @@ const NATIVE_DIR = path.join(__dirname.replace('app.asar', 'app.asar.unpacked'),
 
 const APP_URL = process.env.DEMIST_DESKTOP_URL || 'https://www.demist.app'
 
+// Keep the renderer at normal priority when the window is minimised or behind
+// another app. Audio capture runs in this renderer (an AudioWorklet), and four
+// students' capture slowed to a trickle mid-lecture ("capture_starved");
+// one 49-minute lecture reached transcription at 34 words a minute against a
+// usual 108. Students minimise Demist to take notes, and Chromium lowers a
+// hidden renderer's process priority, which Windows 11 can also put into
+// efficiency mode. A HYPOTHESIS as of 2026-10-20: the renderer now reports
+// window_visible on every on-device failure, which will confirm or rule it
+// out. Chosen over backgroundThrottling: false, which has open Electron bugs
+// on Windows (blank or desynced windows after restore).
+app.commandLine.appendSwitch('disable-renderer-backgrounding')
+
 // Where the window actually opens. NOT the site root: that is the marketing
 // landing page, so someone who installed the desktop app and signed in months
 // ago still got the pitch for a product they are already running, behind an
@@ -230,6 +242,33 @@ let transcribeSessionActive = false
 // that an import is, by definition, keeping hot already.
 let transcribeImportsInFlight = 0
 
+// Crash-loop guard for the term model (2026-10-20).
+//
+// A dead worker is respawned by the very next call, and term detection calls
+// every few seconds, so a term model that cannot survive on a machine was
+// being reloaded (1-2GB, 10-40s of CPU) over and over for an entire lecture.
+// Measured in PostHog on two 8GB laptops: 236 and 241 failed detections in
+// one lecture each, and in one of them audio capture starved and roughly two
+// thirds of the lecture never reached transcription. Transcription is the
+// part a student cannot get back later, so after two term-model deaths in ten
+// minutes, term detection pauses for ten minutes and the machine is left to
+// transcribe.
+const TERMS_CRASH_WINDOW_MS = 10 * 60_000
+const TERMS_PAUSE_MS = 10 * 60_000
+let termsCrashes = []
+let termsPausedUntil = 0
+function noteTermsCrash() {
+  const now = Date.now()
+  termsCrashes = [...termsCrashes.filter(t => now - t < TERMS_CRASH_WINDOW_MS), now]
+  if (termsCrashes.length >= 2) {
+    termsPausedUntil = now + TERMS_PAUSE_MS
+    termsCrashes = []
+    console.error(`[demist] term model died twice in ${TERMS_CRASH_WINDOW_MS / 60_000} minutes; pausing term detection for ${TERMS_PAUSE_MS / 60_000} minutes so transcription keeps the machine`)
+    return TERMS_PAUSE_MS
+  }
+  return 0
+}
+
 function getWorkerState(role) {
   if (workerStates[role]) return workerStates[role]
   workerSpawns[role] = (workerSpawns[role] || 0) + 1
@@ -279,8 +318,9 @@ function getWorkerState(role) {
   // of every future call hanging against a dead worker forever. Scoped to
   // this role only, so e.g. a term-detection crash doesn't touch an
   // in-progress transcription session on the 'transcribe' worker.
-  worker.on('exit', (code) => {
-    console.error(`[demist] the ${role} worker exited (code ${code}); every model it had loaded is gone and must be reloaded`)
+  worker.on('exit', (code, signal) => {
+    console.error(`[demist] the ${role} worker exited (code ${code}, signal ${signal}); every model it had loaded is gone and must be reloaded`)
+    const pausedForMs = role === 'terms' ? noteTermsCrash() : 0
     for (const entry of state.pending.values()) entry.reject(new Error('Native worker exited unexpectedly'))
     state.pending.clear()
     workerStates[role] = null
@@ -293,7 +333,10 @@ function getWorkerState(role) {
     // everything was prepared. The renderer relocks and re-preloads on this.
     mainWindow?.webContents.send('demist:event', {
       event: 'modelsUnloaded',
-      payload: { role },
+      // code/signal say HOW it died (a native abort, the OS killing it for
+      // memory, our own kill after it went silent); pausedForMs, whether
+      // term detection is now paused by the crash-loop guard below.
+      payload: { role, code, signal, pausedForMs },
     })
     // A replacement transcribe worker starts with no session (activeSession
     // lives in that thread's module state), so feedPcm on it silently
@@ -457,6 +500,12 @@ function callWorker(type, ...args) {
   return new Promise((resolve, reject) => {
     const id = nextRequestId++
     const role = CALL_ROLE[type]
+    // Checked before getWorkerState, which is what would respawn the worker.
+    // "paused" is matched by the renderer's nativeMessageCode.
+    if (role === 'terms' && Date.now() < termsPausedUntil) {
+      reject(new Error('Term detection is paused for a few minutes so transcription keeps running smoothly. It will start again by itself.'))
+      return
+    }
     const state = getWorkerState(role)
     if (type === 'startSession' || type === 'stopSession') {
       dlog(`[demist] -> posting '${type}' (id ${id}) to the ${role} worker`)
@@ -550,10 +599,20 @@ ipcMain.handle('demist:detectTerms', (_event, transcript, context, subject, year
   callWorker('detectTerms', transcript, context, subject, year, knownTerms))
 ipcMain.handle('demist:explain', (_event, text, subject, year) => callWorker('explain', text, subject, year))
 ipcMain.handle('demist:summarize', (_event, termRows, subject) => callWorker('summarize', termRows, subject))
-ipcMain.handle('demist:getModelTier', () => callWorker('getModelTier'))
-ipcMain.handle('demist:setModelTier', (_event, tier) => callWorker('setModelTier', tier))
-ipcMain.handle('demist:getTranscribeTier', () => callWorker('getTranscribeTier'))
-ipcMain.handle('demist:setTranscribeTier', (_event, tier) => callWorker('setTranscribeTier', tier))
+// Settings reads and writes the model choices HERE, not through the workers.
+// Each is one small JSON file, but routing it through a worker meant waiting
+// behind whatever that worker was doing: mid model-load that is a synchronous
+// native call, so Settings timed out after 60s with "still busy loading", and
+// asking the terms worker for its tier could even spawn one just to answer.
+// Both workers re-read their tier file on every call, so a change made here
+// takes effect on their next call exactly as before. llm.js only imports
+// node-llama-cpp lazily inside its loader, so requiring it here is cheap.
+const llmTier = require('./native/llm')
+const transcribeTier = require('./native/transcribe-tier')
+ipcMain.handle('demist:getModelTier', () => llmTier.getTier())
+ipcMain.handle('demist:setModelTier', (_event, tier) => llmTier.setTier(tier))
+ipcMain.handle('demist:getTranscribeTier', () => transcribeTier.getTier())
+ipcMain.handle('demist:setTranscribeTier', (_event, tier) => transcribeTier.setTier(tier))
 
 // ── PCM stream: high-frequency, fire-and-forget ─────────────────────────────
 // The renderer->main hop is a structured-clone copy (see preload.js: Electron's

@@ -55,11 +55,10 @@ env.localModelPath = path.join(__dirname.replace('app.asar', 'app.asar.unpacked'
 // downloading rather than refusing to transcribe.
 env.allowRemoteModels = true
 
-const MODEL_BY_TIER = {
-  fast: 'Xenova/whisper-base.en',
-  accurate: 'Xenova/whisper-small.en',
-}
-const TIER_FILE = path.join(os.homedir(), '.demist', 'whisper-tier.json')
+// Tier choice lives in transcribe-tier.js so the main process can read and
+// write it without loading this module's runtime (Settings used to time out
+// waiting on a worker busy loading a model).
+const { MODEL_BY_TIER, TOTAL_RAM_GB, getTier, setTier } = require('./transcribe-tier')
 
 // 8-bit weights. Measured on the same speech, same segment length:
 //   fp32  3018MB resident, 2073ms per 6s segment, 10.1% WER
@@ -71,7 +70,6 @@ const TIER_FILE = path.join(os.homedir(), '.demist', 'whisper-tier.json')
 // below for why that matters so much.
 const DTYPE = 'q8'
 
-const TOTAL_RAM_GB = os.totalmem() / (1024 ** 3)
 
 // Whether the bundled model for this tier is actually present on disk, so
 // getTranscriber can tell "used the bundle, as designed" apart from "the
@@ -98,42 +96,6 @@ function hasLocalModel(tier) {
   }
 }
 
-// Which model a machine gets by default, on the machine's own terms. The
-// models are big enough that this cannot be one-size-fits-all: with the
-// accurate tier, Whisper + the term-detection LLM + translation come to
-// roughly 5.8GB resident. On a 16GB machine that already forced the OS to
-// page models out, which is what made starting a session take 50-70s. On an
-// 8GB laptop it would be unusable.
-//
-// The fast tier (whisper-base.en q8) is 1027MB instead of 2332MB and runs
-// twice as fast, but measured 26.1% WER against 8.7% - materially worse for
-// lecture vocabulary, so it is a fallback for machines that cannot afford
-// the accurate one, never the default for machines that can. An explicit
-// user choice in Settings still overrides this either way.
-function defaultTier() {
-  return TOTAL_RAM_GB < 10 ? 'fast' : 'accurate'
-}
-
-function getTier() {
-  // Pins the tier for test harnesses WITHOUT writing TIER_FILE, which the
-  // running app re-reads (same reason as DEMIST_LLM_TIER in llm.js: a test
-  // must never change the tier of a live session).
-  const override = process.env.DEMIST_TRANSCRIBE_TIER
-  if (override && MODEL_BY_TIER[override]) return override
-  try {
-    const tier = JSON.parse(fsSync.readFileSync(TIER_FILE, 'utf8')).tier
-    return MODEL_BY_TIER[tier] ? tier : defaultTier()
-  } catch {
-    return defaultTier()
-  }
-}
-
-function setTier(tier) {
-  if (!MODEL_BY_TIER[tier]) throw new Error(`Unknown transcription tier "${tier}"`)
-  fsSync.mkdirSync(path.dirname(TIER_FILE), { recursive: true })
-  fsSync.writeFileSync(TIER_FILE, JSON.stringify({ tier }))
-  return tier
-}
 
 // When an inference last actually touched the model weights, from anywhere:
 // the load-time warm-up, the idle keep-warm timer, a preview, or a real

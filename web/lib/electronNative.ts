@@ -32,6 +32,11 @@ export interface NativeEvent {
     // when localStorage demist_debug is set - see nativeSession.ts.
     verbose?: boolean
     role?: string
+    // 'modelsUnloaded' only, desktop 1.0.7+: how the worker died, and how
+    // long term detection is paused by main.js's crash-loop guard.
+    code?: number | null
+    signal?: string | null
+    pausedForMs?: number
   }
 }
 

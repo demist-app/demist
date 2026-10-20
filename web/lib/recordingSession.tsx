@@ -76,6 +76,7 @@ export function nativeMessageCode(message: string): { code: string; detail?: str
   if (m.includes('stopped unexpectedly')) return { code: 'engine_died' }
   if (m.includes('stopped responding')) return { code: 'engine_unresponsive' }
   if (m.includes('still busy loading')) return { code: 'engine_still_loading' }
+  if (m.includes('is paused for a few minutes')) return { code: 'terms_paused' }
   return { code: 'other', detail: message.replace(/"[^"]*"/g, '""').slice(0, 120) }
 }
 
@@ -798,6 +799,14 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       nativeAtMount.onEvent((msg) => {
         if (msg.event === 'modelsUnloaded') {
           console.error(`[demist] the ${msg.payload.role ?? 'native'} worker restarted; reloading its on-device models`)
+          // How it died is what tells a memory crash (the OS killing it) from
+          // a native bug, and nothing reported it until 2026-10-20: two 8GB
+          // laptops logged ~240 failed detections each and only "worker
+          // exited unexpectedly" ever reached us.
+          capture('native_worker_exited', {
+            role: msg.payload.role ?? null, exit_code: msg.payload.code ?? null, signal: msg.payload.signal ?? null,
+            paused_ms: msg.payload.pausedForMs ?? 0, recording: isActiveRef.current, ...nativeFailureContext(),
+          })
           // All three roles, not just 'transcribe': every one of them now
           // gates the record button (see runNativePreload), so a respawned
           // 'terms' or 'translate' worker has to re-lock and re-preload the
@@ -1011,6 +1020,14 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
         // worth flagging was said."
         console.error('native detectTerms error:', e)
         detectionStatsRef.current.failed++
+        const pausedMsg = String((e as Error)?.message ?? '')
+        if (pausedMsg.includes('is paused for a few minutes')) {
+          // desktop main.js's crash-loop guard: a calm, true message, and its
+          // own label so it is not counted as a fresh native error.
+          detectionStatsRef.current.lastFailure = 'terms_paused'
+          setRecordingWarning(pausedMsg.replace(/^Error invoking remote method '[^']*': (?:Error: )?/, ''))
+          return
+        }
         detectionStatsRef.current.lastFailure = 'native_error'
         // The label alone could not explain a 2026-10 case: 308 detection
         // runs and 112 native errors on a 16-core machine, zero terms, and no
