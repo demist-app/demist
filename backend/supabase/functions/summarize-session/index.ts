@@ -132,7 +132,7 @@ serve(async (req) => {
 ${termList}
 </terms>
 
-Write a 1–2 sentence summary of what this lecture covered, based only on the terms above. Be specific. Return JSON with a single field "synopsis".`
+Write a 1–2 sentence summary of what this lecture covered, based only on the terms above. Be specific. Write it in the same language as the terms and their definitions (a French lecture gets a French summary). Return JSON with a single field "synopsis".`
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
