@@ -28,12 +28,18 @@ files:
   # node-llama-cpp's own bins/ directory only holds .moved.txt pointers on an
   # installed tree (the real binaries live in @node-llama-cpp/*), but exclude
   # the non-Windows ones anyway so a different install layout cannot smuggle
-  # them in. The @node-llama-cpp CUDA and Vulkan packages are deliberately
-  # KEPT: they are ~630MB, but GPU offload was measured at roughly 4x faster
-  # term detection (12s vs 40-60s per call), which is the difference between
-  # term cards arriving during a lecture and arriving after it.
+  # them in.
   - "!node_modules/node-llama-cpp/bins/mac-${/*}"
   - "!node_modules/node-llama-cpp/bins/linux-${/*}"
+  # The @node-llama-cpp CUDA and Vulkan packages (~630MB) were kept for GPU
+  # offload in the in-process engine. Since 1.0.7 term detection runs on the
+  # bundled llama-server (about 4s per window on a plain CPU), and the
+  # in-process engine is only a CPU fallback (llm.js: build 'never'), so they
+  # are dead weight. win-arm64 never applied to this x64 package.
+  - "!node_modules/@node-llama-cpp/win-x64-cuda${/*}"
+  - "!node_modules/@node-llama-cpp/win-x64-cuda-ext${/*}"
+  - "!node_modules/@node-llama-cpp/win-x64-vulkan${/*}"
+  - "!node_modules/@node-llama-cpp/win-arm64${/*}"
   # transformers.js defaults its model cache to a .cache directory INSIDE its
   # own package (native/whisper.js overrides env.cacheDir to ~/.demist for
   # exactly this reason). Anything downloaded before that override, or by any

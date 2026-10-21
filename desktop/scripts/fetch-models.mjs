@@ -18,9 +18,9 @@
 // (invisible, unreliable, fails silently mid-lecture) to the Microsoft Store
 // (resumable, with a progress UI people already understand).
 //
-// The term-detection LLM is deliberately NOT bundled: it is 2GB on its own and
-// it is a secondary feature. If it fails to download, transcription still
-// works, which is the difference between degraded and broken.
+// The default term-detection model IS bundled since 1.0.7 (it used to be a 2GB
+// first-run download): see the block at the end. Only the optional 'small' and
+// 'large' tiers, chosen in Settings, still download on first use.
 //
 //   node scripts/fetch-models.mjs        (run before npm run dist)
 import { pipeline, env } from '@huggingface/transformers'
@@ -66,11 +66,28 @@ for (const model of TIERS) {
   console.log('done')
 }
 
+// The default term-detection model (llm.js 'tiny', Qwen2.5-1.5B Q4_K_M,
+// ~940MB), bundled since 1.0.7 so the first lecture gets term cards without a
+// download that blocked networks refuse. resolveModelFile names the file the
+// way llm.js's bundledModelPath() expects, and skips it if already present.
+{
+  const { resolveModelFile } = await import('node-llama-cpp')
+  const LLM_DIR = path.join(MODELS_DIR, 'llm')
+  fs.mkdirSync(LLM_DIR, { recursive: true })
+  process.stdout.write('  term detection (tiny, Qwen2.5-1.5B Q4_K_M) ... ')
+  const file = await resolveModelFile('hf:bartowski/Qwen2.5-1.5B-Instruct-GGUF:Q4_K_M', { directory: LLM_DIR, cli: false })
+  if (path.basename(file) !== 'hf_bartowski_Qwen2.5-1.5B-Instruct.Q4_K_M.gguf') {
+    throw new Error(`unexpected bundled model file name ${path.basename(file)}: update BUNDLED_MODEL_FILE in native/llm.js to match`)
+  }
+  console.log('done')
+}
+
 console.log(`\nbundled model tree: ${mb(dirSize(MODELS_DIR))}`)
 for (const org of fs.readdirSync(MODELS_DIR)) {
   const orgDir = path.join(MODELS_DIR, org)
   if (!fs.statSync(orgDir).isDirectory()) continue
   for (const m of fs.readdirSync(orgDir)) {
-    console.log(`  ${org}/${m}`.padEnd(38) + mb(dirSize(path.join(orgDir, m))))
+    const p = path.join(orgDir, m)
+    console.log(`  ${org}/${m}`.padEnd(48) + mb(fs.statSync(p).isDirectory() ? dirSize(p) : fs.statSync(p).size))
   }
 }

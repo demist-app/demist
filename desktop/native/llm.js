@@ -42,6 +42,19 @@ const MODEL_URI = {
 }
 const TIER_FILE = path.join(MODEL_DIR, 'tier.json')
 
+// The default tier ships INSIDE the app (scripts/fetch-models.mjs puts it in
+// models/llm, asarUnpack'd), so term detection needs no first-run download:
+// that download failed on networks that block Hugging Face and made every new
+// student wait for 1GB before their first card. Other tiers still download on
+// first use, if chosen in Settings.
+const BUNDLED_MODEL_FILE = { tiny: 'hf_bartowski_Qwen2.5-1.5B-Instruct.Q4_K_M.gguf' }
+function bundledModelPath(tier) {
+  const file = BUNDLED_MODEL_FILE[tier]
+  if (!file) return null
+  const p = path.join(__dirname.replace(/app\.asar(?!\.unpacked)/, 'app.asar.unpacked'), '..', 'models', 'llm', file)
+  return fs.existsSync(p) ? p : null
+}
+
 const SUMMARY_SCHEMA = {
   type: 'object',
   properties: {
@@ -143,18 +156,6 @@ let llama, model, context, session, summaryGrammar, verdictGrammar, explainGramm
 // picks a DEFAULT at load time and an explicit choice in Settings still wins.
 // The threshold is deliberately generous: 'small' needs ~2.5GB resident for
 // itself, on top of Whisper's ~2.3GB and translation's ~0.4GB.
-// Which tiers are already on disk. node-llama-cpp names its downloads after
-// the model URI, so an existing file means that tier costs nothing to select.
-function downloadedTiers() {
-  let files
-  try { files = fs.readdirSync(MODEL_DIR) } catch { return new Set() }
-  const found = new Set()
-  for (const [tier, uri] of Object.entries(MODEL_URI)) {
-    const stem = uri.split(':')[1]?.split('/').pop()?.replace(/-GGUF$/, '')
-    if (stem && files.some(f => f.includes(stem) && f.endsWith('.gguf'))) found.add(tier)
-  }
-  return found
-}
 
 // Resolved ONCE per process. freemem() moves constantly, so re-deriving the
 // default on every getTier() call let a single run answer 'small' at preload
@@ -196,33 +197,25 @@ function defaultTier() {
 //
 // Below 8GB the sum genuinely does not fit, so 'tiny' remains the default
 // there, and it remains selectable in Settings on any machine.
-const SMALL_TIER_MIN_TOTAL_GB = 8
-
+// 'tiny' for every machine since 2026-10-21, and BUNDLED in the app.
+//
+// It used to be 'small' (Llama 3.2 3B) on machines with 8GB+ of RAM, on the
+// measurement that the 1.5B put everyday phrases into flashcard decks. That
+// was the open-ended extraction pipeline. With candidates-first detection on
+// llama-server (defineCandidates), the same grading on test/define-precision.js:
+//
+//   tiny   0/7 false positives, 0/5 missed, 0/3 mis-hearings, 4.1s per window
+//   small  0/7 false positives, 0/5 missed, 0/3 mis-hearings, 8.5s per window
+//
+// and tiny's definitions were the more accurate of the two (small explained
+// ATP synthase as using "the difference in salt concentration to make
+// electricity"). So the better model is also the smaller and faster one, which
+// is what makes it shippable inside the app: no first-run download, term
+// cards on a blocked school network from the first lecture, and the same
+// experience on an 8GB laptop as on a workstation. 'small' and 'large' stay
+// selectable in Settings for anyone who wants them.
 function pickDefaultTier() {
-  const totalGB = os.totalmem() / (1024 ** 3)
-  // Deliberately NOT freemem(). This runs during startup, while the app itself
-  // is loading Whisper and translation and Chromium is spinning up, so the
-  // app's own consumption is what pushed free memory under the old bar - a
-  // 15.9GB machine defaulted to 'tiny' with ample room for the 3B the whole
-  // time, which is the reported "term cards for plain English words". Total
-  // RAM is a fixed property of the machine and cannot flap.
-  const wanted = totalGB >= SMALL_TIER_MIN_TOTAL_GB ? 'small' : 'tiny'
-  const have = downloadedTiers()
-  if (have.has(wanted)) return wanted
-  // An already-downloaded BETTER tier beats downloading anything.
-  if (have.has('large')) return 'large'
-  // Otherwise download what this machine should have.
-  //
-  // This deliberately no longer falls back to "whatever is already on disk".
-  // That rule existed to stop the tier FLAPPING, back when the choice came
-  // from freemem() and could give a different answer minute to minute. The
-  // choice is now derived from total RAM alone, so it is fixed for a given
-  // machine and there is nothing left to flap - while the old rule, kept as
-  // is, would have permanently pinned every existing user to the 'tiny' model
-  // already sitting in their cache, which is the precise outcome this whole
-  // change exists to end. The download runs at app start behind the visible
-  // progress bar that already gates the record button, not mid-lecture.
-  return wanted
+  return 'tiny'
 }
 
 // Says WHERE the answer came from, once per distinct answer. A real run
@@ -341,8 +334,9 @@ async function doLoad(tier, emitProgress, calledBy) {
     // Unlike whisper.js's models, these are NOT bundled - they are fetched
     // from Hugging Face on first use, so this is the call that dies on a
     // filtered school network and leaves the record button locked forever.
-    let modelPath
-    try {
+    let modelPath = bundledModelPath(tier)
+    if (modelPath) console.log(`[demist] term detection (${tier}): using the copy bundled with the app`)
+    else try {
       modelPath = await resolveModelFile(MODEL_URI[tier], {
         directory: MODEL_DIR,
         onProgress: ({ totalSize, downloadedSize }) => {
@@ -400,14 +394,18 @@ async function doLoad(tier, emitProgress, calledBy) {
         // DEMIST_LLM_GPU=off pins CPU, for measuring what a laptop without a
         // dedicated GPU pays (test/footprint-8gb.js).
         if (process.env.DEMIST_LLM_GPU === 'off') throw new Error('GPU disabled by DEMIST_LLM_GPU=off')
-        llama = await getLlama({ gpu: 'auto' })
+        // build: 'never' - the packaged app ships prebuilt CPU binaries only
+        // (the CUDA/Vulkan packages were dropped in 1.0.7, see
+        // electron-builder.yml), and node-llama-cpp's default would try to
+        // download and compile llama.cpp on a student's machine instead.
+        llama = await getLlama({ gpu: 'auto', build: 'never' })
         model = await llama.loadModel({ modelPath })
         context = await model.createContext({ contextSize: CONTEXT_SIZE })
       } catch (e) {
         console.warn('[demist] GPU load for term-detection model failed, falling back to CPU:', e?.message ?? e)
         try { await context?.dispose() } catch { /* best-effort cleanup */ }
         try { await model?.dispose() } catch { /* best-effort cleanup */ }
-        llama = await getLlama({ gpu: false })
+        llama = await getLlama({ gpu: false, build: 'never' })
         model = await llama.loadModel({ modelPath })
         context = await model.createContext({ contextSize: CONTEXT_SIZE })
       }

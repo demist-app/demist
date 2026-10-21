@@ -39,13 +39,27 @@ const check = (ok, label, detail) => { if (!ok) failed++; console.log(`${ok ? 'o
     check(fs.existsSync(path.join(path.dirname(srv.EXE), dll)), `${dll} beside llama-server.exe`)
   }
 
-  // Needs a term model already downloaded to ~/.demist/llm-models.
-  process.env.DEMIST_LLM_TIER = process.env.DEMIST_LLM_TIER || 'tiny'
+  for (const gpu of ['win-x64-cuda', 'win-x64-cuda-ext', 'win-x64-vulkan', 'win-arm64']) {
+    check(!fs.existsSync(path.join(ROOT, 'node_modules', '@node-llama-cpp', gpu)), `${gpu} not shipped`)
+  }
+  check(fs.existsSync(path.join(ROOT, 'models', 'llm', 'hf_bartowski_Qwen2.5-1.5B-Instruct.Q4_K_M.gguf')), 'default term model bundled')
+
+  // A brand-new machine: an empty home directory, so no cached model, no
+  // saved tier and no tier override. Term detection must come up from the
+  // bundled model alone, with nothing downloaded.
+  const os = require('os')
+  const freshHome = fs.mkdtempSync(path.join(os.tmpdir(), 'demist-fresh-'))
+  process.env.USERPROFILE = freshHome
+  process.env.HOME = freshHome
+  delete process.env.DEMIST_LLM_TIER
   const llm = require(path.join(NATIVE, 'llm.js'))
+  check(llm.getTier() === 'tiny', 'fresh machine defaults to the bundled tier', llm.getTier())
   await llm.preload(() => {})
   const out = await llm.defineCandidates([{ term: 'loss function', sentence: 'We minimise the loss function with gradient descent.' }], 'Machine Learning', 2, () => {}, [])
   check(out.length === 1, 'defineCandidates returns a term', JSON.stringify(out.map(t => t.term)))
   check(llm.engineInUse?.() === 'server', 'term detection running on llama-server', llm.engineInUse?.())
+  const downloaded = fs.existsSync(path.join(freshHome, '.demist', 'llm-models')) ? fs.readdirSync(path.join(freshHome, '.demist', 'llm-models')).filter(f => f.endsWith('.gguf')) : []
+  check(downloaded.length === 0, 'nothing downloaded on a fresh machine', downloaded.join(', '))
 
   console.log(failed ? `\n${failed} FAILED - do not submit this build` : '\nall packaged-layout checks passed')
   process.exit(failed ? 1 : 0)
