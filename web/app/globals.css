@@ -189,6 +189,13 @@ html:not(.dark)[data-tint="blue"]::after  { background: rgba(196, 220, 255, 0.45
 html:not(.dark)[data-tint="green"]::after { background: rgba(200, 238, 208, 0.45); }
 html:not(.dark)[data-tint="rose"]::after  { background: rgba(255, 210, 222, 0.45); }
 
+/* Greyscale (Settings > Reading comfort). On the root element on purpose: a
+   filter on any other element becomes the containing block for everything
+   position: fixed inside it (nav bars, dialogs, term cards would scroll with
+   the page), and the spec exempts the root from that. It also greys the tint
+   overlay above, which is the right result: the student asked for no colour. */
+html[data-greyscale="on"] { filter: grayscale(1); }
+
 /* ── Base ── */
 *, *::before, *::after { box-sizing: border-box; }
 

@@ -27,9 +27,13 @@ export interface ComfortPrefs {
   spacing: Spacing
   tint: Tint
   showProgress: boolean
+  // The whole screen in shades of grey. For students who find colour
+  // distracting or overwhelming (sensory sensitivity is common with autism and
+  // ADHD), the same idea as a phone's own greyscale mode, but only for Demist.
+  greyscale: boolean
 }
 
-export const DEFAULT_COMFORT: ComfortPrefs = { font: 'standard', spacing: 'normal', tint: 'none', showProgress: false }
+export const DEFAULT_COMFORT: ComfortPrefs = { font: 'standard', spacing: 'normal', tint: 'none', showProgress: false, greyscale: false }
 
 export const FONT_OPTIONS: { value: ReadingFont; label: string; sample: string }[] = [
   { value: 'standard', label: 'Standard', sample: "'Plus Jakarta Sans Variable', sans-serif" },
@@ -57,6 +61,7 @@ export function getComfort(): ComfortPrefs {
       spacing: raw.spacing === 'relaxed' ? 'relaxed' : 'normal',
       tint: TINT_OPTIONS.some(t => t.value === raw.tint) ? raw.tint as Tint : 'none',
       showProgress: raw.showProgress === true,
+      greyscale: raw.greyscale === true,
     }
   } catch {
     return DEFAULT_COMFORT
@@ -70,6 +75,7 @@ export function applyComfort(p: ComfortPrefs = getComfort()) {
   el.dataset.readFont = p.font
   el.dataset.spacing = p.spacing
   el.dataset.tint = p.tint
+  el.dataset.greyscale = p.greyscale ? 'on' : 'off'
 }
 
 export function setComfort(patch: Partial<ComfortPrefs>) {

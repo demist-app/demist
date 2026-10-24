@@ -70,6 +70,22 @@ export function ComfortSettings() {
       </div>
 
       <div>
+        <label className="text-[12px] text-gray-600 mb-1.5 block">Greyscale</label>
+        <button
+          role="switch"
+          aria-checked={prefs.greyscale}
+          onClick={() => setComfort({ greyscale: !prefs.greyscale })}
+          className="w-full flex items-center justify-between gap-3 py-3 px-4 rounded-2xl dark:bg-white/[0.05] bg-[#F8F6FB] border dark:border-white/[0.08] border-black/[0.13] text-left"
+        >
+          <span className="text-[13px] dark:text-white/80 text-gray-800">{prefs.greyscale ? 'On' : 'Off'}</span>
+          <span className={`relative w-10 h-6 rounded-full transition-colors ${prefs.greyscale ? 'bg-brand-600' : 'dark:bg-white/[0.15] bg-black/[0.15]'}`}>
+            <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all ${prefs.greyscale ? 'left-[18px]' : 'left-0.5'}`} />
+          </span>
+        </button>
+        <p className="text-[12px] text-gray-500 mt-1.5">Shows Demist in shades of grey, for when colour is distracting or too much.</p>
+      </div>
+
+      <div>
         <label className="text-[12px] text-gray-600 mb-1.5 block">Streaks</label>
         <button
           role="switch"

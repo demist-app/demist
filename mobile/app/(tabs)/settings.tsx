@@ -102,6 +102,12 @@ export default function Settings() {
           {TINT_OPTIONS.map(t => <Chip key={t.value} label={t.label} selected={prefs.tint === t.value} onPress={() => setPrefs({ tint: t.value })} />)}
         </View>
         {c.dark && prefs.tint !== 'none' ? <T size={12} tone="faint">Tints show in light mode.</T> : null}
+        <T size={13} weight={600} tone="muted">Greyscale</T>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <Chip label="Off" selected={!prefs.greyscale} onPress={() => setPrefs({ greyscale: false })} />
+          <Chip label="On" selected={prefs.greyscale} onPress={() => setPrefs({ greyscale: true })} />
+        </View>
+        <T size={12} tone="faint">Shows Demist in shades of grey, for when colour is distracting or too much.</T>
         <T size={13} weight={600} tone="muted">Appearance</T>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           {APPEARANCES.map(a => <Chip key={a.value} label={a.label} selected={prefs.appearance === a.value} onPress={() => setPrefs({ appearance: a.value })} />)}

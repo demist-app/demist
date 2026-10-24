@@ -20,6 +20,8 @@ export interface Prefs {
   appearance: Appearance
   textSize: TextSize
   showProgress: boolean
+  /** Every colour in shades of grey, for students who find colour too much. */
+  greyscale: boolean
   /** The language lectures are given in. Apple's speech recognition must be
    *  told up front; it cannot detect it. */
   lectureLanguage: LectureLanguage
@@ -39,7 +41,7 @@ function deviceLectureLanguage(): LectureLanguage {
 }
 
 export const DEFAULT_PREFS: Prefs = {
-  font: 'standard', spacing: 'normal', tint: 'none', appearance: 'system', textSize: 'default', showProgress: false,
+  font: 'standard', spacing: 'normal', tint: 'none', appearance: 'system', textSize: 'default', showProgress: false, greyscale: false,
   lectureLanguage: deviceLectureLanguage(),
 }
 
@@ -88,6 +90,26 @@ interface Ctx {
 
 const PrefsContext = createContext<Ctx | null>(null)
 
+// The palette with every colour replaced by the grey of the same perceived
+// lightness (Rec. 709 luma), keeping each colour's transparency.
+function toGrey(color: string): string {
+  const hex = /^#([0-9a-f]{6})$/i.exec(color)
+  const rgba = /^rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)$/i.exec(color)
+  let r: number, g: number, b: number, a = 1
+  if (hex) { const n = parseInt(hex[1], 16); r = n >> 16; g = (n >> 8) & 255; b = n & 255 }
+  else if (rgba) { r = +rgba[1]; g = +rgba[2]; b = +rgba[3]; a = rgba[4] ? +rgba[4] : 1 }
+  else return color
+  const y = Math.round(0.2126 * r + 0.7152 * g + 0.0722 * b)
+  return a === 1 ? `rgb(${y},${y},${y})` : `rgba(${y},${y},${y},${a})`
+}
+function greyscalePalette(p: Palette): Palette {
+  const out = { ...p }
+  for (const k of Object.keys(out) as (keyof Palette)[]) {
+    if (typeof out[k] === 'string') (out as Record<string, unknown>)[k] = toGrey(out[k] as string)
+  }
+  return out
+}
+
 export function PrefsProvider({ children }: { children: ReactNode }) {
   const [prefs, setPrefsState] = useState<Prefs>(DEFAULT_PREFS)
   const scheme = useColorScheme()
@@ -106,6 +128,10 @@ export function PrefsProvider({ children }: { children: ReactNode }) {
     // page lowers contrast instead of easing glare.
     const tint = TINTS[prefs.tint]
     if (!isDark && tint) c = { ...c, bg: tint, bgSubtle: tint, tabBar: tint }
+    // React Native's colour filters cannot greyscale on iOS, so greyscale is a
+    // palette: every colour swapped for the grey of the same lightness. A tint
+    // is colour too, so greyscale wins over it, as on the web.
+    if (prefs.greyscale) c = greyscalePalette(isDark ? dark : light)
     const scale = TEXT_SIZES.find(t => t.value === prefs.textSize)?.scale ?? 1
     const relaxed = prefs.spacing === 'relaxed'
     return {
