@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import dynamic from 'next/dynamic'
 import { capture, reportWriteFailure } from '@/lib/analytics'
@@ -500,6 +501,8 @@ export default function History() {
 
   const subjectOptions = [...new Set(sessions.map(s => s.subject).filter(Boolean))] as string[]
   const visibleSessions = subjectFilter ? sessions.filter(s => s.subject === subjectFilter) : sessions
+  // The module whose master notes to offer: the one picked, or the only one there is.
+  const notesModule = subjectFilter ?? (subjectOptions.length === 1 ? subjectOptions[0] : null)
 
   const grouped: { label: string; sessions: { s: Session; n: number }[] }[] = []
   visibleSessions.forEach((s) => {
@@ -568,6 +571,17 @@ export default function History() {
               </button>
             ))}
           </div>
+        </div>
+      )}
+
+      {!loading && !selectMode && notesModule && (
+        <div className="shrink-0 px-4 sm:px-6 py-2 border-b dark:border-white/[0.05] border-black/[0.06]">
+          <Link
+            href={`/notes?module=${encodeURIComponent(notesModule)}`}
+            className="inline-flex items-center gap-1.5 text-[13px] font-medium text-brand-700 dark:text-brand-300 hover:opacity-80 transition-opacity"
+          >
+            Master notes for {notesModule} →
+          </Link>
         </div>
       )}
 

@@ -32,7 +32,7 @@ const fmt = (ms: number) => {
 }
 
 // Cut on word boundaries so an excerpt never starts or ends mid-word.
-function excerpt(text: string, offset: number): string | null {
+export function excerpt(text: string, offset: number): string | null {
   if (!text) return null
   const at = Math.min(offset, text.length)
   let start = Math.max(0, at - BEFORE_CHARS)
