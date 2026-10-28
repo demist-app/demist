@@ -50,7 +50,10 @@
     "production": {
       "ios": {
         "ascAppId": "6825977291",
-        "appleTeamId": "PSHUCCLUA9"
+        "appleTeamId": "PSHUCCLUA9",
+        "ascApiKeyPath": "C:\\Users\\shivb\\Desktop\\Demist assets\\AuthKey_483Q2P9RBH.p8",
+        "ascApiKeyId": "483Q2P9RBH",
+        "ascApiKeyIssuerId": "5f40ad58-c59f-4d7f-a4a5-1bb706c3d019"
       }
     }
   }
