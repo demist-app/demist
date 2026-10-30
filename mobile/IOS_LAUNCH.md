@@ -130,6 +130,8 @@ Use **TestFlight** for a day or two with real students, then go to the version p
 ## Next version (v1.1), not built yet
 
 - **On-device term explanations** with Apple's Foundation Models (iPhone 15 Pro and later, with Apple Intelligence), keeping `detect-terms` as the fallback. This needs a small Swift module. EAS can build it, but it can only be tested on a real device.
-- **iOS 26 SpeechAnalyzer** for better long-lecture transcription.
+- ~~**iOS 26 SpeechAnalyzer** for better long-lecture transcription.~~ Done in build 7 (`modules/demist-speech`, `lib/speech.ts`).
+- **Highlight explained words in the transcript** (live and saved), tap a word to see its explanation. Asked for by the user on 2026-10-30 and deliberately left for a future update. Apply it on web and desktop too.
+- Contextual strings (the student's own vocabulary) for the SpeechAnalyzer engine, once the `AnalysisContext` API is confirmed on a device build.
 - A Live Activity on the lock screen showing the recording timer and the latest term.
 - Imports, quiz, translation, stats and Notion.
