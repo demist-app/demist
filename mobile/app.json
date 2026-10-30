@@ -19,7 +19,8 @@
           "audio"
         ],
         "NSMicrophoneUsageDescription": "Demist listens to your lecture so it can write it down and explain new words as they come up. The sound stays on your device.",
-        "NSSpeechRecognitionUsageDescription": "Demist turns your lecture into text on your device, so you can read along and look back later."
+        "NSSpeechRecognitionUsageDescription": "Demist turns your lecture into text on your device, so you can read along and look back later.",
+        "NSPhotoLibraryUsageDescription": "Demist does not use your photos. Lectures, notes and words are the only things it saves."
       },
       "privacyManifests": {
         "NSPrivacyTracking": false,
