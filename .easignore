@@ -1,0 +1,39 @@
+# What EAS uploads for an iPhone build. Without this file EAS archives the
+# whole repository (1.1 GB with desktop/ and web/), which took ~5 minutes per
+# build and twice failed outright at the clone step (build 10, 2026-10-30).
+# The iPhone app needs only mobile/: its shared code is generated into
+# mobile/lib/shared and committed.
+#
+# While this file exists EAS ignores every .gitignore, so the secrets and
+# build output those files cover are repeated below.
+
+# Everything that is not the iPhone app
+/web/
+/desktop/
+/backend/
+/supabase/
+/extension/
+/photos/
+/.claude/
+/.github/
+/*.py
+/*.md
+
+# From the .gitignore files
+node_modules/
+.expo/
+dist/
+web-build/
+.env
+.env.*
+*.p8
+*.p12
+*.key
+*.jks
+*.pem
+*.mobileprovision
+*.tsbuildinfo
+.DS_Store
+Thumbs.db
+/mobile/ios/
+/mobile/android/
