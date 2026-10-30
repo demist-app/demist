@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
-import { Alert, FlatList, Pressable, RefreshControl, TextInput, View } from 'react-native'
+import { Alert, FlatList, Pressable, RefreshControl, View } from 'react-native'
 import { useFocusEffect } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { supabase } from '../../lib/supabase'
@@ -7,7 +7,7 @@ import { useAccount } from '../../lib/account'
 import { usePrefs } from '../../lib/prefs'
 import { reportWriteFailure } from '../../lib/analytics'
 import { radius } from '../../lib/theme'
-import { Card, Chip, Empty, Loading, ReadAloud, T } from '../../components/ui'
+import { Card, Chip, Empty, Loading, ReadAloud, T, Input } from '../../components/ui'
 
 interface Term {
   id: string
@@ -79,7 +79,7 @@ export default function Glossary() {
               <T size={28} weight={700}>Glossary</T>
               <T tone="muted">{terms.length} {terms.length === 1 ? 'word' : 'words'} from your lectures</T>
             </View>
-            <TextInput
+            <Input
               value={query} onChangeText={setQuery} placeholder="Search" placeholderTextColor={c.fgFaint}
               clearButtonMode="while-editing" accessibilityLabel="Search your glossary"
               style={{ backgroundColor: c.surface, borderWidth: 1, borderColor: c.border, borderRadius: radius.md, paddingHorizontal: 14, paddingVertical: 12, color: c.fg, fontFamily: font(400), fontSize: size(15) }}

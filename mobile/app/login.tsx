@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { Image, KeyboardAvoidingView, Linking, Platform, Pressable, TextInput, View } from 'react-native'
+import { Image, KeyboardAvoidingView, Linking, Platform, Pressable, View, type TextInput } from 'react-native'
 import { supabase } from '../lib/supabase'
 import { capture } from '../lib/analytics'
 import { usePrefs } from '../lib/prefs'
-import { Button, Screen, T } from '../components/ui'
+import { Button, Screen, T, Input } from '../components/ui'
 import { radius } from '../lib/theme'
 
 type Step = 'email' | 'code' | 'password'
@@ -82,7 +82,7 @@ export default function Login() {
           <>
             <T size={30} weight={700} style={{ marginBottom: 8 }}>Sign in</T>
             <T tone="muted" style={{ marginBottom: 28 }}>We will email you a 6-digit code. No password needed.</T>
-            <TextInput
+            <Input
               style={input} value={email} onChangeText={setEmail}
               placeholder="you@university.ac.uk" placeholderTextColor={c.fgFaint}
               keyboardType="email-address" autoCapitalize="none" autoCorrect={false} autoComplete="email"
@@ -97,7 +97,7 @@ export default function Login() {
           <>
             <T size={30} weight={700} style={{ marginBottom: 8 }}>Check your email</T>
             <T tone="muted" style={{ marginBottom: 28 }}>We sent a code to {email.trim()}.</T>
-            <TextInput
+            <Input
               ref={codeRef}
               style={[input, { fontSize: size(26), letterSpacing: 10, textAlign: 'center' }]}
               value={code} onChangeText={t => setCode(t.replace(/\D/g, '').slice(0, 6))}
@@ -121,7 +121,7 @@ export default function Login() {
           <>
             <T size={30} weight={700} style={{ marginBottom: 8 }}>Review account</T>
             <T tone="muted" style={{ marginBottom: 28 }}>Enter the password for {REVIEW_EMAIL}.</T>
-            <TextInput style={input} value={password} onChangeText={setPassword} secureTextEntry autoCapitalize="none"
+            <Input style={input} value={password} onChangeText={setPassword} secureTextEntry autoCapitalize="none"
               textContentType="password" onSubmitEditing={signInWithPassword} accessibilityLabel="Password" />
             <Button label="Sign in" onPress={signInWithPassword} loading={loading} disabled={!password} />
             <Pressable hitSlop={10} style={{ marginTop: 18 }} onPress={() => { setStep('email'); setPassword('') }} accessibilityRole="button">

@@ -29,9 +29,16 @@ const COMMON = new Set([
   'sound','start','state','story','study','such','sure','system','talk','term','terms','those','thought','together',
   'top','turn','understand','until','used','using','usually','water','week','went','why','without','word','words',
   'world','write','yes','young',
+  // Everyday words the affix rules mistake for technical ones ("please" ends
+  // in -ase like an enzyme; first iPhone test, 2026-10-30), and speech filler.
+  'please','increase','decrease','release','purchase','phrase','awesome','troublesome','wholesome','handsome',
+  'lonesome','tiresome','inside','outside','beside','decide','provide','hello','gonna','wanna',
 ])
 
-const TECHNICAL_AFFIXES = /(?:osis|itis|aemia|emia|ology|olysis|otomy|ectomy|opathy|plasia|trophy|genesis|kinesis|philia|phobia|centesis|scopy|graphy|gram$|ase$|ide$|ate$|yl$|oid$|eous$|ferous$|ism$|tion$|sion$|ance$|ence$|ivity$|isation$|ization$|^hyper|^hypo|^intra|^inter|^peri|^endo|^exo|^anti|^poly|^macro|^micro|^neuro|^cardio|^hepato|^nephro|^gastro|^haema|^hema|^osteo|^myo|^derm|^pseudo|^meta|^iso|^electro|^thermo|^photo|^juris|^tort)/i
+const TECHNICAL_AFFIXES = /(?:osis|itis|aemia|emia|ology|olysis|otomy|ectomy|opathy|plasia|trophy|genesis|kinesis|philia|phobia|centesis|scopy|graphy|gram$|ase$|ide$|ate$|yl$|oid$|eous$|ferous$|ism$|tion$|sion$|ance$|ence$|ivity$|isation$|ization$|some$|cyte$|plasm|zyme$|^hyper|^hypo|^intra|^inter|^peri|^endo|^exo|^anti|^poly|^macro|^micro|^neuro|^cardio|^hepato|^nephro|^gastro|^haema|^hema|^osteo|^myo|^derm|^pseudo|^meta|^iso|^electro|^thermo|^photo|^juris|^tort)/i
+
+// Abbreviations everyone knows, never worth a card on their own.
+const PLAIN_ABBREVIATIONS = new Set(['USA', 'BBC', 'CEO', 'FAQ', 'ASAP', 'LOL', 'OMG', 'ETC', 'GCSE', 'TV', 'UK', 'US', 'OK'])
 
 import { isLikelyJargon } from '@/lib/termQuality'
 import { isFunctionWord, type LectureLanguage } from '@/lib/lectureLanguage'
@@ -148,8 +155,14 @@ export function extractCandidates(
   // Multi-word capitalised phrases mid-sentence ("Krebs cycle", "Donoghue v Stevenson")
   const phraseRe = /(?<!^)(?<![.!?]\s)([A-Z][a-z]+(?:\s+(?:v\.?|of|the|[A-Z][a-z]+)){1,4})/g
   for (const m of clean.matchAll(phraseRe)) {
-    const t = m[1].trim()
-    if (t.split(/\s+/).length >= 2 && isLikelyJargon(t) && take(t)) {
+    // Dictation capitalises whatever starts an utterance, and without full
+    // stops that lands mid-sentence: "Okay Cuban", "Kubernetes Okay" (first
+    // iPhone test). Ordinary words at either end are not part of a name.
+    const words = m[1].trim().split(/\s+/)
+    while (words.length && COMMON.has(words[0].toLowerCase())) words.shift()
+    while (words.length && COMMON.has(words[words.length - 1].toLowerCase())) words.pop()
+    const t = words.join(' ')
+    if (words.length >= 2 && isLikelyJargon(t) && take(t)) {
       t.toLowerCase().split(/\s+/).forEach(w => inPhrase.add(w))
     }
   }
@@ -171,6 +184,16 @@ export function extractCandidates(
       if (!isLikelyJargon(p)) continue
       if (take(p)) { phrases++; p.toLowerCase().split(/\s+/).forEach(w => inPhrase.add(w)) }
     }
+  }
+
+  // An abbreviation on its own ("AWS", "CRISPR", "GDPR"). The single-word
+  // rules below need five letters, so these were never asked about.
+  let abbreviations = 0
+  for (const m of clean.matchAll(/\b([A-Z][A-Z0-9]{2,5})s?\b/g)) {
+    if (abbreviations >= 2) break
+    const t = m[1]
+    if (PLAIN_ABBREVIATIONS.has(t) || out.some(c => c.term.startsWith(`${t} `)) || !isLikelyJargon(t)) continue
+    if (take(t)) abbreviations++
   }
 
   for (const raw of clean.split(NOT_WORD)) {

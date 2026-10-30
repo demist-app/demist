@@ -2,8 +2,8 @@
 // text size and spacing from Settings apply everywhere, as on the web.
 import { useEffect, useState, type ReactNode } from 'react'
 import {
-  ActivityIndicator, Pressable, ScrollView, Text, View,
-  type PressableProps, type StyleProp, type TextStyle, type ViewStyle,
+  ActivityIndicator, Pressable, ScrollView, Text, TextInput, View,
+  type PressableProps, type StyleProp, type TextInputProps, type TextStyle, type ViewStyle,
 } from 'react-native'
 import { SafeAreaView, type Edge } from 'react-native-safe-area-context'
 import * as Speech from 'expo-speech'
@@ -30,6 +30,16 @@ export function T({ children, size = 15, weight = 400, tone = 'fg', style, cente
       {children}
     </Text>
   )
+}
+
+// Every text box goes through this. React Native 0.85 reuses native text
+// inputs between screens, and a reused one keeps the last letter spacing it
+// was given unless the new one sets its own: the sign-in code box's spacing
+// turned up in the Record screen's placeholder as "C o m p u t e r"
+// (first iPhone test, 2026-10-30). So spacing is always set explicitly.
+export function Input({ style, ...props }: TextInputProps & { ref?: React.Ref<TextInput> }) {
+  const { c } = usePrefs()
+  return <TextInput placeholderTextColor={c.fgFaint} maxFontSizeMultiplier={1.6} {...props} style={[{ letterSpacing: 0, textAlign: 'left' }, style]} />
 }
 
 export function Screen({ children, scroll = true, edges = ['top'], style }: {

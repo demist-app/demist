@@ -1,14 +1,14 @@
-import { useEffect, useRef } from 'react'
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, TextInput, View } from 'react-native'
+import { useEffect, useRef, useState } from 'react'
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, View } from 'react-native'
 import { router } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRecording, openSettings } from '../../lib/recording'
 import { useAccount } from '../../lib/account'
 import { usePrefs, LECTURE_LANGUAGES } from '../../lib/prefs'
 import { radius } from '../../lib/theme'
-import { Button, Card, Chip, ReadAloud, T } from '../../components/ui'
+import { Button, Card, ReadAloud, T, Input } from '../../components/ui'
 import { clockFromMs } from '../../lib/format'
-import { CloseIcon, FlagIcon, MicIcon, StopIcon } from '../../components/icons'
+import { CheckIcon, ChevronIcon, CloseIcon, FlagIcon, MicIcon, StopIcon } from '../../components/icons'
 
 // Five bars in the shape of the Demist mark, moving gently with the room's
 // sound. Purely visual: nothing about recording depends on it.
@@ -29,6 +29,18 @@ export default function Record() {
   const { profile } = useAccount()
   const { c, font, size, prefs, setPrefs } = usePrefs()
   const scrollRef = useRef<ScrollView>(null)
+  const [langOpen, setLangOpen] = useState(false)
+  const langLabel = LECTURE_LANGUAGES.find(l => l.value === prefs.lectureLanguage)?.label ?? 'English'
+
+  // The student's course fills the box as real text, once. Shown as a faint
+  // placeholder it looked filled in but read as a hint; cleared, it stays
+  // cleared (the recording still falls back to the course).
+  const prefilled = useRef(false)
+  useEffect(() => {
+    if (prefilled.current || !profile?.course || rec.subject || rec.status !== 'idle') return
+    prefilled.current = true
+    rec.setSubject(profile.course)
+  }, [profile?.course])
 
   useEffect(() => {
     if (rec.finishedSessionId) {
@@ -49,11 +61,10 @@ export default function Record() {
             <T tone="muted" style={{ marginBottom: 24 }}>New words are explained as they come up, and everything is saved for later.</T>
 
             <T size={13} weight={600} tone="muted" style={{ marginBottom: 8 }}>Module or subject</T>
-            <TextInput
+            <Input
               value={rec.subject}
               onChangeText={rec.setSubject}
-              placeholder={profile?.course || 'e.g. Cell Biology'}
-              placeholderTextColor={c.fgFaint}
+              placeholder="e.g. Cell Biology"
               style={{
                 backgroundColor: c.surface, borderWidth: 1, borderColor: c.border, borderRadius: radius.lg,
                 paddingHorizontal: 16, paddingVertical: 14, color: c.fg, fontSize: size(16), fontFamily: font(500),
@@ -62,12 +73,44 @@ export default function Record() {
               accessibilityLabel="Module or subject"
             />
 
-            <T size={13} weight={600} tone="muted" style={{ marginTop: 18, marginBottom: 8 }}>Lecture language</T>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }} accessibilityRole="radiogroup">
-              {LECTURE_LANGUAGES.map(l => (
-                <Chip key={l.value} label={l.label} selected={prefs.lectureLanguage === l.value} onPress={() => setPrefs({ lectureLanguage: l.value })} />
-              ))}
-            </ScrollView>
+            {/* Set once and rarely changed, so one quiet row rather than a
+                row of buttons competing with the record button. */}
+            <Pressable onPress={() => setLangOpen(true)} accessibilityRole="button"
+              accessibilityLabel={`Lecture language, ${langLabel}`} accessibilityHint="Changes the language the lecture is written down in"
+              style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10, minHeight: 44, opacity: pressed ? 0.6 : 1 })}>
+              <T size={14} tone="muted">Lecture language</T>
+              <T size={14} weight={600} tone="accent" style={{ marginLeft: 'auto' }}>{langLabel}</T>
+              <ChevronIcon color={c.accent} size={16} />
+            </Pressable>
+
+            <Modal visible={langOpen} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setLangOpen(false)}>
+              <View style={{ flex: 1, backgroundColor: c.bg, padding: 20 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                  <T size={22} weight={700} style={{ flex: 1 }}>Lecture language</T>
+                  <Pressable onPress={() => setLangOpen(false)} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close"
+                    style={{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: c.surface2 }}>
+                    <CloseIcon color={c.fgMuted} />
+                  </Pressable>
+                </View>
+                <T tone="muted" style={{ marginBottom: 16 }}>The language your lecturer speaks. Your phone needs to know it to write the lecture down.</T>
+                <Card style={{ paddingVertical: 4 }}>
+                  {LECTURE_LANGUAGES.map((l, i) => {
+                    const selected = prefs.lectureLanguage === l.value
+                    return (
+                      <Pressable key={l.value} onPress={() => { setPrefs({ lectureLanguage: l.value }); setLangOpen(false) }}
+                        accessibilityRole="radio" accessibilityState={{ selected }} accessibilityLabel={l.label}
+                        style={({ pressed }) => ({
+                          flexDirection: 'row', alignItems: 'center', minHeight: 52, opacity: pressed ? 0.6 : 1,
+                          borderTopWidth: i ? 1 : 0, borderTopColor: c.border,
+                        })}>
+                        <T weight={selected ? 600 : 400} tone={selected ? 'accent' : 'fg'} style={{ flex: 1 }}>{l.label}</T>
+                        {selected ? <CheckIcon color={c.accent} /> : null}
+                      </Pressable>
+                    )
+                  })}
+                </Card>
+              </View>
+            </Modal>
 
             <View style={{ alignItems: 'center', marginTop: 40, marginBottom: 28 }}>
               <Pressable

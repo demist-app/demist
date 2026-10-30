@@ -44,6 +44,14 @@ for (const s of MUNDANE) {
   check(got.length === 0, `no phrase: "${s.slice(0, 36)}..."`, got)
 }
 
+// iPhone dictation (2026-10-30): run-on sentences, utterance-start capitals
+const run = cands("Is gonna please tell me the flags up Give me a complicated word ribosome A contra PLAYR It didn't even know what that word a contra Okay Cuban AWS Kubernetes Okay, it's not flagging up any words")
+check(run.includes('ribosome') && run.includes('AWS') && run.includes('Kubernetes'), 'run-on: ribosome, AWS, Kubernetes', run)
+check(!run.includes('please') && !run.some(t => /okay/i.test(t)), 'run-on: no "please", no "Okay X"', run)
+check(cands('The lysosome and the chromosome sit inside the cytoplasm of every leukocyte.').length >= 3, 'short biology words', cands('The lysosome and the chromosome sit inside the cytoplasm of every leukocyte.'))
+check(cands('That was an awesome and troublesome week, please increase the volume.').length === 0, 'no affix false positives', cands('That was an awesome and troublesome week, please increase the volume.'))
+check(!cands('We moved to the USA and watched the BBC on TV.').length, 'plain abbreviations skipped', cands('We moved to the USA and watched the BBC on TV.'))
+
 // French and Dutch: accented words stay whole, function words are not asked about
 const fr = cands("Mais précontractuelle, ce qu'on entend par précontractuelle, c'est la période des pourparlers avant la signature.", 'fr')
 check(fr.includes('précontractuelle') && !fr.some(t => t === 'pr' || t === 'contractuelle'), 'French accents kept whole', fr)

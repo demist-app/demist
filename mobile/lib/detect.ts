@@ -34,8 +34,19 @@ function isLatinTerm(term: string): boolean {
   return /^[\x20-\x7EÀ-ɏͰ-Ͽ\s'-]+$/.test(term)
 }
 
+// Apple's dictation often goes a minute without a full stop, and the
+// extractor takes at most six candidates per sentence, so a run-on is cut
+// into 25-word pieces. The cut points depend only on the words before them,
+// so a piece stays the same as the recogniser keeps adding words.
+const MAX_WORDS = 25
 export function splitSentences(text: string): string[] {
-  return text.split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(Boolean)
+  return text.split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(Boolean).flatMap(s => {
+    const words = s.split(/\s+/)
+    if (words.length <= MAX_WORDS) return [s]
+    const pieces: string[] = []
+    for (let i = 0; i < words.length; i += MAX_WORDS) pieces.push(words.slice(i, i + MAX_WORDS).join(' '))
+    return pieces
+  })
 }
 
 export async function detectTerms(

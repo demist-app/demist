@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Alert, Image, Linking, Pressable, TextInput, View } from 'react-native'
+import { Alert, Image, Linking, Pressable, View } from 'react-native'
 import { router } from 'expo-router'
 import { supabase } from '../../lib/supabase'
 import { useAccount } from '../../lib/account'
@@ -7,7 +7,7 @@ import { usePrefs, FONT_OPTIONS, TINT_OPTIONS, TEXT_SIZES, type Appearance } fro
 import { capture, reportWriteFailure, resetAnalytics } from '../../lib/analytics'
 import { useRecording } from '../../lib/recording'
 import { radius } from '../../lib/theme'
-import { Button, Card, Chip, Screen, SectionLabel, T, Title } from '../../components/ui'
+import { Button, Card, Chip, Screen, SectionLabel, T, Title, Input } from '../../components/ui'
 import { ChevronIcon } from '../../components/icons'
 
 const SUPPORT_NEEDS = [
@@ -118,7 +118,7 @@ export default function Settings() {
       <SectionLabel>About you</SectionLabel>
       <Card style={{ gap: 12 }}>
         <T size={13} weight={600} tone="muted">What you study</T>
-        <TextInput style={input} value={course} onChangeText={setCourse} placeholder="e.g. Molecular Biology" placeholderTextColor={c.fgFaint}
+        <Input style={input} value={course} onChangeText={setCourse} placeholder="e.g. Molecular Biology" placeholderTextColor={c.fgFaint}
           onEndEditing={() => { if ((course.trim() || null) !== (profile?.course ?? null)) void updateProfile({ course: course.trim() || null }) }}
           returnKeyType="done" accessibilityLabel="What you study" />
         <T size={13} weight={600} tone="muted">Anything that makes lectures harder to follow</T>
@@ -153,7 +153,7 @@ export default function Settings() {
           <T weight={700}>Delete your account?</T>
           <T tone="muted">This permanently deletes your account, all recordings, words and flashcards, on every device. This cannot be undone.</T>
           <T size={13} tone="muted">Type DELETE to confirm.</T>
-          <TextInput style={input} value={confirmText} onChangeText={setConfirmText} autoCapitalize="characters" autoCorrect={false} accessibilityLabel="Type DELETE to confirm" />
+          <Input style={input} value={confirmText} onChangeText={setConfirmText} autoCapitalize="characters" autoCorrect={false} accessibilityLabel="Type DELETE to confirm" />
           <Button kind="danger" label="Delete my account" onPress={deleteAccount} loading={deleting} disabled={confirmText !== 'DELETE'} />
           <Button kind="quiet" label="Cancel" onPress={() => { setDeleteOpen(false); setConfirmText('') }} />
         </Card>

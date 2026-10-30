@@ -70,7 +70,7 @@ export default function History() {
                 <View style={{ flex: 1 }}>
                   <T weight={700} numberOfLines={1}>{lectureTitle(s)}</T>
                   <T size={13} tone="faint">
-                    {[date, mins ? `${mins} min` : null, `${s.terms} ${s.terms === 1 ? 'word' : 'words'}`].filter(Boolean).join(' · ')}
+                    {[date, mins ? `${mins} min` : null, s.terms ? `${s.terms} new ${s.terms === 1 ? 'word' : 'words'}` : null].filter(Boolean).join(' · ')}
                   </T>
                   {s.synopsis ? <T size={14} tone="muted" numberOfLines={2} style={{ marginTop: 6 }}>{s.synopsis}</T> : null}
                 </View>

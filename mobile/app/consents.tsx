@@ -3,7 +3,7 @@
 // is what lets a transcript and summary be kept, so a failed write is never
 // shown as a saved one.
 import { useCallback, useEffect, useState } from 'react'
-import { Alert, Pressable, Share, TextInput, View } from 'react-native'
+import { Alert, Pressable, Share, View } from 'react-native'
 import { router } from 'expo-router'
 import { supabase } from '../lib/supabase'
 import { useAccount } from '../lib/account'
@@ -11,7 +11,7 @@ import { useRecording } from '../lib/recording'
 import { usePrefs } from '../lib/prefs'
 import { capture, reportWriteFailure } from '../lib/analytics'
 import { radius } from '../lib/theme'
-import { Button, Card, Screen, SectionLabel, T } from '../components/ui'
+import { Button, Card, Screen, SectionLabel, T, Input } from '../components/ui'
 
 interface Consent { id: string; module_name: string; granted_at: string; notes: string | null }
 
@@ -93,9 +93,9 @@ export default function Consents() {
 
       <SectionLabel>Add a module</SectionLabel>
       <View style={{ gap: 10 }}>
-        <TextInput style={input} value={module} onChangeText={setModule} placeholder="Module name, as you type it when recording"
+        <Input style={input} value={module} onChangeText={setModule} placeholder="Module name, as you type it when recording"
           placeholderTextColor={c.fgFaint} accessibilityLabel="Module name" />
-        <TextInput style={input} value={notes} onChangeText={setNotes} placeholder="Notes (optional), e.g. email reply received 30 June"
+        <Input style={input} value={notes} onChangeText={setNotes} placeholder="Notes (optional), e.g. email reply received 30 June"
           placeholderTextColor={c.fgFaint} maxLength={300} accessibilityLabel="Notes" />
         <Button label="My lecturer has said yes" onPress={save} loading={saving} disabled={!module.trim()} />
       </View>

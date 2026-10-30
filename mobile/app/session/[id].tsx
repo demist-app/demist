@@ -2,14 +2,14 @@
 // them, as web/components/LostMoments.tsx), the words explained, and the
 // transcript where consent allowed it to be saved.
 import { useCallback, useEffect, useState } from 'react'
-import { Alert, Pressable, TextInput, View } from 'react-native'
+import { Alert, Pressable, View } from 'react-native'
 import { router, useLocalSearchParams } from 'expo-router'
 import { supabase } from '../../lib/supabase'
 import { usePrefs } from '../../lib/prefs'
 import { reportWriteFailure } from '../../lib/analytics'
 import { lectureTitle, minutes, clockFromMs } from '../../lib/format'
 import { radius } from '../../lib/theme'
-import { Button, Card, Loading, ReadAloud, Screen, SectionLabel, T } from '../../components/ui'
+import { Button, Card, Loading, ReadAloud, Screen, SectionLabel, T, Input } from '../../components/ui'
 import { BackIcon } from '../../components/icons'
 
 interface Lecture {
@@ -105,7 +105,7 @@ export default function LectureScreen() {
 
       {renaming ? (
         <View style={{ gap: 10, marginTop: 8 }}>
-          <TextInput value={name} onChangeText={setName} autoFocus placeholder={lectureTitle(lecture)} placeholderTextColor={c.fgFaint}
+          <Input value={name} onChangeText={setName} autoFocus placeholder={lectureTitle(lecture)} placeholderTextColor={c.fgFaint}
             onSubmitEditing={saveName} returnKeyType="done" accessibilityLabel="Lecture name"
             style={{ backgroundColor: c.surface, borderWidth: 1, borderColor: c.border, borderRadius: radius.md, padding: 14, color: c.fg, fontFamily: font(600), fontSize: size(18) }} />
           <View style={{ flexDirection: 'row', gap: 10 }}>
@@ -120,7 +120,7 @@ export default function LectureScreen() {
       )}
       <T size={13} tone="faint" style={{ marginTop: 4 }}>
         {[new Date(lecture.started_at).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }),
-          mins ? `${mins} min` : null, `${terms.length} ${terms.length === 1 ? 'word' : 'words'}`].filter(Boolean).join(' · ')}
+          mins ? `${mins} min` : null, terms.length ? `${terms.length} new ${terms.length === 1 ? 'word' : 'words'}` : null].filter(Boolean).join(' · ')}
       </T>
 
       <SectionLabel>Summary</SectionLabel>

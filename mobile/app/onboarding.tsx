@@ -2,13 +2,13 @@
 // the 16+ check (web/lib/age.ts, shared copy). Accounts created before the age
 // check existed skip straight to the birthday question.
 import { useMemo, useRef, useState } from 'react'
-import { KeyboardAvoidingView, Platform, TextInput, View } from 'react-native'
+import { KeyboardAvoidingView, Platform, View, type TextInput } from 'react-native'
 import { supabase } from '../lib/supabase'
 import { useAccount } from '../lib/account'
 import { usePrefs } from '../lib/prefs'
 import { capture, reportWriteFailure } from '../lib/analytics'
 import { MINIMUM_AGE, meetsMinimumAge } from '../lib/shared/age'
-import { Button, Chip, Screen, T } from '../components/ui'
+import { Button, Chip, Screen, T, Input } from '../components/ui'
 import { radius } from '../lib/theme'
 
 const YEARS = [
@@ -119,7 +119,7 @@ export default function Onboarding() {
           <>
             <T size={30} weight={700} style={{ marginBottom: 8 }}>What are you studying?</T>
             <T tone="muted" style={{ marginBottom: 24 }}>We use this to get explanations at the right level.</T>
-            <TextInput style={input} value={course} onChangeText={setCourse} placeholder="e.g. Molecular Biology"
+            <Input style={input} value={course} onChangeText={setCourse} placeholder="e.g. Molecular Biology"
               placeholderTextColor={c.fgFaint} returnKeyType="next" onSubmitEditing={() => setStep('year')} accessibilityLabel="Your course" />
             <Button style={{ marginTop: 16 }} label={course.trim() ? 'Continue' : 'Skip for now'} onPress={() => setStep('year')} />
           </>
@@ -153,13 +153,13 @@ export default function Onboarding() {
             <T tone="muted" style={{ marginBottom: 4 }}>Demist is for people aged {MINIMUM_AGE} and over, so we need to check. We never share this.</T>
             <T size={13} tone="faint" style={{ marginBottom: 20 }}>Recording a lecture captures your lecturer too, and our Terms make that your responsibility.</T>
             <View style={{ flexDirection: 'row', gap: 10 }}>
-              <TextInput style={[input, { flex: 1, textAlign: 'center' }]} value={day} placeholder="DD" placeholderTextColor={c.fgFaint}
+              <Input style={[input, { flex: 1, textAlign: 'center' }]} value={day} placeholder="DD" placeholderTextColor={c.fgFaint}
                 keyboardType="number-pad" maxLength={2} accessibilityLabel="Day of birth"
                 onChangeText={t => { const v = t.replace(/\D/g, ''); setDay(v); if (v.length === 2) monthRef.current?.focus() }} />
-              <TextInput ref={monthRef} style={[input, { flex: 1, textAlign: 'center' }]} value={month} placeholder="MM" placeholderTextColor={c.fgFaint}
+              <Input ref={monthRef} style={[input, { flex: 1, textAlign: 'center' }]} value={month} placeholder="MM" placeholderTextColor={c.fgFaint}
                 keyboardType="number-pad" maxLength={2} accessibilityLabel="Month of birth"
                 onChangeText={t => { const v = t.replace(/\D/g, ''); setMonth(v); if (v.length === 2) yearRef.current?.focus() }} />
-              <TextInput ref={yearRef} style={[input, { flex: 1.6, textAlign: 'center' }]} value={yr} placeholder="YYYY" placeholderTextColor={c.fgFaint}
+              <Input ref={yearRef} style={[input, { flex: 1.6, textAlign: 'center' }]} value={yr} placeholder="YYYY" placeholderTextColor={c.fgFaint}
                 keyboardType="number-pad" maxLength={4} accessibilityLabel="Year of birth"
                 onChangeText={t => setYr(t.replace(/\D/g, ''))} />
             </View>

@@ -50,7 +50,10 @@ export const FlagIcon = ({ color, size = 20 }: P) => (
     <Path d="M4 22V4" /><Path d="M4 4h12l-2 4 2 4H4" />
   </Svg>
 )
-export const CloseIcon = ({ color, size = 16 }: P) => (
+export const CheckIcon = ({ color, size = 20 }: P) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" {...stroke(color)}><Polyline points="5 12.5 10 17.5 19 7" /></Svg>
+)
+export const CloseIcon =({ color, size = 16 }: P) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" {...stroke(color)}>
     <Line x1="6" y1="6" x2="18" y2="18" /><Line x1="18" y1="6" x2="6" y2="18" />
   </Svg>
