@@ -58,6 +58,8 @@ interface Ctx {
 const RecordingContext = createContext<Ctx | null>(null)
 
 const CARD_MS = 10_000
+const CARDS_VISIBLE = 2        // unpinned cards on screen at once
+const CARD_QUEUE_MAX = 6       // waiting beyond this are only in the glossary
 const DETECT_EVERY_MS = 15_000
 const AUTOSAVE_MS = 45_000
 
@@ -111,6 +113,8 @@ export function RecordingProvider({ children }: { children: ReactNode }) {
   const eligibleRef = useRef<boolean | null>(null)
   const lastSavedRef = useRef('')
   const cardTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>())
+  const cardsRef = useRef<LiveCard[]>([])
+  const cardQueueRef = useRef<DetectedTerm[]>([])
   const subjectRef = useRef('')
   const restartsRef = useRef<number[]>([])
   // Whether this recording has heard anything at all. A recogniser that ends
@@ -278,12 +282,11 @@ export function RecordingProvider({ children }: { children: ReactNode }) {
     setNotice(null)
     termsRef.current = [...terms, ...termsRef.current]
     setSessionTerms(termsRef.current)
-    const shown = terms.slice(0, 2).map(t => ({ id: `${Date.now()}-${Math.random()}`, term: t.term, definition: t.definition, pinned: false }))
-    setCards(prev => [...prev, ...shown].slice(-3))
-    shown.forEach(c => {
-      capture('term_card_shown', { chars: c.term.length })
-      cardTimers.current.set(c.id, setTimeout(() => dismissCard(c.id), CARD_MS))
-    })
+    // Every word gets its card, two on screen at a time. Before, a batch of
+    // four showed two and saved the rest silently: replaying a biology
+    // lecture, mitochondria and ribosomes never appeared.
+    cardQueueRef.current = [...cardQueueRef.current, ...terms].slice(-CARD_QUEUE_MAX)
+    fillCards()
     const sid = sessionIdRef.current
     const uid = userIdRef.current
     if (!sid || !uid) return
@@ -384,7 +387,7 @@ export function RecordingProvider({ children }: { children: ReactNode }) {
     segSentencesSentRef.current = 0; termsRef.current = []; marksRef.current = []; unsavedMarksRef.current = []
     eligibleRef.current = null; lastSavedRef.current = ''; restartsRef.current = []
     statsRef.current = { detectOk: 0, detectFailed: 0, lastFailure: null, restarts: 0, termsSaved: 0 }
-    setTranscript(''); setInterim(''); setCards([]); setSessionTerms([]); setLostCount(0); setElapsedMs(0)
+    setTranscript(''); setInterim(''); setCardsBoth([]); cardQueueRef.current = []; setSessionTerms([]); setLostCount(0); setElapsedMs(0)
 
     // Words already in the glossary are never carded again.
     const { data: knownRows } = await supabase.from('terms').select('term').eq('user_id', userId).order('created_at', { ascending: false }).limit(1000)
@@ -463,7 +466,7 @@ export function RecordingProvider({ children }: { children: ReactNode }) {
     })
     setStatusBoth('idle')
     setLevel(0)
-    setCards([])
+    setCardsBoth([]); cardQueueRef.current = []
     setNotice(sid ? null : 'This lecture could not be saved to your account. Check your connection; the text is still on screen.')
     if (sid) setFinishedSessionId(sid)
   }, [runDetection])
@@ -481,18 +484,41 @@ export function RecordingProvider({ children }: { children: ReactNode }) {
     void saveMarks(sid, [mark]).then(ok => { if (!ok) unsavedMarksRef.current.push(mark) })
   }, [])
 
+  // ---- cards ---------------------------------------------------------------
+  // cardsRef mirrors the state so the queue can be read outside a render.
+
+  const setCardsBoth = (next: LiveCard[]) => { cardsRef.current = next; setCards(next) }
+
+  // A card only starts fading once the screen is on. In a pocket the timer
+  // used to run anyway, so a word explained while the phone was locked was
+  // gone before the student looked.
+  const startFade = (id: string) => {
+    if (cardTimers.current.has(id) || AppState.currentState !== 'active') return
+    cardTimers.current.set(id, setTimeout(() => dismissCard(id), CARD_MS))
+  }
+
+  const fillCards = () => {
+    const room = CARDS_VISIBLE - cardsRef.current.filter(c => !c.pinned).length
+    if (room <= 0 || !cardQueueRef.current.length) return
+    const next = cardQueueRef.current.splice(0, room).map(t => ({ id: `${Date.now()}-${Math.random()}`, term: t.term, definition: t.definition, pinned: false }))
+    setCardsBoth([...cardsRef.current, ...next])
+    next.forEach(c => { capture('term_card_shown', { chars: c.term.length }); startFade(c.id) })
+  }
+
   const dismissCard = useCallback((id: string) => {
     const t = cardTimers.current.get(id)
     if (t) clearTimeout(t)
     cardTimers.current.delete(id)
-    setCards(prev => prev.filter(c => c.id !== id))
+    setCardsBoth(cardsRef.current.filter(c => c.id !== id))
+    fillCards()
   }, [])
 
   const pinCard = useCallback((id: string) => {
     const t = cardTimers.current.get(id)
     if (t) clearTimeout(t)
     cardTimers.current.delete(id)
-    setCards(prev => prev.map(c => c.id === id ? { ...c, pinned: true } : c))
+    setCardsBoth(cardsRef.current.map(c => c.id === id ? { ...c, pinned: true } : c))
+    fillCards()
   }, [])
 
   // Signing out mid-lecture stops the recording rather than orphaning it.
@@ -506,6 +532,7 @@ export function RecordingProvider({ children }: { children: ReactNode }) {
       if (s === 'active' && statusRef.current === 'recording') {
         setTranscript(finalRef.current)
         setElapsedMs(Date.now() - startedAtRef.current)
+        cardsRef.current.forEach(c => { if (!c.pinned) startFade(c.id) })
       }
     })
     return () => sub.remove()
