@@ -82,6 +82,21 @@ The build number goes up automatically each time. When you release an update, ch
 - **Screenshots:** you need iPhone 6.9" (1320×2868) and iPad 13" (2064×2752). Take them on a real device from the TestFlight build, signed in as the review account, which has three ready-made lectures.
 - **Encryption:** already declared in the app (HTTPS only, exempt), so App Store Connect won't ask.
 
+**Filled in through the App Store Connect API on 2026-10-30** (key 483Q2P9RBH):
+- version string set to 1.0.0, to match the builds
+- subtitle, description, keywords, promotional text, URLs and copyright
+- secondary category Productivity
+- age rating: all "None", 16+
+- price: free, base territory GBR
+- availability: all 175 territories, plus new ones automatically
+
+The App Review demo password is in `Desktop\Demist assets\app-review-login.txt`. Still done by hand in App Store Connect: App Privacy, screenshots, and the review contact's name and phone.
+
+- **Subtitle:** Lectures, explained as you go
+- **Promotional text:** Made by neurodivergent people for neurodivergent students. Record a lecture and hard words are explained the moment they are said.
+- **Keywords:** lecture,transcription,ADHD,dyslexia,university,notes,glossary,flashcards,neurodivergent,student
+- **Description:** see App Store Connect; it describes the live transcript, word explanations, "I'm lost", locked-phone recording, glossary, flashcards, seven lecture languages, the reading-comfort options and privacy. Keep it free of "AI" and em dashes.
+
 ### 5. App Privacy answers ("nutrition label")
 
 Set **Tracking: No** for everything.
