@@ -7,7 +7,7 @@ import { router, useLocalSearchParams } from 'expo-router'
 import { supabase } from '../../lib/supabase'
 import { usePrefs } from '../../lib/prefs'
 import { reportWriteFailure } from '../../lib/analytics'
-import { lectureTitle, minutes, clockFromMs } from '../../lib/format'
+import { lectureTitle, minutes, clockFromMs, paragraphs } from '../../lib/format'
 import { radius } from '../../lib/theme'
 import { Button, Card, Loading, ReadAloud, Screen, SectionLabel, T, Input } from '../../components/ui'
 import { BackIcon } from '../../components/icons'
@@ -81,6 +81,7 @@ export default function LectureScreen() {
 
   const t0 = new Date(lecture.started_at).getTime()
   const mins = minutes(lecture)
+  const paras = lecture.transcript ? paragraphs(lecture.transcript) : []
 
   const saveName = async () => {
     const value = name.trim() || null
@@ -114,9 +115,13 @@ export default function LectureScreen() {
           </View>
         </View>
       ) : (
-        <Pressable onLongPress={() => { setName(lecture.name ?? ''); setRenaming(true) }} accessibilityHint="Press and hold to rename">
-          <T size={26} weight={700} style={{ marginTop: 8 }}>{lectureTitle(lecture)}</T>
-        </Pressable>
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginTop: 8 }}>
+          <T size={26} weight={700} style={{ flex: 1 }}>{lectureTitle(lecture)}</T>
+          <Pressable onPress={() => { setName(lecture.name ?? ''); setRenaming(true) }} hitSlop={10} accessibilityRole="button"
+            accessibilityLabel="Rename this lecture" style={{ paddingTop: 8 }}>
+            <T size={14} weight={600} tone="accent">Rename</T>
+          </Pressable>
+        </View>
       )}
       <T size={13} tone="faint" style={{ marginTop: 4 }}>
         {[new Date(lecture.started_at).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }),
@@ -192,10 +197,12 @@ export default function LectureScreen() {
       <SectionLabel>Transcript</SectionLabel>
       {lecture.transcript ? (
         <>
-          <Card>
-            <T size={15} selectable numberOfLines={showTranscript ? undefined : 8}>{lecture.transcript}</T>
+          <Card style={{ gap: 14 }}>
+            {(showTranscript ? paras : paras.slice(0, 2)).map((p, i) => <T key={i} size={15} selectable>{p}</T>)}
           </Card>
-          <Button kind="quiet" label={showTranscript ? 'Show less' : 'Show the whole transcript'} onPress={() => setShowTranscript(s => !s)} />
+          {paras.length > 2 ? (
+            <Button kind="quiet" label={showTranscript ? 'Show less' : 'Show the whole transcript'} onPress={() => setShowTranscript(s => !s)} />
+          ) : null}
         </>
       ) : (
         <T tone="muted">

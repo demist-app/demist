@@ -25,6 +25,7 @@ import { usePrefs } from './prefs'
 import type { LectureLanguage } from './shared/lectureLanguage'
 import { capture, reportWriteFailure, reportError } from './analytics'
 import { detectTerms, splitSentences, type DetectState, type DetectedTerm } from './detect'
+import { analyzer, analyzerReady, type SpeechEngine } from './speech'
 
 export type RecStatus = 'idle' | 'starting' | 'recording' | 'stopping'
 
@@ -82,6 +83,10 @@ export function RecordingProvider({ children }: { children: ReactNode }) {
   const { lectureLanguage } = usePrefs()
   const langRef = useRef<LectureLanguage>(lectureLanguage)
   langRef.current = lectureLanguage
+
+  // Fetch the new engine's language model in the background as soon as the
+  // app knows the lecture language, so the first recording does not wait.
+  useEffect(() => { void analyzerReady(speechLocale(lectureLanguage)) }, [lectureLanguage])
   const userId = session?.user.id ?? null
 
   const [status, setStatus] = useState<RecStatus>('idle')
@@ -122,6 +127,7 @@ export function RecordingProvider({ children }: { children: ReactNode }) {
   // over and over before its first word cannot run on this phone in this
   // language (on-device is required, see patches/expo-speech-recognition).
   const heardAnythingRef = useRef(false)
+  const engineRef = useRef<SpeechEngine>('legacy')
   const stopRef = useRef<() => Promise<void>>(async () => {})
   const statsRef = useRef({ detectOk: 0, detectFailed: 0, lastFailure: null as string | null, restarts: 0, termsSaved: 0 })
   const endWaiterRef = useRef<(() => void) | null>(null)
@@ -138,6 +144,16 @@ export function RecordingProvider({ children }: { children: ReactNode }) {
   // ---- recognition -------------------------------------------------------
 
   const startRecognizer = useCallback(() => {
+    if (engineRef.current === 'analyzer' && analyzer) {
+      // A start that fails (model missing, microphone busy) hands this
+      // lecture to the old engine instead of stopping it.
+      analyzer.start(speechLocale(langRef.current)).catch((e: unknown) => {
+        capture('ios_analyzer_start_failed', { message: String((e as Error)?.message ?? e).slice(0, 120) })
+        engineRef.current = 'legacy'
+        if (wantRef.current) startRecognizer()
+      })
+      return
+    }
     const known = Array.from(detectStateRef.current.known).slice(-80)
     const s = subjectFor()
     ExpoSpeechRecognitionModule.start({
@@ -176,25 +192,42 @@ export function RecordingProvider({ children }: { children: ReactNode }) {
   const segmentSentencesSent = () => segSentencesSentRef.current
 
   useEffect(() => {
+    const onResult = (raw: string, isFinal: boolean, engine: SpeechEngine) => {
+      const text = raw.trim()
+      if (text) heardAnythingRef.current = true
+      if (isFinal) {
+        if (text) finalRef.current = finalRef.current ? `${finalRef.current} ${text}` : text
+        interimRef.current = ''
+        setTranscript(finalRef.current)
+        setInterim('')
+        queueSegment(text, true)
+      } else {
+        interimRef.current = text
+        setInterim(text)
+        // The new engine's volatile text is only the part not yet final, and
+        // its final pieces arrive every few seconds, so detection waits for
+        // those rather than counting sentences in text that will be redone.
+        if (engine === 'legacy') queueSegment(text, false)
+      }
+    }
     const subs = [
       ExpoSpeechRecognitionModule.addListener('result', e => {
-        const text = (e.results[0]?.transcript ?? '').trim()
-        if (text) heardAnythingRef.current = true
-        if (e.isFinal) {
-          if (text) finalRef.current = finalRef.current ? `${finalRef.current} ${text}` : text
-          interimRef.current = ''
-          setTranscript(finalRef.current)
-          setInterim('')
-          queueSegment(text, true)
-        } else {
-          interimRef.current = text
-          setInterim(text)
-          queueSegment(text, false)
-        }
+        if (engineRef.current === 'legacy') onResult(e.results[0]?.transcript ?? '', e.isFinal, 'legacy')
       }),
       ExpoSpeechRecognitionModule.addListener('volumechange', e => {
         setLevel(Math.max(0, Math.min(1, (e.value + 2) / 12)))
       }),
+      ...(analyzer ? [
+        analyzer.addListener('onResult', e => {
+          if (engineRef.current === 'analyzer') onResult(e.text ?? '', e.isFinal, 'analyzer')
+        }),
+        analyzer.addListener('onVolume', e => setLevel(e.level)),
+        analyzer.addListener('onError', e => {
+          statsRef.current.lastFailure = `analyzer_${e.code}`
+          capture('ios_speech_error', { code: e.code, engine: 'analyzer' })
+        }),
+        analyzer.addListener('onEnd', () => { if (engineRef.current === 'analyzer') onEnd() }),
+      ] : []),
       ExpoSpeechRecognitionModule.addListener('error', e => {
         // no-speech and aborted are normal in a long lecture (a quiet stretch,
         // our own stop). 'end' follows every error and handles the restart.
@@ -207,9 +240,11 @@ export function RecordingProvider({ children }: { children: ReactNode }) {
           setError(NEEDS_DICTATION)
         }
         statsRef.current.lastFailure = `speech_${e.error}`
-        capture('ios_speech_error', { code: e.error })
+        capture('ios_speech_error', { code: e.error, engine: 'legacy' })
       }),
-      ExpoSpeechRecognitionModule.addListener('end', () => {
+      ExpoSpeechRecognitionModule.addListener('end', () => { if (engineRef.current === 'legacy') onEnd() }),
+    ]
+    function onEnd() {
         // Whatever was mid-sentence is kept, not dropped.
         if (interimRef.current) {
           const t = interimRef.current
@@ -229,6 +264,15 @@ export function RecordingProvider({ children }: { children: ReactNode }) {
         const now = Date.now()
         restartsRef.current = [...restartsRef.current.filter(t => now - t < 60_000), now]
         statsRef.current.restarts++
+        // The new engine ending again and again before a single word: give
+        // this lecture to the old one rather than giving up.
+        if (engineRef.current === 'analyzer' && !heardAnythingRef.current && restartsRef.current.length >= 2) {
+          capture('ios_analyzer_fell_back', { last_failure: statsRef.current.lastFailure })
+          engineRef.current = 'legacy'
+          restartsRef.current = []
+          setTimeout(() => { if (wantRef.current) startRecognizer() }, 300)
+          return
+        }
         if (!heardAnythingRef.current && restartsRef.current.length >= 3) {
           capture('ios_recognizer_never_started', { lang: langRef.current, last_failure: statsRef.current.lastFailure })
           wantRef.current = false
@@ -241,8 +285,7 @@ export function RecordingProvider({ children }: { children: ReactNode }) {
         } else {
           setTimeout(() => { if (wantRef.current) startRecognizer() }, 300)
         }
-      }),
-    ]
+    }
     return () => subs.forEach(s => s.remove())
   }, [startRecognizer])
 
@@ -375,7 +418,11 @@ export function RecordingProvider({ children }: { children: ReactNode }) {
       capture('ios_permission_denied', { can_ask_again: perm.canAskAgain })
       return
     }
-    if (!ExpoSpeechRecognitionModule.isRecognitionAvailable() || !ExpoSpeechRecognitionModule.supportsOnDeviceRecognition()) {
+    // The new engine when this phone and language have it (a first-time model
+    // download is capped, see lib/speech.ts); otherwise the old one, which
+    // must be able to run on the device.
+    engineRef.current = await analyzerReady(speechLocale(langRef.current)) ? 'analyzer' : 'legacy'
+    if (engineRef.current === 'legacy' && (!ExpoSpeechRecognitionModule.isRecognitionAvailable() || !ExpoSpeechRecognitionModule.supportsOnDeviceRecognition())) {
       setStatusBoth('idle')
       setError(NEEDS_DICTATION)
       capture('ios_on_device_unavailable', { available: ExpoSpeechRecognitionModule.isRecognitionAvailable() })
@@ -410,7 +457,7 @@ export function RecordingProvider({ children }: { children: ReactNode }) {
       return
     }
     setStatusBoth('recording')
-    capture('recording_started', { mode: 'microphone', platform: 'ios' })
+    capture('recording_started', { mode: 'microphone', platform: 'ios', engine: engineRef.current })
     sessionIdRef.current = await createSessionRow()
     if (!sessionIdRef.current) setNotice('Your lecture is being written down, but could not be saved to your account yet. We will try again when you stop.')
   }, [userId, startRecognizer])
@@ -421,8 +468,11 @@ export function RecordingProvider({ children }: { children: ReactNode }) {
     wantRef.current = false
     await new Promise<void>(resolve => {
       endWaiterRef.current = resolve
-      try { ExpoSpeechRecognitionModule.stop() } catch { resolve() }
-      setTimeout(resolve, 2500)
+      if (engineRef.current === 'analyzer' && analyzer) analyzer.stop().catch(() => resolve())
+      else try { ExpoSpeechRecognitionModule.stop() } catch { resolve() }
+      // The new engine finalises its last words before ending, so it gets
+      // a little longer.
+      setTimeout(resolve, engineRef.current === 'analyzer' ? 4000 : 2500)
     })
     clearRotate()
 
@@ -463,7 +513,7 @@ export function RecordingProvider({ children }: { children: ReactNode }) {
       duration_seconds: durationSec, platform: 'ios', words, terms: termsRef.current.length,
       lost_marks: marksRef.current.length, restarts: statsRef.current.restarts,
       detect_ok: statsRef.current.detectOk, detect_failed: statsRef.current.detectFailed,
-      last_failure: statsRef.current.lastFailure, saved: !!sid,
+      last_failure: statsRef.current.lastFailure, saved: !!sid, engine: engineRef.current,
     })
     setStatusBoth('idle')
     setLevel(0)

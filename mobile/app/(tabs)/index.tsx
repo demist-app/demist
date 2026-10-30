@@ -7,7 +7,7 @@ import { useAccount } from '../../lib/account'
 import { usePrefs, LECTURE_LANGUAGES } from '../../lib/prefs'
 import { radius } from '../../lib/theme'
 import { Button, Card, ReadAloud, T, Input } from '../../components/ui'
-import { clockFromMs } from '../../lib/format'
+import { clockFromMs, paragraphs } from '../../lib/format'
 import { CheckIcon, ChevronIcon, CloseIcon, FlagIcon, MicIcon, StopIcon } from '../../components/icons'
 
 // Five bars in the shape of the Demist mark, moving gently with the room's
@@ -58,7 +58,7 @@ export default function Record() {
     return (
       <KeyboardAvoidingView style={{ flex: 1, backgroundColor: c.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <SafeAreaView edges={['top']} style={{ flex: 1 }}>
-          <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40, maxWidth: 560, width: '100%', alignSelf: 'center', flexGrow: 1, justifyContent: 'center' }} keyboardShouldPersistTaps="handled">
+          <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 32, paddingBottom: 24, maxWidth: 560, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
             <T size={28} weight={700} style={{ marginBottom: 6 }}>Record a lecture</T>
             <T tone="muted" style={{ marginBottom: 24 }}>New words are explained as they come up, and everything is saved for later.</T>
 
@@ -114,46 +114,44 @@ export default function Record() {
               </View>
             </Modal>
 
-            <View style={{ alignItems: 'center', marginTop: 40, marginBottom: 28 }}>
-              <Pressable
-                onPress={rec.start}
-                disabled={rec.status === 'starting'}
-                accessibilityRole="button"
-                accessibilityLabel="Start recording"
-                style={({ pressed }) => ({
-                  width: 132, height: 132, borderRadius: 66, backgroundColor: c.accentSolid,
-                  alignItems: 'center', justifyContent: 'center', opacity: rec.status === 'starting' ? 0.6 : pressed ? 0.85 : 1,
-                  shadowColor: c.accentSolid, shadowOpacity: 0.35, shadowRadius: 24, shadowOffset: { width: 0, height: 10 },
-                })}
-              >
-                <MicIcon color="#fff" size={44} />
-              </Pressable>
-              <T weight={600} style={{ marginTop: 16 }}>{rec.status === 'starting' ? 'Getting ready…' : 'Tap to start'}</T>
+            <View style={{ marginTop: 24 }}>
+              {rec.error ? (
+                <Card style={{ backgroundColor: c.dangerSoft, borderColor: 'transparent', gap: 12 }}>
+                  <T tone="fg">{rec.error}</T>
+                  <View style={{ flexDirection: 'row', gap: 10 }}>
+                    <Button kind="secondary" label="Open Settings" onPress={openSettings} style={{ flex: 1, minHeight: 44 }} />
+                    <Button kind="quiet" label="Dismiss" onPress={rec.clearError} style={{ minHeight: 44 }} />
+                  </View>
+                </Card>
+              ) : rec.notice ? (
+                <Card><T tone="muted">{rec.notice}</T></Card>
+              ) : (
+                <Card style={{ gap: 12, backgroundColor: 'transparent' }}>
+                  <T size={14} tone="muted">Your phone writes the lecture down by itself. The sound never leaves it.</T>
+                  <T size={14} tone="muted">You can lock your phone. Demist keeps listening.</T>
+                </Card>
+              )}
             </View>
-
-            {rec.error ? (
-              <Card style={{ backgroundColor: c.dangerSoft, borderColor: 'transparent', gap: 12 }}>
-                <T tone="fg">{rec.error}</T>
-                <View style={{ flexDirection: 'row', gap: 10 }}>
-                  <Button kind="secondary" label="Open Settings" onPress={openSettings} style={{ flex: 1, minHeight: 44 }} />
-                  <Button kind="quiet" label="Dismiss" onPress={rec.clearError} style={{ minHeight: 44 }} />
-                </View>
-              </Card>
-            ) : rec.notice ? (
-              <Card><T tone="muted">{rec.notice}</T></Card>
-            ) : (
-              <View style={{ gap: 8 }}>
-                <T size={13} tone="muted" center>Your phone writes the lecture down by itself. The sound never leaves it.</T>
-                <T size={13} tone="muted" center>You can lock your phone. Demist keeps listening.</T>
-              </View>
-            )}
           </ScrollView>
+
+          {/* Where "I'm lost" and Stop sit once recording, so the screen
+              does not jump between two layouts. */}
+          <View style={{ width: '100%', maxWidth: 560, alignSelf: 'center', paddingHorizontal: 16, paddingTop: 10, paddingBottom: 12, borderTopWidth: 1, borderTopColor: c.border }}>
+            <Button
+              label={rec.status === 'starting' ? 'Getting ready…' : 'Start recording'}
+              icon={rec.status === 'starting' ? undefined : <MicIcon color={c.onAccent} size={20} />}
+              onPress={rec.start}
+              disabled={rec.status === 'starting'}
+              style={{ minHeight: 60 }}
+            />
+          </View>
         </SafeAreaView>
       </KeyboardAvoidingView>
     )
   }
 
   const text = rec.transcript
+  const liveParas = text ? paragraphs(text) : ['']
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: c.bg }}>
       <View style={{ flex: 1, width: '100%', maxWidth: 760, alignSelf: 'center' }}>
@@ -219,9 +217,14 @@ export default function Record() {
           {!text && !rec.interim ? (
             <T tone="faint" style={{ marginTop: 24 }}>Words will appear here as the lecturer speaks.</T>
           ) : (
-            <T size={17} selectable>
-              {text}{text && rec.interim ? ' ' : ''}<T size={17} tone="faint">{rec.interim}</T>
-            </T>
+            <View style={{ gap: 14 }}>
+              {liveParas.map((p, i) => (
+                <T key={i} size={17} selectable>
+                  {p}
+                  {i === liveParas.length - 1 && rec.interim ? <T size={17} tone="faint">{p ? ' ' : ''}{rec.interim}</T> : null}
+                </T>
+              ))}
+            </View>
           )}
         </ScrollView>
 
