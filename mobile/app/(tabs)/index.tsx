@@ -30,6 +30,8 @@ export default function Record() {
   const { c, font, size, prefs, setPrefs } = usePrefs()
   const scrollRef = useRef<ScrollView>(null)
   const [langOpen, setLangOpen] = useState(false)
+  const [wordsOpen, setWordsOpen] = useState(false)
+  const wordCount = rec.sessionTerms.length
   const langLabel = LECTURE_LANGUAGES.find(l => l.value === prefs.lectureLanguage)?.label ?? 'English'
 
   // The student's course fills the box as real text, once. Shown as a faint
@@ -163,7 +165,49 @@ export default function Record() {
           </View>
           <T weight={600} tone="muted" style={{ fontVariant: ['tabular-nums'] }} >{clockFromMs(rec.elapsedMs)}</T>
         </View>
-        {rec.subject || profile?.course ? <T size={13} tone="faint" style={{ paddingHorizontal: 20, marginTop: -6, marginBottom: 6 }}>{rec.subject || profile?.course}</T> : null}
+        {rec.subject || profile?.course || wordCount ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 20, marginTop: -6, marginBottom: 6, minHeight: 32 }}>
+            <T size={13} tone="faint" numberOfLines={1} style={{ flex: 1 }}>{rec.subject || profile?.course || ''}</T>
+            {wordCount ? (
+              <Pressable onPress={() => setWordsOpen(true)} accessibilityRole="button" accessibilityLabel={`${wordCount} new ${wordCount === 1 ? 'word' : 'words'} so far. Show them`}
+                hitSlop={8} style={({ pressed }) => ({
+                  flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, minHeight: 32, borderRadius: 999,
+                  backgroundColor: c.accentSoft, borderWidth: 1, borderColor: c.accentBorder, opacity: pressed ? 0.7 : 1,
+                })}>
+                <T size={13} weight={600} tone="accent">{wordCount} new {wordCount === 1 ? 'word' : 'words'}</T>
+                <ChevronIcon color={c.accent} size={14} />
+              </Pressable>
+            ) : null}
+          </View>
+        ) : null}
+
+        {/* Every word from this lecture so far, newest first. Cards make room
+            for each other; nothing is lost, it is all here. */}
+        <Modal visible={wordsOpen} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setWordsOpen(false)}>
+          <View style={{ flex: 1, backgroundColor: c.bg }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', padding: 20, paddingBottom: 4 }}>
+              <T size={22} weight={700} style={{ flex: 1 }}>New words so far</T>
+              <Pressable onPress={() => setWordsOpen(false)} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close"
+                style={{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: c.surface2 }}>
+                <CloseIcon color={c.fgMuted} />
+              </Pressable>
+            </View>
+            <T size={13} tone="muted" style={{ paddingHorizontal: 20, marginBottom: 12 }}>Still listening. These are saved to your Glossary too.</T>
+            <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32, gap: 8 }}>
+              {rec.sessionTerms.map(t => (
+                <Card key={t.term} style={{ padding: 14 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
+                    <View style={{ flex: 1 }}>
+                      <T weight={700} tone="accent">{t.term}</T>
+                      <T size={15} style={{ marginTop: 2 }}>{t.definition}</T>
+                    </View>
+                    <ReadAloud text={`${t.term}. ${t.definition}`} />
+                  </View>
+                </Card>
+              ))}
+            </ScrollView>
+          </View>
+        </Modal>
 
         {/* Transcript */}
         <ScrollView
@@ -183,18 +227,21 @@ export default function Record() {
 
         {/* Term cards */}
         {rec.cards.length > 0 && (
-          <View style={{ paddingHorizontal: 16, gap: 8, paddingBottom: 8 }} accessibilityLiveRegion="polite">
+          // Compact: two lines of definition, tap to open the rest. At most
+          // three cards, so the transcript always keeps most of the screen.
+          <View style={{ paddingHorizontal: 16, gap: 6, paddingBottom: 6 }} accessibilityLiveRegion="polite">
             {rec.cards.map(card => (
-              <Card key={card.id} onPress={() => rec.pinCard(card.id)} accessibilityLabel={`${card.term}. ${card.definition}`}
-                style={{ borderColor: c.accentBorder, padding: 14 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
+              <Card key={card.id} onPress={() => rec.pinCard(card.id)}
+                accessibilityLabel={`${card.term}. ${card.definition}. ${card.pinned ? 'Tap to shorten' : 'Tap to read all and keep it here'}`}
+                style={{ borderColor: c.accentBorder, paddingVertical: 10, paddingHorizontal: 14 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
                   <View style={{ flex: 1 }}>
-                    <T weight={700} tone="accent">{card.term}</T>
-                    <T size={15} style={{ marginTop: 2 }} numberOfLines={card.pinned ? undefined : 3}>{card.definition}</T>
+                    <T size={15} weight={700} tone="accent" numberOfLines={1}>{card.term}</T>
+                    <T size={14} tone="muted" style={{ marginTop: 1 }} numberOfLines={card.pinned ? undefined : 2}>{card.definition}</T>
                   </View>
                   <ReadAloud text={`${card.term}. ${card.definition}`} />
-                  <Pressable onPress={() => rec.dismissCard(card.id)} hitSlop={12} accessibilityRole="button" accessibilityLabel={`Close ${card.term}`}
-                    style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}>
+                  <Pressable onPress={() => rec.dismissCard(card.id)} hitSlop={10} accessibilityRole="button" accessibilityLabel={`Close ${card.term}`}
+                    style={{ width: 32, height: 36, alignItems: 'center', justifyContent: 'center' }}>
                     <CloseIcon color={c.fgFaint} />
                   </Pressable>
                 </View>

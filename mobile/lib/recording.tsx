@@ -28,7 +28,7 @@ import { detectTerms, splitSentences, type DetectState, type DetectedTerm } from
 
 export type RecStatus = 'idle' | 'starting' | 'recording' | 'stopping'
 
-export interface LiveCard { id: string; term: string; definition: string; pinned: boolean }
+export interface LiveCard { id: string; term: string; definition: string; pinned: boolean; shownAt: number }
 export interface LostMark { atMs: number; transcriptOffset: number }
 
 interface Ctx {
@@ -57,8 +57,9 @@ interface Ctx {
 
 const RecordingContext = createContext<Ctx | null>(null)
 
-const CARD_MS = 10_000
+const MIN_SHOWN_MS = 8_000      // a card is never replaced sooner than this
 const CARDS_VISIBLE = 2        // unpinned cards on screen at once
+const CARDS_MAX_TOTAL = 3      // including opened (pinned) ones
 const CARD_QUEUE_MAX = 6       // waiting beyond this are only in the glossary
 const DETECT_EVERY_MS = 15_000
 const AUTOSAVE_MS = 45_000
@@ -112,7 +113,7 @@ export function RecordingProvider({ children }: { children: ReactNode }) {
   const unsavedMarksRef = useRef<LostMark[]>([])
   const eligibleRef = useRef<boolean | null>(null)
   const lastSavedRef = useRef('')
-  const cardTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>())
+  const rotateTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const cardsRef = useRef<LiveCard[]>([])
   const cardQueueRef = useRef<DetectedTerm[]>([])
   const subjectRef = useRef('')
@@ -423,7 +424,7 @@ export function RecordingProvider({ children }: { children: ReactNode }) {
       try { ExpoSpeechRecognitionModule.stop() } catch { resolve() }
       setTimeout(resolve, 2500)
     })
-    cardTimers.current.forEach(t => clearTimeout(t)); cardTimers.current.clear()
+    clearRotate()
 
     // Last words through detection, bounded so a slow network cannot hold
     // the student on a spinner.
@@ -488,36 +489,43 @@ export function RecordingProvider({ children }: { children: ReactNode }) {
   // cardsRef mirrors the state so the queue can be read outside a render.
 
   const setCardsBoth = (next: LiveCard[]) => { cardsRef.current = next; setCards(next) }
+  const clearRotate = () => { if (rotateTimer.current) clearTimeout(rotateTimer.current); rotateTimer.current = null }
 
-  // A card only starts fading once the screen is on. In a pocket the timer
-  // used to run anyway, so a word explained while the phone was locked was
-  // gone before the student looked.
-  const startFade = (id: string) => {
-    if (cardTimers.current.has(id) || AppState.currentState !== 'active') return
-    cardTimers.current.set(id, setTimeout(() => dismissCard(id), CARD_MS))
+  // Cards do not fade on a clock (the user's call, 2026-10-30: on a phone you
+  // are often not looking). A card only leaves when a newer word is waiting
+  // for its place, and only after it has been on screen MIN_SHOWN_MS while
+  // the app is in front, so nothing is replaced inside a locked phone.
+  const scheduleRotate = () => {
+    clearRotate()
+    if (!cardQueueRef.current.length || AppState.currentState !== 'active') return
+    const oldest = cardsRef.current.find(c => !c.pinned)
+    if (!oldest) return
+    const wait = Math.max(0, oldest.shownAt + MIN_SHOWN_MS - Date.now())
+    rotateTimer.current = setTimeout(() => dismissCard(oldest.id), wait)
   }
 
   const fillCards = () => {
-    const room = CARDS_VISIBLE - cardsRef.current.filter(c => !c.pinned).length
-    if (room <= 0 || !cardQueueRef.current.length) return
-    const next = cardQueueRef.current.splice(0, room).map(t => ({ id: `${Date.now()}-${Math.random()}`, term: t.term, definition: t.definition, pinned: false }))
-    setCardsBoth([...cardsRef.current, ...next])
-    next.forEach(c => { capture('term_card_shown', { chars: c.term.length }); startFade(c.id) })
+    const unpinned = cardsRef.current.filter(c => !c.pinned).length
+    const room = Math.min(CARDS_VISIBLE - unpinned, CARDS_MAX_TOTAL - cardsRef.current.length)
+    if (room > 0 && cardQueueRef.current.length) {
+      // A card first seen with the screen off counts as shown from when the
+      // screen comes back on (see the AppState listener).
+      const now = AppState.currentState === 'active' ? Date.now() : Infinity
+      const next = cardQueueRef.current.splice(0, room).map(t => ({ id: `${Date.now()}-${Math.random()}`, term: t.term, definition: t.definition, pinned: false, shownAt: now }))
+      setCardsBoth([...cardsRef.current, ...next])
+      next.forEach(c => capture('term_card_shown', { chars: c.term.length }))
+    }
+    scheduleRotate()
   }
 
   const dismissCard = useCallback((id: string) => {
-    const t = cardTimers.current.get(id)
-    if (t) clearTimeout(t)
-    cardTimers.current.delete(id)
     setCardsBoth(cardsRef.current.filter(c => c.id !== id))
     fillCards()
   }, [])
 
+  // Tapping a card opens its whole definition and keeps it until closed.
   const pinCard = useCallback((id: string) => {
-    const t = cardTimers.current.get(id)
-    if (t) clearTimeout(t)
-    cardTimers.current.delete(id)
-    setCardsBoth(cardsRef.current.map(c => c.id === id ? { ...c, pinned: true } : c))
+    setCardsBoth(cardsRef.current.map(c => c.id === id ? { ...c, pinned: !c.pinned } : c))
     fillCards()
   }, [])
 
@@ -532,7 +540,13 @@ export function RecordingProvider({ children }: { children: ReactNode }) {
       if (s === 'active' && statusRef.current === 'recording') {
         setTranscript(finalRef.current)
         setElapsedMs(Date.now() - startedAtRef.current)
-        cardsRef.current.forEach(c => { if (!c.pinned) startFade(c.id) })
+        const now = Date.now()
+        if (cardsRef.current.some(c => c.shownAt === Infinity)) {
+          setCardsBoth(cardsRef.current.map(c => c.shownAt === Infinity ? { ...c, shownAt: now } : c))
+        }
+        scheduleRotate()
+      } else if (s !== 'active') {
+        clearRotate()
       }
     })
     return () => sub.remove()
