@@ -25,6 +25,8 @@ export interface Prefs {
   /** The language lectures are given in. Apple's speech recognition must be
    *  told up front; it cannot detect it. */
   lectureLanguage: LectureLanguage
+  /** The tap-through introduction has been seen on this phone. */
+  introSeen: boolean
 }
 
 // Each language named in itself, so a student who does not read English can
@@ -43,6 +45,7 @@ function deviceLectureLanguage(): LectureLanguage {
 export const DEFAULT_PREFS: Prefs = {
   font: 'standard', spacing: 'normal', tint: 'none', appearance: 'system', textSize: 'default', showProgress: false, greyscale: false,
   lectureLanguage: deviceLectureLanguage(),
+  introSeen: false,
 }
 
 export const FONT_OPTIONS: { value: ReadingFont; label: string }[] = [
@@ -86,6 +89,8 @@ interface Ctx {
   lh: (px: number) => number
   letterSpacing: number
   lectureLanguage: LectureLanguage
+  /** False until saved prefs are read, so nothing routes on the defaults. */
+  loaded: boolean
 }
 
 const PrefsContext = createContext<Ctx | null>(null)
@@ -112,13 +117,14 @@ function greyscalePalette(p: Palette): Palette {
 
 export function PrefsProvider({ children }: { children: ReactNode }) {
   const [prefs, setPrefsState] = useState<Prefs>(DEFAULT_PREFS)
+  const [loaded, setLoaded] = useState(false)
   const scheme = useColorScheme()
 
   useEffect(() => {
     AsyncStorage.getItem(KEY).then(raw => {
       if (!raw) return
       try { setPrefsState({ ...DEFAULT_PREFS, ...JSON.parse(raw) }) } catch { /* keep defaults */ }
-    }).catch(() => {})
+    }).catch(() => {}).finally(() => setLoaded(true))
   }, [])
 
   const value = useMemo<Ctx>(() => {
@@ -147,8 +153,9 @@ export function PrefsProvider({ children }: { children: ReactNode }) {
       lh: (px) => Math.round(px * scale * (relaxed ? 1.9 : 1.5)),
       letterSpacing: relaxed ? 0.3 : 0,
       lectureLanguage: prefs.lectureLanguage,
+      loaded,
     }
-  }, [prefs, scheme])
+  }, [prefs, scheme, loaded])
 
   return <PrefsContext.Provider value={value}>{children}</PrefsContext.Provider>
 }

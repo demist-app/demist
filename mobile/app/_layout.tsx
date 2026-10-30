@@ -23,9 +23,9 @@ import { meetsMinimumAge } from '../lib/shared/age'
 void SplashScreen.preventAutoHideAsync()
 
 function Gate() {
-  const { c } = usePrefs()
+  const { c, prefs, loaded } = usePrefs()
   const { session, profile, profileLoaded } = useAccount()
-  const ready = session !== undefined && (!session || profileLoaded)
+  const ready = loaded && session !== undefined && (!session || profileLoaded)
 
   useEffect(() => { if (ready) void SplashScreen.hideAsync() }, [ready])
   if (!ready) return null
@@ -46,7 +46,11 @@ function Gate() {
         <Stack.Protected guard={signedIn && !onboarded}>
           <Stack.Screen name="onboarding" />
         </Stack.Protected>
-        <Stack.Protected guard={signedIn && onboarded}>
+        {/* The tap-through introduction, once per phone, after the questions. */}
+        <Stack.Protected guard={signedIn && onboarded && !prefs.introSeen}>
+          <Stack.Screen name="intro" />
+        </Stack.Protected>
+        <Stack.Protected guard={signedIn && onboarded && prefs.introSeen}>
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="session/[id]" />
           <Stack.Screen name="consents" options={{ presentation: 'modal' }} />

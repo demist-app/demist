@@ -9,7 +9,7 @@
     "userInterfaceStyle": "automatic",
     "backgroundColor": "#F3F0F8",
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "app.demist.mobile",
       "config": {
         "usesNonExemptEncryption": false
