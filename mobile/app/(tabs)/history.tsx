@@ -63,7 +63,9 @@ export default function History() {
         ListEmptyComponent={<Empty title="No lectures yet" body="Your recordings will be listed here, with their words and summaries." />}
         renderItem={({ item: s }) => {
           const mins = minutes(s)
-          const date = new Date(s.started_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+          // With the time, so three lectures of the same module on one day can
+          // be told apart.
+          const date = new Date(s.started_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
           return (
             <Card onPress={() => router.push({ pathname: '/session/[id]', params: { id: s.id } })} accessibilityLabel={`${lectureTitle(s)}, ${date}`}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>

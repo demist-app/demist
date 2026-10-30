@@ -82,13 +82,15 @@ export function Card({ children, style, onPress, accessibilityLabel }: {
   )
 }
 
-export function Button({ label, onPress, kind = 'primary', loading, disabled, icon, style, accessibilityHint }: {
+export function Button({ label, onPress, kind = 'primary', loading, disabled, icon, style, accessibilityHint, textTone }: {
   label: string; onPress: () => void; kind?: 'primary' | 'secondary' | 'quiet' | 'danger'
   loading?: boolean; disabled?: boolean; icon?: ReactNode; style?: StyleProp<ViewStyle>; accessibilityHint?: string
+  /** Overrides the label colour, e.g. a quiet button in danger red. */
+  textTone?: Tone
 } & Pick<PressableProps, 'onLongPress'>) {
   const { c } = usePrefs()
   const bg = { primary: c.accentSolid, secondary: c.surface2, quiet: 'transparent', danger: c.dangerSoft }[kind]
-  const tone: Tone = kind === 'primary' ? 'onAccent' : kind === 'danger' ? 'danger' : kind === 'quiet' ? 'accent' : 'fg'
+  const tone: Tone = textTone ?? (kind === 'primary' ? 'onAccent' : kind === 'danger' ? 'danger' : kind === 'quiet' ? 'accent' : 'fg')
   return (
     <Pressable
       onPress={onPress}

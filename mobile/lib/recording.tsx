@@ -504,7 +504,7 @@ export function RecordingProvider({ children }: { children: ReactNode }) {
       // The function checks consent itself; this only asks.
       if (termsRef.current.length) {
         void supabase.functions.invoke('summarize-session', {
-          body: { session_id: sid, subject: subjectFor(), terms: termsRef.current.map(t => ({ term: t.term, definition: t.definition })) },
+          body: { session_id: sid, subject: subjectFor(), lecture_language: langRef.current, terms: termsRef.current.map(t => ({ term: t.term, definition: t.definition })) },
         }).catch(() => {})
       }
     }

@@ -2574,6 +2574,9 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       const capturedSid = sid
       const capturedSubject = sessionSubjectRef.current || profileRef.current?.course
       const capturedGlossary = [...sessionGlossary]
+      // Tells summarize-session which language to write in, instead of it
+      // guessing from terms that may all be names (null until detected).
+      const capturedLang = lectureLangRef.current ?? undefined
       const capturedMode = captureModeRef.current
       const capturedTranslation = translatedSentences.filter(Boolean).join(' ')
       const capturedTranslateLang = profileRef.current?.translate_to || null
@@ -2645,7 +2648,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
             }
           } else {
             const { data } = await sb.functions.invoke('summarize-session', {
-              body: { session_id: capturedSid, subject: capturedSubject, terms: capturedGlossary },
+              body: { session_id: capturedSid, subject: capturedSubject, terms: capturedGlossary, lecture_language: capturedLang },
             })
             if (data?.ok && data?.synopsis) {
               setRecentSessions(prev => prev.map(s => s.id === capturedSid ? { ...s, synopsis: data.synopsis } : s))

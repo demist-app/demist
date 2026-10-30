@@ -1,14 +1,14 @@
 import { useState } from 'react'
-import { Alert, Image, Linking, Pressable, View } from 'react-native'
+import { Alert, Image, Linking, Pressable, Switch, View } from 'react-native'
 import { router } from 'expo-router'
 import { supabase } from '../../lib/supabase'
 import { useAccount } from '../../lib/account'
-import { usePrefs, FONT_OPTIONS, TINT_OPTIONS, TEXT_SIZES, type Appearance } from '../../lib/prefs'
+import { usePrefs, FAMILIES, FONT_OPTIONS, TINT_OPTIONS, TEXT_SIZES, type Appearance } from '../../lib/prefs'
 import { capture, reportWriteFailure, resetAnalytics } from '../../lib/analytics'
 import { useRecording } from '../../lib/recording'
-import { radius } from '../../lib/theme'
+import { radius, TINTS } from '../../lib/theme'
 import { Button, Card, Chip, Screen, SectionLabel, T, Title, Input } from '../../components/ui'
-import { ChevronIcon } from '../../components/icons'
+import { CheckIcon, ChevronIcon } from '../../components/icons'
 
 const SUPPORT_NEEDS = [
   { value: 'hearing', label: 'Hearing' },
@@ -85,8 +85,22 @@ export default function Settings() {
       <SectionLabel>Reading comfort</SectionLabel>
       <Card style={{ gap: 14 }}>
         <T size={13} weight={600} tone="muted">Font</T>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-          {FONT_OPTIONS.map(f => <Chip key={f.value} label={f.label} selected={prefs.font === f.value} onPress={() => setPrefs({ font: f.value })} />)}
+        {/* Each font named in itself, so the choice is made by looking. */}
+        <View style={{ borderRadius: radius.md, borderWidth: 1, borderColor: c.border, overflow: 'hidden' }} accessibilityRole="radiogroup">
+          {FONT_OPTIONS.map((f, i) => {
+            const selected = prefs.font === f.value
+            return (
+              <Pressable key={f.value} onPress={() => setPrefs({ font: f.value })} accessibilityRole="radio" accessibilityState={{ selected }} accessibilityLabel={f.label}
+                style={({ pressed }) => ({
+                  flexDirection: 'row', alignItems: 'center', minHeight: 50, paddingHorizontal: 14,
+                  borderTopWidth: i ? 1 : 0, borderTopColor: c.border,
+                  backgroundColor: selected ? c.accentSoft : 'transparent', opacity: pressed ? 0.7 : 1,
+                })}>
+                <T style={{ flex: 1, fontFamily: FAMILIES[f.value][selected ? 600 : 400] }} tone={selected ? 'accent' : 'fg'}>{f.label}</T>
+                {selected ? <CheckIcon color={c.accent} /> : null}
+              </Pressable>
+            )
+          })}
         </View>
         <T size={13} weight={600} tone="muted">Text size</T>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
@@ -98,16 +112,35 @@ export default function Settings() {
           <Chip label="Relaxed" selected={prefs.spacing === 'relaxed'} onPress={() => setPrefs({ spacing: 'relaxed' })} />
         </View>
         <T size={13} weight={600} tone="muted">Background tint</T>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-          {TINT_OPTIONS.map(t => <Chip key={t.value} label={t.label} selected={prefs.tint === t.value} onPress={() => setPrefs({ tint: t.value })} />)}
+        {/* Swatches of the actual colours: five in one row, nothing wraps. */}
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }} accessibilityRole="radiogroup">
+          {TINT_OPTIONS.map(t => {
+            const selected = prefs.tint === t.value
+            const colour = TINTS[t.value]
+            return (
+              <Pressable key={t.value} onPress={() => setPrefs({ tint: t.value })} accessibilityRole="radio" accessibilityState={{ selected }}
+                accessibilityLabel={`${t.label} background`} hitSlop={4} style={{ alignItems: 'center', gap: 6, width: 56 }}>
+                <View style={{
+                  width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center',
+                  backgroundColor: colour ?? c.surface, borderWidth: selected ? 2 : 1, borderColor: selected ? c.accent : c.borderStrong,
+                }}>
+                  {!colour ? <View style={{ width: 30, height: 1.5, backgroundColor: c.fgFaint, transform: [{ rotate: '-45deg' }] }} /> : null}
+                  {selected && colour ? <CheckIcon color="#5B3F8F" size={18} /> : null}
+                </View>
+                <T size={12} weight={selected ? 600 : 400} tone={selected ? 'accent' : 'muted'}>{t.label}</T>
+              </Pressable>
+            )
+          })}
         </View>
         {c.dark && prefs.tint !== 'none' ? <T size={12} tone="faint">Tints show in light mode.</T> : null}
-        <T size={13} weight={600} tone="muted">Greyscale</T>
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          <Chip label="Off" selected={!prefs.greyscale} onPress={() => setPrefs({ greyscale: false })} />
-          <Chip label="On" selected={prefs.greyscale} onPress={() => setPrefs({ greyscale: true })} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <View style={{ flex: 1, gap: 2 }}>
+            <T size={13} weight={600} tone="muted">Greyscale</T>
+            <T size={12} tone="faint">Shows Demist in shades of grey, for when colour is distracting or too much.</T>
+          </View>
+          <Switch value={prefs.greyscale} onValueChange={v => setPrefs({ greyscale: v })} accessibilityLabel="Greyscale"
+            trackColor={{ true: c.accentSolid, false: c.surface2 }} ios_backgroundColor={c.surface2} />
         </View>
-        <T size={12} tone="faint">Shows Demist in shades of grey, for when colour is distracting or too much.</T>
         <T size={13} weight={600} tone="muted">Appearance</T>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           {APPEARANCES.map(a => <Chip key={a.value} label={a.label} selected={prefs.appearance === a.value} onPress={() => setPrefs({ appearance: a.value })} />)}

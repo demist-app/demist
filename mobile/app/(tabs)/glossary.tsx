@@ -47,6 +47,10 @@ export default function Glossary() {
       (!q || t.term.toLowerCase().includes(q) || t.definition.toLowerCase().includes(q) || (t.subject ?? '').toLowerCase().includes(q)))
   }, [terms, query, filter])
 
+  // The subject under each word only helps when there is more than one;
+  // otherwise it is the same line repeated on every card.
+  const manySubjects = useMemo(() => new Set((terms ?? []).map(t => (t.subject ?? '').trim().toLowerCase())).size > 1, [terms])
+
   const toggleKnown = async (t: Term) => {
     setTerms(prev => prev?.map(x => x.id === t.id ? { ...x, known: !t.known } : x) ?? null)
     const { error } = await supabase.from('terms').update({ known: !t.known }).eq('id', t.id)
@@ -101,7 +105,7 @@ export default function Glossary() {
               <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
                 <View style={{ flex: 1 }}>
                   <T weight={700} tone={t.known ? 'muted' : 'fg'}>{t.term}</T>
-                  {t.subject ? <T size={12} tone="faint">{t.subject}</T> : null}
+                  {manySubjects && t.subject ? <T size={12} tone="faint">{t.subject}</T> : null}
                   <T size={15} tone="muted" style={{ marginTop: 6 }} numberOfLines={expanded ? undefined : 2}>{t.definition}</T>
                 </View>
                 <ReadAloud text={`${t.term}. ${t.definition}`} />

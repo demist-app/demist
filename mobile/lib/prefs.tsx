@@ -65,7 +65,7 @@ export const TEXT_SIZES: { value: TextSize; label: string; scale: number }[] = [
 ]
 
 type Weight = 400 | 500 | 600 | 700
-const FAMILIES: Record<ReadingFont, Record<Weight, string>> = {
+export const FAMILIES: Record<ReadingFont, Record<Weight, string>> = {
   standard: { 400: 'PlusJakartaSans_400Regular', 500: 'PlusJakartaSans_500Medium', 600: 'PlusJakartaSans_600SemiBold', 700: 'PlusJakartaSans_700Bold' },
   // Atkinson ships two weights; the in-between ones round to the nearer.
   atkinson: { 400: 'AtkinsonHyperlegible_400Regular', 500: 'AtkinsonHyperlegible_400Regular', 600: 'AtkinsonHyperlegible_700Bold', 700: 'AtkinsonHyperlegible_700Bold' },

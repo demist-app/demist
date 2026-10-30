@@ -210,7 +210,7 @@ export default function LectureScreen() {
         </T>
       )}
 
-      <Button kind="danger" label="Delete this lecture" onPress={remove} style={{ marginTop: 32 }} />
+      <Button kind="quiet" label="Delete this lecture" onPress={remove} style={{ marginTop: 32 }} textTone="danger" />
     </Screen>
   )
 }

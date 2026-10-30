@@ -118,7 +118,7 @@ export default function Flashcards() {
         accessibilityRole="button"
         accessibilityLabel={flipped ? `${card.term}. ${card.definition}` : `${card.term}. Tap to see the explanation`}
         style={{
-          flex: 1, maxHeight: 460, backgroundColor: c.surface, borderRadius: radius.xl, borderWidth: 1,
+          flex: 1, maxHeight: 340, backgroundColor: c.surface, borderRadius: radius.xl, borderWidth: 1,
           borderColor: flipped ? c.accentBorder : c.border, padding: 24, justifyContent: 'center',
         }}
       >
@@ -128,9 +128,7 @@ export default function Flashcards() {
             <T size={17} center style={{ marginTop: 16 }}>{card.definition}</T>
             <View style={{ alignItems: 'center', marginTop: 18 }}><ReadAloud text={`${card.term}. ${card.definition}`} /></View>
           </>
-        ) : (
-          <T size={14} tone="faint" center style={{ marginTop: 16 }}>Tap to see the explanation</T>
-        )}
+        ) : null}
       </Pressable>
 
       <View style={{ marginTop: 20, minHeight: 60 }}>
