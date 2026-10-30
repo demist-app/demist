@@ -10,7 +10,7 @@
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://bsjcdvhiuxtyvbnrcbwg.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJzamNkdmhpdXh0eXZibnJjYndnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk0OTc3MjQsImV4cCI6MjA5NTA3MzcyNH0.NJ_q5ig1lEkRcG-0iSIzOhf07fDobHWmu_6QaFBaowE",
-        "EXPO_PUBLIC_POSTHOG_KEY": "phc_Ch76bNvwJHBDqm53wiFfzwrdeFYP8odppM8V9iJ8X4vK",
+        "EXPO_PUBLIC_POSTHOG_KEY": "phc_rjw9yZxV8KfuwzK6MfNwXuzhAerCUBjKwh2cp25GxZja",
         "EXPO_PUBLIC_POSTHOG_HOST": "https://eu.i.posthog.com"
       }
     },
@@ -20,7 +20,7 @@
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://bsjcdvhiuxtyvbnrcbwg.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJzamNkdmhpdXh0eXZibnJjYndnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk0OTc3MjQsImV4cCI6MjA5NTA3MzcyNH0.NJ_q5ig1lEkRcG-0iSIzOhf07fDobHWmu_6QaFBaowE",
-        "EXPO_PUBLIC_POSTHOG_KEY": "phc_Ch76bNvwJHBDqm53wiFfzwrdeFYP8odppM8V9iJ8X4vK",
+        "EXPO_PUBLIC_POSTHOG_KEY": "phc_rjw9yZxV8KfuwzK6MfNwXuzhAerCUBjKwh2cp25GxZja",
         "EXPO_PUBLIC_POSTHOG_HOST": "https://eu.i.posthog.com"
       },
       "ios": {
@@ -32,7 +32,7 @@
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://bsjcdvhiuxtyvbnrcbwg.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJzamNkdmhpdXh0eXZibnJjYndnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk0OTc3MjQsImV4cCI6MjA5NTA3MzcyNH0.NJ_q5ig1lEkRcG-0iSIzOhf07fDobHWmu_6QaFBaowE",
-        "EXPO_PUBLIC_POSTHOG_KEY": "phc_Ch76bNvwJHBDqm53wiFfzwrdeFYP8odppM8V9iJ8X4vK",
+        "EXPO_PUBLIC_POSTHOG_KEY": "phc_rjw9yZxV8KfuwzK6MfNwXuzhAerCUBjKwh2cp25GxZja",
         "EXPO_PUBLIC_POSTHOG_HOST": "https://eu.i.posthog.com"
       }
     },
@@ -41,7 +41,7 @@
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://bsjcdvhiuxtyvbnrcbwg.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJzamNkdmhpdXh0eXZibnJjYndnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk0OTc3MjQsImV4cCI6MjA5NTA3MzcyNH0.NJ_q5ig1lEkRcG-0iSIzOhf07fDobHWmu_6QaFBaowE",
-        "EXPO_PUBLIC_POSTHOG_KEY": "phc_Ch76bNvwJHBDqm53wiFfzwrdeFYP8odppM8V9iJ8X4vK",
+        "EXPO_PUBLIC_POSTHOG_KEY": "phc_rjw9yZxV8KfuwzK6MfNwXuzhAerCUBjKwh2cp25GxZja",
         "EXPO_PUBLIC_POSTHOG_HOST": "https://eu.i.posthog.com"
       }
     }
