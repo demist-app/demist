@@ -1,0 +1,31 @@
+{
+  "_why": "2026-11-03. The first paying customer recorded ~4 hours of a healthcare careers course on desktop 1.0.8 and got zero terms: verifyTerm rejected every candidate, Alzheimer and the course's regulator abbreviations included. precision-candidates.json is all science, economics and computing, so it never caught this. These sentences are written for the test, not taken from anyone's lecture. NONSTEM_TECH: the candidate deserves a card. NONSTEM_MUNDANE: the candidate is an everyday word the extractor really does propose in such courses, and must not get one.",
+  "NONSTEM_TECH": [
+    { "subject": "Health and Social Care", "term": "Alzheimer", "sentence": "Many residents on the memory care floor are living with Alzheimer and need extra supervision at night." },
+    { "subject": "Health and Social Care", "term": "palliative care", "sentence": "When treatment is no longer working, the team moves the resident onto palliative care." },
+    { "subject": "Health and Social Care", "term": "safeguarding", "sentence": "Every member of staff must complete safeguarding training before working with vulnerable adults." },
+    { "subject": "Health and Social Care", "term": "PSW", "sentence": "Most graduates of this program start as a PSW in a long-term care home." },
+    { "subject": "Health and Social Care", "term": "cognitive impairment", "sentence": "Residents with mild cognitive impairment may forget conversations from earlier in the day." },
+    { "subject": "Health and Social Care", "term": "WSIB", "sentence": "If you are injured at work you must report it to the WSIB within three days." },
+    { "subject": "Nursing", "term": "sepsis", "sentence": "A high temperature with a racing heart can be an early sign of sepsis." },
+    { "subject": "Law", "term": "tort", "sentence": "Negligence is the tort most first-year students meet first." },
+    { "subject": "Law", "term": "habeas corpus", "sentence": "The prisoner's lawyer applied for habeas corpus the morning after the arrest." },
+    { "subject": "Human Resources", "term": "constructive dismissal", "sentence": "If an employer makes the job impossible to stay in, the employee may claim constructive dismissal." },
+    { "subject": "Business", "term": "EBITDA", "sentence": "Investors often compare the two companies on EBITDA rather than net profit." },
+    { "subject": "History", "term": "mercantilism", "sentence": "Under mercantilism, colonies existed mainly to send raw materials back to the home country." }
+  ],
+  "NONSTEM_MUNDANE": [
+    { "subject": "Health and Social Care", "term": "experience", "sentence": "Many of you already have experience looking after older relatives." },
+    { "subject": "Health and Social Care", "term": "opportunities", "sentence": "There are lots of opportunities to move up once you start working." },
+    { "subject": "Health and Social Care", "term": "residents", "sentence": "The residents really enjoy the music sessions on Friday afternoons." },
+    { "subject": "Health and Social Care", "term": "specialized", "sentence": "Some homes are more specialized than others, so ask during your visit." },
+    { "subject": "Health and Social Care", "term": "housekeeping", "sentence": "The housekeeping team cleans every room before lunch." },
+    { "subject": "Health and Social Care", "term": "Congratulations", "sentence": "Congratulations to everyone who finished the first module this week." },
+    { "subject": "Human Resources", "term": "interview", "sentence": "Next week we will practise the interview together in small groups." },
+    { "subject": "Human Resources", "term": "responsibilities", "sentence": "Your responsibilities will be explained on your first day." },
+    { "subject": "Human Resources", "term": "Google Chrome", "sentence": "Please open the link in Google Chrome if the slides do not load." },
+    { "subject": "Business", "term": "everything", "sentence": "Don't worry if everything feels new at the start." },
+    { "subject": "Law", "term": "according", "sentence": "According to the timetable, the next session starts at two." },
+    { "subject": "History", "term": "participants", "sentence": "All participants should have received the reading list by email." }
+  ]
+}
