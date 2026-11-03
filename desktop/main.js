@@ -822,12 +822,17 @@ app.whenReady().then(() => {
   const wantsVideo = (details) =>
     details?.mediaTypes?.includes('video') || details?.mediaType === 'video'
 
+  // 'notifications' (2026-11-03): the site raises a Windows notification when a
+  // recording is capturing nothing, because students who press record and
+  // watch the lecturer never saw the in-app banner and recorded 18-74 minutes
+  // of silence. Still scoped to our own origin like everything else here.
+  const ALLOWED_PERMISSIONS = new Set(['media', 'unknown', 'notifications'])
   session.defaultSession.setPermissionRequestHandler((webContents, permission, callback, details) => {
-    const allowed = permission === 'media' || permission === 'unknown'
+    const allowed = ALLOWED_PERMISSIONS.has(permission)
     callback(allowed && !wantsVideo(details) && sameSite(webContents.getURL(), APP_URL))
   })
   session.defaultSession.setPermissionCheckHandler((webContents, permission, requestingOrigin, details) => {
-    const allowed = permission === 'media' || permission === 'unknown'
+    const allowed = ALLOWED_PERMISSIONS.has(permission)
     return allowed && !wantsVideo(details)
       && sameSite(requestingOrigin || webContents?.getURL() || APP_URL, APP_URL)
   })

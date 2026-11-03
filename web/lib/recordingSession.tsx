@@ -111,6 +111,19 @@ function nativeFailureContext() {
 // or muted microphone, Windows blocking microphone access) and should be told
 // now, not after an hour of recording nothing.
 const NATIVE_NO_TRANSCRIPT_MS = 90_000
+// Then again this often, up to three alerts in all, in case the first was missed.
+const NO_TRANSCRIPT_REPEAT_MS = 5 * 60_000
+
+// A Windows notification, for problems the student must hear about even when
+// they are looking at the lecturer and not at Demist. Best effort: Electron
+// allows notifications without asking, and anything else just skips it.
+function desktopAlert(title: string, body: string) {
+  try {
+    if (typeof Notification === 'undefined' || Notification.permission === 'denied') return
+    if (Notification.permission === 'granted') new Notification(title, { body })
+    else void Notification.requestPermission().then(p => { if (p === 'granted') new Notification(title, { body }) }).catch(() => {})
+  } catch { /* the banner still shows */ }
+}
 
 // Whisper's duration-weighted mean segment log probability, below which a
 // chunk is shown as text but not mined for terms.
@@ -548,6 +561,14 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
   const nativeReadyAtRef = useRef<number | null>(null)
   const firstTranscriptMsRef = useRef<number | null>(null)
   const nativeWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // A warning that must stay up until the problem is gone: "nothing has been
+  // transcribed" and "your microphone is muted". The native "too quiet" notice
+  // shares the recordingWarning slot and retracts itself with '', and until
+  // 2026-11-03 that retraction wiped these too: students who recorded 47-74
+  // minutes with a muted microphone could look up and see no warning at all.
+  const stickyWarningRef = useRef<string | null>(null)
+  // How many times this session has alerted that nothing is being transcribed.
+  const noTranscriptAlertsRef = useRef(0)
 
   // profileRef is what startRecording/stopRecording/runDetection actually read
   // (refs avoid stale closures in those callbacks); profile state fetched once
@@ -1907,6 +1928,8 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     nativeReadyAtRef.current = null
     firstTranscriptMsRef.current = null
     if (nativeWatchdogRef.current) { clearTimeout(nativeWatchdogRef.current); nativeWatchdogRef.current = null }
+    stickyWarningRef.current = null
+    noTranscriptAlertsRef.current = 0
     webSpeechFinalRef.current = ''
     allSessionTermsRef.current = []
     sessionTermNamesRef.current = []
@@ -2033,20 +2056,39 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
             nativeReadyAtRef.current = Date.now()
             capture('native_session_ready', { ms_to_ready: Date.now() - recordingStartedAtRef.current, capture_mode: mode, ...deviceProfile() })
             // Watchdog: nothing transcribed long after the engine was ready.
+            // Repeats, and reaches the student through a Windows notification
+            // as well as the banner: a student who presses record and looks
+            // at the lecturer never sees a banner (2026-11: five sessions of
+            // 18-74 minutes recorded nothing, all with a warning on screen).
             if (nativeWatchdogRef.current) clearTimeout(nativeWatchdogRef.current)
-            nativeWatchdogRef.current = setTimeout(() => {
-              nativeWatchdogRef.current = null
-              if (!isActiveRef.current || firstTranscriptLoggedRef.current) return
-              capture('native_no_transcript', { secs_since_ready: NATIVE_NO_TRANSCRIPT_MS / 1000, capture_mode: mode })
-              setRecordingWarning(mode === 'tab'
-                ? 'Nothing has been transcribed yet. Check that the lecture is actually playing with sound on this PC, then restart the recording.'
-                : 'Nothing has been transcribed yet. If your lecturer is speaking, check your microphone is selected and unmuted in Profile, and that Windows allows Demist to use it, then restart the recording.')
-            }, NATIVE_NO_TRANSCRIPT_MS)
+            const readyAt = Date.now()
+            const armWatchdog = (delayMs: number) => {
+              nativeWatchdogRef.current = setTimeout(() => {
+                nativeWatchdogRef.current = null
+                if (!isActiveRef.current || firstTranscriptLoggedRef.current) return
+                const alerts = ++noTranscriptAlertsRef.current
+                capture('native_no_transcript', { secs_since_ready: Math.round((Date.now() - readyAt) / 1000), alerts, capture_mode: mode })
+                const message = mode === 'tab'
+                  ? 'Nothing has been transcribed yet. Check that the lecture is actually playing with sound on this PC, then restart the recording.'
+                  : 'Nothing has been transcribed yet. If your lecturer is speaking, check your microphone is selected and unmuted in Profile, and that Windows allows Demist to use it, then restart the recording.'
+                stickyWarningRef.current = message
+                setRecordingWarning(message)
+                desktopAlert('Demist is not hearing anything', mode === 'tab'
+                  ? 'Nothing has been written down yet. Check the lecture is playing with sound.'
+                  : 'Nothing has been written down yet. Check your microphone is on and not muted.')
+                if (alerts < 3) armWatchdog(NO_TRANSCRIPT_REPEAT_MS)
+              }, delayMs)
+            }
+            armWatchdog(NATIVE_NO_TRANSCRIPT_MS)
           },
           onTranscript: (text) => {
             if (!firstTranscriptLoggedRef.current) {
               firstTranscriptLoggedRef.current = true
               firstTranscriptMsRef.current = Date.now() - recordingStartedAtRef.current
+              // Words are arriving, so whatever the sticky warning said is over.
+              const sticky = stickyWarningRef.current
+              stickyWarningRef.current = null
+              if (sticky) setRecordingWarning(w => (w === sticky ? null : w))
               dlog(`[demist] first transcript ${Date.now() - recordingStartedAtRef.current} ms after recording started`)
             }
             dlog('[demist] FINAL transcript received:', text)
@@ -2097,7 +2139,12 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
           // invisible outside DevTools.
           onError: (message) => {
             console.error('[demist] native session error:', message)
-            capture('native_session_error', { ...nativeMessageCode(message), ...nativeFailureContext(), capture_mode: mode, secs_in: Math.round((Date.now() - recordingStartedAtRef.current) / 1000) })
+            const { code, detail } = nativeMessageCode(message)
+            capture('native_session_error', { code, detail, ...nativeFailureContext(), capture_mode: mode, secs_in: Math.round((Date.now() - recordingStartedAtRef.current) / 1000) })
+            if (code === 'mic_muted') {
+              stickyWarningRef.current = message
+              desktopAlert('Your microphone is muted', 'Demist cannot hear anything. Unmute your microphone, or choose another one in Profile.')
+            }
             setRecordingWarning(message)
           },
           // Not an error, and retractable: the worker sends '' once the
@@ -2107,7 +2154,8 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
               console.warn('[demist] session notice:', message)
               capture('native_session_notice', { ...nativeMessageCode(message), ...nativeFailureContext(), capture_mode: mode, secs_in: Math.round((Date.now() - recordingStartedAtRef.current) / 1000) })
             }
-            setRecordingWarning(message || null)
+            // A retraction puts back the sticky warning, not an empty banner.
+            setRecordingWarning(message || stickyWarningRef.current)
           },
         }, sharedGraph)
         // One last check: the recording may have been stopped or restarted
@@ -2496,6 +2544,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     }
 
     if (nativeWatchdogRef.current) { clearTimeout(nativeWatchdogRef.current); nativeWatchdogRef.current = null }
+    stickyWarningRef.current = null
     // Release the Web Lock so Chrome can resume normal background throttling
     webLockReleaseRef.current?.()
     webLockReleaseRef.current = null
