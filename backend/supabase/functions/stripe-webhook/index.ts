@@ -23,11 +23,22 @@ const ACTIVE_STATUSES = new Set(['active', 'trialing'])
 async function syncFromSubscription(sub: Stripe.Subscription) {
   const status = sub.status
   const plan = ACTIVE_STATUSES.has(status) ? 'pro' : 'free'
-  const periodEnd = new Date(sub.current_period_end * 1000).toISOString()
+  // Since Stripe's 2025-03-31 API version the period lives on each item, not
+  // the subscription. Webhook payloads use the ACCOUNT's API version, not the
+  // one pinned above, so customer.subscription.* events arrived without
+  // current_period_end and `new Date(NaN).toISOString()` threw (2026-11-02,
+  // both first paying customers). Read whichever is present; never throw.
+  const endSec = sub.current_period_end
+    ?? (sub.items?.data?.[0] as { current_period_end?: number } | undefined)?.current_period_end
+  const periodEnd = typeof endSec === 'number' ? new Date(endSec * 1000).toISOString() : null
   const interval = sub.items.data[0]?.price?.recurring?.interval ?? null
   const customerId = typeof sub.customer === 'string' ? sub.customer : sub.customer.id
 
-  const update = { plan, stripe_subscription_id: sub.id, current_period_end: periodEnd, price_interval: interval }
+  const update = {
+    plan, stripe_subscription_id: sub.id, price_interval: interval,
+    // Leave the stored date alone rather than blank it if neither shape had one.
+    ...(periodEnd ? { current_period_end: periodEnd } : {}),
+  }
   const { data, error } = await admin
     .from('subscriptions')
     .update(update)
@@ -96,7 +107,12 @@ serve(async (req) => {
       // just mean "re-read the subscription's current truth".
       case 'customer.subscription.updated':
       case 'customer.subscription.created': {
-        await syncFromSubscription(event.data.object as Stripe.Subscription)
+        // Re-read through the pinned client rather than trusting the payload:
+        // the payload's shape follows the account's API version (see
+        // syncFromSubscription), and Stripe can deliver events out of order,
+        // so the live object is the only reliable "current truth".
+        const payload = event.data.object as Stripe.Subscription
+        await syncFromSubscription(await stripe.subscriptions.retrieve(payload.id))
         break
       }
       case 'customer.subscription.deleted': {
