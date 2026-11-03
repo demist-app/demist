@@ -25,6 +25,7 @@ import { detectDesktopPlatform, isMobileUA } from '@/lib/platform'
 import { useEntitlements, fetchEntitlement, LIMITS } from '@/lib/entitlements'
 import { useNativeTranslate } from '@/lib/useNativeTranslate'
 import { extractCandidates } from '@/lib/extractTerms'
+import { loadVocabLevels, pickLearnerWord } from '@/lib/vocabulary'
 import { detectLectureLanguage, type LectureLanguage } from '@/lib/lectureLanguage'
 import { isElectronNative, getDemistNative, missingOnDeviceCapabilities, dlog, type DemistNative } from '@/lib/electronNative'
 import { startNativeSession, type NativeSessionHandle } from '@/lib/nativeSession'
@@ -40,6 +41,11 @@ export type CaptureMode = 'microphone' | 'tab'
 // so the local LLM's lazy load doesn't land on top of the first Whisper
 // segments. See the warmupHoldoff comment in accumulateAndMaybeDetect.
 const FIRST_DETECTION_DELAY_MS = 20_000
+
+// At most one vocabulary card (lib/vocabulary.ts) this often: about two a
+// minute in a dense lecture, enough to learn from without burying the
+// transcript.
+const VOCAB_CARD_GAP_MS = 30_000
 
 // Turns a worker's internal progress label into something worth showing a
 // person. The workers label themselves for the console - "translation model
@@ -466,7 +472,10 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
   // Per-session detection health, for the end-of-session summary: it is what
   // lets "this lecture had no jargon" be told apart from "detection broke"
   // (see sessionOutcome.ts). Counts only, nothing from the lecture.
-  const detectionStatsRef = useRef({ ok: 0, failed: 0, lastFailure: null as string | null, lastFailureDetail: null as string | null, unclearChunks: 0, clearChunks: 0, silentChunks: 0, confBuckets: [0, 0, 0, 0] })
+  const detectionStatsRef = useRef({ ok: 0, failed: 0, lastFailure: null as string | null, lastFailureDetail: null as string | null, unclearChunks: 0, clearChunks: 0, silentChunks: 0, confBuckets: [0, 0, 0, 0], vocabCards: 0 })
+  // When the last vocabulary card (lib/vocabulary.ts) was added: at most one
+  // per VOCAB_CARD_GAP_MS, so a long lecture is not a stream of word cards.
+  const lastVocabCardAtRef = useRef(0)
   // Detection calls still in flight. Stop waits for these (briefly) before
   // deciding what the session caught, or the final flush's terms would arrive
   // after the summary had already said there were none.
@@ -1011,12 +1020,27 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
             detectionStatsRef.current.ok++
             return
           }
-          terms = await native.defineCandidates(
-            candidates,
-            sessionSubjectRef.current || profileRef.current?.course || null,
-            profileRef.current?.year_of_study ?? null,
-            sessionTermNamesRef.current.slice(-40),
-          )
+          const subject = sessionSubjectRef.current || profileRef.current?.course || null
+          const year = profileRef.current?.year_of_study ?? null
+          terms = await native.defineCandidates(candidates, subject, year, sessionTermNamesRef.current.slice(-40))
+          // English learners: when the model kept nothing, the least common
+          // real word in the window instead (see lib/vocabulary.ts for why).
+          if (
+            !terms.length &&
+            profileRef.current?.support_need === 'language' &&
+            Date.now() - lastVocabCardAtRef.current >= VOCAB_CARD_GAP_MS
+          ) {
+            const levels = await loadVocabLevels()
+            const pick = levels && pickLearnerWord(candidates, levels)
+            if (pick) {
+              lastVocabCardAtRef.current = Date.now()
+              const definition = await native.explain(pick.term, subject, year).catch(() => null)
+              if (definition) {
+                terms = [{ term: pick.term, definition, context: pick.sentence }]
+                detectionStatsRef.current.vocabCards++
+              }
+            }
+          }
         } else terms = await native.detectTerms(
           transcript,
           context,
@@ -1869,7 +1893,8 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     lastDetectionTimeRef.current = Date.now()
     chunkIntervalRef.current = 5_000
     zeroTermChunksRef.current = 0
-    detectionStatsRef.current = { ok: 0, failed: 0, lastFailure: null, lastFailureDetail: null, unclearChunks: 0, clearChunks: 0, silentChunks: 0, confBuckets: [0, 0, 0, 0] }
+    detectionStatsRef.current = { ok: 0, failed: 0, lastFailure: null, lastFailureDetail: null, unclearChunks: 0, clearChunks: 0, silentChunks: 0, confBuckets: [0, 0, 0, 0], vocabCards: 0 }
+    lastVocabCardAtRef.current = 0
     setSessionSummary(null)
     chunkPeakRef.current = 0
     recordingStartedAtRef.current = Date.now()
@@ -2298,6 +2323,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       unclear_chunks: stats.unclearChunks,
       last_failure_detail: stats.lastFailureDetail,
       silent_chunks: stats.silentChunks,
+      vocab_cards: stats.vocabCards,
       clear_chunks: stats.clearChunks,
       conf_high: stats.confBuckets[0],
       conf_mid: stats.confBuckets[1],
