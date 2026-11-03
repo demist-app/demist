@@ -760,8 +760,13 @@ const NEEDS_VERIFICATION = new Set(['tiny', 'small', 'large'])
 //
 // Deliberately NOT given the definition the model just wrote: that definition
 // is the model's own justification for the term, and including it just invites
-// it to agree with itself. It gets the term and the sentence it was said in,
-// and nothing else.
+// it to agree with itself. It gets the term and the subject, and nothing else
+// (the sentence was dropped on 2026-11-03, see below).
+//
+// The lowest probability of "true" that keeps a candidate (llama-server only).
+// 0.2, not 0.5: see the measurement in verifyTerm. Mis-hearings still land far
+// below it ("dechloridation" scores 0.000) and everyday words near 0.
+const VERIFY_MIN_PROBABILITY = 0.2
 async function verifyTerm(term, sentence, subject) {
   // Rewritten 2026-10-18. The previous wording was almost entirely about when
   // to say no ("answer false if you do not recognise it, if it looks like a
@@ -783,6 +788,20 @@ async function verifyTerm(term, sentence, subject) {
   // 1.5B model turned much stricter (test/define-precision.js: 3 of 5
   // technical excerpts lost, "income effect" and "datagram" among them). The
   // short repeated question costs a few tokens; the examples stay reusable.
+  //
+  // 2026-11-03: the lecture sentence is no longer shown, and on llama-server
+  // the answer is the model's probability of "true", kept at
+  // VERIFY_MIN_PROBABILITY rather than at its one-word reply. Measured on
+  // seven real desktop lectures (physiotherapy, bioinformatics, law, English,
+  // philosophy, history, computer science; 59 hand-labelled real terms among
+  // 560 candidates): the old check kept 19 real terms and 26 non-terms; this
+  // one, with the site's common-word filter (lib/vocabulary.ts), keeps 34 and
+  // 28. Real speech-recognition sentences are run-on and noisy, and showing
+  // one made the 1.5B model LESS willing to call "plagiarism", "derivative"
+  // or "DNA" a term, not more; most real terms then scored 0.2-0.5, which a
+  // yes/no reply rounds to no. Paying desktop users were getting zero cards
+  // from whole lectures. `sentence` stays in the signature for defineOne.
+  void sentence
   const prompt = `Answer with JSON only: {"technical": true} or {"technical": false}.
 
 You will be asked whether a candidate is a recognised technical or academic term ${who}.
@@ -790,10 +809,17 @@ You will be asked whether a candidate is a recognised technical or academic term
 Yes, true: genuine terms, including well-known ones. Examples: "ATP synthase", "catalyst", "datagram", "income effect", "activation energy", "loss function".
 No, false: everyday words or phrases ("take care", "jacket", "five or six seconds"), and words speech recognition mis-heard, which sound technical but are not real terms. Examples: "Patriarchs fibres" (really "Purkinje fibres"), "S-mode" (really "SA node"), "dechloridation" (really "depolarisation").
 
-Sentence from a lecture (written by speech recognition): "${sentence}"
 Candidate: "${term}"
 
 Is "${term}" a recognised technical or academic term ${who}?`
+  if (engine === 'server') {
+    try {
+      const p = await llamaServer.verdictProbability(prompt, 'technical')
+      if (p !== null) return p >= VERIFY_MIN_PROBABILITY
+    } catch (e) {
+      console.error('[demist] term verification (probability) failed, asking for a plain answer:', e?.message ?? e)
+    }
+  }
   try {
     session.resetChatHistory()
     const response = await session.prompt(prompt, { grammar: verdictGrammar })

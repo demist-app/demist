@@ -26,7 +26,7 @@ export type VocabLevels = Map<string, number>
 
 let loading: Promise<VocabLevels | null> | null = null
 
-// Fetched once, and only by sessions that use it (~240KB gzipped).
+// Fetched once per page, and only by desktop sessions (~240KB gzipped).
 export function loadVocabLevels(): Promise<VocabLevels | null> {
   loading ??= fetch('/vocab-levels.json')
     .then(r => (r.ok ? r.json() : null))
@@ -60,6 +60,22 @@ function looksLikeName(term: string, sentence: string): boolean {
   if (words.length > 1) return words.every(w => /^[A-Z]/.test(w))
   const at = sentence.indexOf(term)
   return at > 0 || at === -1
+}
+
+// Desktop only, before the on-device model sees anything: drops single words
+// among the ~4,000 commonest in English (SCOWL level 10: "information",
+// "program", "function") and multi-word names ("Jim Thorpe", "Haskell
+// Institute"). The model's check is lenient since 2026-11-03 (see verifyTerm
+// in desktop/native/llm.js) and those were most of what slipped through it.
+// Abbreviations are kept; the model judges those.
+export function dropCommonAndNames<T extends { term: string }>(candidates: T[], levels: VocabLevels): T[] {
+  return candidates.filter(c => {
+    const words = c.term.trim().split(/\s+/)
+    if (words.length > 1) return !words.every(w => /^[A-Z]/.test(w))
+    if (/^[A-Z]{2,6}s?$/.test(c.term)) return true
+    const level = wordLevel(c.term, levels)
+    return level === undefined || level > 10
+  })
 }
 
 // The least common real word among this window's candidates, or null when

@@ -3,7 +3,7 @@
 // Exit 1 on any failure. Needs public/vocab-levels.json
 // (node scripts/build-vocab-levels.mjs).
 import { readFileSync } from 'node:fs'
-import { pickLearnerWord, type VocabLevels } from '../lib/vocabulary'
+import { pickLearnerWord, dropCommonAndNames, type VocabLevels } from '../lib/vocabulary'
 
 const data = JSON.parse(readFileSync('public/vocab-levels.json', 'utf8')) as Record<string, string>
 const levels: VocabLevels = new Map()
@@ -33,6 +33,13 @@ check('not in the dictionary (mis-hearing)', pick('Then dechloridation spreads a
 check('number', pick('Form 1099 goes to the office.', ['1099']), null)
 // Sentence-initial capital is not a name.
 check('capital at sentence start', pick('Adaptability matters in this job.', ['Adaptability']), 'Adaptability')
+
+// The desktop pre-filter (dropCommonAndNames).
+const kept = (terms: string[]) => dropCommonAndNames(terms.map(term => ({ term })), levels).map(c => c.term).join(',')
+check('drops the commonest single words', kept(['information', 'program', 'plagiarism', 'derivative']), 'plagiarism,derivative')
+check('drops multi-word names', kept(['Jim Thorpe', 'Haskell Institute', 'case law', 'UK legislation']), 'case law,UK legislation')
+check('keeps abbreviations for the model', kept(['HMM', 'XOR', 'NHS']), 'HMM,XOR,NHS')
+check('keeps words not in the dictionary', kept(['dechloridation', 'self-efficacy']), 'dechloridation,self-efficacy')
 
 if (fail) { console.log(`\n${fail} failed`); process.exit(1) }
 console.log('\nall passed')

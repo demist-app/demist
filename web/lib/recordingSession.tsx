@@ -25,7 +25,7 @@ import { detectDesktopPlatform, isMobileUA } from '@/lib/platform'
 import { useEntitlements, fetchEntitlement, LIMITS } from '@/lib/entitlements'
 import { useNativeTranslate } from '@/lib/useNativeTranslate'
 import { extractCandidates } from '@/lib/extractTerms'
-import { loadVocabLevels, pickLearnerWord } from '@/lib/vocabulary'
+import { loadVocabLevels, pickLearnerWord, dropCommonAndNames } from '@/lib/vocabulary'
 import { detectLectureLanguage, type LectureLanguage } from '@/lib/lectureLanguage'
 import { isElectronNative, getDemistNative, missingOnDeviceCapabilities, dlog, type DemistNative } from '@/lib/electronNative'
 import { startNativeSession, type NativeSessionHandle } from '@/lib/nativeSession'
@@ -1043,7 +1043,11 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
           }
           const subject = sessionSubjectRef.current || profileRef.current?.course || null
           const year = profileRef.current?.year_of_study ?? null
-          terms = await native.defineCandidates(candidates, subject, year, sessionTermNamesRef.current.slice(-40))
+          const levels = await loadVocabLevels()
+          const forModel = levels ? dropCommonAndNames(candidates, levels) : candidates
+          terms = forModel.length
+            ? await native.defineCandidates(forModel, subject, year, sessionTermNamesRef.current.slice(-40))
+            : []
           // English learners: when the model kept nothing, the least common
           // real word in the window instead (see lib/vocabulary.ts for why).
           if (
@@ -1051,7 +1055,6 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
             profileRef.current?.support_need === 'language' &&
             Date.now() - lastVocabCardAtRef.current >= VOCAB_CARD_GAP_MS
           ) {
-            const levels = await loadVocabLevels()
             const pick = levels && pickLearnerWord(candidates, levels)
             if (pick) {
               lastVocabCardAtRef.current = Date.now()

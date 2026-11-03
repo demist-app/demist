@@ -165,8 +165,53 @@ async function complete(prompt, { schema, maxTokens = 256 } = {}) {
   }
 }
 
+// How sure the model is that a {"<key>": true|false} answer is true, 0 to 1,
+// read from the probabilities of the true/false token instead of the single
+// word it would have written. A yes/no reply throws that away: on real
+// lectures most genuine terms ("plagiarism", "derivative", "DNA") scored
+// between 0.2 and 0.5, so they all came back "false" (see verifyTerm in
+// llm.js). Returns null when the reply carries no usable probabilities.
+async function verdictProbability(prompt, key) {
+  if (!server) throw new Error('llama-server is not running')
+  const { port, key: apiKey } = await server.ready
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+  try {
+    const res = await fetch(`http://127.0.0.1:${port}/v1/chat/completions`, {
+      method: 'POST',
+      signal: controller.signal,
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0,
+        max_tokens: 12,
+        cache_prompt: true,
+        logprobs: true,
+        top_logprobs: 10,
+        response_format: { type: 'json_schema', json_schema: { schema: { type: 'object', properties: { [key]: { type: 'boolean' } }, required: [key] } } },
+      }),
+    })
+    if (!res.ok) throw new Error(`llama-server HTTP ${res.status}`)
+    const body = await res.json()
+    // The verdict is the first token offered as true or false.
+    for (const tok of body.choices?.[0]?.logprobs?.content ?? []) {
+      const tops = tok.top_logprobs ?? []
+      const t = tops.find(x => /^\s*true/.test(x.token))
+      const f = tops.find(x => /^\s*false/.test(x.token))
+      if (t || f) {
+        const pt = t ? Math.exp(t.logprob) : 0
+        const pf = f ? Math.exp(f.logprob) : 0
+        return pt + pf > 0 ? pt / (pt + pf) : null
+      }
+    }
+    return null
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 // A worker exiting normally (including on IPC disconnect when the app quits)
 // takes its server with it.
 process.on('exit', stop)
 
-module.exports = { available, start, stop, complete, threadCount, EXE }
+module.exports = { available, start, stop, complete, verdictProbability, threadCount, EXE }
