@@ -1,6 +1,7 @@
 import type { MetadataRoute } from 'next'
 import { SUBJECT_PAGES } from '@/lib/subjectPages'
 import { COMPARE_PAGES } from '@/lib/comparePages'
+import { NEED_PAGES, NEED_PAGES_REVIEWED } from '@/lib/needPages'
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const base = 'https://www.demist.app'
@@ -15,6 +16,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified: now,
       changeFrequency: 'monthly' as const,
       priority: 0.8,
+    })),
+    ...NEED_PAGES.map(p => ({
+      url: `${base}/for/${p.slug}`,
+      lastModified: new Date(NEED_PAGES_REVIEWED),
+      changeFrequency: 'monthly' as const,
+      priority: 0.9,
     })),
     ...COMPARE_PAGES.map(p => ({
       url: `${base}/compare/${p.slug}`,

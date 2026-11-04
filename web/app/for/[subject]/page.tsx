@@ -3,21 +3,23 @@ import { PRO_PRICE_TEXT } from '@/lib/pricing'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { SUBJECT_PAGES, getSubjectPage } from '@/lib/subjectPages'
+import { NEED_PAGES, getNeedPage } from '@/lib/needPages'
 import { MS_STORE_URL } from '@/lib/links'
+import { NeedLanding } from './need-landing'
 
 // Statically generated at build time, one page per subject. These are
 // marketing pages read by search crawlers and by models answering "what
 // should I use for nursing lectures", so they must be plain HTML on a real
 // URL, not something that needs JavaScript to say anything.
 export async function generateStaticParams() {
-  return SUBJECT_PAGES.map(p => ({ subject: p.slug }))
+  return [...SUBJECT_PAGES, ...NEED_PAGES].map(p => ({ subject: p.slug }))
 }
 
 export const dynamicParams = false
 
 export async function generateMetadata(props: PageProps<'/for/[subject]'>): Promise<Metadata> {
   const { subject } = await props.params
-  const page = getSubjectPage(subject)
+  const page = getSubjectPage(subject) ?? getNeedPage(subject)
   if (!page) return {}
   const url = `https://www.demist.app/for/${page.slug}`
   return {
@@ -31,6 +33,8 @@ export async function generateMetadata(props: PageProps<'/for/[subject]'>): Prom
 
 export default async function SubjectLanding(props: PageProps<'/for/[subject]'>) {
   const { subject } = await props.params
+  const need = getNeedPage(subject)
+  if (need) return <NeedLanding page={need} />
   const page = getSubjectPage(subject)
   if (!page) notFound()
 
@@ -153,9 +157,12 @@ export default async function SubjectLanding(props: PageProps<'/for/[subject]'>)
           <section>
             <h2 className="text-[19px] font-semibold mb-3">Built for students who find lectures harder to follow</h2>
             <p className="dark:text-gray-400 text-gray-700">
-              Demist exists for {page.audience} with a hearing impairment, with dyslexia, who find
-              holding attention difficult, or who are studying in English as a second language. If
-              that is you, it is worth trying for one lecture.
+              Demist exists for {page.audience} who are{' '}
+              <Link href="/for/deaf-and-hard-of-hearing" className="underline underline-offset-2">deaf or hard of hearing</Link>,
+              who have <Link href="/for/dyslexia" className="underline underline-offset-2">dyslexia</Link> or{' '}
+              <Link href="/for/adhd" className="underline underline-offset-2">ADHD</Link>, or who are studying in{' '}
+              <Link href="/for/english-as-an-additional-language" className="underline underline-offset-2">English as an additional language</Link>.
+              If that is you, it is worth trying for one lecture.
             </p>
           </section>
         </div>

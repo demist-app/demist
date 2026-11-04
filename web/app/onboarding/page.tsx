@@ -53,7 +53,8 @@ const SUPPORT_NEEDS: { value: SupportNeed; label: string }[] = [
 // values ('search', 'youtube_reddit') stay valid for existing rows; anything
 // reading heard_from must accept both sets. 'other' now asks for one line,
 // because the channel we are not listing is the one we most need to hear
-// about.
+// about. 2026-11-04: so does 'ai_assistant', 70% of sign-ups, because the words
+// people type to an assistant are what the /for pages should be answering.
 const HEARD_FROM: { value: string; label: string }[] = [
   { value: 'ai_assistant', label: 'ChatGPT, Gemini or a similar assistant' },
   { value: 'google', label: 'Google' },
@@ -338,14 +339,17 @@ export default function Onboarding() {
               One last thing.<br />How did you find us?
             </h1>
             <p className="dark:text-gray-500 text-gray-600 mb-8">
-              One tap. It tells us where to put our effort.
+              It tells us where to put our effort.
             </p>
 
             <div className="space-y-2.5">
               {HEARD_FROM.map(({ value, label }) => (
                 <button
                   key={value}
-                  onClick={() => value === 'other' ? setOtherOpen(true) : finishHeardFrom(value)}
+                  onClick={() => {
+                    if (value === 'other' || value === 'ai_assistant') { setHeardFrom(value); setOtherOpen(true) }
+                    else finishHeardFrom(value)
+                  }}
                   disabled={saving}
                   className={`w-full py-4 px-5 rounded-2xl text-[15px] font-medium text-left transition-all disabled:opacity-40 ${
                     heardFrom === value
@@ -364,13 +368,13 @@ export default function Onboarding() {
                   autoFocus
                   value={otherText}
                   onChange={e => setOtherText(e.target.value.slice(0, 200))}
-                  onKeyDown={e => { if (e.key === 'Enter') finishHeardFrom('other', otherText) }}
-                  placeholder="Where? (optional)"
-                  aria-label="Where did you hear about Demist?"
+                  onKeyDown={e => { if (e.key === 'Enter') finishHeardFrom(heardFrom ?? 'other', otherText) }}
+                  placeholder={heardFrom === 'ai_assistant' ? 'What did you ask it? (optional)' : 'Where? (optional)'}
+                  aria-label={heardFrom === 'ai_assistant' ? 'What did you ask the assistant?' : 'Where did you hear about Demist?'}
                   className="flex-1 px-4 py-3.5 rounded-2xl text-[15px] dark:bg-white/[0.05] bg-[#FFFFFF] border dark:border-white/[0.08] border-black/[0.12] focus:outline-none focus:border-brand-500/60"
                 />
                 <button
-                  onClick={() => finishHeardFrom('other', otherText)}
+                  onClick={() => finishHeardFrom(heardFrom ?? 'other', otherText)}
                   disabled={saving}
                   className="px-5 rounded-2xl text-[15px] font-semibold bg-brand-600 hover:brightness-[1.1] text-white disabled:opacity-40"
                 >

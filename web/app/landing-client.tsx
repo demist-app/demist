@@ -9,6 +9,7 @@ import { FAQ as FAQS } from '@/lib/faq'
 import { MAC_SUPPORT_URL, MS_STORE_URL } from '@/lib/links'
 import { PRO_LIVE } from '@/lib/subscription'
 import { SUBJECT_PAGES } from '@/lib/subjectPages'
+import { NEED_PAGES } from '@/lib/needPages'
 import { COMPARE_PAGES } from '@/lib/comparePages'
 import { BrandMark, GracefulMindsLogo } from '@/components/BrandMark'
 
@@ -960,6 +961,15 @@ export default function LandingClient() {
           that read them) judge what a page is about. Rendered on the server
           like the rest of this component, so crawlers see them. */}
       <nav aria-label="Guides" className="relative z-10 px-6 sm:px-12 pt-10 pb-2 text-[12px] leading-relaxed" style={{ borderTop: '1px solid var(--border)', color: 'var(--fg-faint)' }}>
+        <p className="mb-2">
+          <span className="font-semibold">Demist for </span>
+          {NEED_PAGES.map((p, i) => (
+            <span key={p.slug}>
+              <a href={`/for/${p.slug}`} className="underline-offset-2 hover:underline">{p.audience}</a>
+              {i < NEED_PAGES.length - 1 ? ' · ' : ''}
+            </span>
+          ))}
+        </p>
         <p className="mb-2">
           <span className="font-semibold">Demist for </span>
           {SUBJECT_PAGES.map((p, i) => (

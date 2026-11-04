@@ -137,6 +137,40 @@ export const COMPARE_PAGES: ComparePage[] = [
     ],
     checkedOn: '2026-09-25',
   },
+  {
+    slug: 'windows-live-captions',
+    name: 'Windows Live Captions',
+    title: 'Demist vs Windows Live Captions for university lectures',
+    description:
+      'How Demist and the Live Captions built into Windows 11 compare for lectures: saved transcripts, explanations of unfamiliar words, flashcards, translation and offline use.',
+    verdict:
+      'Live Captions is built into Windows 11 and puts captions on screen for any audio, on your own device, even with no internet connection, but it does not keep them. Demist is for learning from a lecture: it keeps the transcript, explains unfamiliar words while the lecturer is talking, and builds a glossary and flashcards. If you only need captions in the moment, Live Captions may be all you need. If you want something to go back to and revise from, Demist does that.',
+    rows: [
+      { label: 'Price for students', demist: DEMIST_PRICE, them: 'Built into Windows 11. Microsoft\'s page does not mention a charge' },
+      { label: 'Where it runs', demist: 'Windows app, and in the browser', them: 'Windows 11, version 22H2 and later' },
+      { label: 'Live text on screen', demist: 'Yes', them: 'Yes' },
+      { label: 'Keeps a transcript afterwards', demist: 'Yes, with a summary and a glossary', them: 'No. Microsoft says generated captions are not stored anywhere on the device or the cloud' },
+      { label: 'Explains terms during the lecture', demist: DEMIST_LIVE, them: 'Not listed' },
+      { label: 'Flashcards', demist: DEMIST_FLASHCARDS, them: 'Not listed' },
+      { label: 'Translation', demist: 'The transcript and explanations can be translated into Mandarin, Arabic, Hindi, Spanish or French', them: 'On Copilot+ PCs only, into English or Chinese (Simplified)' },
+      { label: 'Languages it can transcribe', demist: 'Windows app: lectures in English. The browser version handles other languages too', them: '21 languages listed' },
+      { label: 'Works with no internet', demist: 'No. The Windows app needs a connection to start', them: 'Yes, Microsoft says captions can be provided when disconnected from the internet' },
+      { label: 'Where audio is processed', demist: DEMIST_AUDIO, them: 'On your device, according to Microsoft' },
+    ],
+    themBetter: [
+      'You only need captions in the moment, and do not want to keep anything.',
+      'You want captions over any app with nothing to install and no account.',
+      'You have no reliable internet connection.',
+      'Your lectures are in a language other than English and you want everything on your own device.',
+    ],
+    faq: [
+      { q: 'Is Windows Live Captions enough for lectures?', a: 'It depends what you need. For captions on screen in the moment, it may well be. It does not keep the captions, so it will not give you a transcript, a glossary or anything to revise from, and it does not explain unfamiliar words. Demist does those things.' },
+      { q: 'Can I use both?', a: 'Yes. They do different jobs, and nothing stops you having captions on screen while Demist builds your notes.' },
+      { q: 'Which is more private?', a: 'Both process live audio on your own computer: Live Captions always, and Demist in its Windows app. The browser version of Demist sends audio to Demist\'s server to be transcribed.' },
+    ],
+    sources: [{ label: 'Microsoft Support: Use live captions to better understand audio', url: 'https://support.microsoft.com/en-us/windows/use-live-captions-to-better-understand-audio-b52da59c-14b8-4031-aeeb-f6a47e6055df' }],
+    checkedOn: '2026-11-04',
+  },
 ]
 
 export function getComparePage(slug: string): ComparePage | undefined {

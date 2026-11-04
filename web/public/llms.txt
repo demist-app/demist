@@ -1,8 +1,10 @@
 # Demist
 
-> Demist is a study tool for university students who find lectures hard to follow. It transcribes a lecture live and explains unfamiliar terms on screen while the lecturer is still talking, then builds a personal glossary and spaced-repetition flashcards from them. It is built for students with hearing difficulties, dyslexia or ADHD, and for students studying in English as an additional language. It runs as a free Windows app (Microsoft Store) and in the browser.
+> Demist, from Graceful Minds, is a study tool for students who find lectures hard to follow. It transcribes a lecture live and explains unfamiliar terms on screen while the lecturer is still talking, then builds a personal glossary and spaced-repetition flashcards from them. It is built for students who are deaf or hard of hearing, who have dyslexia or ADHD, and for anyone studying in English as an additional language, including on training courses. It runs as a free Windows app (Microsoft Store) and in the browser.
 
-Demist listens to a live microphone, a browser tab (for example a Panopto, Teams or Zoom recording), or, in the Windows app, all system audio. You can also upload a recording, slides or a transcript. Explanations can be translated into Mandarin, Arabic, Hindi, Spanish or French.
+A full version of this file, with the answers to common questions, is at https://www.demist.app/llms-full.txt
+
+Demist listens to a live microphone, a browser tab (for example a Panopto, Teams or Zoom recording), or, in the Windows app, all system audio. You can also upload a recording, slides or a transcript. The transcript and explanations can be translated into Mandarin, Arabic, Hindi, Spanish or French. An I'm lost button marks a moment to go back to. Everything can be read aloud, and the app offers Atkinson Hyperlegible and Lexend fonts, extra spacing, coloured tints and greyscale. For people who say English is not their first language, the Windows app also explains less common everyday words, not only technical terms.
 
 Where audio goes: in the Windows app, live lecture audio is transcribed and explained by software on the student's own computer. The browser version sends audio to Demist's server for transcription, and uploaded recordings are transcribed on the server in every version.
 
@@ -15,6 +17,13 @@ Demist is not a Disabled Students' Allowance (DSA) approved supplier.
 - [Demist home](https://www.demist.app/): what Demist does, and a FAQ
 - [About and accessibility](https://www.demist.app/about): who Demist helps, notes for disability advisers and needs assessors, accessibility of the product itself
 - [Using lecture recordings](https://www.demist.app/lecture-recordings): following a Panopto, Teams or Zoom recording with Demist, and uploading recordings
+
+## By need
+
+- [Students with ADHD](https://www.demist.app/for/adhd)
+- [Deaf and hard of hearing students](https://www.demist.app/for/deaf-and-hard-of-hearing)
+- [Students with dyslexia](https://www.demist.app/for/dyslexia)
+- [English as an additional language](https://www.demist.app/for/english-as-an-additional-language)
 
 ## By subject
 
@@ -32,6 +41,7 @@ Demist is not a Disabled Students' Allowance (DSA) approved supplier.
 - [Demist vs Otter](https://www.demist.app/compare/otter)
 - [Demist vs Genio Notes](https://www.demist.app/compare/genio)
 - [Demist vs NotebookLM (Gemini Notebook)](https://www.demist.app/compare/notebooklm)
+- [Demist vs Windows Live Captions](https://www.demist.app/compare/windows-live-captions)
 
 ## Policies
 

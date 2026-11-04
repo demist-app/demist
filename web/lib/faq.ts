@@ -42,6 +42,22 @@ export const FAQ = [
     a: 'Your data is tied to your account and not shared. In the browser, audio is sent to our server for transcription and is not kept afterwards; an uploaded recording is deleted once it has been processed. In the Windows app, live lecture audio is processed on your own computer. The privacy policy has the details.',
   },
   {
+    q: 'Does Demist help students with ADHD?',
+    a: 'It is built for losing the thread in a lecture. A live transcript lets you catch up after your attention drifts, unfamiliar words are explained as they are said, and an I\'m lost button marks the moment so you can go back to it. It is not a treatment or a task manager. More at demist.app/for/adhd.',
+  },
+  {
+    q: 'Can deaf or hard of hearing students use Demist?',
+    a: 'Yes. It shows live text of the lecture on your own screen and keeps the transcript afterwards. It is automatic transcription, so it makes mistakes and does not replace a human notetaker or speech-to-text reporter where you need every word. More at demist.app/for/deaf-and-hard-of-hearing.',
+  },
+  {
+    q: 'Does Demist help with dyslexia?',
+    a: 'It writes the lecture down so you do not have to listen and write at once, and it can read your notes back. You can use Atkinson Hyperlegible or Lexend across the app, with extra spacing and coloured tints. More at demist.app/for/dyslexia.',
+  },
+  {
+    q: 'Does it help if English is not my first language?',
+    a: 'Yes. It writes down what is said, explains difficult words in plain English, and can translate the transcript and explanations into Mandarin, Arabic, Hindi, Spanish or French. More at demist.app/for/english-as-an-additional-language.',
+  },
+  {
     q: 'Is Demist available through DSA?',
     a: 'Demist is not a DSA-approved supplier. It does not need DSA funding, though: the core of it is free for every student. If you are working with a needs assessor or a disability adviser, see demist.app/about.',
   },

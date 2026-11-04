@@ -5,13 +5,15 @@ import { createClient } from '@/lib/supabase'
 import { AppNav } from '@/components/AppNav'
 import { GracefulMindsLogo } from '@/components/BrandMark'
 
-const useCases = [
+const useCases: { title: string; body: string; href?: string }[] = [
   {
     title: 'Auditory processing and ADHD',
+    href: '/for/adhd',
     body: 'Live definitions appear the moment an unfamiliar term is said, so a lapse in concentration doesn’t mean losing the thread of the lecture.',
   },
   {
     title: 'Dyslexia and specific learning difficulties',
+    href: '/for/dyslexia',
     body: 'Students don’t need to write while listening. Demist builds the notes, and flashcards turn them into revision material automatically.',
   },
   {
@@ -20,6 +22,7 @@ const useCases = [
   },
   {
     title: 'English as an additional language',
+    href: '/for/english-as-an-additional-language',
     body: 'Technical vocabulary and fast delivery are the two biggest barriers for non-native speakers. Demist addresses both without singling anyone out.',
   },
 ]
@@ -62,6 +65,7 @@ export function AboutClient() {
               <div key={u.title} className="rounded-2xl p-6" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
                 <p className="text-[15px] font-semibold mb-2" style={{ color: 'var(--fg)' }}>{u.title}</p>
                 <p className="text-[13px] leading-relaxed" style={{ color: 'var(--fg-muted)' }}>{u.body}</p>
+                {u.href && <a href={u.href} className="inline-block text-[13px] underline underline-offset-2 mt-2" style={{ color: 'var(--fg-muted)' }}>Read more</a>}
               </div>
             ))}
           </div>

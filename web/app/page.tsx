@@ -50,11 +50,14 @@ const jsonLd = {
     {
       '@type': 'Organization',
       name: 'Demist',
+      alternateName: 'Graceful Minds',
       url: 'https://www.demist.app',
       logo: 'https://www.demist.app/icon.svg',
       email: 'hello@demist.app',
       sameAs: [
-        // fill with real profile URLs as they exist: Instagram, TikTok, LinkedIn, X
+        // Add real profile URLs as they exist: Instagram, TikTok, LinkedIn, X
+        'https://www.graceful-minds.org',
+        'https://apps.microsoft.com/detail/9N4TZSCFHZN8',
       ],
     },
     {
@@ -78,6 +81,14 @@ const jsonLd = {
       description: 'Demist transcribes lectures, reads them back, and explains and translates unfamiliar terms in real time, for students who find lectures harder to follow. Builds a personal glossary and uses spaced repetition flashcards for review.',
       url: 'https://www.demist.app',
       audience: { '@type': 'EducationalAudience', educationalRole: 'student' },
+      featureList: [
+        'Live lecture transcription',
+        'Explanations of unfamiliar words during the lecture',
+        'Transcript and explanations translated into Mandarin, Arabic, Hindi, Spanish or French',
+        'Glossary and spaced repetition flashcards built from each lecture',
+        'I\'m lost button that marks a moment to review',
+        'Read aloud, Atkinson Hyperlegible and Lexend fonts, spacing, tints and greyscale',
+      ],
       publisher: { '@type': 'Organization', name: 'Graceful Minds', url: 'https://www.graceful-minds.org' },
     },
     {
