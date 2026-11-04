@@ -382,6 +382,7 @@ export default function History() {
 
   const toggleExpand = async (id: string) => {
     if (selectMode) { toggleSelect(id); return }
+    if (loadingTerms === id) return // already opening; a second click is impatience, not a request
     const target = sessions.find(x => x.id === id)
     if (target && !target.expanded) {
       maybeSummarize(target)

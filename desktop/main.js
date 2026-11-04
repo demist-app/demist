@@ -295,6 +295,7 @@ function getWorkerState(role) {
   const state = { worker, pending: new Map(), lastMessageAt: Date.now() }
   worker.on('message', (msg) => {
     state.lastMessageAt = Date.now()
+    if (msg.event === 'alive') return // worker.js heartbeat: liveness only
     // Push events from the worker (transcript segments, model progress):
     // forward straight to the renderer on one channel, same as before, so
     // the renderer doesn't need to know or care that there are now three

@@ -34,6 +34,13 @@ function emitEvent(event, payload) {
 }
 const emitProgress = (label, pct, file) => emitEvent('modelProgress', { label, pct, file })
 
+// Proof of life for main.js, which kills a worker that stays silent past a
+// call's timeout. A worker waiting on llama-server sends nothing at all, so a
+// slow machine looked exactly like a dead one and healthy term workers were
+// killed mid-lecture. Only a worker whose event loop has truly stopped goes
+// quiet now, which is the case the kill exists for.
+if (asChildProcess) setInterval(() => emitEvent('alive'), 20_000).unref()
+
 let whisper, translate, llm
 const handlers = {
   // Keep-alive (see the keepWorkersWarm comment in main.js). Deliberately

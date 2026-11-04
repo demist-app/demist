@@ -271,8 +271,8 @@ let engine = null
 // did, so the callers do not change.
 const serverSession = {
   resetChatHistory() {},
-  prompt(text, { grammar, maxTokens } = {}) {
-    return llamaServer.complete(text, { schema: grammar?.schema, maxTokens: maxTokens ?? 512 })
+  prompt(text, { grammar, maxTokens, timeoutMs } = {}) {
+    return llamaServer.complete(text, { schema: grammar?.schema, maxTokens: maxTokens ?? 512, timeoutMs })
   },
 }
 function serverGrammar(schema) {
@@ -814,9 +814,12 @@ Candidate: "${term}"
 Is "${term}" a recognised technical or academic term ${who}?`
   if (engine === 'server') {
     try {
-      const p = await llamaServer.verdictProbability(prompt, 'technical')
+      const p = await llamaServer.verdictProbability(prompt, 'technical', DEFINE_CALL_TIMEOUT_MS)
       if (p !== null) return p >= VERIFY_MIN_PROBABILITY
     } catch (e) {
+      // Out of time: the machine is struggling, so asking again would only
+      // add to it. This candidate gets no card; the batch budget does the rest.
+      if (e?.name === 'AbortError') return false
       console.error('[demist] term verification (probability) failed, asking for a plain answer:', e?.message ?? e)
     }
   }
@@ -947,6 +950,15 @@ async function detectTerms(transcript, recentContext, subject, year, emitProgres
 // device, nothing leaves the machine.
 const DEFINE_MAX_CANDIDATES = 6
 const DEFINE_MAX_PER_WINDOW = 2
+// A batch stops checking candidates after this long, and no one model call
+// may run past DEFINE_CALL_TIMEOUT_MS, so the worst batch is about 3 minutes.
+// Without these, six checks at the 120s request timeout outlasted the 5-minute
+// call timeout in main.js on a laptop short of memory; the term worker was
+// killed mid-lecture (14 times for one student, 2026-10), each kill cost a
+// model reload that made the machine slower still, and after two the crash
+// guard paused terms for ten minutes.
+const DEFINE_BATCH_BUDGET_MS = Number(process.env.DEMIST_DEFINE_BUDGET_MS) || 60_000
+const DEFINE_CALL_TIMEOUT_MS = 45_000
 
 async function defineOne(term, sentence, subject, year) {
   const who = subject ? `a ${year ? `Year ${year} ` : ''}${subject} student` : 'a university student'
@@ -960,7 +972,7 @@ Term: "${term}"`
   // budget is tight. The 1.5B model still sometimes runs on into a second or
   // third sentence; a reply cut off mid-string is not valid JSON, and that
   // used to throw and lose the whole window ("income effect", 2026-10-20).
-  const response = await session.prompt(prompt, { grammar: explainGrammar, maxTokens: 64 })
+  const response = await session.prompt(prompt, { grammar: explainGrammar, maxTokens: 64, timeoutMs: DEFINE_CALL_TIMEOUT_MS })
   try {
     return explainGrammar.parse(response)?.definition?.trim() || null
   } catch {
@@ -987,8 +999,13 @@ async function runDefineOnce(candidates, subject, year, knownTerms) {
     // Extractor order is phrases first, then single words, so the most
     // specific candidates get the limited definition budget.
     const accepted = []
+    const startedAt = Date.now()
     for (const c of candidates) {
       if (accepted.length >= DEFINE_MAX_PER_WINDOW) break
+      if (Date.now() - startedAt > DEFINE_BATCH_BUDGET_MS) {
+        console.warn('[demist] term checks are running slowly on this machine; leaving the rest of this window')
+        break
+      }
       if (known.has(c.term.toLowerCase())) continue
       if (await verifyTerm(c.term, c.sentence, subject)) accepted.push(c)
       else console.warn(`[demist] dropped "${c.term}": the model itself judged it not a technical term`)

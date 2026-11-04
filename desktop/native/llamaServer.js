@@ -139,11 +139,11 @@ function stop() {
 // same guarantee node-llama-cpp's grammars gave. cache_prompt lets the server
 // reuse the already-read opening of consecutive prompts (llm.js puts the fixed
 // instructions first for exactly this).
-async function complete(prompt, { schema, maxTokens = 256 } = {}) {
+async function complete(prompt, { schema, maxTokens = 256, timeoutMs = REQUEST_TIMEOUT_MS } = {}) {
   if (!server) throw new Error('llama-server is not running')
   const { port, key } = await server.ready
   const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
     const res = await fetch(`http://127.0.0.1:${port}/v1/chat/completions`, {
       method: 'POST',
@@ -171,11 +171,11 @@ async function complete(prompt, { schema, maxTokens = 256 } = {}) {
 // lectures most genuine terms ("plagiarism", "derivative", "DNA") scored
 // between 0.2 and 0.5, so they all came back "false" (see verifyTerm in
 // llm.js). Returns null when the reply carries no usable probabilities.
-async function verdictProbability(prompt, key) {
+async function verdictProbability(prompt, key, timeoutMs = REQUEST_TIMEOUT_MS) {
   if (!server) throw new Error('llama-server is not running')
   const { port, key: apiKey } = await server.ready
   const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
     const res = await fetch(`http://127.0.0.1:${port}/v1/chat/completions`, {
       method: 'POST',

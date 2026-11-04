@@ -91,6 +91,14 @@ export interface NativeSessionCallbacks {
   // transcribed, so the UI can say so instead of showing an empty transcript
   // that looks broken.
   onReady?: () => void
+  // Capturing what is playing on this PC, not a microphone. Exact silence then
+  // means nothing is playing yet, not a fault: 10 of the 14 "no audio" errors
+  // in two weeks of 2026 were this, telling students to check microphone
+  // privacy settings for a recording that used no microphone.
+  systemAudio?: boolean
+  // The capture watchdog's own timer stopped for this many seconds: the
+  // machine slept (a closed lid, usually). Nothing was recorded in that time.
+  onCaptureGap?: (seconds: number) => void
 }
 
 export interface NativeSessionHandle {
@@ -126,6 +134,9 @@ export interface SharedAudioGraph {
   context: AudioContext
   source: MediaStreamAudioSourceNode
 }
+
+// The capture watchdog ticks every 5s; this long between ticks means sleep.
+const SLEEP_GAP_SECS = 30
 
 export async function startNativeSession(
   stream: MediaStream,
@@ -387,9 +398,9 @@ export async function startNativeSession(
           silenceReported = true
           const name = track?.label || 'the selected microphone'
           console.error(`[demist] no audio at all from "${name}" after 5s (every sample exactly 0)`)
-          callbacks.onError?.(
-            `No audio is reaching Demist from "${name}". It is connected but sending silence: check Windows mic privacy settings, that the right input is selected in Profile, and that the device is not muted.`,
-          )
+          callbacks.onError?.(callbacks.systemAudio
+            ? 'Nothing is playing on this PC yet. Demist will start writing as soon as the lecture plays.'
+            : `No audio is reaching Demist from "${name}". It is connected but sending silence: check Windows mic privacy settings, that the right input is selected in Profile, and that the device is not muted.`)
         }
         const now = Date.now()
         if (now - lastLogAt >= 1000) {
@@ -527,8 +538,19 @@ export async function startNativeSession(
     const perSec = (frameCount - lastWatchdogFrames) / secs
     lastWatchdogFrames = frameCount
     lastWatchdogAt = now
+    // This timer fires every 5s. A long gap means it was not running at all,
+    // so the machine slept, and dividing by the gap reported every closed lid
+    // as a capture fault ("Stop and restart the recording"): one recording
+    // logged it 22 hours in. Wake the graph and report the gap instead.
+    if (secs >= SLEEP_GAP_SECS) {
+      void audioContext?.resume().catch(() => {})
+      callbacks.onCaptureGap?.(Math.round(secs))
+      return
+    }
     const expected = expectedFramesPerSec || 375
     if (perSec >= expected * 0.1) return
+    // A suspended context is the one cause of a real trickle we can undo here.
+    void audioContext?.resume().catch(() => {})
     if (++starvedReports > 3) return // said it enough; keep the log readable
     console.error(
       `[demist] audio capture is starved: the worklet delivered ${perSec.toFixed(1)} frames/sec, ` +

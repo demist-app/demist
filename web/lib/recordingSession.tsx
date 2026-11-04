@@ -77,6 +77,8 @@ export function nativeMessageCode(message: string): { code: string; detail?: str
   const m = message.toLowerCase()
   if (m.includes('too quiet')) return { code: 'mic_too_quiet' }
   if (m.includes('muted at the system level')) return { code: 'mic_muted' }
+  if (m.includes('no audio is reaching')) return { code: 'mic_silent' }
+  if (m.includes('nothing is playing on this pc')) return { code: 'system_audio_silent' }
   if (m.includes('audio context')) return { code: 'audio_context_failed' }
   if (m.includes('barely running')) return { code: 'capture_starved' }
   if (m.includes('stopped unexpectedly')) return { code: 'engine_died' }
@@ -1942,8 +1944,12 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     setLiveSessionId(sessionId)
     setWakeLockUnsupported(!wakeLockSupported())
     window.postMessage({ source: 'demist', type: 'recording-started' }, window.location.origin)
-    timerRef.current = setInterval(() => setElapsed(t => {
-      const next = t + 1
+    let lengthWarned = false
+    timerRef.current = setInterval(() => setElapsed(() => {
+      // From the clock, not by counting ticks: this timer stops while the
+      // machine sleeps, so a counter never reached the limit below and one
+      // recording left open through a closed lid ran for 20 hours.
+      const next = Math.floor((Date.now() - recordingStartedAtRef.current) / 1000)
       // A real session on 2026-09-16 ran for 6.8 hours: someone started a
       // recording and walked away. Nothing stopped it. On the web path that
       // bills per chunk for hours of an empty room, on every path it produces
@@ -1954,7 +1960,8 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       // rare but not impossible and losing it would be far worse than the
       // waste. The hard stop is a normal stopRecording(), so the transcript,
       // terms and summary are all saved exactly as if the user had pressed it.
-      if (next === RECORDING_WARN_SECONDS) {
+      if (next >= RECORDING_WARN_SECONDS && !lengthWarned) {
+        lengthWarned = true
         setRecordingWarning('This recording has been running for three hours. If you have finished, press stop so Demist can save and summarise it.')
         capture('recording_length_warning', { hours: 3 })
       }
@@ -2027,6 +2034,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       // servers, which would falsify "nothing leaves the device", and the
       // cloud MediaRecorder/processChunk loop never runs in this branch.
       recordingMode = 'native'
+      let myEpoch = sessionEpochRef.current
       try {
         nativeInterimShowingRef.current = false
         // Tear down any graph left over from a previous attempt before
@@ -2041,7 +2049,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
           await nativeSessionRef.current.stop().catch(e => console.error('[demist] stopping stale native session failed:', e))
           nativeSessionRef.current = null
         }
-        const myEpoch = ++sessionEpochRef.current
+        myEpoch = ++sessionEpochRef.current
         // Audio is captured from this moment, but the native model may still
         // be loading; say so rather than showing an empty transcript.
         setRecordingWarning('Getting transcription ready… your audio is being recorded and will appear shortly.')
@@ -2144,11 +2152,21 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
             console.error('[demist] native session error:', message)
             const { code, detail } = nativeMessageCode(message)
             capture('native_session_error', { code, detail, ...nativeFailureContext(), capture_mode: mode, secs_in: Math.round((Date.now() - recordingStartedAtRef.current) / 1000) })
-            if (code === 'mic_muted') {
+            if (code === 'mic_muted' || code === 'mic_silent') {
               stickyWarningRef.current = message
               desktopAlert('Your microphone is muted', 'Demist cannot hear anything. Unmute your microphone, or choose another one in Profile.')
+            } else if (code === 'system_audio_silent') {
+              // Only "waiting", so no notification, but it must not linger
+              // once words arrive either.
+              stickyWarningRef.current = message
             }
             setRecordingWarning(message)
+          },
+          systemAudio: mode === 'tab',
+          onCaptureGap: (seconds) => {
+            capture('native_capture_gap', { seconds, capture_mode: mode, ...nativeFailureContext() })
+            const minutes = Math.max(1, Math.round(seconds / 60))
+            setRecordingWarning(`Your computer was asleep for about ${minutes} minute${minutes === 1 ? '' : 's'}, so that part was not recorded. Recording has carried on.`)
           },
           // Not an error, and retractable: the worker sends '' once the
           // condition clears, which puts the banner away again.
@@ -2170,20 +2188,28 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
           nativeSessionRef.current = handle
         }
       } catch (e) {
-        console.error('[demist] failed to start native session:', e)
-        capture('native_session_start_failed', { ...nativeMessageCode(String((e as Error)?.message ?? e)), ...nativeFailureContext(), capture_mode: mode })
-        // Clear the "Preparing on-device transcription…" notice: it is set
-        // just before startNativeSession and only cleared by onReady, so on
-        // any failure path it used to sit on screen forever, telling the user
-        // to keep waiting for something that had already given up.
-        setRecordingWarning(null)
-        setRecordingError('Could not start transcription, so this recording was stopped. Try again; if it keeps happening, restart Demist.')
-        // Stop, don't carry on. The recording used to keep running with the
-        // error on screen and nothing listening, and a student who missed the
-        // message could record a whole lecture into nothing: that is the
-        // likeliest reading of a 59-minute desktop session on 2026-09-29 that
-        // ended with no transcript at all.
-        void stopRecordingRef.current()
+        // An abandoned attempt: the student stopped, or stopped and started
+        // again, while this one was still loading. Its failure is expected,
+        // and the stop below would end the NEWER recording with "Could not
+        // start transcription" (four students, 2026-10/11).
+        if (sessionEpochRef.current !== myEpoch || !isActiveRef.current) {
+          console.warn('[demist] an abandoned native session start ended:', e)
+        } else {
+          console.error('[demist] failed to start native session:', e)
+          capture('native_session_start_failed', { ...nativeMessageCode(String((e as Error)?.message ?? e)), ...nativeFailureContext(), capture_mode: mode })
+          // Clear the "Preparing on-device transcription…" notice: it is set
+          // just before startNativeSession and only cleared by onReady, so on
+          // any failure path it used to sit on screen forever, telling the user
+          // to keep waiting for something that had already given up.
+          setRecordingWarning(null)
+          setRecordingError('Could not start transcription, so this recording was stopped. Try again; if it keeps happening, restart Demist.')
+          // Stop, don't carry on. The recording used to keep running with the
+          // error on screen and nothing listening, and a student who missed the
+          // message could record a whole lecture into nothing: that is the
+          // likeliest reading of a 59-minute desktop session on 2026-09-29 that
+          // ended with no transcript at all.
+          void stopRecordingRef.current()
+        }
       }
     } else {
       // ── Cloud transcription: chunk loop ─────────────────────────────────────
