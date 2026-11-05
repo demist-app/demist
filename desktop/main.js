@@ -526,7 +526,11 @@ function callWorker(type, ...args) {
         // in progress and guarantee the next attempt starts from scratch.
         // Killing a healthy-but-slow worker is the more damaging mistake.
         const quietFor = Date.now() - state.lastMessageAt
-        if (quietFor >= WORKER_SILENT_MS) {
+        // A worker that has already run a session has its model loaded, so a
+        // startSession that takes this long is stuck, not loading: one student
+        // could not record for 20 minutes after an hour-long lecture until they
+        // restarted the app, which then took 8 seconds (2026-11-04).
+        if (quietFor >= WORKER_SILENT_MS || (type === 'startSession' && state.sessionStarted)) {
           console.error(`[demist] '${type}' got no reply from the ${role} worker in ${timeoutMs}ms and it has been silent for ${quietFor}ms; restarting it`)
           try { state.worker.kill() } catch { /* already gone */ }
           if (workerStates[role] === state) workerStates[role] = null
@@ -538,7 +542,11 @@ function callWorker(type, ...args) {
       }, timeoutMs)
     }
     state.pending.set(id, {
-      resolve: (v) => { if (timer) clearTimeout(timer); resolve(v) },
+      resolve: (v) => {
+        if (timer) clearTimeout(timer)
+        if (type === 'startSession') state.sessionStarted = true
+        resolve(v)
+      },
       reject: (e) => { if (timer) clearTimeout(timer); reject(e) },
     })
     state.worker.send({ id, type, args })

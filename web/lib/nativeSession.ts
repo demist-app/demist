@@ -533,6 +533,10 @@ export async function startNativeSession(
   let lastWatchdogAt = Date.now()
   let starvedReports = 0
   const captureWatchdog = setInterval(() => {
+    // An attempt stopped while still starting up keeps its graph until
+    // startSession returns, and with no audio arriving it read as a stall: the
+    // warning then landed on the student's NEXT recording (2026-11-04).
+    if (callbacks.isStale?.()) return
     const now = Date.now()
     const secs = Math.max(0.001, (now - lastWatchdogAt) / 1000)
     const perSec = (frameCount - lastWatchdogFrames) / secs
