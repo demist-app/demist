@@ -25,6 +25,7 @@ import { detectDesktopPlatform, isMobileUA } from '@/lib/platform'
 import { useEntitlements, fetchEntitlement, LIMITS } from '@/lib/entitlements'
 import { useNativeTranslate } from '@/lib/useNativeTranslate'
 import { extractCandidates } from '@/lib/extractTerms'
+import { retryWrite } from '@/lib/retryWrite'
 import { loadVocabLevels, pickLearnerWord, dropCommonAndNames } from '@/lib/vocabulary'
 import { detectLectureLanguage, type LectureLanguage } from '@/lib/lectureLanguage'
 import { isElectronNative, getDemistNative, missingOnDeviceCapabilities, dlog, type DemistNative } from '@/lib/electronNative'
@@ -2602,7 +2603,8 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       const supabase = createClient()
       // 12 of 61 sessions had a null ended_at, which makes a lecture look like
       // it is still running and breaks every duration calculation downstream.
-      const { error: endErr } = await supabase.from('sessions').update({ ended_at: new Date().toISOString() }).eq('id', sid)
+      const endedAt = new Date().toISOString()
+      const { error: endErr } = await retryWrite(() => supabase.from('sessions').update({ ended_at: endedAt }).eq('id', sid))
       reportWriteFailure('session.ended_at', endErr)
     }
     setRecordingWarning(null)
@@ -2723,11 +2725,11 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
           const speechTx = webSpeechFinalRef.current.trim()
           const tx = speechTx.length > whisperTx.length ? speechTx : whisperTx
           if (tx) {
-            const { error: txErr } = await sb.from('sessions').update({
+            const { error: txErr } = await retryWrite(() => sb.from('sessions').update({
               transcript: tx,
               transcript_translation: capturedTranslation || null,
               translation_lang: capturedTranslation ? capturedTranslateLang : null,
-            }).eq('id', capturedSid)
+            }).eq('id', capturedSid))
             // This write had no error check at all, and the optimistic
             // setRecentSessions below ran regardless - so a failed transcript
             // save rendered as a saved one. 29 of 61 sessions in the first
@@ -2746,7 +2748,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
           if (native) {
             const synopsis = await native.summarize(capturedGlossary.map(t => ({ term: t.term, definition: t.definition })), capturedSubject)
             if (synopsis) {
-              const { error: synErr } = await sb.from('sessions').update({ synopsis }).eq('id', capturedSid)
+              const { error: synErr } = await retryWrite(() => sb.from('sessions').update({ synopsis }).eq('id', capturedSid))
               reportWriteFailure('session.synopsis_native', synErr)
               setRecentSessions(prev => prev.map(s => s.id === capturedSid ? { ...s, synopsis } : s))
             }
