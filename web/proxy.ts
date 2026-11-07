@@ -52,5 +52,6 @@ export const config = {
     '/study/:path*',
     '/quiz/:path*',
     '/leaderboard/:path*',
+    '/space/:path*',
   ],
 }

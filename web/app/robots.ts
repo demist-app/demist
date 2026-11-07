@@ -7,7 +7,7 @@
 
 import type { MetadataRoute } from 'next'
 
-const PRIVATE = ['/dashboard', '/history', '/glossary', '/flashcards', '/study', '/profile', '/onboarding', '/api/']
+const PRIVATE = ['/dashboard', '/history', '/glossary', '/flashcards', '/study', '/profile', '/onboarding', '/space', '/api/']
 
 export default function robots(): MetadataRoute.Robots {
   return {

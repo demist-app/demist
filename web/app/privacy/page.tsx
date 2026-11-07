@@ -81,6 +81,19 @@ export default function Privacy() {
           </section>
 
           <section>
+            <h2 className="text-[17px] font-semibold mb-3">My Space</h2>
+            <p className="dark:text-gray-400 text-gray-700">
+              My Space keeps the things you add to it: your list of things to do, the suggestions in
+              your toolbox and the messages you save. They are stored in your account so they follow
+              you between devices, and only you can see them. We do not read them, analyse them or
+              send them to any of the services above, and our usage statistics only count actions,
+              such as that a task was added, never what you wrote. When you choose how you are
+              feeling, Demist only shows suggestions: that choice is not stored. Everything in My
+              Space is deleted with your account.
+            </p>
+          </section>
+
+          <section>
             <h2 className="text-[17px] font-semibold mb-3">Data sharing</h2>
             <p className="dark:text-gray-400 text-gray-700">
               We do not sell, rent, or share your personal data with any third party outside of the services listed above.

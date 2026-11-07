@@ -10,6 +10,7 @@ import { BrandMark } from '@/components/BrandMark'
 
 const NAV = [
   { href: '/dashboard', label: 'Home',     icon: HomeIcon },
+  { href: '/space',     label: 'My Space', icon: SpaceIcon },
   { href: '/study',     label: 'Study',    icon: StudyIcon },
   { href: '/glossary',  label: 'Glossary', icon: GlossaryIcon },
   { href: '/history',   label: 'History',  icon: HistoryIcon },
@@ -260,6 +261,16 @@ function HomeIcon({ active }: { active: boolean }) {
       strokeWidth={active ? 2 : 1.6} strokeLinecap="round" strokeLinejoin="round">
       <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
       <polyline points="9 22 9 12 15 12 15 22" />
+    </svg>
+  )
+}
+// A leaf: calm, and nothing like the other tabs at a glance.
+function SpaceIcon({ active }: { active: boolean }) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth={active ? 2 : 1.6} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z" />
+      <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12" />
     </svg>
   )
 }
