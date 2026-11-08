@@ -20,6 +20,13 @@ export const CardsIcon = ({ color, size = 24 }: P) => (
     <Rect x="2" y="5" width="20" height="14" rx="3" /><Line x1="2" y1="10" x2="22" y2="10" />
   </Svg>
 )
+// My Space: a leaf, calm and unlike the other tabs at a glance (same as the web nav).
+export const LeafIcon = ({ color, size = 24 }: P) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" {...stroke(color)}>
+    <Path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z" />
+    <Path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12" />
+  </Svg>
+)
 export const ClockIcon = ({ color, size = 24 }: P) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" {...stroke(color)}>
     <Circle cx="12" cy="12" r="9" /><Polyline points="12 7 12 12 15 14" />

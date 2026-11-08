@@ -1,7 +1,7 @@
 import { Tabs } from 'expo-router'
 import { usePrefs } from '../../lib/prefs'
 import { useRecording } from '../../lib/recording'
-import { BookIcon, CardsIcon, ClockIcon, GearIcon, MicIcon } from '../../components/icons'
+import { BookIcon, CardsIcon, ClockIcon, GearIcon, LeafIcon, MicIcon } from '../../components/icons'
 
 export default function TabLayout() {
   const { c, font } = usePrefs()
@@ -25,6 +25,7 @@ export default function TabLayout() {
         tabBarBadge: status === 'recording' ? '' : undefined,
         tabBarBadgeStyle: { backgroundColor: c.calm, minWidth: 10, maxHeight: 10, borderRadius: 5, marginTop: 4 },
       }} />
+      <Tabs.Screen name="space" options={{ title: 'My Space', tabBarIcon: ({ color }) => <LeafIcon color={color} /> }} />
       <Tabs.Screen name="glossary" options={{ title: 'Glossary', tabBarIcon: ({ color }) => <BookIcon color={color} /> }} />
       <Tabs.Screen name="flashcards" options={{ title: 'Flashcards', tabBarIcon: ({ color }) => <CardsIcon color={color} /> }} />
       <Tabs.Screen name="history" options={{ title: 'Lectures', tabBarIcon: ({ color }) => <ClockIcon color={color} /> }} />
