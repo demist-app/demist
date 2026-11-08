@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { COMPARE_PAGES, getComparePage } from '@/lib/comparePages'
-import { MS_STORE_URL } from '@/lib/links'
+import { APP_STORE_URL, MS_STORE_URL } from '@/lib/links'
 
 // Statically generated, one page per competitor, for the same reason as the
 // /for pages: plain HTML on a real URL that search crawlers and AI assistants
@@ -111,6 +111,9 @@ export default async function ComparePageView(props: PageProps<'/compare/[tool]'
           </Link>
           <a href={MS_STORE_URL} target="_blank" rel="noopener noreferrer" className="px-7 py-4 rounded-2xl font-semibold text-[15px] text-center transition-all active:scale-[0.97] dark:bg-white/[0.05] bg-[#FFFFFF] border dark:border-white/[0.08] border-black/[0.12]">
             Get the Windows app
+          </a>
+          <a href={APP_STORE_URL} target="_blank" rel="noopener noreferrer" className="px-7 py-4 rounded-2xl font-semibold text-[15px] text-center transition-all active:scale-[0.97] dark:bg-white/[0.05] bg-[#FFFFFF] border dark:border-white/[0.08] border-black/[0.12]">
+            Get the iPhone app
           </a>
         </div>
 

@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { MS_STORE_URL } from '@/lib/links'
+import { APP_STORE_URL, MS_STORE_URL } from '@/lib/links'
 import { PRO_PRICE_TEXT } from '@/lib/pricing'
 import { NEED_PAGES, NEED_PAGES_REVIEWED, type NeedPage } from '@/lib/needPages'
 
@@ -61,6 +61,14 @@ export function NeedLanding({ page }: { page: NeedPage }) {
           >
             Get the Windows app
           </a>
+          <a
+            href={APP_STORE_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-7 py-4 rounded-2xl font-semibold text-[15px] text-center transition-all active:scale-[0.97] dark:bg-white/[0.05] bg-[#FFFFFF] border dark:border-white/[0.08] border-black/[0.12] dark:text-white text-gray-900"
+          >
+            Get the iPhone app
+          </a>
         </div>
 
         <div className="space-y-12 text-[15px] leading-relaxed">
@@ -102,7 +110,8 @@ export function NeedLanding({ page }: { page: NeedPage }) {
             <h2 className="text-[19px] font-semibold mb-3">Where your lecture audio goes</h2>
             <p className="dark:text-gray-400 text-gray-700">
               In the Windows app, live lectures are transcribed and explained by software on your own
-              computer, so the audio does not leave it. The browser version, and uploading a
+              computer, so the audio does not leave it. On iPhone, speech is turned into text on the
+              phone, and only the words being explained are sent to our server. The browser version, and uploading a
               recording in any version, sends audio to our server to be transcribed. The{' '}
               <Link href="/privacy" className="underline underline-offset-2">privacy policy</Link> sets
               out exactly what goes where.
@@ -113,7 +122,7 @@ export function NeedLanding({ page }: { page: NeedPage }) {
             <h2 className="text-[19px] font-semibold mb-3">What it costs</h2>
             <p className="dark:text-gray-400 text-gray-700">
               Live explanations, translation, your glossary and your flashcards are free, with no
-              advertising. Recording is free and unlimited in the Windows app; in the browser, free
+              advertising. Recording is free and unlimited in the Windows and iPhone apps; in the browser, free
               accounts get three recordings. Free accounts keep lecture history for seven days. Demist
               Pro keeps every lecture and adds unlimited summaries and Anki export for{' '}
               {PRO_PRICE_TEXT.monthly} a month. New accounts get Pro free for their first 30 days,

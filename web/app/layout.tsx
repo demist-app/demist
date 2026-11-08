@@ -20,6 +20,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  // Safari on iPhone shows its own banner offering the App Store app.
+  itunes: { appId: '6825977291' },
   metadataBase: new URL('https://www.demist.app'),
   title: {
     default: 'Demist: live lecture transcription, explanations & flashcards',

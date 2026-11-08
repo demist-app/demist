@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { MAC_RELEASES_URL } from '@/lib/links'
+import { APP_STORE_URL, MAC_RELEASES_URL } from '@/lib/links'
 import { BrandMark } from '@/components/BrandMark'
 
 export const metadata: Metadata = {
@@ -40,6 +40,28 @@ const SECTIONS: { title: string; id?: string; items: { q: string; a: React.React
       {
         q: 'Something’s not working right',
         a: <>It&apos;s a beta, and real-hardware testing on it is still ongoing - if recording, term cards, or translation don&apos;t work as expected, that&apos;s genuinely useful for us to hear about. Email{' '}<a href={`mailto:${SUPPORT_EMAIL}`} className="dark:text-brand-400 text-brand-700 dark:hover:text-brand-300 hover:text-brand-600 transition-colors">{SUPPORT_EMAIL}</a>{' '}with what you saw, your macOS version, and whether it&apos;s Apple Silicon (it has to be), and we&apos;ll follow up.</>,
+      },
+    ],
+  },
+  {
+    title: 'iPhone app',
+    id: 'iphone',
+    items: [
+      {
+        q: 'Where do I get it?',
+        a: <>Free on the <a href={APP_STORE_URL} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">App Store</a>, for iPhone with iOS 16.4 or later. Sign in with the same email as on the website and your glossary, flashcards and lectures are all there.</>,
+      },
+      {
+        q: 'It says this iPhone can’t turn speech into text by itself yet',
+        a: <>Demist only records when your iPhone can recognise speech on the phone itself, so your lecture audio never has to leave it. Turn on Dictation in Settings, General, Keyboard, wait a minute for it to finish setting up, then try again.</>,
+      },
+      {
+        q: 'Does it keep recording if I lock my phone?',
+        a: <>Yes. Start recording, then lock the phone and put it down. Words still appear in your glossary afterwards.</>,
+      },
+      {
+        q: 'How do I get Pro on iPhone?',
+        a: <>The app does not sell anything. If you have Pro from the website, sign in with the same email and it works in the app straight away.</>,
       },
     ],
   },

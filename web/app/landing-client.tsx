@@ -6,7 +6,7 @@ import { useTheme } from 'next-themes'
 import { createClient } from '@/lib/supabase'
 import { capture } from '@/lib/analytics'
 import { FAQ as FAQS } from '@/lib/faq'
-import { MAC_SUPPORT_URL, MS_STORE_URL } from '@/lib/links'
+import { APP_STORE_URL, MAC_SUPPORT_URL, MS_STORE_URL } from '@/lib/links'
 import { PRO_LIVE } from '@/lib/subscription'
 import { SUBJECT_PAGES } from '@/lib/subjectPages'
 import { NEED_PAGES } from '@/lib/needPages'
@@ -126,12 +126,15 @@ export default function LandingClient() {
   // replaced. The other platform is never hidden, just demoted to the small
   // link underneath - both Windows and Mac sections further down the page
   // still get equal, full-width treatment.
-  const [heroPlatform, setHeroPlatform] = useState<'windows' | 'mac'>('windows')
+  const [heroPlatform, setHeroPlatform] = useState<'windows' | 'mac' | 'iphone'>('windows')
   useEffect(() => {
-    if (/Macintosh|Mac OS X/.test(navigator.userAgent) && !/iPhone|iPad|iPod/.test(navigator.userAgent)) {
+    if (/iPhone|iPod/.test(navigator.userAgent)) {
+      setHeroPlatform('iphone')
+    } else if (/Macintosh|Mac OS X/.test(navigator.userAgent) && !/iPad/.test(navigator.userAgent)) {
       setHeroPlatform('mac')
     }
   }, [])
+  const iphoneRef = useInView()
 
   const featuresRef = useInView()
   const stepsRef = useInView()
@@ -458,7 +461,18 @@ export default function LandingClient() {
               buttons (Mac's beta pill, different link target) into the same
               row as the primary CTA, reading as clutter rather than a clean
               choice. Nothing is hidden: the other platform is one line below. */}
-          {heroPlatform === 'mac' ? (
+          {heroPlatform === 'iphone' ? (
+            <a
+              href={APP_STORE_URL}
+              target="_blank" rel="noopener noreferrer"
+              onClick={() => capture('app_store_clicked', { placement: 'hero' })}
+              className="flex items-center gap-2.5 px-6 py-4 rounded-2xl font-semibold text-[15px] transition-all duration-200 active:scale-[0.97] select-none hover:brightness-[0.98]"
+              style={{ background: 'var(--surface)', border: '1px solid var(--border-strong)', color: 'var(--fg)' }}
+            >
+              <AppleIcon />
+              Get it on iPhone
+            </a>
+          ) : heroPlatform === 'mac' ? (
             <a
               href={MAC_SUPPORT_URL}
               onClick={() => capture('mac_install_guide_clicked', { placement: 'hero' })}
@@ -484,14 +498,14 @@ export default function LandingClient() {
         </div>
 
         <a
-          href={heroPlatform === 'mac' ? MS_STORE_URL : MAC_SUPPORT_URL}
-          target={heroPlatform === 'mac' ? '_blank' : undefined}
-          rel={heroPlatform === 'mac' ? 'noopener noreferrer' : undefined}
-          onClick={() => capture(heroPlatform === 'mac' ? 'ms_store_clicked' : 'mac_install_guide_clicked', { placement: 'hero_secondary' })}
+          href={heroPlatform === 'windows' ? APP_STORE_URL : MS_STORE_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={() => capture(heroPlatform === 'windows' ? 'app_store_clicked' : 'ms_store_clicked', { placement: 'hero_secondary' })}
           className="text-[13px] mb-8 -mt-1 hover:opacity-70 transition-opacity select-none"
           style={{ color: 'var(--fg-faint)' }}
         >
-          {heroPlatform === 'mac' ? 'Also on Windows' : <>Also on Mac <span className="opacity-60">(beta)</span></>} →
+          {heroPlatform === 'windows' ? 'Also on iPhone' : 'Also on Windows'} →
         </a>
 
         <button
@@ -755,6 +769,55 @@ export default function LandingClient() {
           <span>Audio stays on your device</span>
           <span aria-hidden>·</span>
           <span>No account required</span>
+        </div>
+      </section>
+
+      {/* ── iPhone app ──
+          Live on the App Store since 2026-11-05. Claims kept to what the app
+          does: speech is recognised on the phone (it refuses to record rather
+          than fall back to Apple's servers), but the words it explains are
+          sent to Demist's server, so "audio stays on your phone" is the claim,
+          not "nothing leaves it". No prices: the app has no in-app purchase. */}
+      <section id="iphone" ref={iphoneRef.ref} className="relative z-10 px-6 sm:px-12 py-28 max-w-3xl mx-auto text-center">
+        <p className="text-[10px] font-bold tracking-[0.2em] uppercase mb-4" style={{ color: 'var(--fg-faint)', ...scrollAnim(iphoneRef.visible, 0).style }}>
+          iPhone app
+        </p>
+        <h2
+          className="text-[30px] sm:text-[42px] font-bold tracking-tight mb-4 leading-tight"
+          style={{ color: 'var(--fg)', ...scrollAnim(iphoneRef.visible, 80).style }}
+        >
+          Now on the App Store.{' '}
+          <span style={{ color: 'var(--fg-muted)', fontWeight: 400 }}>Your lecture, in your pocket.</span>
+        </h2>
+        <p
+          className="text-[15px] leading-relaxed mb-10 max-w-[490px] mx-auto"
+          style={{ color: 'var(--fg-muted)', ...scrollAnim(iphoneRef.visible, 160).style }}
+        >
+          Put your phone on the desk and press record. Speech is turned into text on the phone itself, unfamiliar words are explained as they come up, and it keeps listening with the screen locked. Your glossary and flashcards are the same ones you see on your laptop.
+        </p>
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3" style={scrollAnim(iphoneRef.visible, 240).style}>
+          <a
+            href={APP_STORE_URL}
+            target="_blank" rel="noopener noreferrer"
+            onClick={() => capture('app_store_clicked', { placement: 'section' })}
+            className="flex items-center gap-2.5 px-6 py-3.5 rounded-2xl text-white font-semibold text-[15px] transition-all active:scale-[0.97] hover:brightness-[1.1]"
+            style={{ background: 'var(--accent-solid)' }}
+          >
+            <AppleIcon />
+            Get it on the App Store
+          </a>
+        </div>
+        <div
+          className="mt-10 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[12px]"
+          style={{ color: 'var(--fg-faint)', ...scrollAnim(iphoneRef.visible, 320).style }}
+        >
+          <span>Free</span>
+          <span aria-hidden>·</span>
+          <span>iPhone, iOS 16.4 or later</span>
+          <span aria-hidden>·</span>
+          <span>Audio stays on your phone</span>
+          <span aria-hidden>·</span>
+          <span>Records with the screen locked</span>
         </div>
       </section>
 

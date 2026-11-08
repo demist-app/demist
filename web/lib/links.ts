@@ -14,6 +14,10 @@
 // The deep link fails outright anywhere except Windows.
 export const MS_STORE_URL = 'https://apps.microsoft.com/detail/9N4TZSCFHZN8'
 
+// App Store, app 6825977291 (live since 2026-11-05). The region-free form, so
+// apps.apple.com sends each visitor to their own country's listing.
+export const APP_STORE_URL = 'https://apps.apple.com/app/demist/id6825977291'
+
 // Chrome Web Store listing. Null until it is live; the UI shows a disabled
 // "Soon" button while it is, rather than pointing anywhere misleading.
 export const CHROME_STORE_URL: string | null = null

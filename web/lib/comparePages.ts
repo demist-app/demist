@@ -33,7 +33,7 @@ export interface ComparePage {
 }
 
 const DEMIST_PRICE = `Free. Pro is ${PRO_PRICE_TEXT.monthly} a month or ${PRO_PRICE_TEXT.yearly} a year, and new accounts get Pro free for 30 days`
-const DEMIST_AUDIO = 'Windows app: on your own computer for live lectures. Browser version and uploads: on Demist\'s server'
+const DEMIST_AUDIO = 'Windows app: on your own computer for live lectures. iPhone app: speech recognised on the phone, words to explain sent to Demist\'s server. Browser version and uploads: on Demist\'s server'
 const DEMIST_TRANSLATION = 'Explanations can be translated into Mandarin, Arabic, Hindi, Spanish or French'
 const DEMIST_FLASHCARDS = 'Yes, built automatically from each lecture, with spaced repetition. Anki export on Pro'
 const DEMIST_LIVE = 'Yes: unfamiliar terms are explained on screen while the lecturer is still talking'
@@ -49,7 +49,7 @@ export const COMPARE_PAGES: ComparePage[] = [
       'Otter is a general transcription and meeting-notes tool: strong at recording, transcribing and sharing conversations. Demist is built for one situation, a student in a lecture who meets vocabulary they do not know yet, and explains those terms while the lecture is happening, then turns them into flashcards. If you want a transcript of everything, Otter suits you. If you want to understand the lecture as it happens, Demist does.',
     rows: [
       { label: 'Price for students', demist: DEMIST_PRICE, them: 'Free Basic plan. Pro is $16.99 a month, or $8.33 a month billed annually. 20% off Pro for students with a .edu email address' },
-      { label: 'Free plan limits', demist: 'Unlimited recording in the Windows app; 3 recordings in the browser. 7 days of lecture history', them: '300 transcription minutes a month, 30 minutes per conversation, 3 lifetime file imports' },
+      { label: 'Free plan limits', demist: 'Unlimited recording in the Windows and iPhone apps; 3 recordings in the browser. 7 days of lecture history', them: '300 transcription minutes a month, 30 minutes per conversation, 3 lifetime file imports' },
       { label: 'Live transcription', demist: 'Yes', them: 'Yes' },
       { label: 'Explains terms during the lecture', demist: DEMIST_LIVE, them: 'Not listed' },
       { label: 'Translation', demist: DEMIST_TRANSLATION, them: 'Not listed on its pricing page' },
@@ -112,7 +112,7 @@ export const COMPARE_PAGES: ComparePage[] = [
       'NotebookLM, now called Gemini Notebook, is a free study tool that works from sources you give it, such as PDFs, websites, YouTube videos and audio, including lectures recorded with its mobile app. It turns them into audio and video overviews, quizzes and flashcards. Demist works while the lecture is happening: it listens live and explains unfamiliar terms as they are said. They fit together: Demist to follow the lecture, Gemini Notebook to study from it and your readings afterwards.',
     rows: [
       { label: 'Price for students', demist: DEMIST_PRICE, them: 'Free, with daily limits. Some students can claim a free Google subscription for higher limits, until 31 December 2026' },
-      { label: 'Free plan limits', demist: 'Unlimited recording in the Windows app; 3 recordings in the browser. 7 days of lecture history', them: 'Up to 100 notebooks of up to 50 sources each, 50 chat queries a day, and up to 10 quizzes or flashcard sets a day' },
+      { label: 'Free plan limits', demist: 'Unlimited recording in the Windows and iPhone apps; 3 recordings in the browser. 7 days of lecture history', them: 'Up to 100 notebooks of up to 50 sources each, 50 chat queries a day, and up to 10 quizzes or flashcard sets a day' },
       { label: 'Explains terms during the lecture', demist: DEMIST_LIVE, them: 'Not described. Its mobile app can record a lecture to use as a source afterwards' },
       { label: 'What it works from', demist: 'A live lecture (microphone, a browser tab, or system audio in the Windows app), or an uploaded recording, slides or transcript', them: 'PDFs, websites, YouTube videos, audio files, Google Docs and Google Slides' },
       { label: 'Flashcards and quizzes', demist: DEMIST_FLASHCARDS, them: 'Yes, generated from your sources, with adjustable topic, difficulty and number' },
@@ -147,7 +147,7 @@ export const COMPARE_PAGES: ComparePage[] = [
       'Live Captions is built into Windows 11 and puts captions on screen for any audio, on your own device, even with no internet connection, but it does not keep them. Demist is for learning from a lecture: it keeps the transcript, explains unfamiliar words while the lecturer is talking, and builds a glossary and flashcards. If you only need captions in the moment, Live Captions may be all you need. If you want something to go back to and revise from, Demist does that.',
     rows: [
       { label: 'Price for students', demist: DEMIST_PRICE, them: 'Built into Windows 11. Microsoft\'s page does not mention a charge' },
-      { label: 'Where it runs', demist: 'Windows app, and in the browser', them: 'Windows 11, version 22H2 and later' },
+      { label: 'Where it runs', demist: 'Windows app, iPhone app, and in the browser', them: 'Windows 11, version 22H2 and later' },
       { label: 'Live text on screen', demist: 'Yes', them: 'Yes' },
       { label: 'Keeps a transcript afterwards', demist: 'Yes, with a summary and a glossary', them: 'No. Microsoft says generated captions are not stored anywhere on the device or the cloud' },
       { label: 'Explains terms during the lecture', demist: DEMIST_LIVE, them: 'Not listed' },

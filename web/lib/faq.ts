@@ -7,7 +7,7 @@ import { PRO_PRICE_TEXT } from './pricing'
 export const FAQ = [
   {
     q: 'Is Demist free?',
-    a: `The core of it is. Live explanations, translation, your glossary and flashcards are free, and so is unlimited recording in the Windows app. In the browser, free accounts get 3 recordings. Free accounts keep lecture history for 7 days. Demist Pro keeps every lecture, removes the browser limit and adds unlimited summaries and Anki export, for ${PRO_PRICE_TEXT.monthly} a month or ${PRO_PRICE_TEXT.yearly} a year. New accounts get Pro free for their first 30 days, with no card.`,
+    a: `The core of it is. Live explanations, translation, your glossary and flashcards are free, and so is unlimited recording in the Windows and iPhone apps. In the browser, free accounts get 3 recordings. Free accounts keep lecture history for 7 days. Demist Pro keeps every lecture, removes the browser limit and adds unlimited summaries and Anki export, for ${PRO_PRICE_TEXT.monthly} a month or ${PRO_PRICE_TEXT.yearly} a year. New accounts get Pro free for their first 30 days, with no card.`,
   },
   {
     q: 'What subjects does it support?',
@@ -16,6 +16,10 @@ export const FAQ = [
   {
     q: 'Does it work offline?',
     a: 'Not fully, in either version. On the website, recording and term detection are processed on our servers, so both need a connection. The Windows app does all of that on your own machine, but it still loads its interface from demist.app, so it needs a connection to start. Your saved glossary, session history and flashcard queue stay available to browse once loaded.',
+  },
+  {
+    q: 'Is there an iPhone app?',
+    a: 'Yes, free on the App Store, for iPhone with iOS 16.4 or later. Speech is turned into text by Apple\'s recognition on the phone itself, so the lecture audio stays on the phone. To explain a word, the word and the sentence it came from are sent to our server. It keeps recording with the screen locked, and your glossary and flashcards are the same ones you see on the web. Pro bought on the website works in the app too.',
   },
   {
     q: 'Is there a Windows app?',

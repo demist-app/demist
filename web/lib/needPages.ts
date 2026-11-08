@@ -45,7 +45,7 @@ export const NEED_PAGES: NeedPage[] = [
     audience: 'students with ADHD',
     title: 'A lecture app for students with ADHD',
     description:
-      'Demist keeps a live transcript of your lecture, explains unfamiliar words as they are said, and lets you mark the moment you got lost, so a lapse in attention does not cost you the rest of the lecture. Free on Windows.',
+      'Demist keeps a live transcript of your lecture, explains unfamiliar words as they are said, and lets you mark the moment you got lost, so a lapse in attention does not cost you the rest of the lecture. Free on Windows and iPhone.',
     answer:
       'Demist is a lecture app for students who lose the thread when attention drifts, including students with ADHD. It writes the lecture down as it happens and explains unfamiliar words on screen, so when you come back you can read what you missed instead of being left behind. One tap on I\'m lost marks the moment, and afterwards Demist shows you what was said around it.',
     helps: [
@@ -74,7 +74,7 @@ export const NEED_PAGES: NeedPage[] = [
       { q: 'What is the best lecture app for students with ADHD?', a: 'It depends on what goes wrong for you. If you lose the thread in lectures, Demist is built for that: a live transcript to catch up from, explanations of unfamiliar words as they are said, and an I\'m lost button that marks the moment so you can go back to it. If you mainly need help starting work or planning your week, a task tool will suit you better.' },
       { q: 'Can Demist help if I zone out in a lecture?', a: 'It lets you recover. The transcript keeps running while your attention is elsewhere, so you can read back over what you missed, and pressing I\'m lost marks the moment to look at afterwards.' },
       { q: 'Do I need a diagnosis to use it?', a: 'No. Anyone can use Demist, and it does not ask for evidence of anything.' },
-      { q: 'Is it free?', a: 'The core of it is. Live explanations, your glossary and flashcards are free, and recording is free and unlimited in the Windows app.' },
+      { q: 'Is it free?', a: 'The core of it is. Live explanations, your glossary and flashcards are free, and recording is free and unlimited in the Windows and iPhone apps.' },
     ],
   },
   {
@@ -113,7 +113,7 @@ export const NEED_PAGES: NeedPage[] = [
       { q: 'What is the best live transcription app for deaf students in lectures?', a: 'For keeping a transcript and understanding new vocabulary, Demist is built for lectures: live text, explanations of unfamiliar words, and a transcript and glossary afterwards. If you only need captions on screen and nothing saved, Windows 11 Live Captions is free and built in. If you need every word to be accurate, a human speech-to-text reporter is still the better choice.' },
       { q: 'How accurate is Demist?', a: 'It depends mostly on the audio. It does well with a clear speaker close to the microphone or with audio straight from an online lecture, and worst with distant speakers and room noise. It will get some words wrong, so check anything important against your course materials.' },
       { q: 'Does it work for online lectures?', a: 'Yes. In the Windows app choose System audio; in Chrome or Edge choose Tab capture and tick Share tab audio.' },
-      { q: 'Is the audio private?', a: 'In the Windows app, live lecture audio is transcribed on your own computer and does not leave it. The browser version sends audio to Demist\'s server to be transcribed.' },
+      { q: 'Is the audio private?', a: 'In the Windows app, live lecture audio is transcribed on your own computer and does not leave it. On iPhone it is turned into text on the phone, and only the words being explained are sent to Demist\'s server. The browser version sends audio to Demist\'s server to be transcribed.' },
     ],
   },
   {
@@ -121,7 +121,7 @@ export const NEED_PAGES: NeedPage[] = [
     audience: 'students with dyslexia',
     title: 'A lecture app for students with dyslexia',
     description:
-      'Demist writes your lecture notes for you, reads them back, and explains new words in plain English, with Atkinson Hyperlegible and Lexend fonts, extra spacing and coloured tints. Free on Windows.',
+      'Demist writes your lecture notes for you, reads them back, and explains new words in plain English, with Atkinson Hyperlegible and Lexend fonts, extra spacing and coloured tints. Free on Windows and iPhone.',
     answer:
       'Demist is a lecture app for students with dyslexia who find listening and writing at the same time hard. It writes the lecture down for you, explains new words in plain English as they come up, and can read everything back. You can set the whole app to Atkinson Hyperlegible or Lexend, add line spacing, and use a coloured tint.',
     helps: [
@@ -159,7 +159,7 @@ export const NEED_PAGES: NeedPage[] = [
     audience: 'students studying in English as an additional language',
     title: 'Understand lectures in English when it is not your first language',
     description:
-      'Demist writes down what your lecturer says, explains difficult words in simple English as they are said, and can translate the transcript sentence by sentence into Mandarin, Arabic, Hindi, Spanish or French. Free on Windows.',
+      'Demist writes down what your lecturer says, explains difficult words in simple English as they are said, and can translate the transcript sentence by sentence into Mandarin, Arabic, Hindi, Spanish or French. Free on Windows and iPhone.',
     answer:
       'Demist helps people follow lectures and training courses in English when it is not their first language. It writes down what the lecturer says, explains difficult words in plain English while they are still talking, and can show the transcript and explanations translated into Mandarin, Arabic, Hindi, Spanish or French, sentence by sentence. In the Windows app, if you tell Demist English is not your first language, it also explains the less common everyday words a lecture relies on, not only technical terms.',
     helps: [
@@ -183,13 +183,14 @@ export const NEED_PAGES: NeedPage[] = [
     notFor: [
       'Translation works on the written transcript, one sentence at a time, a moment behind the lecturer. It is automatic, so check anything important.',
       'The Windows app transcribes lectures given in English. For lectures in other languages, use the browser version.',
+      'The iPhone app does not translate yet. Use the website or the Windows app for translation.',
       'Automatic transcription makes mistakes, more often with strong accents and noisy rooms, so check anything important against your course materials.',
     ],
     faq: [
       { q: 'What is the best app to understand lectures in English as an international student?', a: 'Demist is built for this: it writes down the lecture, explains difficult words as they are said, and can translate the transcript and explanations sentence by sentence. It is made for lectures, so if you mainly need to translate conversations with people, a dedicated translation app will suit you better.' },
       { q: 'Does it work for training courses and webinars, not just university?', a: 'Yes. Anything you can hear on a microphone or on your computer works, including online courses and webinars on Zoom or Teams.' },
       { q: 'Which languages can it translate into?', a: 'Mandarin, Arabic, Hindi, Spanish and French, for both the transcript and the explanations.' },
-      { q: 'Is it free?', a: 'The core of it is. Live explanations, translation, your glossary and flashcards are free, and recording is free and unlimited in the Windows app.' },
+      { q: 'Is it free?', a: 'The core of it is. Live explanations, translation, your glossary and flashcards are free, and recording is free and unlimited in the Windows and iPhone apps.' },
     ],
   },
 ]

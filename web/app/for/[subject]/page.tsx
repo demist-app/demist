@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { SUBJECT_PAGES, getSubjectPage } from '@/lib/subjectPages'
 import { NEED_PAGES, getNeedPage } from '@/lib/needPages'
-import { MS_STORE_URL } from '@/lib/links'
+import { APP_STORE_URL, MS_STORE_URL } from '@/lib/links'
 import { NeedLanding } from './need-landing'
 
 // Statically generated at build time, one page per subject. These are
@@ -84,6 +84,14 @@ export default async function SubjectLanding(props: PageProps<'/for/[subject]'>)
           >
             Get the Windows app
           </a>
+          <a
+            href={APP_STORE_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-7 py-4 rounded-2xl font-semibold text-[15px] text-center transition-all active:scale-[0.97] dark:bg-white/[0.05] bg-[#FFFFFF] border dark:border-white/[0.08] border-black/[0.12] dark:text-white text-gray-900"
+          >
+            Get the iPhone app
+          </a>
         </div>
 
         <div className="space-y-12 text-[15px] leading-relaxed">
@@ -132,7 +140,8 @@ export default async function SubjectLanding(props: PageProps<'/for/[subject]'>)
             <p className="dark:text-gray-400 text-gray-700 mb-4">
               In the Windows app, live recording is transcribed, and its terms detected and
               explained, by software running on your own machine, so the audio of a live lecture
-              never leaves your computer. Your transcript and glossary sync to your account so you
+              never leaves your computer. The iPhone app turns speech into text on the phone too, and
+              sends only the words it explains, with their sentence. Your transcript and glossary sync to your account so you
               can see them on the web and keep your history if you reinstall.
             </p>
             <p className="dark:text-gray-400 text-gray-700">
@@ -147,7 +156,7 @@ export default async function SubjectLanding(props: PageProps<'/for/[subject]'>)
             <h2 className="text-[19px] font-semibold mb-3">What it costs</h2>
             <p className="dark:text-gray-400 text-gray-700">
               Live explanations, translation, your glossary and your flashcards are free, with no
-              advertising. Recording is free and unlimited in the Windows app; in the browser, free
+              advertising. Recording is free and unlimited in the Windows and iPhone apps; in the browser, free
               accounts get three recordings. Free accounts keep lecture history for seven days. Demist Pro keeps your whole term, records in the browser with no limit,
               and adds unlimited summaries and Anki export for {PRO_PRICE_TEXT.monthly} a month. New accounts get Pro
               free for their first 30 days, with no card.

@@ -1,14 +1,14 @@
 # Demist
 
-> Demist, from Graceful Minds, is a study tool for students who find lectures hard to follow. It transcribes a lecture live and explains unfamiliar terms on screen while the lecturer is still talking, then builds a personal glossary and spaced-repetition flashcards from them. It is built for students who are deaf or hard of hearing, who have dyslexia or ADHD, and for anyone studying in English as an additional language, including on training courses. It runs as a free Windows app (Microsoft Store) and in the browser.
+> Demist, from Graceful Minds, is a study tool for students who find lectures hard to follow. It transcribes a lecture live and explains unfamiliar terms on screen while the lecturer is still talking, then builds a personal glossary and spaced-repetition flashcards from them. It is built for students who are deaf or hard of hearing, who have dyslexia or ADHD, and for anyone studying in English as an additional language, including on training courses. It runs as a free Windows app (Microsoft Store), a free iPhone app (App Store) and in the browser.
 
 A full version of this file, with the answers to common questions, is at https://www.demist.app/llms-full.txt
 
 Demist listens to a live microphone, a browser tab (for example a Panopto, Teams or Zoom recording), or, in the Windows app, all system audio. You can also upload a recording, slides or a transcript. The transcript and explanations can be translated into Mandarin, Arabic, Hindi, Spanish or French. An I'm lost button marks a moment to go back to. Everything can be read aloud, and the app offers Atkinson Hyperlegible and Lexend fonts, extra spacing, coloured tints and greyscale. For people who say English is not their first language, the Windows app also explains less common everyday words, not only technical terms.
 
-Where audio goes: in the Windows app, live lecture audio is transcribed and explained by software on the student's own computer. The browser version sends audio to Demist's server for transcription, and uploaded recordings are transcribed on the server in every version.
+Where audio goes: in the Windows app, live lecture audio is transcribed and explained by software on the student's own computer. In the iPhone app, speech is turned into text on the phone by Apple's on-device recognition, and only the words being explained, with their sentence, go to Demist's server. The iPhone app records with the screen locked and does not translate yet. The browser version sends audio to Demist's server for transcription, and uploaded recordings are transcribed on the server in every version.
 
-Pricing: the core of Demist is free. Live explanations, translation, the glossary and flashcards are free, and recording is free and unlimited in the Windows app; in the browser, free accounts get 3 recordings. Free accounts keep 7 days of lecture history. Demist Pro keeps every lecture, removes the browser limit and adds unlimited summaries and Anki export, for £4.99 a month or £29.99 a year. New accounts get Pro free for their first 30 days, with no card.
+Pricing: the core of Demist is free. Live explanations, translation, the glossary and flashcards are free, and recording is free and unlimited in the Windows and iPhone apps; in the browser, free accounts get 3 recordings. Free accounts keep 7 days of lecture history. Demist Pro keeps every lecture, removes the browser limit and adds unlimited summaries and Anki export, for £4.99 a month or £29.99 a year. New accounts get Pro free for their first 30 days, with no card.
 
 Demist is not a Disabled Students' Allowance (DSA) approved supplier.
 
@@ -52,3 +52,4 @@ Demist is not a Disabled Students' Allowance (DSA) approved supplier.
 
 - [Sign up or sign in](https://www.demist.app/login)
 - [Windows app on the Microsoft Store](https://apps.microsoft.com/detail/9N4TZSCFHZN8)
+- [iPhone app on the App Store](https://apps.apple.com/app/demist/id6825977291)

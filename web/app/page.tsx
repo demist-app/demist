@@ -58,6 +58,7 @@ const jsonLd = {
         // Add real profile URLs as they exist: Instagram, TikTok, LinkedIn, X
         'https://www.graceful-minds.org',
         'https://apps.microsoft.com/detail/9N4TZSCFHZN8',
+        'https://apps.apple.com/app/demist/id6825977291',
       ],
     },
     {
@@ -69,7 +70,7 @@ const jsonLd = {
       '@type': 'SoftwareApplication',
       name: 'Demist',
       applicationCategory: 'EducationalApplication',
-      operatingSystem: 'Windows, Web',
+      operatingSystem: 'Windows, iOS, Web',
       // Prices from lib/pricing.ts, the same constant the FAQ quotes, so the
       // structured data cannot drift from the copy. No aggregateRating or
       // review: there are no real reviews to mark up.
