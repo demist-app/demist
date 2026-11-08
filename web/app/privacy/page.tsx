@@ -59,7 +59,7 @@ export default function Privacy() {
             <h2 className="text-[17px] font-semibold mb-3">Third-party services</h2>
             <ul className="space-y-3 dark:text-gray-400 text-gray-700">
               <li><span className="dark:text-white text-gray-900 font-medium">Supabase</span>: database and authentication.</li>
-              <li><span className="dark:text-white text-gray-900 font-medium">Groq &amp; OpenAI</span>: used by the <span className="dark:text-white text-gray-900 font-medium">web app only</span>. Audio is transcribed using Groq&apos;s and/or OpenAI&apos;s APIs, and term detection uses OpenAI. Unless your browser can translate on your device (Chrome), definition translation also uses OpenAI. Audio is processed in real time and not stored by us. These providers are based in the United States; data is transferred under their data processing agreements and standard contractual clauses, and is not used to train their systems.</li>
+              <li><span className="dark:text-white text-gray-900 font-medium">Groq &amp; OpenAI</span>: used by the <span className="dark:text-white text-gray-900 font-medium">web app</span>, and by the iPhone app for explaining terms and writing summaries only (it never sends them audio; see the iPhone app section below). In the web app, audio is transcribed using Groq&apos;s and/or OpenAI&apos;s APIs, and term detection uses OpenAI. Unless your browser can translate on your device (Chrome), definition translation also uses OpenAI. Audio is processed in real time and not stored by us. These providers are based in the United States; data is transferred under their data processing agreements and standard contractual clauses, and is not used to train their systems.</li>
               <li><span className="dark:text-white text-gray-900 font-medium">PostHog</span>: product analytics, as described above.</li>
               <li><span className="dark:text-white text-gray-900 font-medium">Stripe</span>: payment processing for Demist Pro. Stripe receives your email address and the card details you enter into its own form, and is the only party that sees those details. Stripe is based in the United States and is PCI DSS Level 1 certified; data is transferred under its data processing agreement and standard contractual clauses. If you do not subscribe, nothing is sent to Stripe.</li>
               <li><span className="dark:text-white text-gray-900 font-medium">Resend</span>: sends the emails Demist has to send you, which is your sign-in code, the Pro waitlist confirmation if you joined it, and notices that a free Pro trial or free month of Pro is ending. Resend receives your email address and the contents of that email, nothing else.</li>
@@ -77,6 +77,24 @@ export default function Privacy() {
             </p>
             <p className="dark:text-gray-400 text-gray-700">
               This changes how data is processed, not whether it&apos;s stored: the same consent rules above still apply to saving a microphone-mode transcript, and detected terms, session timestamps, and flashcard history are still synced to our Supabase database exactly as in the web app, so your glossary and progress stay available across devices. The desktop app also loads its interface from demist.app, so it needs a connection to start.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-[17px] font-semibold mb-3">iPhone app</h2>
+            <p className="dark:text-gray-400 text-gray-700 mb-3">
+              In the iPhone app, your lecture is turned into text by Apple&apos;s speech recognition
+              running on the phone itself. Demist only records when your iPhone can do this on the
+              device, so lecture audio is never sent to Apple&apos;s servers, to us or to anyone
+              else, and it is not stored.
+            </p>
+            <p className="dark:text-gray-400 text-gray-700">
+              To explain a word, the app sends that word and the sentence it came from to our server,
+              which asks OpenAI for the explanation, in the same way as the web app. Summaries are
+              written the same way, from the list of terms in the lecture. Your transcript is saved
+              under the same consent rules as above, and your terms, flashcards and lectures sync to
+              your account. The app sends PostHog the same kind of usage events as the website. You
+              can delete your account, and everything in it, from Settings in the app.
             </p>
           </section>
 
