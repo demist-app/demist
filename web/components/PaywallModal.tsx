@@ -75,6 +75,22 @@ export function PaywallModal({
   // screen where it costs money.
   const [stripeBlocked, setStripeBlocked] = useState(false)
   const [prices, setPrices] = useState<Prices | null>(null)
+  const [openedAt] = useState(() => Date.now())
+
+  // Closing without paying, and at which stage. Before 2026-11-11 nothing was
+  // recorded here, so someone who opened the card form and backed out looked
+  // identical to someone whose form never loaded: a guest on the desktop app
+  // (where there is no session replay) started checkout and left eleven
+  // seconds later, and there was no way to tell which.
+  const dismiss = (how: 'close_button' | 'backdrop') => {
+    capture('paywall_closed', {
+      source,
+      stage: clientSecret ? 'card_form' : 'plans',
+      secs_open: Math.round((Date.now() - openedAt) / 1000),
+      how,
+    })
+    onClose()
+  }
 
   // Resolve once, on mount: did Stripe.js actually load? A null means the
   // script never arrived, which in practice means it was blocked.
@@ -180,7 +196,7 @@ export function PaywallModal({
       style={{ backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}
       role="dialog"
       aria-modal="true"
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+      onClick={e => { if (e.target === e.currentTarget) dismiss('backdrop') }}
     >
       <div
         className="w-full max-w-md dark:bg-[#1a1328] bg-[#FFFFFF] border dark:border-white/[0.08] border-black/[0.12] rounded-[28px] shadow-2xl overflow-y-auto overscroll-contain"
@@ -212,7 +228,7 @@ export function PaywallModal({
                 )}
               </div>
             </div>
-            <button onClick={onClose} aria-label="Close" className="text-gray-400 hover:dark:text-white/60 hover:text-gray-700 text-[20px] leading-none shrink-0 p-1 -m-1 transition-colors">×</button>
+            <button onClick={() => dismiss('close_button')} aria-label="Close" className="text-gray-400 hover:dark:text-white/60 hover:text-gray-700 text-[20px] leading-none shrink-0 p-1 -m-1 transition-colors">×</button>
           </div>
 
           {!PRO_LIVE && (
