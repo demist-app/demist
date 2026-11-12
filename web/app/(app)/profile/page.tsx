@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
+import { AddEmailForm } from '@/components/AddEmailForm'
 import { capture, reset, reportWriteFailure } from '@/lib/analytics'
 import { ConsentManager } from '@/components/ConsentUnlock'
 import { useEntitlements } from '@/lib/entitlements'
@@ -110,11 +111,6 @@ export default function Profile() {
   // an email is linked without anything here having to track state.
   const [isAnonymous, setIsAnonymous] = useState(false)
   const [confirmingSignOut, setConfirmingSignOut] = useState(false)
-  const [linkStep, setLinkStep] = useState<'email' | 'code' | 'done'>('email')
-  const [linkEmail, setLinkEmail] = useState('')
-  const [linkCode, setLinkCode] = useState('')
-  const [linkBusy, setLinkBusy] = useState(false)
-  const [linkError, setLinkError] = useState<string | null>(null)
 
   // Landed back here from stripe-checkout's success_url/cancel_url. The
   // actual plan flip already happened via the webhook (which can race this
@@ -146,64 +142,6 @@ export default function Profile() {
       setPortalLoading(false)
       setPortalError(true)
     }
-  }
-
-  // Attaches an email to an EXISTING anonymous user rather than creating a
-  // second account, so nothing has to be migrated: same auth.uid(), so every
-  // row already keyed to it (sessions, terms, flashcards) is untouched.
-  const handleSendLink = async () => {
-    setLinkBusy(true)
-    setLinkError(null)
-    const { error } = await createClient().auth.updateUser({ email: linkEmail.trim() })
-    if (error) {
-      setLinkError(error.message)
-    } else {
-      setLinkStep('code')
-    }
-    setLinkBusy(false)
-  }
-
-  // Supabase's "Change Email Address" email can carry a code, a link, or both,
-  // and the link opens the default browser rather than this app - so the change
-  // can complete server-side with the app still holding a session that has no
-  // email on it. Refreshing the session is how the app finds out.
-  const handleAlreadyClickedLink = async () => {
-    setLinkBusy(true)
-    setLinkError(null)
-    const supabase = createClient()
-    await supabase.auth.refreshSession()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (user?.email) {
-      capture('guest_account_linked', { via: 'link' })
-      setLinkStep('done')
-      setIsAnonymous(false)
-      setProfile(p => (p ? { ...p, email: user.email as string } : p))
-    } else {
-      setLinkError("That email hasn't been confirmed yet. Open the email and either enter the code or follow the link.")
-    }
-    setLinkBusy(false)
-  }
-
-  const handleVerifyLink = async () => {
-    setLinkBusy(true)
-    setLinkError(null)
-    // 'email_change', not 'email': attaching an address to an account that had
-    // none is still an email CHANGE as far as Supabase is concerned.
-    const { error } = await createClient().auth.verifyOtp({
-      email: linkEmail.trim(),
-      token: linkCode,
-      type: 'email_change',
-    })
-    if (error) {
-      setLinkError(error.message)
-      setLinkBusy(false)
-      return
-    }
-    capture('guest_account_linked')
-    setLinkStep('done')
-    setIsAnonymous(false)
-    setProfile(p => (p ? { ...p, email: linkEmail.trim() } : p))
-    setLinkBusy(false)
   }
 
   // Account deletion state
@@ -619,65 +557,7 @@ export default function Profile() {
               computer only. Add an email and your terms, flashcards and streak survive a
               reinstall or a new machine. Your lecture audio still never leaves this device.
             </p>
-            {linkStep === 'done' ? (
-              <p className="text-[13px] font-medium text-green-600 dark:text-green-400">Email added. Your account is backed up.</p>
-            ) : linkStep === 'code' ? (
-              <div className="flex flex-col gap-2">
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={linkCode}
-                  onChange={e => setLinkCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  placeholder="6-digit code"
-                  className="w-full dark:bg-white/[0.05] bg-white border dark:border-white/[0.1] border-black/[0.15] rounded-xl px-4 py-2.5 text-[15px] font-mono tracking-[0.2em] text-center focus:outline-none"
-                />
-                <p className="text-[12px] text-gray-600">
-                  Sent to {linkEmail}. Enter the code, or follow the link in the email and then{' '}
-                  <button
-                    onClick={handleAlreadyClickedLink}
-                    disabled={linkBusy}
-                    className="underline underline-offset-2 disabled:opacity-40"
-                  >
-                    tap here
-                  </button>.
-                </p>
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleVerifyLink}
-                    disabled={linkBusy || linkCode.length < 6}
-                    className="flex-1 py-2.5 rounded-xl text-[13px] font-semibold text-white disabled:opacity-40 transition-all"
-                    style={{ background: 'var(--accent-solid)' }}
-                  >
-                    {linkBusy ? 'Verifying…' : 'Confirm'}
-                  </button>
-                  <button
-                    onClick={() => { setLinkStep('email'); setLinkCode(''); setLinkError(null) }}
-                    className="px-4 py-2.5 rounded-xl text-[13px] font-medium dark:bg-white/[0.06] bg-white border dark:border-white/[0.12] border-black/[0.12]"
-                  >
-                    Back
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-col sm:flex-row gap-2">
-                <input
-                  type="email"
-                  value={linkEmail}
-                  onChange={e => setLinkEmail(e.target.value)}
-                  placeholder="your@email.com"
-                  className="flex-1 dark:bg-white/[0.05] bg-white border dark:border-white/[0.1] border-black/[0.15] rounded-xl px-4 py-2.5 text-[14px] focus:outline-none"
-                />
-                <button
-                  onClick={handleSendLink}
-                  disabled={linkBusy || !linkEmail.trim()}
-                  className="py-2.5 px-5 rounded-xl text-[13px] font-semibold text-white disabled:opacity-40 transition-all whitespace-nowrap"
-                  style={{ background: 'var(--accent-solid)' }}
-                >
-                  {linkBusy ? 'Sending…' : 'Send code'}
-                </button>
-              </div>
-            )}
-            {linkError && <p className="text-[12px] text-red-500 mt-2">{linkError}</p>}
+            <AddEmailForm via="profile" onLinked={email => { setIsAnonymous(false); setProfile(p => (p ? { ...p, email } : p)) }} />
           </div>
         )}
 

@@ -14,6 +14,7 @@ import { createClient } from '@/lib/supabase'
 import { capture } from '@/lib/analytics'
 import { PRO_LIVE } from '@/lib/subscription'
 import { useEntitlements } from '@/lib/entitlements'
+import { AddEmailForm } from '@/components/AddEmailForm'
 
 // Led by what builds up over a term, not by volume. "Unlimited summaries" sold
 // a cap nobody was near (4 summary calls across all users in two days), and
@@ -76,6 +77,15 @@ export function PaywallModal({
   const [stripeBlocked, setStripeBlocked] = useState(false)
   const [prices, setPrices] = useState<Prices | null>(null)
   const [openedAt] = useState(() => Date.now())
+  // Guests ("Start without an account") add an email before paying, so Pro
+  // lives on an account they can get back into after a reinstall and that we
+  // can reach. A desktop guest reached the card form on 2026-11-11 with no
+  // email at all; had they paid, nobody could have restored it for them.
+  const [isGuest, setIsGuest] = useState(false)
+  const [askingEmail, setAskingEmail] = useState(false)
+  useEffect(() => {
+    createClient().auth.getUser().then(({ data }) => setIsGuest(data.user?.is_anonymous === true)).catch(() => {})
+  }, [])
 
   // Closing without paying, and at which stage. Before 2026-11-11 nothing was
   // recorded here, so someone who opened the card form and backed out looked
@@ -85,7 +95,7 @@ export function PaywallModal({
   const dismiss = (how: 'close_button' | 'backdrop') => {
     capture('paywall_closed', {
       source,
-      stage: clientSecret ? 'card_form' : 'plans',
+      stage: clientSecret ? 'card_form' : askingEmail ? 'email' : 'plans',
       secs_open: Math.round((Date.now() - openedAt) / 1000),
       how,
     })
@@ -151,6 +161,15 @@ export function PaywallModal({
       setCheckoutError(true)
       setCheckoutLoading(false)
     }
+  }
+
+  const onContinue = () => {
+    if (isGuest) {
+      setAskingEmail(true)
+      capture('paywall_email_asked', { source })
+      return
+    }
+    void startCheckout()
   }
 
   const handleComplete = () => {
@@ -248,7 +267,19 @@ export function PaywallModal({
             ))}
           </ul>
 
-          {PRO_LIVE && !clientSecret && (
+          {PRO_LIVE && !clientSecret && askingEmail && (
+            <div className="space-y-3">
+              <p className="text-[14px] font-semibold dark:text-white text-gray-900">Add your email first</p>
+              <p className="text-[13px] dark:text-white/60 text-gray-600 leading-relaxed">
+                You are using Demist without an account. Adding an email keeps your Pro, and
+                everything you have saved, if you reinstall Demist or use another computer.
+              </p>
+              <AddEmailForm via="paywall" onLinked={() => { setIsGuest(false); setAskingEmail(false); void startCheckout() }} />
+              <button onClick={() => setAskingEmail(false)} className="text-[12px] dark:text-white/40 text-gray-500 underline underline-offset-2">Back</button>
+            </div>
+          )}
+
+          {PRO_LIVE && !clientSecret && !askingEmail && (
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-2">
                 {(['year', 'month'] as const).map(i => {
@@ -280,7 +311,7 @@ export function PaywallModal({
                 })}
               </div>
               <button
-                onClick={startCheckout}
+                onClick={onContinue}
                 disabled={checkoutLoading}
                 className="w-full py-3.5 rounded-2xl bg-brand-600 hover:brightness-110 text-white text-[14px] font-semibold active:scale-[0.97] transition-[filter,transform] duration-150 disabled:opacity-50"
               >
