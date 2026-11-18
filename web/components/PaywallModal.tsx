@@ -15,6 +15,7 @@ import { capture } from '@/lib/analytics'
 import { PRO_LIVE } from '@/lib/subscription'
 import { useEntitlements } from '@/lib/entitlements'
 import { AddEmailForm } from '@/components/AddEmailForm'
+import { getDemistNative } from '@/lib/electronNative'
 
 // Led by what builds up over a term, not by volume. "Unlimited summaries" sold
 // a cap nobody was near (4 summary calls across all users in two days), and
@@ -29,6 +30,13 @@ const PRO_POINTS = [
   'Unlimited summaries of each lecture',
   'Export your flashcards to Anki',
 ]
+
+// Only where it exists: the desktop app from 1.0.11 (lib/lectureAudio.ts).
+// Second, because hearing the lecture again is the thing students asked for.
+const LISTEN_BACK_POINT = 'Listen back to your lectures, kept on your computer'
+const proPoints = () => getDemistNative()?.lectureAudio
+  ? [PRO_POINTS[0], LISTEN_BACK_POINT, ...PRO_POINTS.slice(1)]
+  : PRO_POINTS
 
 // Loaded once at module scope, same pattern Stripe's own docs use - calling
 // loadStripe() again on every render/reopen would inject a second copy of
@@ -257,7 +265,7 @@ export function PaywallModal({
           )}
 
           <ul className="space-y-2">
-            {PRO_POINTS.map(p => (
+            {proPoints().map(p => (
               <li key={p} className="text-[13px] dark:text-white/70 text-gray-700 flex items-center gap-2.5">
                 <span className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 dark:bg-brand-500/20 bg-brand-500/20 text-brand-600 dark:text-brand-400">
                   <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>

@@ -76,4 +76,18 @@ contextBridge.exposeInMainWorld('demistNative', {
   setTranscribeTier: (tier) => ipcRenderer.invoke('demist:setTranscribeTier', tier),
   startWakeLock: () => ipcRenderer.invoke('demist:wakeLockStart'),
   stopWakeLock: () => ipcRenderer.invoke('demist:wakeLockStop'),
+
+  // Listen back (native/lecture-audio.js). Lecture audio stays on this
+  // computer: these only write, read and delete files under userData.
+  lectureAudio: {
+    begin: (userId, recId) => ipcRenderer.invoke('demist:audioBegin', userId, recId),
+    append: (userId, recId, arrayBuffer) => ipcRenderer.invoke('demist:audioAppend', userId, recId, arrayBuffer),
+    finish: (userId, recId, sessionId, meta) => ipcRenderer.invoke('demist:audioFinish', userId, recId, sessionId, meta),
+    discard: (userId, recId) => ipcRenderer.invoke('demist:audioDiscard', userId, recId),
+    list: (userId, sessionIds) => ipcRenderer.invoke('demist:audioList', userId, sessionIds),
+    read: (userId, sessionId) => ipcRenderer.invoke('demist:audioRead', userId, sessionId),
+    remove: (userId, sessionId) => ipcRenderer.invoke('demist:audioRemove', userId, sessionId),
+    usage: (userId) => ipcRenderer.invoke('demist:audioUsage', userId),
+    removeAll: (userId) => ipcRenderer.invoke('demist:audioRemoveAll', userId),
+  },
 })

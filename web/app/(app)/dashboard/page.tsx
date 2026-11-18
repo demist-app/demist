@@ -27,6 +27,7 @@ import { TranscriptBilingual } from '@/components/TranscriptBilingual'
 import { BrandMark } from '@/components/BrandMark'
 import { ReadAloudButton } from '@/components/ReadAloudButton'
 import { LostMoments } from '@/components/LostMoments'
+import { ListenBack } from '@/components/ListenBack'
 
 function fmtTime(s: number) {
   return `${String(Math.floor(s / 60)).padStart(2,'0')}:${String(s % 60).padStart(2,'0')}`
@@ -877,6 +878,7 @@ export default function Dashboard() {
 
                         {s.expanded && (
                           <div className="px-4 pb-4 border-t dark:border-white/[0.04] border-black/[0.05]">
+                            <ListenBack sessionId={s.id} transcript={s.transcript ?? null} />
                             <LostMoments sessionId={s.id} startedAt={s.started_at} transcript={s.transcript ?? null} />
                             {s.synopsis ? (
                               <div className="pt-3">

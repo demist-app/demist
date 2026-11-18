@@ -12,6 +12,7 @@ import { useNativeTranslate } from '@/lib/useNativeTranslate'
 import { FontScale, FONT_SCALE_LABELS, getFontScale, setFontScale } from '@/lib/fontScale'
 import { ComfortSettings } from '@/components/ComfortSettings'
 import { StudyEmailsToggle } from '@/components/StudyEmailsToggle'
+import { removeAllLectureAudio } from '@/lib/lectureAudio'
 import { getDemistNative, isElectronNative } from '@/lib/electronNative'
 import { useRecordingSession } from '@/lib/recordingSession'
 import { useComfort } from '@/lib/comfortPrefs'
@@ -295,6 +296,8 @@ export default function Profile() {
       const supabase = createClient()
       const { error } = await supabase.rpc('delete_user_data')
       if (error) throw error
+      // Lecture audio lives on this computer, not in the database.
+      await removeAllLectureAudio()
       await supabase.auth.signOut()
       reset()
       // Desktop's window has no address bar or back button, so sending it to

@@ -23,6 +23,9 @@ export interface NativeEvent {
   payload: {
     seq?: number
     text?: string
+    // 'transcript' only, desktop 1.0.11+: where this text starts in the
+    // session's audio, in ms (pcm-segmenter.js). Used by listen-back.
+    startMs?: number
     label?: string
     pct?: number
     file?: string | null
@@ -87,6 +90,22 @@ export interface DemistNative {
   setTranscribeTier: (tier: 'fast' | 'accurate') => Promise<'fast' | 'accurate'>
   startWakeLock: () => Promise<void>
   stopWakeLock: () => Promise<void>
+  // Desktop 1.0.11+: listen-back audio, kept on this computer only
+  // (desktop/native/lecture-audio.js). Absent on older builds.
+  lectureAudio?: NativeLectureAudio
+}
+
+export interface LectureAudioMeta { durationMs: number | null; timeline: [number, number][] }
+export interface NativeLectureAudio {
+  begin: (userId: string, recId: string) => Promise<boolean>
+  append: (userId: string, recId: string, chunk: ArrayBuffer) => Promise<boolean>
+  finish: (userId: string, recId: string, sessionId: string, meta: LectureAudioMeta) => Promise<{ kept: boolean; bytes?: number }>
+  discard: (userId: string, recId: string) => Promise<boolean>
+  list: (userId: string, sessionIds: string[]) => Promise<Record<string, { bytes: number; durationMs: number | null }>>
+  read: (userId: string, sessionId: string) => Promise<(LectureAudioMeta & { audio: ArrayBuffer }) | null>
+  remove: (userId: string, sessionId: string) => Promise<boolean>
+  usage: (userId: string) => Promise<{ bytes: number; count: number }>
+  removeAll: (userId: string) => Promise<boolean>
 }
 
 declare global {

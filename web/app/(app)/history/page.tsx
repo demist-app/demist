@@ -12,6 +12,8 @@ import { useRecordingSession } from '@/lib/recordingSession'
 import { getDemistNative } from '@/lib/electronNative'
 import { isEligibleForSummary } from '@/lib/summaryEligibility'
 import { LostMoments } from '@/components/LostMoments'
+import { ListenBack } from '@/components/ListenBack'
+import { removeLectureAudio } from '@/lib/lectureAudio'
 
 const SummaryViewer = dynamic(() => import('../summary-viewer').then(m => ({ default: m.SummaryViewer })), { ssr: false })
 const TranscriptViewer = dynamic(() => import('../transcript-viewer').then(m => ({ default: m.TranscriptViewer })), { ssr: false })
@@ -292,6 +294,7 @@ export default function History() {
       const ids = [...selectedIds]
       await supabase.from('terms').delete().in('session_id', ids)
       await supabase.from('sessions').delete().in('id', ids)
+      await removeLectureAudio(ids)
       setSessions(prev => prev.filter(s => !selectedIds.has(s.id)))
       setRecentSessions(prev => prev.filter(s => !selectedIds.has(s.id)))
       setTotalCount(prev => prev - ids.length)
@@ -468,6 +471,7 @@ export default function History() {
       const supabase = createClient()
       await supabase.from('terms').delete().eq('session_id', id)
       await supabase.from('sessions').delete().eq('id', id)
+      await removeLectureAudio([id])
       setSessions(prev => prev.filter(s => s.id !== id))
       setRecentSessions(prev => prev.filter(s => s.id !== id))
       setTotalCount(prev => prev - 1)
@@ -791,6 +795,8 @@ export default function History() {
                               <button onClick={() => retrySummarize(s)} className="text-[12px] text-brand-500 hover:dark:text-brand-400 hover:text-brand-700 transition-colors shrink-0">Retry</button>
                             </div>
                           ) : null}
+
+                          <ListenBack sessionId={s.id} transcript={s.transcript ?? null} />
 
                           <LostMoments sessionId={s.id} startedAt={s.started_at} transcript={s.transcript ?? null} />
 

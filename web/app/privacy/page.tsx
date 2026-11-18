@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 }
 
 export default function Privacy() {
-  const updated = '24 September 2026'
+  const updated = '18 November 2026'
 
   return (
     <main className="min-h-dvh dark:bg-[#110B1C] bg-[#F3F0F8] dark:text-white text-gray-900 px-6 py-16">
@@ -39,7 +39,7 @@ export default function Privacy() {
             <h2 className="text-[17px] font-semibold mb-3">Data we collect</h2>
             <ul className="space-y-3 dark:text-gray-400 text-gray-700">
               <li><span className="dark:text-white text-gray-900 font-medium">Email address</span>: used for authentication via a one-time code, to contact you if you join the Pro waitlist, and to tell you before a free Pro trial or free month of Pro ends and on the day it does. We do not send marketing emails. On the desktop app an email is optional, as described above.</li>
-              <li><span className="dark:text-white text-gray-900 font-medium">Audio recordings</span>: in the web app, microphone audio is captured in short chunks, sent to Groq or OpenAI for transcription, and immediately discarded. In the desktop app audio never leaves your device at all, as set out in the desktop section below. We do not store audio files in either case.</li>
+              <li><span className="dark:text-white text-gray-900 font-medium">Audio recordings</span>: in the web app, microphone audio is captured in short chunks, sent to Groq or OpenAI for transcription, and immediately discarded. In the desktop app audio never leaves your device at all, as set out in the desktop section below. We never store audio files on our servers. The one exception to keeping no audio at all is listen back in the Windows desktop app, described in the desktop section: that recording is kept on your own computer, never uploaded.</li>
               <li><span className="dark:text-white text-gray-900 font-medium">Transcripts</span>: for live microphone sessions we save a transcript only if you&apos;ve declared a support need in your profile, or your lecturer has consented for your module. For recordings you upload or capture from an officially provided source, transcripts are saved to your account.</li>
               <li><span className="dark:text-white text-gray-900 font-medium">Term definitions</span>: in the web app, to define a term we send the flagged term and a short excerpt of surrounding context to OpenAI: a single sentence per term, never full transcripts. Nothing sent for definitions is stored by us. In the desktop app definitions are generated on your device and nothing is sent. If you&apos;ve set a translation language and your browser can translate on your device (Chrome), the definition is translated on your device automatically; otherwise the same OpenAI request that generates the definition also translates it.</li>
               <li><span className="dark:text-white text-gray-900 font-medium">Detected terms</span>: the terms and definitions picked up from your sessions are stored in your account so you can review them later.</li>
@@ -77,6 +77,9 @@ export default function Privacy() {
             </p>
             <p className="dark:text-gray-400 text-gray-700">
               This changes how data is processed, not whether it&apos;s stored: the same consent rules above still apply to saving a microphone-mode transcript, and detected terms, session timestamps, and flashcard history are still synced to our Supabase database exactly as in the web app, so your glossary and progress stay available across devices. The desktop app also loads its interface from demist.app, so it needs a connection to start.
+            </p>
+            <p className="dark:text-gray-400 text-gray-700">
+              <span className="dark:text-white text-gray-900 font-medium">Listen back (desktop app 1.0.11 and later, Pro).</span> If you have Pro, the desktop app records the lecture&apos;s audio alongside the transcript so you can play it back later and jump to any part of it. The recording is saved only on your own computer, in the app&apos;s data folder. It is never uploaded to us or anyone else. It is kept only where the transcript is kept: always for system audio, and for the microphone only if you have recorded your lecturer&apos;s consent for that module or a support need, under the same rules as above. Otherwise it is deleted when the lecture ends. You can delete a recording at any time; deleting the lecture or your account also deletes it from this computer. If your Pro ends, recordings stay on your computer and play again if you upgrade.
             </p>
           </section>
 

@@ -60,7 +60,8 @@ function downsampleTo16k(
 }
 
 export interface NativeSessionCallbacks {
-  onTranscript: (text: string) => void
+  // startMs: where the text begins in the audio (desktop 1.0.11+), else undefined.
+  onTranscript: (text: string, startMs?: number) => void
   // Best-effort live preview of a segment that hasn't closed yet (see
   // desktop/native/pcm-segmenter.js's INTERIM_INTERVAL_MS comment): can be
   // flat-out wrong near the end, not just incomplete, and is always
@@ -150,7 +151,7 @@ export async function startNativeSession(
   const unsubscribe = native.onEvent((msg) => {
     dlog('[demist] native event:', msg.event, msg.payload)
     if (msg.event === 'transcript') {
-      if (msg.payload.text) callbacks.onTranscript(msg.payload.text)
+      if (msg.payload.text) callbacks.onTranscript(msg.payload.text, msg.payload.startMs)
     } else if (msg.event === 'interimTranscript') {
       if (msg.payload.text) callbacks.onInterimTranscript?.(msg.payload.text)
     } else if (msg.event === 'modelProgress') {

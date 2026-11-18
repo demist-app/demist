@@ -121,13 +121,15 @@ const INTERIM_DEADZONE_SAMPLES = (SAMPLE_RATE * 2000) / 1000
 
 class PcmSegmenter {
   /**
-   * @param {(segment: Float32Array, meanRms: number, contiguous: boolean) => void} onSegment
+   * @param {(segment: Float32Array, meanRms: number, contiguous: boolean, startMs: number) => void} onSegment
    *   Called with each complete speech segment, strictly in order.
    *   `contiguous` is true when this segment begins at the exact sample the
    *   previous one ended on - i.e. the previous segment hit the forced cut
    *   mid-sentence and speech simply carried on. The caller needs this to
    *   re-join such a pair without inserting a pause that was never there
-   *   (see whisper.js's takeBatch).
+   *   (see whisper.js's takeBatch). `startMs` is where the segment's first
+   *   sample sits in the audio fed so far (pre-roll included), so listen-back
+   *   can jump from a sentence to the moment it was said.
    * @param {(segment: Float32Array) => void} [onInterim]
    *   Called periodically (every INTERIM_INTERVAL_MS) with a snapshot of the
    *   still-accumulating segment, for a best-effort live preview. Optional:
@@ -138,6 +140,7 @@ class PcmSegmenter {
     this.onSegment = onSegment
     this.onInterim = onInterim
     this.residual = new Float32Array(0)      // partial frame carried between feeds
+    this.framesSeen = 0                      // every frame ever fed: the audio clock
     this.preRoll = []                        // last PRE_ROLL_FRAMES frames while silent
     this.segmentFrames = []                  // frames of the in-progress segment
     this.inSpeech = false
@@ -179,6 +182,7 @@ class PcmSegmenter {
   }
 
   _frame(frame) {
+    this.framesSeen++
     let sum = 0
     for (let i = 0; i < frame.length; i++) sum += frame[i] * frame[i]
     const rms = Math.sqrt(sum / frame.length)
@@ -252,7 +256,8 @@ class PcmSegmenter {
       let o = 0
       for (const f of this.segmentFrames) { segment.set(f, o); o += f.length }
       const meanRms = this.rmsCount ? this.rmsSum / this.rmsCount : 0
-      this.onSegment(segment, meanRms, this.startsContiguous)
+      const startMs = (this.framesSeen - this.segmentFrames.length) * FRAME_MS
+      this.onSegment(segment, meanRms, this.startsContiguous, startMs)
     }
     this.inSpeech = false
     this.segmentFrames = []

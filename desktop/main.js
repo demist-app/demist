@@ -627,6 +627,19 @@ ipcMain.handle('demist:setModelTier', (_event, tier) => llmTier.setTier(tier))
 ipcMain.handle('demist:getTranscribeTier', () => transcribeTier.getTier())
 ipcMain.handle('demist:setTranscribeTier', (_event, tier) => transcribeTier.setTier(tier))
 
+// Listen back: lecture audio kept on this computer only (native/lecture-audio.js).
+const lectureAudio = require('./native/lecture-audio')
+lectureAudio.init(app.getPath('userData'))
+ipcMain.handle('demist:audioBegin', (_e, userId, recId) => lectureAudio.begin(userId, recId))
+ipcMain.handle('demist:audioAppend', (_e, userId, recId, buf) => lectureAudio.append(userId, recId, buf))
+ipcMain.handle('demist:audioFinish', (_e, userId, recId, sessionId, meta) => lectureAudio.finish(userId, recId, sessionId, meta))
+ipcMain.handle('demist:audioDiscard', (_e, userId, recId) => lectureAudio.discard(userId, recId))
+ipcMain.handle('demist:audioList', (_e, userId, sessionIds) => lectureAudio.list(userId, sessionIds))
+ipcMain.handle('demist:audioRead', (_e, userId, sessionId) => lectureAudio.read(userId, sessionId))
+ipcMain.handle('demist:audioRemove', (_e, userId, sessionId) => lectureAudio.remove(userId, sessionId))
+ipcMain.handle('demist:audioUsage', (_e, userId) => lectureAudio.usage(userId))
+ipcMain.handle('demist:audioRemoveAll', (_e, userId) => lectureAudio.removeAll(userId))
+
 // ── PCM stream: high-frequency, fire-and-forget ─────────────────────────────
 // The renderer->main hop is a structured-clone copy (see preload.js: Electron's
 // ipcRenderer.postMessage can't transfer a raw ArrayBuffer). This hop,

@@ -679,7 +679,9 @@ async function startSession(onTranscript, emitProgress, onInterim, emitDiag, onN
           if (text && normalized === lastText.toLowerCase()) text = '' // collapse repeats
           if (text) {
             lastText = text
-            onTranscript({ seq: batch[batch.length - 1].seq, text })
+            // startMs: where this text begins in the session's audio, for
+            // listen-back (a coalesced batch starts where its first member does).
+            onTranscript({ seq: batch[batch.length - 1].seq, text, startMs: batch[0].startMs })
           }
         } catch (err) {
           console.error('[demist] transcription segment failed:', err?.message ?? err)
@@ -725,7 +727,7 @@ async function startSession(onTranscript, emitProgress, onInterim, emitDiag, onN
     onNotice?.('Demist can hear your microphone, but it is too quiet to transcribe. Check it is not muted, and that it is the input selected in Profile.')
   }
   const segmenter = new PcmSegmenter(
-    (segment, meanRms, contiguous) => {
+    (segment, meanRms, contiguous, startMs) => {
       const secs = (segment.length / SAMPLE_RATE).toFixed(1)
       // Checked BEFORE the sequence number is taken, so a dropped segment
       // never occupies an ordering slot the renderer is waiting on.
@@ -744,7 +746,7 @@ async function startSession(onTranscript, emitProgress, onInterim, emitDiag, onN
       quietRun = 0
       const mySeq = ++seq
       vdiag(`segment ${mySeq} closed after ${secs}s of speech (meanRms ${meanRms.toFixed(4)}), queued`)
-      backlog.push({ seq: mySeq, segment, meanRms, secs, contiguous, tQueued: Date.now() })
+      backlog.push({ seq: mySeq, segment, meanRms, secs, contiguous, startMs, tQueued: Date.now() })
       queueDepth++
       drain()
     },

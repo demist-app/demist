@@ -35,6 +35,7 @@ import { collidesWith } from '@/lib/termSimilarity'
 import { isLikelyJargon, isConfidentDefinition } from '@/lib/termQuality'
 import { classifySession, type SessionOutcome } from '@/lib/sessionOutcome'
 import { SURVEY_ID, SURVEY_DONE_KEY } from '@/lib/survey'
+import { LectureAudioRecorder } from '@/lib/lectureAudio'
 
 export type CaptureMode = 'microphone' | 'tab'
 
@@ -383,6 +384,11 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
   // high schooler with several classes) rather than nobody needing it.
   const [recentSubjects, setRecentSubjects] = useState<string[]>([])
   const { limits, isPro, loaded: entitlementsLoaded } = useEntitlements()
+  // Listen back (lib/lectureAudio.ts): Pro decides whether a lecture's audio
+  // is recorded at all, read at the moment recording starts.
+  const isProRef = useRef(isPro)
+  isProRef.current = isPro
+  const lectureAudioRef = useRef<LectureAudioRecorder | null>(null)
   // Pro lifts the browser recording cap, and entitlements load independently
   // of the dashboard's own data, so the counter must be recomputed when either
   // side changes. A ref for the value, an effect for the timing.
@@ -2061,6 +2067,14 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
         const sharedGraph = audioProcessingCtxRef.current && micSourceRef.current
           ? { context: audioProcessingCtxRef.current, source: micSourceRef.current }
           : null
+        // Listen back: Pro only, desktop 1.0.11+ only (start() returns null
+        // otherwise). Whether the file is KEPT is decided when the lecture
+        // ends, by the same rule as the transcript.
+        if (lectureAudioRef.current) { void lectureAudioRef.current.discard('superseded'); lectureAudioRef.current = null }
+        if (isProRef.current && userIdRef.current && streamRef.current) {
+          lectureAudioRef.current = await LectureAudioRecorder.start(userIdRef.current, streamRef.current)
+        }
+        lectureAudioRef.current?.markTranscriptionClockStart()
         const handle = await startNativeSession(streamRef.current!, {
           isStale: () => sessionEpochRef.current !== myEpoch || !isActiveRef.current,
           onReady: () => {
@@ -2093,7 +2107,10 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
             }
             armWatchdog(NATIVE_NO_TRANSCRIPT_MS)
           },
-          onTranscript: (text) => {
+          onTranscript: (text, startMs) => {
+            // Where this text will start in the transcript: accumulate joins
+            // pieces with one space.
+            lectureAudioRef.current?.note(startMs, transcriptRef.current ? transcriptRef.current.length + 1 : 0)
             if (!firstTranscriptLoggedRef.current) {
               firstTranscriptLoggedRef.current = true
               firstTranscriptMsRef.current = Date.now() - recordingStartedAtRef.current
@@ -2523,6 +2540,11 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
         nativeSessionRef.current = null
       }
     }
+    // The audio ends where the lecture did; keep() or discard() below decides
+    // whether the file stays.
+    const lectureAudio = lectureAudioRef.current
+    lectureAudioRef.current = null
+    if (lectureAudio) await lectureAudio.stop().catch(() => {})
 
     // A recording that started with no `sessions` row (see createSessionRow)
     // gets one here, now the network has had the length of a lecture to come
@@ -2716,10 +2738,13 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
                 .maybeSingle()
               if (!consent) {
                 await sb.from('transcript_chunks').delete().eq('session_id', capturedSid)
+                await lectureAudio?.discard('no_consent')
                 return
               }
             }
           }
+          // Allowed to keep the transcript, so allowed to keep the audio.
+          if (lectureAudio) await lectureAudio.keep(capturedSid)
 
           const whisperTx = transcriptRef.current.trim()
           const speechTx = webSpeechFinalRef.current.trim()
@@ -2763,8 +2788,14 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
         } catch (e) {
           console.error('post-session error:', e)
           setSessionFailIds(prev => new Set(prev).add(capturedSid))
+        } finally {
+          // No-op once kept; otherwise the file must not outlive the decision.
+          await lectureAudio?.discard('not_kept')
         }
       }, 6000)
+    } else if (lectureAudio) {
+      // No lecture row to attach it to.
+      void lectureAudio.discard('no_session')
     }
   }
 
