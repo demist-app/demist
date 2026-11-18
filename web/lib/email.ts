@@ -352,7 +352,7 @@ export function winbackEmail(d: { sessions: number; unsubUrl: string }) {
     'My Space: a calm place to plan your day, find what helps when everything feels like too much, and keep words that help you.',
     'An iPhone app, so you can record with your phone on the desk.',
   ]
-  const kept = 'Your lectures and words are still in your account.'
+  const kept = 'Your words and flashcards are still in your account.'
   const link = `${APP_URL}/dashboard?via=email_winback`
   const footer = 'We will only send this once.'
   const list = `<ul style="margin:0 0 16px 0;padding-left:20px;font-size:15px;line-height:1.65;color:${MUTED};">${points.map(p => `<li style="margin-bottom:6px;">${p}</li>`).join('')}</ul>`
