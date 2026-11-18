@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase'
 import { capture, identify, reportWriteFailure } from '@/lib/analytics'
 import { recordFirstTouch } from '@/lib/firstTouch'
 import { MINIMUM_AGE, meetsMinimumAge } from '@/lib/age'
-import { LIMITS, useEntitlements, REVERSE_TRIAL_DAYS } from '@/lib/entitlements'
+import { LIMITS, useEntitlements } from '@/lib/entitlements'
 import { BrandMark } from '@/components/BrandMark'
 import { DateOfBirthInput } from '@/components/DateOfBirthInput'
 
@@ -76,7 +76,8 @@ export default function Onboarding() {
   const router = useRouter()
   // Only true for accounts inside the reverse trial; older accounts re-shown
   // onboarding for the date-of-birth prompt never had one and must not be told so.
-  const { isTrial } = useEntitlements()
+  // daysLeft, not a constant: accounts from before 2026-11-19 have 30 days, later ones 14.
+  const { isTrial, daysLeft } = useEntitlements()
   const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1)
   const [course, setCourse] = useState('')
   const [year, setYear] = useState<number | null>(null)
@@ -389,7 +390,7 @@ export default function Onboarding() {
                 is restricted, and more plainly: finding out your notes expired
                 only when you go looking for them is a bad way to learn it. */}
             <p className="text-[12px] dark:text-gray-600 text-gray-500 mt-8 leading-relaxed text-center">
-              {isTrial && <>Your first {REVERSE_TRIAL_DAYS} days are Pro, free and with no card. </>}
+              {isTrial && daysLeft !== null && <>Your first {daysLeft} days are Pro, free and with no card. </>}
               Live definitions, your glossary and flashcards are free. Recording is free and
               unlimited in the Windows app; in the browser, free accounts get 3 recordings.
               Free accounts keep lecture history for {FREE_HISTORY_DAYS} days; Pro keeps everything.
