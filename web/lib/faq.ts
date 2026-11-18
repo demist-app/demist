@@ -7,7 +7,7 @@ import { PRO_PRICE_TEXT } from './pricing'
 export const FAQ = [
   {
     q: 'Is Demist free?',
-    a: `The core of it is. Live explanations, translation, your glossary and flashcards are free, and so is unlimited recording in the Windows and iPhone apps. In the browser, free accounts get 3 recordings. Free accounts keep lecture history for 7 days. Demist Pro keeps every lecture, removes the browser limit and adds unlimited summaries and Anki export, for ${PRO_PRICE_TEXT.monthly} a month or ${PRO_PRICE_TEXT.yearly} a year. New accounts get Pro free for their first 30 days, with no card.`,
+    a: `The core of it is. Live explanations, translation, your glossary and flashcards are free, and so is unlimited recording in the Windows and iPhone apps. In the browser, free accounts get 3 recordings. Free accounts keep lecture history for 7 days. Demist Pro keeps every lecture, removes the browser limit and adds unlimited summaries and Anki export, for ${PRO_PRICE_TEXT.monthly} a month or ${PRO_PRICE_TEXT.yearly} a year. New accounts get Pro free for their first 14 days, with no card.`,
   },
   {
     q: 'What subjects does it support?',

@@ -32,7 +32,7 @@ export interface ComparePage {
   checkedOn: string
 }
 
-const DEMIST_PRICE = `Free. Pro is ${PRO_PRICE_TEXT.monthly} a month or ${PRO_PRICE_TEXT.yearly} a year, and new accounts get Pro free for 30 days`
+const DEMIST_PRICE = `Free. Pro is ${PRO_PRICE_TEXT.monthly} a month or ${PRO_PRICE_TEXT.yearly} a year, and new accounts get Pro free for 14 days`
 const DEMIST_AUDIO = 'Windows app: on your own computer for live lectures. iPhone app: speech recognised on the phone, words to explain sent to Demist\'s server. Browser version and uploads: on Demist\'s server'
 const DEMIST_TRANSLATION = 'Explanations can be translated into Mandarin, Arabic, Hindi, Spanish or French'
 const DEMIST_FLASHCARDS = 'Yes, built automatically from each lecture, with spaced repetition. Anki export on Pro'

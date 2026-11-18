@@ -26,7 +26,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabaseAdmin'
 import { sendEmail, proExpiryEmail, type ExpiryStage } from '@/lib/email'
 import { stageFor } from '@/lib/proExpiryStage'
-import { REVERSE_TRIAL_START, REVERSE_TRIAL_DAYS, LIMITS, type SubscriptionRow } from '@/lib/entitlementRules'
+import { REVERSE_TRIAL_START, TRIAL_DAYS_MAX, TRIAL_DAYS_MIN, LIMITS, type SubscriptionRow } from '@/lib/entitlementRules'
 import { ageFromDob, MINIMUM_AGE } from '@/lib/age'
 
 export const dynamic = 'force-dynamic'
@@ -100,8 +100,8 @@ export async function GET(req: Request) {
   const users = new Map<string, Candidate>()
   // auth.users has no filterable listing through the admin API, so page
   // through it. At this scale (hundreds of accounts) that is a few calls.
-  const trialFrom = Math.max(new Date(REVERSE_TRIAL_START).getTime(), now.getTime() - (REVERSE_TRIAL_DAYS + 3) * DAY_MS)
-  const trialTo = now.getTime() - (REVERSE_TRIAL_DAYS - 8) * DAY_MS
+  const trialFrom = Math.max(new Date(REVERSE_TRIAL_START).getTime(), now.getTime() - (TRIAL_DAYS_MAX + 3) * DAY_MS)
+  const trialTo = now.getTime() - (TRIAL_DAYS_MIN - 8) * DAY_MS
   const compedIds = new Set((comped ?? []).map(c => c.user_id as string))
   for (let page = 1; page <= 50; page++) {
     const { data, error } = await sb.auth.admin.listUsers({ page, perPage: 1000 })

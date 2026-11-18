@@ -159,7 +159,7 @@ export default async function SubjectLanding(props: PageProps<'/for/[subject]'>)
               advertising. Recording is free and unlimited in the Windows and iPhone apps; in the browser, free
               accounts get three recordings. Free accounts keep lecture history for seven days. Demist Pro keeps your whole term, records in the browser with no limit,
               and adds unlimited summaries and Anki export for {PRO_PRICE_TEXT.monthly} a month. New accounts get Pro
-              free for their first 30 days, with no card.
+              free for their first 14 days, with no card.
             </p>
           </section>
 

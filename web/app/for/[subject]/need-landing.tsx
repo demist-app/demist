@@ -125,7 +125,7 @@ export function NeedLanding({ page }: { page: NeedPage }) {
               advertising. Recording is free and unlimited in the Windows and iPhone apps; in the browser, free
               accounts get three recordings. Free accounts keep lecture history for seven days. Demist
               Pro keeps every lecture and adds unlimited summaries and Anki export for{' '}
-              {PRO_PRICE_TEXT.monthly} a month. New accounts get Pro free for their first 30 days,
+              {PRO_PRICE_TEXT.monthly} a month. New accounts get Pro free for their first 14 days,
               with no card.
             </p>
           </section>

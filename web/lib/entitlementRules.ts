@@ -66,8 +66,25 @@ export const LIMITS: Record<Plan, {
 //
 // Derived from auth.users.created_at rather than stored, so it needs no
 // migration, cannot fall out of sync with a cron job, and ends on its own.
-export const REVERSE_TRIAL_DAYS = 30
+//
+// 14 days from 2026-11-19. Of 73 accounts whose 30-day trial had ended by
+// 2026-11-17, none was still recording when it ended and only 3 were after
+// their first week, so the decision moment arrived after everyone had gone.
+// 14 days still outlasts the 7 days free keeps, so the ending locks about a
+// week of the student's own lectures. Accounts created before the change keep
+// the 30 days they signed up with.
+export const REVERSE_TRIAL_DAYS = 14
 export const REVERSE_TRIAL_START = '2026-09-23T00:00:00Z'
+export const SHORT_TRIAL_START = '2026-11-19T00:00:00Z'
+const ORIGINAL_TRIAL_DAYS = 30
+// The longest and shortest trial anyone can be on, for windows that must
+// cover both (the expiry email cron).
+export const TRIAL_DAYS_MAX = ORIGINAL_TRIAL_DAYS
+export const TRIAL_DAYS_MIN = REVERSE_TRIAL_DAYS
+
+export function trialDaysFor(userCreatedAt: string): number {
+  return new Date(userCreatedAt) >= new Date(SHORT_TRIAL_START) ? REVERSE_TRIAL_DAYS : ORIGINAL_TRIAL_DAYS
+}
 
 const DAY_MS = 86_400_000
 
@@ -124,7 +141,7 @@ export function resolveEntitlement(
 
   let trialEnd: Date | null = null
   if (userCreatedAt && new Date(userCreatedAt) >= new Date(REVERSE_TRIAL_START)) {
-    trialEnd = new Date(new Date(userCreatedAt).getTime() + REVERSE_TRIAL_DAYS * DAY_MS)
+    trialEnd = new Date(new Date(userCreatedAt).getTime() + trialDaysFor(userCreatedAt) * DAY_MS)
     if (trialEnd > now) {
       return {
         plan: 'pro',
