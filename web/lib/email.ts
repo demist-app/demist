@@ -27,6 +27,8 @@ export async function sendEmail(opts: {
   text: string
   /** Tags Resend groups delivery stats by. Cheap, and worth having later. */
   tag?: string
+  /** Extra headers, e.g. List-Unsubscribe (lib/emailPrefs.ts). */
+  headers?: Record<string, string>
 }): Promise<SendResult> {
   const key = process.env.RESEND_API_KEY
   if (!key) return { ok: false, error: 'RESEND_API_KEY is not set' }
@@ -47,6 +49,7 @@ export async function sendEmail(opts: {
         text: opts.text,
         ...(REPLY_TO ? { reply_to: REPLY_TO } : {}),
         ...(opts.tag ? { tags: [{ name: 'kind', value: opts.tag }] } : {}),
+        ...(opts.headers ? { headers: opts.headers } : {}),
       }),
     })
   } catch (e) {
@@ -325,5 +328,58 @@ export function proExpiryEmail(d: ExpiryEmailData) {
       preheader,
     ),
     text: [heading, '', ...paras.flatMap(p => [p, '']), `${cta}: ${link}`, '', footer].join('\n'),
+  }
+}
+
+// ── Study emails (2026-11-18) ────────────────────────────────────────────────
+// Both carry a signed one-click way to stop them (lib/emailPrefs.ts), in the
+// footer and as List-Unsubscribe headers. Customer-facing: never the word
+// "AI", never an em dash, nothing that claims to treat or improve anything.
+
+const stopLine = (unsubUrl: string, why: string) =>
+  P(`${why} <a href="${unsubUrl}" style="color:${FAINT};text-decoration:underline;">Stop these emails</a>.`, `font-size:13px;color:${FAINT};margin-bottom:0;`)
+
+// Sent once, to people whose free trial ended after they had recorded at
+// least one lecture (app/api/cron/winback). Most of them tried Demist when
+// desktop term detection found almost nothing (fixed in 1.0.9 and 1.0.10).
+export function winbackEmail(d: { sessions: number; unsubUrl: string }) {
+  const tried = d.sessions === 1 ? 'a lecture' : `${d.sessions} lectures`
+  const subject = 'Demist is a lot better than when you tried it'
+  const heading = 'A lot has changed since you tried Demist'
+  const intro = `You recorded ${tried} with Demist a few weeks ago. We have improved it a lot since then, and I wanted to tell you what is new.`
+  const points = [
+    'It now finds and explains far more of the words in your lectures, in every subject, not only science.',
+    'My Space: a calm place to plan your day, find what helps when everything feels like too much, and keep words that help you.',
+    'An iPhone app, so you can record with your phone on the desk.',
+  ]
+  const kept = 'Your lectures and words are still in your account.'
+  const link = `${APP_URL}/dashboard?via=email_winback`
+  const footer = 'We will only send this once.'
+  const list = `<ul style="margin:0 0 16px 0;padding-left:20px;font-size:15px;line-height:1.65;color:${MUTED};">${points.map(p => `<li style="margin-bottom:6px;">${p}</li>`).join('')}</ul>`
+  return {
+    subject,
+    html: shell(H(heading) + P(intro) + list + P(kept) + button(link, 'Open Demist') + P('Shivam, Demist') + stopLine(d.unsubUrl, footer), 'What is new since you last used it.'),
+    text: [heading, '', intro, '', ...points.map(p => `- ${p}`), '', kept, '', `Open Demist: ${link}`, '', 'Shivam, Demist', '', `${footer} Stop these emails: ${d.unsubUrl}`].join('\n'),
+  }
+}
+
+// At most every few days, and only when flashcards are due
+// (app/api/cron/study-reminders).
+export function studyReminderEmail(d: { due: number; subject: string | null; unsubUrl: string }) {
+  const words = d.due === 1 ? 'one word' : `${d.due} words`
+  // The subject is whatever the student typed, so it is escaped for the HTML
+  // and trimmed so a long course name cannot swamp the subject line.
+  const name = d.subject?.trim().slice(0, 60) || null
+  const from = name ? ` from ${name}` : ''
+  const fromHtml = name ? ` from ${name.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!))}` : ''
+  const subject = `You have ${words}${from} to revise`
+  const heading = `You have ${words} to revise`
+  const body = (f: string) => `Your flashcards${f} are ready. A few minutes now is enough to go through them.`
+  const link = `${APP_URL}/flashcards?via=email_reminder`
+  const why = 'We send this at most every few days, and only when you have words to revise.'
+  return {
+    subject,
+    html: shell(H(heading) + P(body(fromHtml)) + button(link, 'Revise now') + stopLine(d.unsubUrl, why), `${words}${fromHtml} ready to revise.`),
+    text: [heading, '', body(from), '', `Revise now: ${link}`, '', `${why} Stop these emails: ${d.unsubUrl}`].join('\n'),
   }
 }

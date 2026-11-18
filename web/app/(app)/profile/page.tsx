@@ -11,6 +11,7 @@ import { PaywallModal } from '@/components/PaywallModal'
 import { useNativeTranslate } from '@/lib/useNativeTranslate'
 import { FontScale, FONT_SCALE_LABELS, getFontScale, setFontScale } from '@/lib/fontScale'
 import { ComfortSettings } from '@/components/ComfortSettings'
+import { StudyEmailsToggle } from '@/components/StudyEmailsToggle'
 import { getDemistNative, isElectronNative } from '@/lib/electronNative'
 import { useRecordingSession } from '@/lib/recordingSession'
 import { useComfort } from '@/lib/comfortPrefs'
@@ -806,6 +807,8 @@ export default function Profile() {
           </div>
 
           <ComfortSettings />
+
+          <StudyEmailsToggle />
 
           {isElectronNative() && (
             <div>
