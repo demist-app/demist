@@ -139,7 +139,7 @@ function stop() {
 // same guarantee node-llama-cpp's grammars gave. cache_prompt lets the server
 // reuse the already-read opening of consecutive prompts (llm.js puts the fixed
 // instructions first for exactly this).
-async function complete(prompt, { schema, maxTokens = 256, timeoutMs = REQUEST_TIMEOUT_MS } = {}) {
+async function complete(prompt, { schema, system, maxTokens = 256, timeoutMs = REQUEST_TIMEOUT_MS } = {}) {
   if (!server) throw new Error('llama-server is not running')
   const { port, key } = await server.ready
   const controller = new AbortController()
@@ -150,7 +150,7 @@ async function complete(prompt, { schema, maxTokens = 256, timeoutMs = REQUEST_T
       signal: controller.signal,
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
       body: JSON.stringify({
-        messages: [{ role: 'user', content: prompt }],
+        messages: [...(system ? [{ role: 'system', content: system }] : []), { role: 'user', content: prompt }],
         temperature: 0,
         max_tokens: maxTokens,
         cache_prompt: true,

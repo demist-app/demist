@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { capture, reportWriteFailure } from '@/lib/analytics'
 import { TermContext } from '@/components/TermContext'
+import { hideWords } from '@/lib/hiddenWords'
 
 const ShareCard = dynamic(() => import('@/components/ShareCard').then(m => ({ default: m.ShareCard })), { ssr: false })
 
@@ -88,6 +89,10 @@ export default function Glossary() {
   const [selectMode, setSelectMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [bulkWorking, setBulkWorking] = useState(false)
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false)
+  const [bulkError, setBulkError] = useState<string | null>(null)
+  // Single deletions this visit. After a couple, point at the faster way.
+  const [singleDeletes, setSingleDeletes] = useState(0)
 
   useEffect(() => {
     const savedGroup = localStorage.getItem('demist_glossary_group_by_session')
@@ -129,6 +134,8 @@ export default function Glossary() {
   const exitSelectMode = () => {
     setSelectMode(false)
     setSelectedIds(new Set())
+    setConfirmBulkDelete(false)
+    setBulkError(null)
   }
 
   const bulkMarkKnown = async () => {
@@ -146,6 +153,34 @@ export default function Glossary() {
       exitSelectMode()
     } catch (e) {
       console.error('bulkMarkKnown error:', e)
+    } finally {
+      setBulkWorking(false)
+    }
+  }
+
+  const bulkDelete = async () => {
+    if (selectedIds.size === 0 || bulkWorking) return
+    setBulkWorking(true)
+    setBulkError(null)
+    try {
+      const ids = [...selectedIds]
+      const gone = [...sessions.flatMap(s => s.terms), ...orphanTerms].filter(t => selectedIds.has(t.id)).map(t => t.term)
+      const supabase = createClient()
+      // In batches: a few hundred ids in one request is too long a URL.
+      for (let i = 0; i < ids.length; i += 100) {
+        const { error } = await supabase.from('terms').delete().in('id', ids.slice(i, i + 100))
+        if (error) throw error
+      }
+      const { data: { session } } = await supabase.auth.getSession()
+      hideWords(session?.user.id, gone)
+      setSessions(prev => prev.map(s => ({ ...s, terms: s.terms.filter(t => !selectedIds.has(t.id)) })).filter(s => s.terms.length > 0))
+      setOrphanTerms(prev => prev.filter(t => !selectedIds.has(t.id)))
+      setTotalCount(prev => prev - ids.length)
+      capture('glossary_bulk_delete', { count: ids.length })
+      exitSelectMode()
+    } catch (e) {
+      console.error('bulkDelete error:', e)
+      setBulkError('Those words could not be deleted. Try again.')
     } finally {
       setBulkWorking(false)
     }
@@ -336,7 +371,12 @@ export default function Glossary() {
     try {
       const supabase = createClient()
       const { error: delErr } = await supabase.from('terms').delete().eq('id', termId)
-    reportWriteFailure('term.delete', delErr)
+      // Keep the word on screen when it is still saved.
+      if (reportWriteFailure('term.delete', delErr)) return
+      const gone = [...sessions.flatMap(s => s.terms), ...orphanTerms].find(t => t.id === termId)?.term
+      const { data: { session } } = await supabase.auth.getSession()
+      if (gone) hideWords(session?.user.id, [gone])
+      setSingleDeletes(n => n + 1)
       setSessions(prev =>
         prev
           .map(s => ({ ...s, terms: s.terms.filter(t => t.id !== termId) }))
@@ -672,6 +712,12 @@ export default function Glossary() {
 
       {/* List */}
       <div className="px-4 sm:px-6 pb-6">
+        {singleDeletes >= 2 && !selectMode && (
+          <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border dark:border-brand-500/20 border-brand-200 dark:bg-brand-500/[0.05] bg-brand-50/60 px-4 py-2.5">
+            <p className="text-[13px] dark:text-white/75 text-gray-700">Deleting a few? Select them all at once. Deleted words will not come back in later lectures.</p>
+            <button onClick={() => { capture('glossary_bulk_hint_used', {}); setSelectMode(true) }} className="shrink-0 text-[13px] font-semibold text-brand-700 dark:text-brand-300 hover:opacity-80 transition-opacity">Select</button>
+          </div>
+        )}
         {loading && (
           <div className="animate-pulse space-y-7">
             {[4, 3, 5].map((count, i) => (
@@ -801,9 +847,26 @@ export default function Glossary() {
       {selectMode && selectedIds.size > 0 && (
         <div className="fixed bottom-0 inset-x-0 z-50 flex items-center justify-between px-4 sm:px-6 py-4 dark:bg-[#1a1328]/95 bg-white/95 border-t dark:border-white/[0.07] border-black/[0.10]" style={{ backdropFilter: 'blur(16px)' }}>
           <p className="text-[14px] font-medium dark:text-white/80 text-gray-700">
-            {selectedIds.size} term{selectedIds.size !== 1 ? 's' : ''} selected
+            {bulkError ?? (confirmBulkDelete
+              ? `Delete ${selectedIds.size} word${selectedIds.size !== 1 ? 's' : ''}? This cannot be undone.`
+              : `${selectedIds.size} word${selectedIds.size !== 1 ? 's' : ''} selected`)}
           </p>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap justify-end">
+            {confirmBulkDelete && (
+              <button
+                onClick={() => setConfirmBulkDelete(false)}
+                className="text-[13px] font-medium dark:text-gray-300 text-gray-700 px-3 py-1.5"
+              >
+                Keep them
+              </button>
+            )}
+            <button
+              onClick={() => (confirmBulkDelete ? bulkDelete() : setConfirmBulkDelete(true))}
+              disabled={bulkWorking}
+              className={`text-[13px] font-medium px-4 py-1.5 rounded-xl transition-colors disabled:opacity-50 ${confirmBulkDelete ? 'bg-red-600 text-white hover:brightness-110' : 'text-red-500 border border-red-500/30 hover:bg-red-500/[0.06]'}`}
+            >
+              {confirmBulkDelete && bulkWorking ? 'Deleting…' : 'Delete'}
+            </button>
             <button
               onClick={bulkExportCsv}
               className="text-[13px] font-medium dark:text-gray-300 text-gray-700 border dark:border-white/[0.12] border-black/[0.15] hover:dark:bg-white/[0.06] hover:bg-black/[0.04] px-4 py-1.5 rounded-xl transition-colors"

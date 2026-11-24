@@ -13,6 +13,7 @@ import { getDemistNative } from '@/lib/electronNative'
 import { isEligibleForSummary } from '@/lib/summaryEligibility'
 import { LostMoments } from '@/components/LostMoments'
 import { ListenBack } from '@/components/ListenBack'
+import { LectureNotes } from '@/components/LectureNotes'
 import { removeLectureAudio } from '@/lib/lectureAudio'
 
 const SummaryViewer = dynamic(() => import('../summary-viewer').then(m => ({ default: m.SummaryViewer })), { ssr: false })
@@ -796,6 +797,7 @@ export default function History() {
                             </div>
                           ) : null}
 
+                          <LectureNotes sessionId={s.id} title={s.name || s.subject || 'Lecture notes'} transcript={s.transcript ?? null} />
                           <ListenBack sessionId={s.id} transcript={s.transcript ?? null} />
 
                           <LostMoments sessionId={s.id} startedAt={s.started_at} transcript={s.transcript ?? null} />

@@ -218,6 +218,7 @@ const CALL_ROLE = {
   defineCandidates: 'terms',
   explain: 'terms',
   summarize: 'terms',
+  noteChunk: 'terms',
   getModelTier: 'terms',
   setModelTier: 'terms',
 
@@ -412,6 +413,7 @@ const CALL_TIMEOUT_MS = {
   defineCandidates: 300_000,
   explain: 300_000,
   summarize: 300_000,
+  noteChunk: 300_000,
   translate: 300_000,
 }
 // How long a worker must be COMPLETELY silent - no progress events, no
@@ -612,6 +614,7 @@ ipcMain.handle('demist:defineCandidates', (_event, candidates, subject, year, kn
   callWorker('defineCandidates', candidates, subject, year, knownTerms))
 ipcMain.handle('demist:explain', (_event, text, subject, year) => callWorker('explain', text, subject, year))
 ipcMain.handle('demist:summarize', (_event, termRows, subject) => callWorker('summarize', termRows, subject))
+ipcMain.handle('demist:noteChunk', (_event, text, subject, language) => callWorker('noteChunk', text, subject, language))
 // Settings reads and writes the model choices HERE, not through the workers.
 // Each is one small JSON file, but routing it through a worker meant waiting
 // behind whatever that worker was doing: mid model-load that is a synchronous

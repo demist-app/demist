@@ -86,6 +86,7 @@ const handlers = {
     (llm ??= require('./llm')).defineCandidates(candidates, subject, year, emitProgress, knownTerms),
   explain: (text, subject, year) => (llm ??= require('./llm')).explain(text, subject, year),
   summarize: (termRows, subject) => (llm ??= require('./llm')).summarize(termRows, subject),
+  noteChunk: (text, subject, language) => (llm ??= require('./llm')).noteChunk(text, subject, language),
   getModelTier: () => (llm ??= require('./llm')).getTier(),
   setModelTier: (tier) => (llm ??= require('./llm')).setTier(tier),
   getTranscribeTier: () => (whisper ??= require('./whisper')).getTier(),

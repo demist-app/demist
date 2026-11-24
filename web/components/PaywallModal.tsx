@@ -16,6 +16,7 @@ import { PRO_LIVE } from '@/lib/subscription'
 import { useEntitlements } from '@/lib/entitlements'
 import { AddEmailForm } from '@/components/AddEmailForm'
 import { getDemistNative } from '@/lib/electronNative'
+import { notesEngine } from '@/lib/makeNotes'
 
 // Led by what builds up over a term, not by volume. "Unlimited summaries" sold
 // a cap nobody was near (4 summary calls across all users in two days), and
@@ -34,9 +35,14 @@ const PRO_POINTS = [
 // Only where it exists: the desktop app from 1.0.11 (lib/lectureAudio.ts).
 // Second, because hearing the lecture again is the thing students asked for.
 const LISTEN_BACK_POINT = 'Listen back to your lectures, kept on your computer'
-const proPoints = () => getDemistNative()?.lectureAudio
-  ? [PRO_POINTS[0], LISTEN_BACK_POINT, ...PRO_POINTS.slice(1)]
-  : PRO_POINTS
+// First, because notes are what students asked for and what free only gives a
+// few of. Not shown in a desktop app too old to make them.
+const NOTES_POINT = 'Full notes from every lecture, made from the transcript'
+const proPoints = () => [
+  ...(notesEngine() ? [NOTES_POINT] : []),
+  ...(getDemistNative()?.lectureAudio ? [LISTEN_BACK_POINT] : []),
+  ...PRO_POINTS,
+]
 
 // Loaded once at module scope, same pattern Stripe's own docs use - calling
 // loadStripe() again on every render/reopen would inject a second copy of

@@ -28,6 +28,8 @@ import { BrandMark } from '@/components/BrandMark'
 import { ReadAloudButton } from '@/components/ReadAloudButton'
 import { LostMoments } from '@/components/LostMoments'
 import { ListenBack } from '@/components/ListenBack'
+import { LectureNotes } from '@/components/LectureNotes'
+import { SampleLecture } from '@/components/SampleLecture'
 
 function fmtTime(s: number) {
   return `${String(Math.floor(s / 60)).padStart(2,'0')}:${String(s % 60).padStart(2,'0')}`
@@ -68,7 +70,7 @@ export default function Dashboard() {
     loading, isRecording, elapsed, liveTerms, setLiveTerms, sessionGlossary, profile, stats,
     recentSessions, sessionGenIds, sessionFailIds, sessionFailReasons, sessionTermLoading,
     recordingError, recordingWarning, sessionSyncWarning, modelWarning, staleShellWarning, wakeLockUnsupported, captureMode, setCaptureMode, capturedTabTitle,
-    sentences, translatedSentences, reviewTerms, setReviewTerms, sessionSummary, setSessionSummary, surveyDue, setSurveyDue, reviewSessionId, sessionSubject, setSessionSubject,
+    sentences, translatedSentences, reviewTerms, setReviewTerms, sessionSummary, setSessionSummary, surveyDue, setSurveyDue, sampleDue, setSampleDue, reviewSessionId, sessionSubject, setSessionSubject,
     sessionSubjectRef, recentSubjects, addRecentSubject, paywall, setPaywall,
     webTrialBlocked, setWebTrialBlocked, webTrialRemaining, localTranslate, liveTranslateAvailable, translationReady,
     nativeModelsReady, nativeModelProgress, nativeModelsError, retryNativeModelPreload,
@@ -122,6 +124,7 @@ export default function Dashboard() {
     const inDesktopApp = isElectronNative() || /Electron\//.test(navigator.userAgent)
     setIsWindowsWeb(!inDesktopApp && !isMobileUA() && detectDesktopPlatform() === 'windows')
   }, [])
+  const [showSample, setShowSample] = useState(false)
   const beginRecordingFlow = () => {
     // Mic mode only: tab/system-audio capture has its own
     // source and picker, nothing here to test beforehand.
@@ -878,6 +881,7 @@ export default function Dashboard() {
 
                         {s.expanded && (
                           <div className="px-4 pb-4 border-t dark:border-white/[0.04] border-black/[0.05]">
+                            <LectureNotes sessionId={s.id} title={s.name || s.subject || 'Lecture notes'} transcript={s.transcript ?? null} />
                             <ListenBack sessionId={s.id} transcript={s.transcript ?? null} />
                             <LostMoments sessionId={s.id} startedAt={s.started_at} transcript={s.transcript ?? null} />
                             {s.synopsis ? (
@@ -929,6 +933,12 @@ export default function Dashboard() {
                     <p className="text-gray-600 text-[14px] font-medium mb-1">No sessions yet</p>
                     <p className="dark:text-white/60 text-gray-700 text-[13px]">Hit record before your next lecture. Demist transcribes it, explains unfamiliar terms, and reads it back for you.</p>
                   </div>
+                  <button
+                    onClick={() => setShowSample(true)}
+                    className="px-5 py-2.5 rounded-2xl bg-brand-600 hover:brightness-110 text-white text-[14px] font-semibold active:scale-[0.97] transition-[filter,transform] duration-150"
+                  >
+                    See it work in 30 seconds
+                  </button>
                   <div className="w-full max-w-xs flex flex-col gap-2 text-left">
                     {[
                       { n: '1', text: 'Tap the mic at the top of this page' },
@@ -963,9 +973,20 @@ export default function Dashboard() {
         />
       )}
 
+      {(showSample || (sampleDue && !reviewTerms && !sessionSummary && !paywall && !isRecording)) && (
+        <SampleLecture
+          source={showSample ? 'empty_dashboard' : 'short_recording'}
+          onClose={() => { setShowSample(false); setSampleDue(false) }}
+          onRecord={() => { setShowSample(false); setSampleDue(false); if (nativeModelsReady) beginRecordingFlow() }}
+        />
+      )}
+
       {showMicCheck && (
         <MicCheck
           subject={sessionSubject}
+          course={profile?.course}
+          supportNeed={profile?.support_need}
+          onSubject={s => { sessionSubjectRef.current = s; setSessionSubject(s); addRecentSubject(s) }}
           onStart={() => { setShowMicCheck(false); startRecording('microphone') }}
           onCancel={() => setShowMicCheck(false)}
         />

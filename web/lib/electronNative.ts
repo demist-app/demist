@@ -90,6 +90,9 @@ export interface DemistNative {
   setTranscribeTier: (tier: 'fast' | 'accurate') => Promise<'fast' | 'accurate'>
   startWakeLock: () => Promise<void>
   stopWakeLock: () => Promise<void>
+  // Desktop 1.0.12+: lecture notes for one piece of transcript, written on
+  // this computer. Absent on older builds (lib/makeNotes.ts).
+  noteChunk?: (text: string, subject: string | null, language: string | null) => Promise<unknown>
   // Desktop 1.0.11+: listen-back audio, kept on this computer only
   // (desktop/native/lecture-audio.js). Absent on older builds.
   lectureAudio?: NativeLectureAudio

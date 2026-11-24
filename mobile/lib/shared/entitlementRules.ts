@@ -18,6 +18,10 @@ export const LIMITS: Record<Plan, {
   historyDays: number | null      // null = unlimited
   summariesPerWeek: number | null
   ankiExport: boolean
+  // Full lecture notes (lib/makeNotes.ts). Free gets enough to use them for
+  // the lectures that matter most; the server applies the same number
+  // (backend/supabase/functions/lecture-notes), so change both together.
+  notesPerMonth: number | null
   // Unlimited recording in the browser. The web trial (webTrial.ts) caps free
   // browser recording at 3 lifetime sessions because it bills per use; Pro
   // lifts that. Real cost is about $0.08-0.12 per lecture-hour (2026-10-02:
@@ -42,8 +46,8 @@ export const LIMITS: Record<Plan, {
   // blocks nobody from recording, so activation is untouched. Only looking
   // backwards costs money, which is exactly the "keep your whole term" pitch
   // landing at the moment a student wants last week's lecture back.
-  free: { historyDays: 7, summariesPerWeek: 10, ankiExport: false, webRecordingUnlimited: false },
-  pro:  { historyDays: null, summariesPerWeek: null, ankiExport: true, webRecordingUnlimited: true },
+  free: { historyDays: 7, summariesPerWeek: 10, ankiExport: false, notesPerMonth: 3, webRecordingUnlimited: false },
+  pro:  { historyDays: null, summariesPerWeek: null, ankiExport: true, notesPerMonth: null, webRecordingUnlimited: true },
 }
 
 // Everything not listed above is free for everyone, permanently:

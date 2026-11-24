@@ -257,3 +257,37 @@ export function isConfidentDefinition(term: string, definition: string, sourceTe
   if (withoutTerm.length < MIN_DEFINITION_CHARS) return false
   return true
 }
+
+// ── Invented abbreviations (2026-11-24) ─────────────────────────────────────
+//
+// Asked about an abbreviation it does not know, the 1.5B on-device model makes
+// one up that fits the letters and says it with total confidence. From real
+// lectures: "NISA stands for National Institute of Statistics and Analysis, a
+// government agency in the Netherlands", "APC stands for Automatic Power
+// Control ... in light bulbs". The letters always fit, because that is how it
+// invents them, so checking initials proves nothing.
+//
+// So an expansion is believed only if the lecturer said it, or the
+// abbreviation is one everybody meets. A missing card is a small loss; a
+// confident wrong one in somebody's revision is not.
+const WELL_KNOWN_ABBREVIATIONS = new Set([
+  'AC','ADHD','AI','AIDS','API','ASCII','ATP','BBC','BMI','BMR','CDC','CEO','CFO','CNS','COPD','CPI','CPR','CPU','CSR','CSS','CT','CVD',
+  'DC','DNA','DNS','DPRK','DSM','ECB','ECG','ECHR','ECJ','EEG','EKG','ELISA','EMF','EPA','ERP','ETF','EU','FBI','FDA','FDI','FIFO','FMRI','FTP',
+  'GAAP','GATT','GCSE','GDP','GDPR','GIS','GMO','GNI','GNP','GPS','GPU','GUI','HIV','HPV','HR','HRM','HTML','HTTP','HTTPS','IBM','ICD','ICJ','ICU','IDE',
+  'IFRS','ILO','IMF','IO','IP','IPCC','IPO','IQ','ISO','IT','IUCN','IVF','JSON','KPI','LAN','LED','LGBT','LIFO','MRI','MRNA','NAFTA','NASA','NATO','NGO','NHS',
+  'NICE','NMR','OCD','OECD','OLS','OOP','OPEC','OSI','PCR','PESTEL','PEST','PH','PLC','PNS','PPE','PTSD','QC','RAM','RCT','REM','RNA','ROA','ROE','ROI','ROM','RSI',
+  'SDG','SDK','SEC','SEO','SES','SME','SMTP','SQL','SSD','STEM','STI','SWOT','TB','TCP','TRIPS','UDHR','UK','UN','UNESCO','UNHCR','UNICEF','URL','USA','USB','USSR','UV',
+  'VAT','VPN','WHO','WTO','WWF','XML','CBT','CSF','DVT','EBITDA','EPS','ESG','GFR','HDL','LDL','NPV','IRR','WACC','CAPM','PPP','QE','SPSS','ANOVA','CAD','CNC','PID','FEM',
+  'DSA','SEN','SPED','IEP','CRPD',
+])
+
+export function isInventedAcronym(term: string, definition: string, sourceText: string): boolean {
+  const t = term.trim().replace(/\./g, '').replace(/s$/, '')
+  if (!/^[A-Z][A-Z0-9]{1,7}$/.test(t) || WELL_KNOWN_ABBREVIATIONS.has(t)) return false
+  const m = /\b(?:stands for|is short for|is an? (?:acronym|abbreviation) (?:for|of)|abbreviation of|refers to)\s+(?:the\s+)?['"‘“]?([^,.;'"’”]{4,90})/i.exec(definition)
+  if (!m) return false
+  const said = new Set(norm(sourceText).split(' '))
+  const words = norm(m[1]).split(' ').filter(w => w.length > 3)
+  if (!words.length) return false
+  return words.filter(w => said.has(w)).length / words.length < 0.6
+}

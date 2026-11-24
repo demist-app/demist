@@ -70,6 +70,8 @@ contextBridge.exposeInMainWorld('demistNative', {
     ipcRenderer.invoke('demist:defineCandidates', candidates, subject, year, knownTerms),
   explain: (text, subject, year) => ipcRenderer.invoke('demist:explain', text, subject, year),
   summarize: (termRows, subject) => ipcRenderer.invoke('demist:summarize', termRows, subject),
+  // Lecture notes for one piece of transcript (1.0.12+).
+  noteChunk: (text, subject, language) => ipcRenderer.invoke('demist:noteChunk', text, subject, language),
   getModelTier: () => ipcRenderer.invoke('demist:getModelTier'),
   setModelTier: (tier) => ipcRenderer.invoke('demist:setModelTier', tier),
   getTranscribeTier: () => ipcRenderer.invoke('demist:getTranscribeTier'),

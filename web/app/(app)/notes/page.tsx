@@ -23,6 +23,7 @@ import { capture } from '@/lib/analytics'
 import { collidesWith } from '@/lib/termSimilarity'
 import { excerpt } from '@/components/LostMoments'
 import { ReadAloudButton } from '@/components/ReadAloudButton'
+import { groundedNotes, parseNotes, reminders, type NotesSection } from '@/lib/lectureNotes'
 
 interface Lecture {
   id: string
@@ -31,6 +32,7 @@ interface Lecture {
   started_at: string
   synopsis: string | null
   transcript: string | null
+  summary?: string | null   // notes JSON, lib/lectureNotes.ts
 }
 interface TermRow { term: string; definition: string; session_id: string; created_at: string; known: boolean | null }
 interface MarkRow { session_id: string; at_ms: number; transcript_offset: number }
@@ -68,7 +70,7 @@ function MasterNotes() {
       // Subjects are free text, so match them here rather than with an exact
       // .eq(): "Cell Biology" and "cell biology " are the same module.
       const { data } = await supabase.from('sessions')
-        .select('id, name, subject, started_at, synopsis, transcript')
+        .select('id, name, subject, started_at, synopsis, transcript, summary')
         .eq('user_id', uid)
         .order('started_at', { ascending: true })
       const all = ((data ?? []) as Lecture[]).filter(l => norm(l.subject) === norm(moduleParam))
@@ -110,6 +112,15 @@ function MasterNotes() {
   }, [terms])
 
   const byId = useMemo(() => new Map((lectures ?? []).map(l => [l.id, l])), [lectures])
+  // Full notes, for the lectures that have them (lib/lectureNotes.ts).
+  const notesById = useMemo(() => {
+    const out = new Map<string, { sections: NotesSection[]; remind: string[] }>()
+    for (const l of lectures ?? []) {
+      const n = parseNotes(l.summary)
+      if (n) out.set(l.id, { sections: groundedNotes(n, l.transcript), remind: reminders(l.transcript) })
+    }
+    return out
+  }, [lectures])
   const moments = useMemo(() => marks.map(m => {
     const l = byId.get(m.session_id)
     return { lecture: l, atMs: m.at_ms, text: l?.transcript ? excerpt(l.transcript, m.transcript_offset) : null }
@@ -120,7 +131,12 @@ function MasterNotes() {
   const asText = () => {
     const lines: string[] = [`${moduleName}: master notes`, '']
     lines.push('WHAT THIS MODULE HAS COVERED', '')
-    for (const l of lectures ?? []) lines.push(`${lectureTitle(l)} (${fmtDate(l.started_at)})`, l.synopsis || 'No summary for this lecture.', '')
+    for (const l of lectures ?? []) {
+      lines.push(`${lectureTitle(l)} (${fmtDate(l.started_at)})`, l.synopsis || 'No summary for this lecture.', '')
+      const n = notesById.get(l.id)
+      for (const s of n?.sections ?? []) lines.push(s.heading, ...s.points.map(p => `- ${p}`), '')
+      if (n?.remind.length) lines.push('In the lecturer’s words', ...n.remind.map(r => `- ${r}`), '')
+    }
     lines.push('WORDS TO KNOW', '')
     for (const g of glossary) lines.push(`${g.term}: ${g.definition}`)
     if (moments.length) {
@@ -211,6 +227,26 @@ function MasterNotes() {
                         </p>
                         {l.synopsis && <ReadAloudButton text={l.synopsis} label="Read this summary aloud" className="print:hidden" />}
                       </div>
+                      {notesById.get(l.id) && (
+                        <div className="mt-3 pt-3 border-t dark:border-white/[0.06] border-black/[0.06] space-y-3">
+                          {notesById.get(l.id)!.sections.map((s, k) => (
+                            <div key={k}>
+                              {s.heading && <p className="text-[14px] font-semibold mb-1">{s.heading}</p>}
+                              <ul className="list-disc pl-5 space-y-1 marker:text-brand-500/60">
+                                {s.points.map((p, j) => <li key={j} className="text-[calc(0.875rem*var(--df-scale))] leading-relaxed dark:text-white/75 text-gray-800">{p}</li>)}
+                              </ul>
+                            </div>
+                          ))}
+                          {notesById.get(l.id)!.remind.length > 0 && (
+                            <div>
+                              <p className="text-[12px] font-semibold dark:text-brand-300 text-brand-700 mb-1">In the lecturer&rsquo;s words</p>
+                              <ul className="list-disc pl-5 space-y-1">
+                                {notesById.get(l.id)!.remind.map((r, j) => <li key={j} className="text-[13px] leading-relaxed dark:text-white/75 text-gray-800">{r}</li>)}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </li>
                   ))}
                 </ol>

@@ -32,10 +32,12 @@ import { isElectronNative, getDemistNative, missingOnDeviceCapabilities, dlog, t
 import { startNativeSession, type NativeSessionHandle } from '@/lib/nativeSession'
 import { isEligibleForSummary } from '@/lib/summaryEligibility'
 import { collidesWith } from '@/lib/termSimilarity'
-import { isLikelyJargon, isConfidentDefinition } from '@/lib/termQuality'
+import { isLikelyJargon, isConfidentDefinition, isInventedAcronym } from '@/lib/termQuality'
+import { hiddenWords, isHidden } from '@/lib/hiddenWords'
 import { classifySession, type SessionOutcome } from '@/lib/sessionOutcome'
 import { SURVEY_ID, SURVEY_DONE_KEY } from '@/lib/survey'
 import { LectureAudioRecorder } from '@/lib/lectureAudio'
+import { autoNotes, setRecordingProbe } from '@/lib/makeNotes'
 
 export type CaptureMode = 'microphone' | 'tab'
 
@@ -262,6 +264,9 @@ interface RecordingSessionValue {
   sessionSummary: SessionOutcome | null
   surveyDue: boolean
   setSurveyDue: React.Dispatch<React.SetStateAction<boolean>>
+  /** A short test recording found nothing: offer the sample lecture. */
+  sampleDue: boolean
+  setSampleDue: React.Dispatch<React.SetStateAction<boolean>>
   setSessionSummary: React.Dispatch<React.SetStateAction<SessionOutcome | null>>
   reviewSessionId: string | null
   sessionSubject: string
@@ -374,6 +379,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
   // The one-time survey (SurveyModal) is due. The dashboard shows it only once
   // every other end-of-session sheet has closed.
   const [surveyDue, setSurveyDue] = useState(false)
+  const [sampleDue, setSampleDue] = useState(false)
   const [sessionSubject, setSessionSubject] = useState<string>('')
   // The user's own last few distinct subjects (most recent first), so the
   // subject-change input can offer them as one-tap chips instead of forcing
@@ -389,6 +395,8 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
   const isProRef = useRef(isPro)
   isProRef.current = isPro
   const lectureAudioRef = useRef<LectureAudioRecorder | null>(null)
+  // Notes made on the computer stop while a lecture is being recorded.
+  useEffect(() => { setRecordingProbe(() => isActiveRef.current) }, [])
   // Pro lifts the browser recording cap, and entitlements load independently
   // of the dashboard's own data, so the counter must be recomputed when either
   // side changes. A ref for the value, an effect for the timing.
@@ -1208,6 +1216,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     zeroTermChunksRef.current = 0
     chunkIntervalRef.current = 5_000
 
+    const hidden = hiddenWords(userIdRef.current)
     const filtered = terms.filter(t => {
       // Defensive: a malformed entry here (missing term/definition) used to
       // throw inside this filter, and the caller's blanket promise .catch()
@@ -1216,6 +1225,11 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       if (!t?.term || !t?.definition) return false
       const key = t.term.toLowerCase()
       if (!isLatinTerm(t.term)) return false
+      // The student deleted this word before; it stays gone.
+      if (isHidden(hidden, t.term)) {
+        captureRejectedTerm(t.term, 'deleted_before')
+        return false
+      }
       // Precision gate, covering BOTH detection paths because they converge
       // here. An audit of all 692 production terms on 2026-09-20 found about
       // one in seven worth keeping: "toothpaste", "toilet", "puppy", "party"
@@ -1238,6 +1252,13 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       if (!isConfidentDefinition(t.term, t.definition, `${context} ${transcript}`)) {
         dlog(`[demist] dropped "${t.term}": model was not confident in the definition`)
         captureRejectedTerm(t.term, 'unconfident_definition')
+        return false
+      }
+      // The on-device model expands abbreviations it has never met into
+      // organisations that do not exist. Only an issue on the desktop app.
+      if (isElectronNative() && isInventedAcronym(t.term, t.definition, `${context} ${transcript}`)) {
+        dlog(`[demist] dropped "${t.term}": made-up abbreviation`)
+        captureRejectedTerm(t.term, 'invented_acronym')
         return false
       }
       if (knownTermsRef.current.has(key)) return false
@@ -2446,6 +2467,20 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
       reportError(`session_detection_failed:${outcome.reason}`, { ...props, last_failure: stats.lastFailure })
       setSessionSummary(outcome)
     }
+    // A quick test that showed nothing is most people's first impression
+    // (components/SampleLecture.tsx). Offered once, to people still trying
+    // Demist out, and instead of the Pro nudge rather than on top of it.
+    if (
+      (outcome.state === 'skipped' || outcome.state === 'empty') && durationSec < 120 &&
+      allSessionTermsRef.current.length === 0 && totalSessionCountRef.current <= 5 &&
+      !localStorage.getItem('demist_sample_offered')
+    ) {
+      localStorage.setItem('demist_sample_offered', '1')
+      if (outcome.state === 'empty') setSessionSummary(null)
+      setSampleDue(true)
+      capture('sample_lecture_offered', { state: outcome.state, duration_seconds: durationSec })
+      return
+    }
     // The proactive Pro nudge (see the note in stopRecording) only when no
     // summary sheet is about to open: every sheet above is modal, and two
     // modals fighting for the screen is worse than skipping this session.
@@ -2764,6 +2799,10 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
               setSessionSyncWarning('Your transcript could not be saved. It is still on screen, so copy anything you need before leaving this page.')
             } else {
               setRecentSessions(prev => prev.map(s => s.id === capturedSid ? { ...s, transcript: tx } : s))
+              // Only once the transcript is saved, which is also the moment
+              // it is certain it may be. Not awaited: it can take minutes on
+              // the desktop app, and the summary below must not wait for it.
+              void autoNotes(capturedSid, tx, capturedLang)
             }
           }
           // Eligibility (above) already passed by this point either way.
@@ -2950,7 +2989,7 @@ export function RecordingSessionProvider({ children }: { children: ReactNode }) 
     loading, isRecording, elapsed, liveTerms, setLiveTerms, sessionGlossary, profile, setProfile, stats,
     recentSessions, setRecentSessions, sessionGenIds, sessionFailIds, sessionFailReasons, sessionTermLoading,
     recordingError, recordingWarning, sessionSyncWarning, modelWarning, staleShellWarning, wakeLockUnsupported, captureMode, setCaptureMode, capturedTabTitle,
-    sentences, translatedSentences, liveSessionId, reviewTerms, setReviewTerms, sessionSummary, setSessionSummary, surveyDue, setSurveyDue, reviewSessionId, sessionSubject, setSessionSubject,
+    sentences, translatedSentences, liveSessionId, reviewTerms, setReviewTerms, sessionSummary, setSessionSummary, surveyDue, setSurveyDue, sampleDue, setSampleDue, reviewSessionId, sessionSubject, setSessionSubject,
     sessionSubjectRef, recentSubjects, addRecentSubject, paywall, setPaywall,
     webTrialBlocked, setWebTrialBlocked, webTrialRemaining, localTranslate, localTranslateUsable, liveTranslateAvailable, translationReady,
     nativeModelsReady, nativeModelProgress, nativeModelsError, retryNativeModelPreload,

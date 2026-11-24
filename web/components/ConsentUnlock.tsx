@@ -34,9 +34,9 @@ function emailTemplate(module: string) {
 
 Dear [Lecturer name],
 
-I use a tool called Demist to help me understand technical terms during your lectures. It listens via my microphone, identifies subject-specific terms in real time, and generates flash cards; it doesn't share recordings with anyone or store them permanently.
+I use a tool called Demist to help me understand technical terms during your lectures. It listens via my microphone, explains subject-specific words as you say them, and makes flash cards. With your permission it also keeps a transcript and notes for my own revision, and on my computer it can keep a recording, on that computer only. None of it is shared with anyone.
 
-I'd like to ask for your permission to use it during ${module} sessions. The app requires explicit written consent before saving any transcript or summary.
+I'd like to ask for your permission to use it during ${module} sessions. Without permission it keeps no transcript, notes or recording.
 
 If you're happy to grant permission, a simple reply to this email is enough.
 
@@ -103,13 +103,13 @@ export function ConsentModal({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center px-4 pb-4 sm:pb-0 dark:bg-black/60 bg-black/30"
+      className="fixed inset-0 z-[75] flex items-end sm:items-center justify-center px-4 pb-4 sm:pb-0 dark:bg-black/60 bg-black/30"
       style={{ backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}
       role="dialog"
       aria-modal="true"
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className="w-full max-w-md dark:bg-[#1a1328] bg-[#FFFFFF] border dark:border-white/[0.08] border-black/[0.12] rounded-[24px] p-6 space-y-4">
+      <div className="w-full max-w-md max-h-[94dvh] overflow-y-auto dark:bg-[#1a1328] bg-[#FFFFFF] border dark:border-white/[0.08] border-black/[0.12] rounded-[24px] p-6 space-y-4">
         <div className="flex items-start justify-between gap-2">
           <p className="text-[17px] font-bold dark:text-white text-gray-900 leading-snug">Lecturer consent</p>
           <button onClick={onClose} aria-label="Close" className="text-gray-500 hover:dark:text-white/60 hover:text-gray-900 text-[22px] leading-none transition-colors shrink-0 mt-[-2px]">×</button>

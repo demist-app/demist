@@ -86,6 +86,16 @@ const EXPLAIN_SCHEMA = {
   required: ['definition'],
 }
 
+// One section of lecture notes (noteChunk below).
+const NOTES_SCHEMA = {
+  type: 'object',
+  properties: {
+    heading: { type: 'string' },
+    points: { type: 'array', minItems: 1, maxItems: 8, items: { type: 'string' } },
+  },
+  required: ['heading', 'points'],
+}
+
 // A second, deliberately trivial question asked about each candidate term
 // before it becomes a card. See verifyTerm below for why this exists and what
 // it measured.
@@ -119,7 +129,7 @@ const CONTEXT_SIZE = os.totalmem() / (1024 ** 3) < 10 ? 2048 : 4096
 // lecture; termRows was previously passed through unbounded.
 const SUMMARY_MAX_TERMS = 60
 
-let llama, model, context, session, summaryGrammar, verdictGrammar, explainGrammar, loadedTier, loadingPromise
+let llama, model, context, session, summaryGrammar, verdictGrammar, explainGrammar, notesGrammar, loadedTier, loadingPromise
 
 // Which term-detection model a machine gets by default, decided by its RAM.
 // Measured through the real detectTerms path on the same five excerpts
@@ -271,8 +281,8 @@ let engine = null
 // did, so the callers do not change.
 const serverSession = {
   resetChatHistory() {},
-  prompt(text, { grammar, maxTokens, timeoutMs } = {}) {
-    return llamaServer.complete(text, { schema: grammar?.schema, maxTokens: maxTokens ?? 512, timeoutMs })
+  prompt(text, { grammar, system, maxTokens, timeoutMs } = {}) {
+    return llamaServer.complete(text, { schema: grammar?.schema, system, maxTokens: maxTokens ?? 512, timeoutMs })
   },
 }
 function serverGrammar(schema) {
@@ -367,6 +377,7 @@ async function doLoad(tier, emitProgress, calledBy) {
         summaryGrammar = serverGrammar(SUMMARY_SCHEMA)
         verdictGrammar = serverGrammar(VERDICT_SCHEMA)
         explainGrammar = serverGrammar(EXPLAIN_SCHEMA)
+        notesGrammar = serverGrammar(NOTES_SCHEMA)
         engine = 'server'
         loadedTier = tier
         console.log(`[demist] term-detection: tier '${tier}' running on llama-server (${llamaServer.threadCount()} threads)`)
@@ -435,6 +446,7 @@ async function doLoad(tier, emitProgress, calledBy) {
     summaryGrammar = await llama.createGrammarForJsonSchema(SUMMARY_SCHEMA)
     verdictGrammar = await llama.createGrammarForJsonSchema(VERDICT_SCHEMA)
     explainGrammar = await llama.createGrammarForJsonSchema(EXPLAIN_SCHEMA)
+    notesGrammar = await llama.createGrammarForJsonSchema(NOTES_SCHEMA)
 
     // Pays a large one-time cost here, during preload (while the app shows
     // "loading models..." before the user ever starts recording), instead
@@ -1143,6 +1155,67 @@ Write a 1-2 sentence summary of what this lecture covered, based only on the ter
   return run
 }
 
+// Lecture notes, one piece of transcript at a time (web/lib/makeNotes.ts cuts
+// the lecture up and drives this, so it can stop between pieces the moment a
+// new recording starts). Runs only after a lecture, never during one.
+//
+// Measured 2026-11-24 on the bundled 1.5B model, 4 threads: 10-13 s for 2,000
+// characters of lecture, so about 5 minutes for an hour of speech on a
+// mid-range computer. It stays close to the transcript but does slip (an
+// invented "5-7 items"), which is why the page checks every number and name
+// against the transcript before showing a point (web/lib/lectureNotes.ts).
+async function noteChunk(text, subject, language) {
+  const piece = String(text ?? '').trim()
+  if (!piece) return null
+  await ensureLoaded(undefined, 'noteChunk')
+  // As a system message: the same rules in the user turn gave vaguer points
+  // and textbook padding (measured 2026-11-24, same lecture, same model).
+  // The subject is deliberately not given: it came back as the heading, and
+  // it invites general knowledge about the subject instead of this lecture.
+  const system = `You write a student's lecture notes from a transcript of part of a lecture. The transcript was made by speech recognition, so some words are misheard.
+Rules:
+- Use only what the transcript says. Never add facts, names, dates or examples of your own.
+- Keep names, dates and numbers exactly as the lecturer said them, and use the lecturer's own terms.
+- Each point is one complete, specific idea a student could revise from: definitions, reasons, evidence, examples, criticisms.
+- Leave out greetings, filler and repetition. If a sentence makes no sense, leave it out.
+- Write in ${language || 'the language of the transcript'}.`
+  const prompt = `<lecture>
+${piece}
+</lecture>
+
+Write the notes as JSON with "heading" (a few words naming this topic) and "points".`
+  const run = queue.then(async () => {
+    session.resetChatHistory()
+    // The in-process fallback has no system option here, so it gets the rules
+    // at the top of the prompt instead.
+    const opts = { grammar: notesGrammar, maxTokens: 600, timeoutMs: 150_000 }
+    const response = engine === 'server'
+      ? await session.prompt(prompt, { ...opts, system })
+      : await session.prompt(`${system}
+
+${prompt}`, opts)
+    try {
+      return notesGrammar.parse(response)
+    } catch {
+      return salvageNotes(response)
+    }
+  })
+  queue = run.catch(() => {})
+  return run
+}
+
+// The complete points of a reply that was cut off before its JSON closed.
+function salvageNotes(raw) {
+  const heading = /"heading"\s*:\s*"((?:[^"\\]|\\.)*)"/.exec(raw ?? '')?.[1] ?? ''
+  const at = (raw ?? '').indexOf('"points"')
+  if (at < 0) return null
+  const points = []
+  for (const m of raw.slice(at + 8).matchAll(/"((?:[^"\\]|\\.)+)"\s*(?=[,\]])/g)) {
+    try { points.push(JSON.parse(`"${m[1]}"`)) } catch { /* a broken escape: skip this point */ }
+  }
+  return points.length ? { heading, points } : null
+}
+
 // matchTermLine is exported for test/run-all.js: a parser that silently
 // rejected the model's real output cost a whole lecture's term cards, and that
 // is checkable in milliseconds without loading a 2GB model.
@@ -1151,4 +1224,4 @@ Write a 1-2 sentence summary of what this lecture covered, based only on the ter
 // cards, and a transcript check that silently rejected correctly-spelled terms
 // cost the best ones. Both are checkable in milliseconds without loading a 2GB
 // model, which is the only reason either bug survived as long as it did.
-module.exports = { detectTerms, defineCandidates, explain, summarize, preload, getTier, setTier, matchTermLine, saidInTranscript, normalize, engineInUse: () => engine }
+module.exports = { detectTerms, defineCandidates, explain, summarize, noteChunk, salvageNotes, preload, getTier, setTier, matchTermLine, saidInTranscript, normalize, engineInUse: () => engine }

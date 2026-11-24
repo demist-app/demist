@@ -28,19 +28,73 @@
 // the right granularity, not leftover friction.
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase'
-import { reportWriteFailure } from '@/lib/analytics'
+import { capture, reportWriteFailure } from '@/lib/analytics'
+import { ConsentModal } from '@/components/ConsentUnlock'
 
 type CheckState = 'sampling' | 'good' | 'quiet' | 'error'
 
 interface Props {
   subject: string
+  // The module the recording will be saved under when subject is empty
+  // (profile.course), and whether this student keeps transcripts already.
+  course?: string | null
+  supportNeed?: string | null
+  onSubject: (subject: string) => void
   onStart: () => void
   onCancel: () => void
 }
 
 const SAMPLE_MS = 3000
 
-export function MicCheck({ subject, onStart, onCancel }: Props) {
+export function MicCheck({ subject, course, supportNeed, onSubject, onStart, onCancel }: Props) {
+  // ── Permission to keep the lecture (2026-11-24) ──
+  // The RULE is unchanged: without a declared support need, a microphone
+  // lecture is kept only for a module the student has recorded permission
+  // for. What changed is that they are asked. Before this, all 15 of these
+  // students' lectures over five minutes ended with no transcript, no summary
+  // and no notes, and the only way to record permission was a form in
+  // Profile that nobody had used since September.
+  // Still not a gate: "just explain words" starts the recording as before.
+  const module = (subject || course || '').trim()
+  const [permission, setPermission] = useState<'unknown' | 'has' | 'ask'>('unknown')
+  const [moduleName, setModuleName] = useState(module)
+  const [savingPermission, setSavingPermission] = useState(false)
+  const [permissionError, setPermissionError] = useState<string | null>(null)
+  const [showHow, setShowHow] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    if (supportNeed && supportNeed !== 'none') { setPermission('has'); return }
+    if (!module) { setPermission('ask'); return }
+    createClient().from('lecturer_consents').select('id')
+      // The same match the end of the lecture uses (recordingSession.tsx).
+      .ilike('module_name', module.replace(/[%_]/g, c => '\\' + c)).limit(1)
+      .then(({ data, error }) => { if (!cancelled) setPermission(error ? 'has' : data?.length ? 'has' : 'ask') })
+    return () => { cancelled = true }
+  }, [module, supportNeed])
+
+  const confirmPermission = async () => {
+    const name = moduleName.trim()
+    if (!name) { setPermissionError('Add the module name first.'); return }
+    setSavingPermission(true)
+    setPermissionError(null)
+    const sb = createClient()
+    const { data: { session } } = await sb.auth.getSession()
+    const { error } = session?.user
+      ? await sb.from('lecturer_consents').upsert({
+        user_id: session.user.id, module_name: name, notes: 'Confirmed before recording', granted_at: new Date().toISOString(),
+      }, { onConflict: 'user_id,module_name' })
+      : { error: { code: 'no_session', message: 'not signed in' } }
+    setSavingPermission(false)
+    // Never claim permission was recorded unless the row is there: the end of
+    // the lecture checks the row, not this sheet.
+    if (reportWriteFailure('consent.grant', error)) { setPermissionError('That could not be saved. Try again, or record without keeping the transcript.'); return }
+    capture('consent_granted', { source: 'mic_check' })
+    if (name !== subject) onSubject(name)
+    handleStart()
+  }
+  const justWords = () => { capture('consent_skipped', { source: 'mic_check' }); handleStart() }
+
   const [checkState, setCheckState] = useState<CheckState>('sampling')
   const [bars, setBars] = useState<number[]>(Array(7).fill(0))
   const ctxRef = useRef<AudioContext | null>(null)
@@ -172,7 +226,7 @@ export function MicCheck({ subject, onStart, onCancel }: Props) {
       className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center sm:px-4 bg-black/30"
       style={{ backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)' }}
     >
-      <div className="w-full max-w-sm dark:bg-[#181121] bg-[#FFFFFF] border dark:border-white/[0.08] border-black/[0.10] rounded-t-[24px] sm:rounded-[24px] shadow-2xl px-6 py-7 animate-step opacity-0" style={{ animationFillMode: 'forwards' }}>
+      <div className="w-full max-w-sm dark:bg-[#181121] bg-[#FFFFFF] border dark:border-white/[0.08] border-black/[0.10] rounded-t-[24px] sm:rounded-[24px] shadow-2xl px-6 py-7 max-h-[94dvh] overflow-y-auto animate-step opacity-0" style={{ animationFillMode: 'forwards' }}>
 
         <p className="text-[10px] font-bold tracking-[0.18em] uppercase dark:text-brand-400/70 text-brand-700/80 mb-1.5">Mic check</p>
         <p className="text-[18px] font-bold dark:text-white text-gray-900 mb-1">
@@ -238,13 +292,60 @@ export function MicCheck({ subject, onStart, onCancel }: Props) {
             explicit product direction after the 2026-07-02 version of this
             made it one. Shown once per subject - see the (user_id, subject)
             key on mic_acknowledgments. */}
-        {needsAck && (
+        {needsAck && permission !== 'ask' && (
           <p className="text-[11px] dark:text-white/40 text-gray-500 mb-4 leading-relaxed text-center">
             Remember to get permission from anyone you record, like your lecturer. See our{' '}
             <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 dark:hover:text-white/60 hover:text-gray-700 transition-colors">Terms</a>.
           </p>
         )}
 
+        {permission === 'ask' && (
+          <div className="mb-4 rounded-2xl border dark:border-white/[0.08] border-black/[0.10] dark:bg-white/[0.03] bg-[#F8F6FB] px-4 py-3.5">
+            <p className="text-[14px] font-semibold dark:text-white text-gray-900">Do you have permission to record this lecture?</p>
+            <p className="text-[12px] dark:text-white/60 text-gray-600 leading-relaxed mt-1">
+              From your lecturer or university. With it, Demist keeps the transcript, summary and notes. Without it, words are still explained live.
+            </p>
+            <input
+              value={moduleName}
+              onChange={e => setModuleName(e.target.value)}
+              placeholder="Module or subject"
+              maxLength={100}
+              aria-label="Module or subject"
+              className="mt-2.5 w-full dark:bg-white/[0.05] bg-[#FFFFFF] border dark:border-white/[0.10] border-black/[0.13] rounded-xl px-3 py-2 text-[13px] dark:text-white text-gray-900 placeholder-gray-500 focus:outline-none focus:border-brand-500/50 transition-colors"
+            />
+            {permissionError && <p className="text-[12px] text-red-500 mt-1.5">{permissionError}</p>}
+            <button onClick={() => setShowHow(true)} className="text-[12px] text-brand-700 dark:text-brand-300 underline underline-offset-2 mt-2 hover:opacity-80 transition-opacity">
+              How do I ask?
+            </button>
+          </div>
+        )}
+
+        {permission === 'ask' ? (
+          <div className="space-y-2">
+            <button
+              onClick={confirmPermission}
+              disabled={checkState === 'error' || savingPermission}
+              className="w-full py-3 rounded-2xl bg-brand-600 hover:brightness-110 text-white text-[14px] font-semibold active:scale-[0.97] transition-[filter,transform] duration-150 disabled:opacity-40"
+            >
+              {savingPermission ? 'Saving…' : 'Yes, I have permission'}
+            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={onCancel}
+                className="flex-1 py-3 rounded-2xl dark:bg-white/[0.04] bg-[#F1EEF7] border dark:border-white/[0.07] border-black/[0.12] text-[14px] font-medium dark:text-gray-300 text-gray-700 active:scale-[0.97] transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={justWords}
+                disabled={checkState === 'error'}
+                className="flex-1 py-3 rounded-2xl dark:bg-white/[0.04] bg-[#F1EEF7] border dark:border-white/[0.07] border-black/[0.12] text-[14px] font-medium dark:text-gray-300 text-gray-700 active:scale-[0.97] transition-all disabled:opacity-40"
+              >
+                Not yet, just explain words
+              </button>
+            </div>
+          </div>
+        ) : (
         <div className="flex gap-2">
           <button
             onClick={onCancel}
@@ -260,6 +361,8 @@ export function MicCheck({ subject, onStart, onCancel }: Props) {
             {checkState === 'sampling' ? 'Skip check' : 'Start recording'}
           </button>
         </div>
+        )}
+        {showHow && <ConsentModal subject={moduleName.trim() || module} onClose={() => setShowHow(false)} onGranted={() => { if (moduleName.trim() && moduleName.trim() !== subject) onSubject(moduleName.trim()); setPermission('has') }} />}
       </div>
     </div>
   )
