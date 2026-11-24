@@ -9,7 +9,9 @@
 
 import { createHmac, timingSafeEqual } from 'node:crypto'
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://demist.app'
+// Straight to www: demist.app answers with a redirect, and mail clients do not
+// reliably follow one for the one-click unsubscribe POST.
+const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.demist.app').replace('://demist.app', '://www.demist.app')
 
 function sign(userId: string): string {
   return createHmac('sha256', process.env.SUPABASE_SERVICE_ROLE_KEY ?? '')

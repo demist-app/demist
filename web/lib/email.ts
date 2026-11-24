@@ -261,8 +261,7 @@ export function proLaunchedEmail(monthlyPriceText: string | null, onWaitlist: bo
 // ── Pro expiry (web/app/api/cron/pro-expiry) ────────────────────────────────
 // Three stages around the day a trial or comped month ends. Every line is
 // about THEIR account: their own counts, what changes, the date. No claims
-// about other students, no urgency that is not real. Copy must be approved
-// before PRO_EXPIRY_EMAILS_ENABLED is turned on.
+// about other students, no urgency that is not real. Live since 2026-11-24.
 
 import type { ExpiryStage } from './proExpiryStage'
 export type { ExpiryStage }
@@ -275,6 +274,8 @@ export interface ExpiryEmailData {
   terms: number
   locked: number           // lectures older than the free history window
   historyDays: number
+  endsToday: boolean       // minus1 can land on the last day itself
+  unsubUrl: string
 }
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
@@ -282,7 +283,8 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
 export function proExpiryEmail(d: ExpiryEmailData) {
   const kind = d.source === 'trial' ? 'free Pro trial' : 'free month of Pro'
   const link = `${APP_URL}/dashboard?upgrade=pro_expiry&via=email_${d.stage}`
-  const have = `You have ${plural(d.sessions, 'lecture', 'lectures')} and ${plural(d.terms, 'term', 'terms')} in Demist.`
+  const have = `You have ${plural(d.sessions, 'lecture', 'lectures')}${d.terms > 0 ? ` and ${plural(d.terms, 'word', 'words')}` : ''} in Demist.`
+  const when = d.endsToday ? 'today' : 'tomorrow'
   const lockLine = d.locked > 0
     ? `${d.locked === d.sessions ? 'All of them are' : `${d.locked} of those lectures are`} older than ${d.historyDays} days, so they will lock when it ends.`
     : `When it ends, the free plan keeps the last ${d.historyDays} days, so older lectures lock. By the end of term that is most of them.`
@@ -297,12 +299,12 @@ export function proExpiryEmail(d: ExpiryEmailData) {
     cta = 'Keep Pro'
     preheader = d.locked > 0 ? `${plural(d.locked, 'lecture', 'lectures')} will lock when it ends.` : 'What changes, and what stays free.'
   } else if (d.stage === 'minus1') {
-    subject = `Your ${kind} ends tomorrow`
-    heading = `Your ${kind} ends tomorrow`
+    subject = `Your ${kind} ends ${when}`
+    heading = `Your ${kind} ends ${when}`
     paras = [
       d.locked > 0
         ? `${plural(d.locked, 'lecture', 'lectures')} will lock when it does. ${staysFree}`
-        : `After tomorrow, lectures older than ${d.historyDays} days lock. ${staysFree}`,
+        : `After ${when}, lectures older than ${d.historyDays} days lock. ${staysFree}`,
       price,
     ]
     cta = 'Keep Pro'
@@ -324,10 +326,10 @@ export function proExpiryEmail(d: ExpiryEmailData) {
     subject,
     html: shell(
       H(heading) + paras.map(p => P(p)).join('') + button(link, cta)
-        + P(footer, `font-size:13px;color:${FAINT};margin-bottom:0;`),
+        + stopLine(d.unsubUrl, footer),
       preheader,
     ),
-    text: [heading, '', ...paras.flatMap(p => [p, '']), `${cta}: ${link}`, '', footer].join('\n'),
+    text: [heading, '', ...paras.flatMap(p => [p, '']), `${cta}: ${link}`, '', `${footer} Stop these emails: ${d.unsubUrl}`].join('\n'),
   }
 }
 

@@ -19,7 +19,10 @@ export function stageFor(sub: SubscriptionRow | null, createdAt: string, now: Da
     // minus1 wins over minus7 inside the last day, so the two never land on
     // the same run for someone whose end date is already close.
     if (msLeft <= DAY_MS) return { stage: 'minus1', source: ent.source, periodEnd: ent.periodEnd }
-    if (msLeft <= 7 * DAY_MS) return { stage: 'minus7', source: ent.source, periodEnd: ent.periodEnd }
+    // Not inside the last 4 days: whoever is that close gets the minus1 email
+    // shortly, and two reminders on consecutive days is nagging. The cron is
+    // daily, so everyone still passes through the 4-7 day window.
+    if (msLeft <= 7 * DAY_MS && msLeft > 4 * DAY_MS) return { stage: 'minus7', source: ent.source, periodEnd: ent.periodEnd }
     return null
   }
   if (ent.source === 'free' && ent.lapsedAt && now.getTime() - new Date(ent.lapsedAt).getTime() <= DAY0_GRACE_MS) {

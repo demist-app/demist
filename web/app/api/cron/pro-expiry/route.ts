@@ -7,13 +7,16 @@
 // the first decision moment this product has ever had.
 //
 // SAFETY, in order of what would hurt most:
-// - Nothing is sent unless PRO_EXPIRY_EMAILS_ENABLED is exactly 'true'.
-//   Otherwise (and always with ?dry=1) it reports what it WOULD send: user
-//   ids, stages and counts, never an email address.
+// - Live by default since 2026-11-24 (approved by the user).
+//   PRO_EXPIRY_EMAILS_DISABLED=true stops it. Until then it waited for an
+//   env var nobody set, and about 100 trials ended without a word. With
+//   ?dry=1 it reports what it WOULD send: user ids, stages and counts, never
+//   an email address.
 // - Never emails: internal accounts (profiles.is_internal), anyone paying,
 //   anyone under MINIMUM_AGE by their date of birth, anyone listed in
-//   PRO_EXPIRY_EXCLUDE_USER_IDS, anonymous accounts, or anyone with no
-//   lectures (nothing to lose, so the email would be empty words).
+//   PRO_EXPIRY_EXCLUDE_USER_IDS, anonymous accounts, anyone who turned
+//   emails off, or anyone with nothing worth keeping (fewer than MIN_TERMS
+//   words and no lecture over 5 minutes), for whom it would be empty words.
 // - At most once per user, stage and end date: the log row is claimed BEFORE
 //   the send (migration 038's unique key), and released if the send fails.
 // - If the internal-account check cannot be read, the whole run stops. A run
@@ -28,17 +31,22 @@ import { sendEmail, proExpiryEmail, type ExpiryStage } from '@/lib/email'
 import { stageFor } from '@/lib/proExpiryStage'
 import { REVERSE_TRIAL_START, TRIAL_DAYS_MAX, TRIAL_DAYS_MIN, LIMITS, type SubscriptionRow } from '@/lib/entitlementRules'
 import { ageFromDob, MINIMUM_AGE } from '@/lib/age'
+import { studyEmailsOn, unsubscribeUrl, unsubscribeHeaders } from '@/lib/emailPrefs'
+import { captureServer } from '@/lib/serverCapture'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
 const DAY_MS = 86_400_000
 const HISTORY_DAYS = LIMITS.free.historyDays ?? 7
+const MIN_TERMS = 3
+const REAL_LECTURE_MS = 5 * 60_000
 
 interface Candidate {
   userId: string
   email: string | null
   isAnonymous: boolean
+  emailsOn: boolean
   createdAt: string
   sub: SubscriptionRow | null
 }
@@ -53,18 +61,6 @@ interface Planned {
   locked: number
 }
 
-async function captureServer(userId: string, event: string, properties: Record<string, unknown>) {
-  const key = process.env.NEXT_PUBLIC_POSTHOG_KEY
-  if (!key) return
-  try {
-    await fetch('https://eu.i.posthog.com/capture/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ api_key: key, event, distinct_id: userId, properties }),
-    })
-  } catch { /* analytics must never fail a send */ }
-}
-
 export async function GET(req: Request) {
   const secret = process.env.CRON_SECRET
   if (!secret || req.headers.get('authorization') !== `Bearer ${secret}`) {
@@ -75,7 +71,7 @@ export async function GET(req: Request) {
   // asOf simulates another day, so an empty result today can be told apart
   // from a broken query by asking what a day in the expiry window would do.
   // Dry run only: a simulated date must never decide a real send.
-  const live = process.env.PRO_EXPIRY_EMAILS_ENABLED === 'true' && url.searchParams.get('dry') !== '1' && !asOf
+  const live = process.env.PRO_EXPIRY_EMAILS_DISABLED !== 'true' && url.searchParams.get('dry') !== '1' && !asOf
   const stagesOn = new Set((process.env.PRO_EXPIRY_STAGES ?? 'minus7,minus1,day0').split(',').map(s => s.trim()))
   const excluded = new Set((process.env.PRO_EXPIRY_EXCLUDE_USER_IDS ?? '').split(',').map(s => s.trim()).filter(Boolean))
   const now = asOf ? new Date(asOf) : new Date()
@@ -110,7 +106,7 @@ export async function GET(req: Request) {
       const created = new Date(u.created_at).getTime()
       const inTrialWindow = created >= trialFrom && created <= trialTo
       if (inTrialWindow || compedIds.has(u.id)) {
-        users.set(u.id, { userId: u.id, email: u.email ?? null, isAnonymous: !!u.is_anonymous, createdAt: u.created_at, sub: null })
+        users.set(u.id, { userId: u.id, email: u.email ?? null, isAnonymous: !!u.is_anonymous, emailsOn: studyEmailsOn(u.user_metadata), createdAt: u.created_at, sub: null })
       }
     }
     if (data.users.length < 1000) break
@@ -146,15 +142,20 @@ export async function GET(req: Request) {
     if (prof?.is_internal) { skip('internal'); continue }
     if (excluded.has(c.userId)) { skip('excluded'); continue }
     if (c.isAnonymous || !c.email) { skip('no_email'); continue }
+    if (!c.emailsOn) { skip('emails_off'); continue }
     const age = ageFromDob(prof?.date_of_birth)
     if (age !== null && age < MINIMUM_AGE) { skip('under_minimum_age'); continue }
 
-    const [{ count: sessions }, { count: terms }, { count: locked }] = await Promise.all([
-      sb.from('sessions').select('id', { count: 'exact', head: true }).eq('user_id', c.userId),
+    const [{ data: lectures, error: lecErr }, { count: terms }, { count: locked }] = await Promise.all([
+      sb.from('sessions').select('started_at, ended_at').eq('user_id', c.userId).limit(1000),
       sb.from('terms').select('id', { count: 'exact', head: true }).eq('user_id', c.userId),
       sb.from('sessions').select('id', { count: 'exact', head: true }).eq('user_id', c.userId).lt('started_at', lockBefore),
     ])
+    if (lecErr) { skip('lookup_failed'); continue }
+    const sessions = lectures?.length ?? 0
     if (!sessions) { skip('no_lectures'); continue }
+    const real = (lectures ?? []).some(l => l.ended_at && new Date(l.ended_at).getTime() - new Date(l.started_at).getTime() > REAL_LECTURE_MS)
+    if ((terms ?? 0) < MIN_TERMS && !real) { skip('nothing_to_keep'); continue }
     planned.push({ userId: c.userId, ...st, sessions, terms: terms ?? 0, locked: locked ?? 0 })
   }
 
@@ -175,9 +176,11 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: `claim failed: ${claimErr.code} ${claimErr.message}`, results }, { status: 500 })
     }
     const endDate = new Date(p.periodEnd).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Europe/London' })
-    const mail = proExpiryEmail({ stage: p.stage, source: p.source, endDate, sessions: p.sessions, terms: p.terms, locked: p.locked, historyDays: HISTORY_DAYS })
+    const londonDay = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
+    const endsToday = londonDay(new Date(p.periodEnd)) === londonDay(now)
+    const mail = proExpiryEmail({ stage: p.stage, source: p.source, endDate, endsToday, unsubUrl: unsubscribeUrl(p.userId), sessions: p.sessions, terms: p.terms, locked: p.locked, historyDays: HISTORY_DAYS })
     const email = users.get(p.userId)!.email!
-    const sent = await sendEmail({ to: email, subject: mail.subject, html: mail.html, text: mail.text, tag: `pro_expiry_${p.stage}` })
+    const sent = await sendEmail({ to: email, subject: mail.subject, html: mail.html, text: mail.text, tag: `pro_expiry_${p.stage}`, headers: unsubscribeHeaders(p.userId) })
     if (!sent.ok) {
       // Release the claim so tomorrow's run retries it.
       await sb.from('pro_expiry_emails').delete().eq('id', claim.id)
