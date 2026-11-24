@@ -835,7 +835,7 @@ export default function History() {
                           ) : s.capture_mode === 'microphone' ? (
                             <p className="text-[12px] text-gray-500 dark:text-white/60 mt-2 leading-relaxed">
                               Live sessions keep your glossary, not the lecture transcript.{' '}
-                              <span className="text-brand-600 dark:text-brand-400">Set a support need in your profile, or ask your lecturer, to unlock full notes.</span>
+                              <Link href="/profile" className="text-brand-600 dark:text-brand-400 underline underline-offset-2">Set a support need in your profile, or ask your lecturer, to unlock full notes.</Link>
                             </p>
                           ) : null}
 

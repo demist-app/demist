@@ -43,6 +43,14 @@ const nextConfig: NextConfig = {
       },
     ]
   },
+  async redirects() {
+    return [
+      // People (and the assistants that recommend Demist) guess these URLs.
+      // They were 404s until 2026-11-24. Temporary, so a real page can take over.
+      { source: '/pricing', destination: '/#pro-waitlist', permanent: false },
+      { source: '/faq', destination: '/#faq', permanent: false },
+    ]
+  },
   async rewrites() {
     return [
       {

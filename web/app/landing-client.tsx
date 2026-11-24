@@ -881,7 +881,7 @@ export default function LandingClient() {
       </section>
 
       {/* ── FAQ & Troubleshooting ── */}
-      <section ref={faqRef.ref} className="relative z-10 px-6 sm:px-12 py-28 max-w-3xl mx-auto">
+      <section id="faq" ref={faqRef.ref} className="relative z-10 px-6 sm:px-12 py-28 max-w-3xl mx-auto">
         <p
           className="text-[10px] font-bold tracking-[0.2em] uppercase mb-4 text-center"
           style={{ color: 'var(--fg-faint)', ...scrollAnim(faqRef.visible, 0).style }}
