@@ -27,7 +27,7 @@ import { TranscriptBilingual } from '@/components/TranscriptBilingual'
 import { BrandMark } from '@/components/BrandMark'
 import { ReadAloudButton } from '@/components/ReadAloudButton'
 import { LostMoments } from '@/components/LostMoments'
-import { ListenBack } from '@/components/ListenBack'
+import { ListenBack, ListenBackChip, useLectureAudioIds } from '@/components/ListenBack'
 import { LectureNotes } from '@/components/LectureNotes'
 import { SampleLecture } from '@/components/SampleLecture'
 import { FirstWeekOffer } from '@/components/FirstWeekOffer'
@@ -126,6 +126,7 @@ export default function Dashboard() {
     setIsWindowsWeb(!inDesktopApp && !isMobileUA() && detectDesktopPlatform() === 'windows')
   }, [])
   const [showSample, setShowSample] = useState(false)
+  const withAudio = useLectureAudioIds(recentSessions.map(s => s.id))
   const beginRecordingFlow = () => {
     // Mic mode only: tab/system-audio capture has its own
     // source and picker, nothing here to test beforehand.
@@ -861,15 +862,18 @@ export default function Dashboard() {
                   <div className="space-y-2">
                     {recentSessions.map(s => (
                       <div key={s.id} className="dark:bg-white/[0.03] bg-[#FFFFFF] border dark:border-white/[0.07] border-black/[0.16] rounded-2xl overflow-hidden hover:bg-brand-500/[0.04] hover:border-brand-500/[0.15] transition-colors duration-200">
+                        {/* Opens for a recording or a transcript too, not only for words:
+                            notes and listen back live inside, and a lecture with
+                            no words used to have no way in to them. */}
                         <div
-                          onClick={() => s.termCount > 0 && toggleExpandSession(s.id)}
-                          className={`flex items-center gap-3 px-4 py-3.5 ${s.termCount > 0 ? 'cursor-pointer' : ''}`}
+                          onClick={() => (s.termCount > 0 || withAudio.has(s.id) || !!s.transcript) && toggleExpandSession(s.id)}
+                          className={`flex items-center gap-3 px-4 py-3.5 ${s.termCount > 0 || withAudio.has(s.id) || s.transcript ? 'cursor-pointer' : ''}`}
                         >
                           <div className="flex-1 min-w-0">
                             <p className={`text-[14px] font-semibold truncate ${s.name ? 'dark:text-white/90 text-gray-900' : 'text-gray-600'}`}>
                               {s.name || sessionLabel(s.sessionNumber, s.started_at)}
                             </p>
-                            <p className="text-[12px] text-gray-600 mt-0.5">{fmtRelative(s.started_at)}</p>
+                            <p className="text-[12px] text-gray-600 mt-0.5 flex items-center gap-2">{fmtRelative(s.started_at)}{withAudio.has(s.id) && <ListenBackChip />}</p>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
                             {s.termCount > 0 && (
@@ -877,7 +881,7 @@ export default function Dashboard() {
                                 {s.termCount}
                               </span>
                             )}
-                            {s.termCount > 0 && <DashChevron expanded={s.expanded} />}
+                            {(s.termCount > 0 || withAudio.has(s.id) || !!s.transcript) && <DashChevron expanded={s.expanded} />}
                           </div>
                         </div>
 

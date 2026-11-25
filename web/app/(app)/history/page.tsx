@@ -12,7 +12,7 @@ import { useRecordingSession } from '@/lib/recordingSession'
 import { getDemistNative } from '@/lib/electronNative'
 import { isEligibleForSummary } from '@/lib/summaryEligibility'
 import { LostMoments } from '@/components/LostMoments'
-import { ListenBack } from '@/components/ListenBack'
+import { ListenBack, ListenBackChip, useLectureAudioIds } from '@/components/ListenBack'
 import { LectureNotes } from '@/components/LectureNotes'
 import { removeLectureAudio } from '@/lib/lectureAudio'
 
@@ -90,6 +90,7 @@ function fmtTime(iso: string): string {
 export default function History() {
   const [loading, setLoading] = useState(true)
   const [sessions, setSessions] = useState<Session[]>([])
+  const withAudio = useLectureAudioIds(sessions.map(s => s.id))
   const [totalCount, setTotalCount] = useState(0)
   // Lectures past the free history window. Shown as locked rows, not hidden:
   // "your Cardiac physiology lecture is locked" is a reason to pay, a list
@@ -713,6 +714,7 @@ export default function History() {
                                 {s.subject}
                               </span>
                             )}
+                            {withAudio.has(s.id) && <ListenBackChip />}
                           </div>
                           {!s.expanded && s.preview.length > 0 && (
                             <div className="flex items-center gap-1.5 mt-2 overflow-hidden">

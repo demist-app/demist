@@ -38,6 +38,40 @@ export function piecesFrom(transcript: string, timeline: [number, number][]): Pi
   return out
 }
 
+/**
+ * Which of these lectures have audio on this computer. Empty outside the
+ * desktop app. For the "Listen back" mark on lecture lists: 3 recordings were
+ * kept in the first days of listen back and none was played, because the
+ * player only appeared inside an opened lecture (2026-11-25).
+ */
+export function useLectureAudioIds(sessionIds: string[]): Set<string> {
+  const [ids, setIds] = useState<Set<string>>(new Set())
+  const key = sessionIds.join(',')
+  useEffect(() => {
+    const store = getDemistNative()?.lectureAudio
+    if (!store || !sessionIds.length) return
+    let cancelled = false
+    createClient().auth.getUser().then(async ({ data }) => {
+      const uid = data.user?.id
+      if (!uid) return
+      const found = await store.list(uid, sessionIds).catch(() => ({}))
+      if (!cancelled) setIds(new Set(Object.keys(found)))
+    })
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key])
+  return ids
+}
+
+export function ListenBackChip() {
+  return (
+    <span className="inline-flex items-center gap-1 text-[10px] font-medium dark:text-brand-300 text-brand-700 dark:bg-brand-500/10 bg-brand-500/[0.08] border dark:border-brand-500/20 border-brand-600/20 rounded-full px-2 py-px shrink-0">
+      <svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z" /></svg>
+      Listen back
+    </span>
+  )
+}
+
 export function ListenBack({ sessionId, transcript }: { sessionId: string; transcript: string | null }) {
   const store = getDemistNative()?.lectureAudio
   const { isPro, loaded } = useEntitlements()
