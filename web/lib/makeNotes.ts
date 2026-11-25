@@ -151,9 +151,21 @@ export async function makeNotes(opts: { sessionId: string; transcript: string; l
   }
 }
 
-/** After a lecture ends. Pro (trial included) only: free chooses which lectures to spend its notes on. */
+// A real lecture, not a few minutes of testing: about ten minutes of speech.
+// Free notes are made automatically only for lectures this long, so a test
+// recording never spends one.
+const AUTO_FREE_MIN_CHARS = 6000
+
+/**
+ * After a lecture ends. Pro (trial included): always. Free: while its notes
+ * for the month last, for real lectures, so a free student meets the feature
+ * instead of having to find a button (agreed 2026-11-25: free has to show the
+ * value or nobody upgrades).
+ */
 export async function autoNotes(sessionId: string, transcript: string, language?: string | null): Promise<void> {
   if (transcript.trim().length < NOTES_MIN_CHARS || !notesEngine()) return
-  if ((await freeNotesLeft()) !== null) return
+  const left = await freeNotesLeft()
+  if (left === 0) return
+  if (left !== null && transcript.trim().length < AUTO_FREE_MIN_CHARS) return
   await makeNotes({ sessionId, transcript, language, auto: true })
 }

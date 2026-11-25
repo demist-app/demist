@@ -44,7 +44,9 @@ export function LectureNotes({ sessionId, title, transcript }: { sessionId: stri
   const raw = state.status === 'done' ? state.raw : saved ?? null
   const notes = useMemo(() => parseNotes(raw), [raw])
   const sections = useMemo(() => (notes ? groundedNotes(notes, transcript) : []), [notes, transcript])
-  const remind = useMemo(() => (notes ? reminders(transcript) : []), [notes, transcript])
+  // Computed from the transcript, not written by a model, so free even when
+  // the notes themselves are not.
+  const remind = useMemo(() => reminders(transcript), [transcript])
 
   if (saved === undefined) return null
   const usable = (transcript ?? '').trim().length >= NOTES_MIN_CHARS
@@ -116,7 +118,8 @@ export function LectureNotes({ sessionId, title, transcript }: { sessionId: stri
                 : 'Your transcript is sent to our server to write them.'
 
   return (
-    <div className={`${box} flex items-center justify-between gap-4`}>
+    <div className={box}>
+    <div className="flex items-center justify-between gap-4">
       <div className="min-w-0">
         <p className="text-[13px] font-medium dark:text-white/85 text-gray-800">
           Full lecture notes{typeof left === 'number' && left > 0 ? <span className="text-gray-500 font-normal"> · {left} of {limit} free left this month</span> : null}
@@ -133,6 +136,15 @@ export function LectureNotes({ sessionId, title, transcript }: { sessionId: stri
         </button>
       )}
       {paywall && <PaywallModal source="lecture_notes" onClose={() => setPaywall(false)} />}
+    </div>
+    {remind.length > 0 && (
+      <div className="mt-3 pt-3 border-t dark:border-white/[0.06] border-black/[0.06]">
+        <p className="text-[12px] font-semibold dark:text-brand-300 text-brand-700 mb-1">Dates and reminders, in the lecturer&rsquo;s words</p>
+        <ul className="space-y-1 list-disc pl-4">
+          {remind.map((r, i) => <li key={i} className="text-[13px] leading-relaxed dark:text-white/75 text-gray-800">{r}</li>)}
+        </ul>
+      </div>
+    )}
     </div>
   )
 }

@@ -17,6 +17,7 @@ import { useEntitlements } from '@/lib/entitlements'
 import { AddEmailForm } from '@/components/AddEmailForm'
 import { getDemistNative } from '@/lib/electronNative'
 import { notesEngine } from '@/lib/makeNotes'
+import { firstWeekEndsAt, offerAmount, endsText, type FirstWeekCoupon } from '@/lib/firstWeek'
 
 // Led by what builds up over a term, not by volume. "Unlimited summaries" sold
 // a cap nobody was near (4 summary calls across all users in two days), and
@@ -56,7 +57,7 @@ const stripePromise = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
   : null
 
 type PriceInfo = { unitAmount: number; currency: string } | null
-type Prices = { month: PriceInfo; year: PriceInfo }
+type Prices = { month: PriceInfo; year: PriceInfo; firstWeek?: FirstWeekCoupon }
 
 function formatPrice(p: PriceInfo): string | null {
   if (!p?.unitAmount) return null
@@ -97,8 +98,9 @@ export function PaywallModal({
   // email at all; had they paid, nobody could have restored it for them.
   const [isGuest, setIsGuest] = useState(false)
   const [askingEmail, setAskingEmail] = useState(false)
+  const [createdAt, setCreatedAt] = useState<string | null>(null)
   useEffect(() => {
-    createClient().auth.getUser().then(({ data }) => setIsGuest(data.user?.is_anonymous === true)).catch(() => {})
+    createClient().auth.getUser().then(({ data }) => { setIsGuest(data.user?.is_anonymous === true); setCreatedAt(data.user?.created_at ?? null) }).catch(() => {})
   }, [])
 
   // Closing without paying, and at which stage. Before 2026-11-11 nothing was
@@ -169,7 +171,7 @@ export function PaywallModal({
       const sb = createClient()
       const { data, error } = await sb.functions.invoke('stripe-checkout', { body: { interval: checkoutInterval } })
       if (error || !data?.clientSecret) { setCheckoutError(true); setCheckoutLoading(false); return }
-      capture('paywall_checkout_started', { source, interval: checkoutInterval })
+      capture('paywall_checkout_started', { source, interval: checkoutInterval, first_week_offer: checkoutInterval === 'year' && !!offerText })
       setClientSecret(data.clientSecret)
     } catch {
       setCheckoutError(true)
@@ -221,7 +223,14 @@ export function PaywallModal({
 
   const monthText = formatPrice(prices?.month ?? null)
   const yearText = formatPrice(prices?.year ?? null)
-  const selectedPriceText = checkoutInterval === 'year' ? yearText : monthText
+  // The yearly plan at £19.99 is offered to everyone as the student price
+  // (agreed 2026-11-25). Labelled only when Stripe actually charges that.
+  const studentPrice = !!prices?.year?.unitAmount && prices.year.unitAmount <= 1999 && prices.year.currency === 'gbp'
+  const firstWeekEnd = firstWeekEndsAt(createdAt)
+  const offer = firstWeekEnd && prices?.year?.unitAmount ? offerAmount(prices.year.unitAmount, prices.firstWeek ?? null) : null
+  const offerText = offer !== null && prices?.year ? formatPrice({ unitAmount: offer, currency: prices.year.currency }) : null
+  const shownYearText = offerText ?? yearText
+  const selectedPriceText = checkoutInterval === 'year' ? shownYearText : monthText
 
   return (
     <div
@@ -309,21 +318,27 @@ export function PaywallModal({
                           : 'dark:bg-white/[0.03] bg-black/[0.02] dark:border-white/[0.08] border-black/[0.08] hover:dark:bg-white/[0.05] hover:bg-black/[0.04]'
                       }`}
                     >
-                      {i === 'year' && savingsPct && (
+                      {i === 'year' && (offerText || savingsPct) && (
                         <span className="absolute -top-2 right-2 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-brand-600 text-white">
-                          Save {savingsPct}%
+                          {offerText ? 'First-week offer' : `Save ${savingsPct}%`}
                         </span>
                       )}
                       <p className={`text-[12px] font-medium ${active ? 'text-brand-700 dark:text-brand-400' : 'dark:text-white/60 text-gray-600'}`}>
-                        {i === 'year' ? 'Annual' : 'Monthly'}
+                        {i === 'year' ? (studentPrice ? 'Student price' : 'Annual') : 'Monthly'}
                       </p>
                       <p className="text-[17px] font-bold dark:text-white text-gray-900 mt-0.5 tabular-nums">
-                        {price ?? '···'}<span className="text-[12px] font-medium dark:text-white/40 text-gray-500">/{i === 'year' ? 'yr' : 'mo'}</span>
+                        {i === 'year' && offerText && <span className="text-[13px] font-medium dark:text-white/40 text-gray-400 line-through mr-1.5">{price}</span>}
+                        {(i === 'year' && offerText) || price || '···'}<span className="text-[12px] font-medium dark:text-white/40 text-gray-500">/{i === 'year' ? 'yr' : 'mo'}</span>
                       </p>
                     </button>
                   )
                 })}
               </div>
+              {offerText && firstWeekEnd && (
+                <p className="text-[12px] dark:text-white/60 text-gray-600 text-center leading-relaxed">
+                  {offerText} for your first year if you join in your first week, then {yearText} a year. The offer {endsText(firstWeekEnd)}.
+                </p>
+              )}
               <button
                 onClick={onContinue}
                 disabled={checkoutLoading}

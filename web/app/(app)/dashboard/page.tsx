@@ -30,6 +30,7 @@ import { LostMoments } from '@/components/LostMoments'
 import { ListenBack } from '@/components/ListenBack'
 import { LectureNotes } from '@/components/LectureNotes'
 import { SampleLecture } from '@/components/SampleLecture'
+import { FirstWeekOffer } from '@/components/FirstWeekOffer'
 
 function fmtTime(s: number) {
   return `${String(Math.floor(s / 60)).padStart(2,'0')}:${String(s % 60).padStart(2,'0')}`
@@ -395,6 +396,7 @@ export default function Dashboard() {
             appear is while someone is trying to follow a lecture. */}
         {!isRecording && <GuestBackupPrompt />}
         {!isRecording && <ProExpiryNotice onUpgrade={() => setPaywall('pro_expiry')} />}
+        {!isRecording && <div className="px-4"><FirstWeekOffer onOpen={() => setPaywall('first_week_offer')} /></div>}
         {isRecording ? (
           <>
             {/* Red ambient glow during recording */}

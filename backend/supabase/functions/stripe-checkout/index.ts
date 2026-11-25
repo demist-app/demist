@@ -21,6 +21,15 @@ function corsHeaders(origin: string | null) {
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, { apiVersion: '2024-06-20' })
 
+// First-week offer (2026-11-25): money off the first year for accounts under
+// FIRST_WEEK_DAYS old. Every purchase so far happened on the day the person
+// signed up (all 3 checkouts, 42 of 47 Pro screen views), so the offer meets
+// people at the moment they are deciding. The amount lives on the Stripe
+// coupon STRIPE_FIRST_WEEK_COUPON, so it changes without a deploy; unset, there
+// is no offer anywhere. Must match web/lib/firstWeek.ts.
+const FIRST_WEEK_DAYS = 7
+const FIRST_WEEK_COUPON = Deno.env.get('STRIPE_FIRST_WEEK_COUPON')
+
 const PRICE_BY_INTERVAL: Record<string, string | undefined> = {
   month: Deno.env.get('STRIPE_PRICE_ID_MONTHLY'),
   year: Deno.env.get('STRIPE_PRICE_ID_ANNUAL'),
@@ -137,11 +146,16 @@ serve(async (req) => {
     // payment completes via the onComplete callback with no redirect at
     // all; return_url only gets used for the rare payment method that
     // inherently requires one (some bank redirects).
+    // Decided here from the account's own creation date, never from anything
+    // the page sends, so it cannot be claimed late.
+    const inFirstWeek = Date.now() - Date.parse(user.created_at) < FIRST_WEEK_DAYS * 86_400_000
+    const discounts = FIRST_WEEK_COUPON && interval === 'year' && inFirstWeek ? [{ coupon: FIRST_WEEK_COUPON }] : undefined
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       ui_mode: 'embedded',
       customer: customerId,
       line_items: [{ price: priceId, quantity: 1 }],
+      ...(discounts ? { discounts } : {}),
       return_url: `${APP_ORIGIN}/profile?checkout=success`,
       client_reference_id: user.id,
       subscription_data: { metadata: { supabase_user_id: user.id } },

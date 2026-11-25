@@ -18,6 +18,10 @@ function corsHeaders(origin: string | null) {
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, { apiVersion: '2024-06-20' })
 
+// The first-week offer's coupon (see stripe-checkout), described so the page
+// can show it. Not who qualifies: that is decided at checkout.
+const FIRST_WEEK_COUPON = Deno.env.get('STRIPE_FIRST_WEEK_COUPON')
+
 const PRICE_BY_INTERVAL: Record<string, string | undefined> = {
   month: Deno.env.get('STRIPE_PRICE_ID_MONTHLY'),
   year: Deno.env.get('STRIPE_PRICE_ID_ANNUAL'),
@@ -36,7 +40,17 @@ serve(async (req) => {
         return [interval, { unitAmount: price.unit_amount, currency: price.currency }] as const
       }),
     )
-    return new Response(JSON.stringify(Object.fromEntries(entries)), {
+    let firstWeek = null
+    if (FIRST_WEEK_COUPON) {
+      try {
+        const c = await stripe.coupons.retrieve(FIRST_WEEK_COUPON)
+        if (c.valid) firstWeek = { amountOff: c.amount_off, percentOff: c.percent_off, currency: c.currency, duration: c.duration }
+      } catch (e) {
+        // A coupon that is missing or mistyped means no offer, not no prices.
+        console.error('stripe-prices: first-week coupon', (e as Error).message)
+      }
+    }
+    return new Response(JSON.stringify({ ...Object.fromEntries(entries), firstWeek }), {
       headers: { ...CORS, 'Content-Type': 'application/json' },
     })
   } catch (e) {
