@@ -16,8 +16,13 @@ export function localCurrency(): string {
     if (tz.startsWith('Australia/')) return 'aud'
     if (tz === 'Asia/Kolkata' || tz === 'Asia/Calcutta') return 'inr'
     if (/^America\/(Toronto|Vancouver|Edmonton|Winnipeg|Halifax|St_Johns|Regina|Montreal)/.test(tz)) return 'cad'
+    // United States only: elsewhere in the Americas Stripe has no local price,
+    // so it charges pounds.
+    if (/^(America\/(New_York|Chicago|Denver|Los_Angeles|Phoenix|Anchorage|Detroit|Boise|Juneau|Sitka|Nome|Adak|Indiana|Kentucky|North_Dakota|Menominee|Metlakatla|Yakutat)|Pacific\/Honolulu)/.test(tz)) return 'usd'
   } catch { /* fall through */ }
-  return 'usd'
+  // Anywhere else Checkout charges the price's own currency (pounds since
+  // 2026-11-25), so show that.
+  return ''
 }
 
 /** The price in the buyer's currency when Stripe has one, else its base. */
