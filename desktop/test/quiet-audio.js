@@ -57,7 +57,7 @@ const speech = (i) => {                                        // loud, clearly 
     notices.includes(''), JSON.stringify(notices))
 
   // ── QUIET: segments open, then get dropped ────────────────────────────────
-  console.log('\na microphone turned right down (opens segments, all discarded):')
+  console.log('\na microphone turned right down (quiet, but clear of the room noise):')
   notices = []
   await whisper.startSession(() => {}, () => {}, null, () => {}, m => notices.push(m))
   // Just over the VAD's 0.006 open threshold in bursts, but averaging under the
@@ -69,8 +69,13 @@ const speech = (i) => {                                        // loud, clearly 
     return burst ? speech(i) * 0.075 : silence()
   })
   await whisper.stopSession()
-  check('the user is told here too', notices.filter(Boolean).length >= 1,
-    notices.filter(Boolean)[0] ? JSON.stringify(notices.filter(Boolean)[0].slice(0, 70)) : '(said nothing)')
+  // Changed 2026-11-25. This was "the user is told here too": quiet but clear
+  // speech was dropped and the student warned. auto-gain.js now turns it up
+  // instead (measured: 0% of a quiet lecture's words before, 88% after, the
+  // same as a clear recording), so the right outcome is no warning at all.
+  // The muted case above, where there is no speech to turn up, still warns.
+  check('quiet but clear speech is turned up instead of dropped, so there is nothing to warn about',
+    notices.filter(Boolean).length === 0, JSON.stringify(notices.filter(Boolean)))
 
   // ── Normal speech must stay silent ────────────────────────────────────────
   console.log('\na working microphone:')

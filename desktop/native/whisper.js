@@ -24,6 +24,7 @@ const os = require('os')
 const path = require('path')
 const { makeProgressLogger } = require('./progressLog')
 const { PcmSegmenter, SAMPLE_RATE } = require('./pcm-segmenter')
+const { AutoGain } = require('./auto-gain')
 
 // Default cache dir is inside node_modules/@huggingface/transformers/.cache
 // (confirmed by inspecting env.cacheDir directly), wiped by any future
@@ -726,6 +727,8 @@ async function startSession(onTranscript, emitProgress, onInterim, emitDiag, onN
     console.warn(`[demist] ${why} - the microphone is probably muted or turned right down`)
     onNotice?.('Demist can hear your microphone, but it is too quiet to transcribe. Check it is not muted, and that it is the input selected in Profile.')
   }
+  // Quiet lectures turned up before the segmenter judges them (auto-gain.js).
+  const autoGain = new AutoGain()
   const segmenter = new PcmSegmenter(
     (segment, meanRms, contiguous, startMs) => {
       const secs = (segment.length / SAMPLE_RATE).toFixed(1)
@@ -806,10 +809,10 @@ async function startSession(onTranscript, emitProgress, onInterim, emitDiag, onN
       }
       const now = Date.now()
       if (now - lastFeedLog >= 10000) {
-        vdiag(`audio in: ${(samplesFed / SAMPLE_RATE).toFixed(1)}s fed over ${((now - t0) / 1000).toFixed(1)}s wall clock`)
+        vdiag(`audio in: ${(samplesFed / SAMPLE_RATE).toFixed(1)}s fed over ${((now - t0) / 1000).toFixed(1)}s wall clock, gain ${autoGain.gain.toFixed(2)}x`)
         lastFeedLog = now
       }
-      segmenter.feed(pcm)
+      segmenter.feed(autoGain.process(pcm))
     },
     stop: async () => {
       segmenter.flush()

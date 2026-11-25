@@ -165,5 +165,50 @@ check('speech after a real pause is NOT contiguous, so the pause is preserved wh
   assert.strictEqual(segs[1].contiguous, false, 'a segment after 2s of silence must not claim to continue the previous one')
 })
 
+console.log('auto gain (quiet lectures, 2026-11-25)')
+{
+  const { AutoGain } = require('../native/auto-gain')
+  // Speech-shaped audio: 1.5 s bursts of a modulated tone, 0.6 s gaps, over hiss.
+  let seed = 11
+  const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff - 0.5 }
+  const lecture = (level, noise, secs) => {
+    const out = new Float32Array(SAMPLE_RATE * secs)
+    for (let i = 0; i < out.length; i++) {
+      const t = i / SAMPLE_RATE, inBurst = (t % 2.1) < 1.5
+      const env = inBurst ? 0.6 + 0.4 * Math.sin(2 * Math.PI * 4 * t) : 0
+      out[i] = level * 1.41 * env * Math.sin(2 * Math.PI * 220 * t) + noise * 3.46 * rnd()
+    }
+    return out
+  }
+  const keptSeconds = (pcm, withGain) => {
+    let kept = 0
+    const seg = new PcmSegmenter((s, meanRms) => { if (meanRms >= 0.006) kept += s.length / SAMPLE_RATE }, null)
+    const g = withGain ? new AutoGain() : null
+    for (let i = 0; i < pcm.length; i += 1600) { const c = pcm.subarray(i, i + 1600); seg.feed(g ? g.process(c) : c) }
+    seg.flush()
+    return kept
+  }
+  check('quiet but clear speech is dropped without gain (the bug)', () => {
+    assert.ok(keptSeconds(lecture(0.005, 0.0005, 30), false) < 3)
+  })
+  check('quiet but clear speech is kept with gain', () => {
+    const k = keptSeconds(lecture(0.005, 0.0005, 30), true)
+    assert.ok(k > 15, `kept only ${k.toFixed(1)}s of 30s`)
+  })
+  check('room noise alone is never turned up', () => {
+    const g = new AutoGain()
+    const room = lecture(0, 0.001, 30)
+    for (let i = 0; i < room.length; i += 1600) g.process(room.subarray(i, i + 1600))
+    assert.strictEqual(g.gain, 1)
+  })
+  check('loud speech is left alone and never clipped', () => {
+    const g = new AutoGain()
+    const loud = lecture(0.2, 0.001, 10)
+    let peak = 0
+    for (let i = 0; i < loud.length; i += 1600) for (const v of g.process(loud.subarray(i, i + 1600))) peak = Math.max(peak, Math.abs(v))
+    assert.ok(g.gain === 1 && peak <= 0.96, `gain ${g.gain}, peak ${peak}`)
+  })
+}
+
 console.log(failures ? `\n${failures} FAILED` : '\nall passed')
 process.exit(failures ? 1 : 0)
