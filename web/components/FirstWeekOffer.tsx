@@ -9,6 +9,7 @@ import { createClient } from '@/lib/supabase'
 import { capture } from '@/lib/analytics'
 import { useEntitlements } from '@/lib/entitlements'
 import { firstWeekEndsAt, offerAmount, endsText, type FirstWeekCoupon } from '@/lib/firstWeek'
+import { localPrice, type LivePrice } from '@/lib/localPrice'
 
 const DISMISSED = 'demist_first_week_offer_dismissed'
 
@@ -23,9 +24,9 @@ export function FirstWeekOffer({ onOpen }: { onOpen: () => void }) {
     const sb = createClient()
     Promise.all([sb.auth.getUser(), sb.functions.invoke('stripe-prices')]).then(([{ data: u }, { data: p }]) => {
       const end = firstWeekEndsAt(u.user?.created_at)
-      const year = p?.year as { unitAmount: number; currency: string } | null
+      const year = localPrice((p?.year ?? null) as LivePrice)
       const coupon = (p?.firstWeek ?? null) as FirstWeekCoupon
-      if (cancelled || !end || !year?.unitAmount || !coupon || u.user?.is_anonymous) return
+      if (cancelled || !end || !year || !coupon?.percentOff || u.user?.is_anonymous) return
       const amount = offerAmount(year.unitAmount, coupon)
       if (amount === null) return
       const fmt = (n: number) => new Intl.NumberFormat('en-GB', { style: 'currency', currency: year.currency }).format(n / 100)

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTheme } from 'next-themes'
 import { createClient } from '@/lib/supabase'
+import { localPrice } from '@/lib/localPrice'
 import { capture } from '@/lib/analytics'
 import { FAQ as FAQS } from '@/lib/faq'
 import { APP_STORE_URL, MAC_SUPPORT_URL, MS_STORE_URL } from '@/lib/links'
@@ -223,8 +224,9 @@ export default function LandingClient() {
   useEffect(() => {
     if (!PRO_LIVE) return
     createClient().functions.invoke('stripe-prices').then(({ data }) => {
-      const month = data?.month
-      if (!month?.unitAmount) return
+      // In the visitor's own currency, as Checkout will charge it.
+      const month = localPrice(data?.month ?? null)
+      if (!month) return
       try {
         setProPriceText(
           new Intl.NumberFormat(undefined, { style: 'currency', currency: month.currency, minimumFractionDigits: 2 })

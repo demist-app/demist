@@ -18,6 +18,7 @@ import { AddEmailForm } from '@/components/AddEmailForm'
 import { getDemistNative } from '@/lib/electronNative'
 import { notesEngine } from '@/lib/makeNotes'
 import { firstWeekEndsAt, offerAmount, endsText, type FirstWeekCoupon } from '@/lib/firstWeek'
+import { localPrice, type LivePrice } from '@/lib/localPrice'
 
 // Led by what builds up over a term, not by volume. "Unlimited summaries" sold
 // a cap nobody was near (4 summary calls across all users in two days), and
@@ -57,7 +58,7 @@ const stripePromise = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
   : null
 
 type PriceInfo = { unitAmount: number; currency: string } | null
-type Prices = { month: PriceInfo; year: PriceInfo; firstWeek?: FirstWeekCoupon }
+type Prices = { month: LivePrice; year: LivePrice; firstWeek?: FirstWeekCoupon }
 
 function formatPrice(p: PriceInfo): string | null {
   if (!p?.unitAmount) return null
@@ -152,16 +153,20 @@ export function PaywallModal({
     // but every call site of this modal lives behind the (app) layout's
     // session gate anyway, so invoke() always has a JWT to attach.
     createClient().functions.invoke('stripe-prices').then(({ data }) => {
-      if (data) setPrices(data)
+      if (data) setPrices({ ...data, month: data.month, year: data.year })
     }).catch(() => {})
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [source])
 
+  // Both in the buyer's own currency (lib/localPrice.ts), so what is shown is
+  // what Checkout will charge.
+  const month = useMemo(() => localPrice(prices?.month ?? null), [prices])
+  const year = useMemo(() => localPrice(prices?.year ?? null), [prices])
   const savingsPct = useMemo(() => {
-    if (!prices?.month?.unitAmount || !prices?.year?.unitAmount) return null
-    const pct = 100 - (prices.year.unitAmount / (prices.month.unitAmount * 12)) * 100
+    if (!month || !year || month.currency !== year.currency) return null
+    const pct = 100 - (year.unitAmount / (month.unitAmount * 12)) * 100
     return pct > 1 ? Math.round(pct) : null
-  }, [prices])
+  }, [month, year])
 
   const startCheckout = async () => {
     if (checkoutLoading) return
@@ -221,14 +226,16 @@ export function PaywallModal({
     }
   }
 
-  const monthText = formatPrice(prices?.month ?? null)
-  const yearText = formatPrice(prices?.year ?? null)
-  // The yearly plan at £19.99 is offered to everyone as the student price
-  // (agreed 2026-11-25). Labelled only when Stripe actually charges that.
-  const studentPrice = !!prices?.year?.unitAmount && prices.year.unitAmount <= 1999 && prices.year.currency === 'gbp'
+  const monthText = formatPrice(month)
+  const yearText = formatPrice(year)
+  // The yearly plan at 19.99 is offered to everyone as the student price
+  // (agreed 2026-11-25). Labelled from the Stripe price itself.
+  const studentPrice = !!prices?.year?.student
   const firstWeekEnd = firstWeekEndsAt(createdAt)
-  const offer = firstWeekEnd && prices?.year?.unitAmount ? offerAmount(prices.year.unitAmount, prices.firstWeek ?? null) : null
-  const offerText = offer !== null && prices?.year ? formatPrice({ unitAmount: offer, currency: prices.year.currency }) : null
+  // Percentage coupons only on screen: an amount off would need the right
+  // amount for every currency, and showing the wrong one is worse than none.
+  const offer = firstWeekEnd && year && prices?.firstWeek?.percentOff ? offerAmount(year.unitAmount, prices.firstWeek) : null
+  const offerText = offer !== null && year ? formatPrice({ unitAmount: offer, currency: year.currency }) : null
   const shownYearText = offerText ?? yearText
   const selectedPriceText = checkoutInterval === 'year' ? shownYearText : monthText
 

@@ -36,8 +36,16 @@ serve(async (req) => {
     const entries = await Promise.all(
       Object.entries(PRICE_BY_INTERVAL).map(async ([interval, id]) => {
         if (!id) return [interval, null] as const
-        const price = await stripe.prices.retrieve(id)
-        return [interval, { unitAmount: price.unit_amount, currency: price.currency }] as const
+        // With every currency it is sold in: the base is US dollars, but
+        // Checkout charges a UK student in pounds and a Greek one in euros, so
+        // the page has to be able to show the same (lib/localPrice.ts).
+        const price = await stripe.prices.retrieve(id, { expand: ['currency_options'] })
+        const options: Record<string, number> = {}
+        for (const [cur, o] of Object.entries(price.currency_options ?? {})) if (o.unit_amount != null) options[cur] = o.unit_amount
+        return [interval, {
+          unitAmount: price.unit_amount, currency: price.currency, options,
+          student: /student/i.test(price.nickname ?? ''),
+        }] as const
       }),
     )
     let firstWeek = null
