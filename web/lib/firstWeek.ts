@@ -24,5 +24,7 @@ export function offerAmount(yearUnitAmount: number, coupon: FirstWeekCoupon): nu
 export function endsText(end: Date): string {
   const days = Math.ceil((end.getTime() - Date.now()) / 86_400_000)
   if (days <= 1) return 'ends today'
-  return `ends ${end.toLocaleDateString('en-GB', { weekday: 'long' })}`
+  // With the date: a week from a Wednesday is a Wednesday, and "ends
+  // Wednesday" read as today.
+  return `ends ${end.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }).replace(',', '')}`
 }
