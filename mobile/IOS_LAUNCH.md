@@ -22,6 +22,8 @@ The core study loop, on iPhone and iPad:
 | Quality filters, duplicate check | On the phone | `lib/shared/termQuality.ts` and `termSimilarity.ts`, the same code as the web. |
 | Summary | `summarize-session` edge function (unchanged) | The server checks recording consent itself. |
 | Transcript saving | Supabase, `sessions.transcript` | Same consent rule as the web: saved only if the lecturer gave permission for that module, or the student declared a support need. |
+| Lecture notes (1.0.2) | `lecture-notes` edge function (same as the website) | From the saved transcript only, so only where consent allowed it to be kept. Made automatically after a lecture (Pro always; free while its 3 a month last, lectures of about 10 minutes or more), or with Make notes on the lecture screen. Shown through `lib/shared/lectureNotes.ts`, so the same grounding checks as the web. Out of free notes it says when more arrive: no price, no Pro button, no link (3.1.3(b)). |
+| Permission question (1.0.2) | Record screen | Students with no support need are asked "Do you have permission to record this lecture?" before a recording, if the module has no consent row. Yes saves the row; "Not yet" records as before without keeping the transcript. Same as web `MicCheck`. |
 
 The shared files in `lib/shared/` are **generated** from `web/lib/`. After changing any of these on the web, run `npm run sync-shared` and commit:
 
@@ -30,6 +32,7 @@ The shared files in `lib/shared/` are **generated** from `web/lib/`. After chang
 - `extractTerms`
 - `entitlementRules`
 - `age`
+- `lectureLanguage`, `mySpaceContent`, `lectureNotes`
 
 Run `npm run check` before every build. It confirms the shared files are current, type-checks the app and bundles it for iOS.
 

@@ -9,6 +9,8 @@ import { radius } from '../../lib/theme'
 import { Button, Card, ReadAloud, T, Input } from '../../components/ui'
 import { clockFromMs, paragraphs } from '../../lib/format'
 import { CheckIcon, ChevronIcon, CloseIcon, FlagIcon, MicIcon, StopIcon } from '../../components/icons'
+import { supabase } from '../../lib/supabase'
+import { capture, reportWriteFailure } from '../../lib/analytics'
 
 // Five bars in the shape of the Demist mark, moving gently with the room's
 // sound. Purely visual: nothing about recording depends on it.
@@ -31,6 +33,51 @@ export default function Record() {
   const scrollRef = useRef<ScrollView>(null)
   const [langOpen, setLangOpen] = useState(false)
   const [wordsOpen, setWordsOpen] = useState(false)
+
+  // Permission to keep the lecture (as web/components/MicCheck.tsx,
+  // 2026-11-24). The rule is unchanged: without a declared support need, the
+  // transcript (and so the notes) is kept only for a module the student has
+  // permission for. What changed is that they are asked, with one tap, rather
+  // than finding out afterwards that nothing was kept. Never a gate: "just
+  // explain words" records exactly as before.
+  const [askPermission, setAskPermission] = useState(false)
+  const [permModule, setPermModule] = useState('')
+  const [permSaving, setPermSaving] = useState(false)
+  const [permError, setPermError] = useState<string | null>(null)
+  const [checking, setChecking] = useState(false)
+  const pressStart = async () => {
+    const need = profile?.support_need
+    if (need && need !== 'none') { void rec.start(); return }
+    const module = (rec.subject || profile?.course || '').trim()
+    if (module) {
+      setChecking(true)
+      const { data, error } = await supabase.from('lecturer_consents').select('id')
+        // The same match the end of the lecture uses (lib/recording.tsx).
+        .ilike('module_name', module.replace(/[%_]/g, ch => '\\' + ch)).limit(1)
+      setChecking(false)
+      if (error || data?.length) { void rec.start(); return }
+    }
+    setPermModule(module); setPermError(null); setAskPermission(true)
+  }
+  const confirmPermission = async () => {
+    const name = permModule.trim()
+    const uid = (await supabase.auth.getSession()).data.session?.user.id
+    if (!name) { setPermError('Add the module name first.'); return }
+    if (!uid) { setPermError('That could not be saved. Try again, or record without keeping the transcript.'); return }
+    setPermSaving(true); setPermError(null)
+    const { error } = await supabase.from('lecturer_consents').upsert({
+      user_id: uid, module_name: name, notes: 'Confirmed before recording', granted_at: new Date().toISOString(),
+    }, { onConflict: 'user_id,module_name' })
+    setPermSaving(false)
+    // Never claim permission was recorded unless the row is there: the end of
+    // the lecture checks the row, not this sheet.
+    if (reportWriteFailure('consent.grant', error)) { setPermError('That could not be saved. Try again, or record without keeping the transcript.'); return }
+    capture('consent_granted', { source: 'mic_check', platform: 'ios' })
+    if (name !== rec.subject) rec.setSubject(name)
+    setAskPermission(false)
+    void rec.start()
+  }
+  const justWords = () => { capture('consent_skipped', { source: 'mic_check', platform: 'ios' }); setAskPermission(false); void rec.start() }
   const wordCount = rec.sessionTerms.length
   const langLabel = LECTURE_LANGUAGES.find(l => l.value === prefs.lectureLanguage)?.label ?? 'English'
 
@@ -114,6 +161,27 @@ export default function Record() {
               </View>
             </Modal>
 
+            <Modal visible={askPermission} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setAskPermission(false)}>
+              <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ padding: 20, gap: 12 }} keyboardShouldPersistTaps="handled">
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+                  <T size={22} weight={700} style={{ flex: 1 }}>Do you have permission to record this lecture?</T>
+                  <Pressable onPress={() => setAskPermission(false)} hitSlop={12} accessibilityRole="button" accessibilityLabel="Cancel"
+                    style={{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: c.surface2 }}>
+                    <CloseIcon color={c.fgMuted} />
+                  </Pressable>
+                </View>
+                <T tone="muted">With your lecturer’s permission, Demist keeps the transcript, so you can read it back and get notes afterwards. Without it, new words are still explained, but the transcript isn’t kept.</T>
+                <T size={13} weight={600} tone="muted" style={{ marginTop: 4 }}>Module</T>
+                <Input value={permModule} onChangeText={setPermModule} placeholder="e.g. Cell Biology" placeholderTextColor={c.fgFaint}
+                  accessibilityLabel="Module name" returnKeyType="done"
+                  style={{ backgroundColor: c.surface, borderWidth: 1, borderColor: c.border, borderRadius: radius.lg, paddingHorizontal: 16, paddingVertical: 14, color: c.fg, fontSize: size(16), fontFamily: font(500) }} />
+                {permError ? <T size={14} tone="danger">{permError}</T> : null}
+                <Button label="Yes, I have permission" onPress={() => { void confirmPermission() }} loading={permSaving} style={{ marginTop: 8 }} />
+                <Button kind="secondary" label="Not yet, just explain words" onPress={justWords} disabled={permSaving} />
+                <Button kind="quiet" label="How do I ask?" onPress={() => { setAskPermission(false); router.push('/consents') }} />
+              </ScrollView>
+            </Modal>
+
             <View style={{ marginTop: 24 }}>
               {rec.error ? (
                 <Card style={{ backgroundColor: c.dangerSoft, borderColor: 'transparent', gap: 12 }}>
@@ -140,8 +208,8 @@ export default function Record() {
             <Button
               label={rec.status === 'starting' ? 'Getting ready…' : 'Start recording'}
               icon={rec.status === 'starting' ? undefined : <MicIcon color={c.onAccent} size={20} />}
-              onPress={rec.start}
-              disabled={rec.status === 'starting'}
+              onPress={() => { void pressStart() }}
+              disabled={rec.status === 'starting' || checking}
               style={{ minHeight: 60 }}
             />
           </View>

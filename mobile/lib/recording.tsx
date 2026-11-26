@@ -26,6 +26,7 @@ import type { LectureLanguage } from './shared/lectureLanguage'
 import { capture, reportWriteFailure, reportError } from './analytics'
 import { detectTerms, splitSentences, type DetectState, type DetectedTerm } from './detect'
 import { analyzer, analyzerReady, type SpeechEngine } from './speech'
+import { autoNotes } from './notes'
 
 export type RecStatus = 'idle' | 'starting' | 'recording' | 'stopping'
 
@@ -501,6 +502,9 @@ export function RecordingProvider({ children }: { children: ReactNode }) {
       reportWriteFailure('session.ended_at', error)
       await persistTranscript()
       if (unsavedMarksRef.current.length && await saveMarks(sid, unsavedMarksRef.current)) unsavedMarksRef.current = []
+      // Notes are written from the saved transcript, so only when it was
+      // saved. Not awaited: the lecture screen shows the progress.
+      if (lastSavedRef.current) void autoNotes(sid, lastSavedRef.current.trim().length, langRef.current)
       // The function checks consent itself; this only asks.
       if (termsRef.current.length) {
         void supabase.functions.invoke('summarize-session', {

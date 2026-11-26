@@ -11,10 +11,11 @@ import { lectureTitle, minutes, clockFromMs, paragraphs } from '../../lib/format
 import { radius } from '../../lib/theme'
 import { Button, Card, Loading, ReadAloud, Screen, SectionLabel, T, Input } from '../../components/ui'
 import { BackIcon } from '../../components/icons'
+import { LectureNotes } from '../../components/LectureNotes'
 
 interface Lecture {
   id: string; name: string | null; subject: string | null; started_at: string; ended_at: string | null
-  synopsis: string | null; transcript: string | null; capture_mode: string | null
+  synopsis: string | null; transcript: string | null; capture_mode: string | null; summary: string | null
 }
 interface Term { id: string; term: string; definition: string; created_at: string }
 interface Mark { at_ms: number; transcript_offset: number }
@@ -38,7 +39,7 @@ function excerpt(text: string, offset: number): string | null {
 
 export default function LectureScreen() {
   const { id, fresh } = useLocalSearchParams<{ id: string; fresh?: string }>()
-  const { c, font, size } = usePrefs()
+  const { c, font, size, prefs } = usePrefs()
   const [lecture, setLecture] = useState<Lecture | null>(null)
   const [terms, setTerms] = useState<Term[]>([])
   const [marks, setMarks] = useState<Mark[]>([])
@@ -49,7 +50,7 @@ export default function LectureScreen() {
 
   const load = useCallback(async () => {
     const [{ data: s }, { data: t }, { data: m }] = await Promise.all([
-      supabase.from('sessions').select('id, name, subject, started_at, ended_at, synopsis, transcript, capture_mode').eq('id', id).maybeSingle(),
+      supabase.from('sessions').select('id, name, subject, started_at, ended_at, synopsis, transcript, capture_mode, summary').eq('id', id).maybeSingle(),
       supabase.from('terms').select('id, term, definition, created_at').eq('session_id', id).order('created_at'),
       supabase.from('session_marks').select('at_ms, transcript_offset').eq('session_id', id).order('at_ms'),
     ])
@@ -144,6 +145,8 @@ export default function LectureScreen() {
             : 'No new words came up in this lecture, so there is nothing to summarise.'}
         </T>
       )}
+
+      <LectureNotes sessionId={lecture.id} title={lectureTitle(lecture)} transcript={lecture.transcript} saved={lecture.summary} language={prefs.lectureLanguage} />
 
       {marks.length > 0 && (
         <>
