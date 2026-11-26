@@ -288,14 +288,17 @@ export function proExpiryEmail(d: ExpiryEmailData) {
   const lockLine = d.locked > 0
     ? `${d.locked === d.sessions ? 'All of them are' : `${d.locked} of those lectures are`} older than ${d.historyDays} days, so they will lock when it ends.`
     : `When it ends, the free plan keeps the last ${d.historyDays} days, so older lectures lock. By the end of term that is most of them.`
-  const staysFree = 'Nothing is deleted, and live definitions, your glossary and your flashcards stay free either way.'
-  const price = `Pro is ${PRO_PRICE_TEXT.monthly} a month, or ${PRO_PRICE_TEXT.yearly} a year.`
+  const staysFree = 'Nothing is deleted, and live definitions, your glossary, your flashcards and lecture notes for 3 lectures a month stay free either way.'
+  const price = `Pro is ${PRO_PRICE_TEXT.monthly} a month, or ${PRO_PRICE_TEXT.yearly} a year (the student price).`
+  // Notes are the main reason to pay since 2026-11-24, and these emails go to
+  // the people deciding whether to.
+  const notes = "Pro also writes full lecture notes after every lecture, with deadlines and exam hints in your lecturer's own words."
 
   let subject: string, heading: string, paras: string[], cta: string, preheader: string
   if (d.stage === 'minus7') {
     subject = `Your ${kind} ends on ${d.endDate}`
     heading = `Your ${kind} ends on ${d.endDate}`
-    paras = [have, lockLine, staysFree, `If you want your whole term kept for revision, ${price}`]
+    paras = [have, lockLine, notes, staysFree, `If you want your whole term kept for revision, with notes for every lecture, ${price}`]
     cta = 'Keep Pro'
     preheader = d.locked > 0 ? `${plural(d.locked, 'lecture', 'lectures')} will lock when it ends.` : 'What changes, and what stays free.'
   } else if (d.stage === 'minus1') {
@@ -305,7 +308,7 @@ export function proExpiryEmail(d: ExpiryEmailData) {
       d.locked > 0
         ? `${plural(d.locked, 'lecture', 'lectures')} will lock when it does. ${staysFree}`
         : `After ${when}, lectures older than ${d.historyDays} days lock. ${staysFree}`,
-      price,
+      `${notes} ${price}`,
     ]
     cta = 'Keep Pro'
     preheader = 'A last reminder, then nothing more about it.'
@@ -314,8 +317,8 @@ export function proExpiryEmail(d: ExpiryEmailData) {
     heading = d.locked > 0 ? `${plural(d.locked, 'lecture is', 'lectures are')} now locked` : 'You are on the free plan now'
     paras = [
       `Your ${kind} has ended. ${d.locked > 0 ? 'Those lectures have not been deleted: they are still in your history, locked, and Pro unlocks all of them straight away.' : `From now on, lectures older than ${d.historyDays} days lock. Nothing is deleted.`}`,
-      'Live definitions, your glossary and your flashcards are still free.',
-      price,
+      'Live definitions, your glossary, your flashcards and lecture notes for 3 lectures a month are still free.',
+      `${notes} ${price}`,
     ]
     cta = d.locked > 0 ? 'Unlock them' : 'Get Pro'
     preheader = d.locked > 0 ? 'Nothing has been deleted.' : 'What changed today.'
