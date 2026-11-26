@@ -122,9 +122,10 @@ export function NeedLanding({ page }: { page: NeedPage }) {
             <h2 className="text-[19px] font-semibold mb-3">What it costs</h2>
             <p className="dark:text-gray-400 text-gray-700">
               Live explanations, translation, your glossary and your flashcards are free, with no
-              advertising. Recording is free and unlimited in the Windows and iPhone apps; in the browser, free
-              accounts get three recordings. Free accounts keep lecture history for seven days. Demist
-              Pro keeps every lecture and adds unlimited summaries and Anki export for{' '}
+              advertising, and so are full lecture notes for three lectures a month. Recording is free and
+              unlimited in the Windows and iPhone apps; in the browser, free accounts get three recordings.
+              Free accounts keep lecture history for seven days. Demist Pro writes notes for every lecture,
+              keeps every lecture and adds Anki export for{' '}
               {PRO_PRICE_TEXT.monthly} a month. New accounts get Pro free for their first 14 days,
               with no card.
             </p>

@@ -103,8 +103,8 @@ export default async function SubjectLanding(props: PageProps<'/for/[subject]'>)
               are still talking. You keep listening instead of writing down a word to look up later.
             </p>
             <p className="dark:text-gray-400 text-gray-700">
-              Afterwards you have the full transcript, a glossary of every term that came up, a
-              summary, and flashcards scheduled by spaced repetition so you revise something shortly
+              Afterwards you have the full transcript, full lecture notes written from it, a glossary
+              of every term that came up, and flashcards scheduled by spaced repetition so you revise something shortly
               before you would have forgotten it.
             </p>
           </section>
@@ -156,9 +156,10 @@ export default async function SubjectLanding(props: PageProps<'/for/[subject]'>)
             <h2 className="text-[19px] font-semibold mb-3">What it costs</h2>
             <p className="dark:text-gray-400 text-gray-700">
               Live explanations, translation, your glossary and your flashcards are free, with no
-              advertising. Recording is free and unlimited in the Windows and iPhone apps; in the browser, free
-              accounts get three recordings. Free accounts keep lecture history for seven days. Demist Pro keeps your whole term, records in the browser with no limit,
-              and adds unlimited summaries and Anki export for {PRO_PRICE_TEXT.monthly} a month. New accounts get Pro
+              advertising, and so are full lecture notes for three lectures a month. Recording is free and
+              unlimited in the Windows and iPhone apps; in the browser, free accounts get three recordings. Free
+              accounts keep lecture history for seven days. Demist Pro writes notes for every lecture, keeps your
+              whole term, records in the browser with no limit and adds Anki export for {PRO_PRICE_TEXT.monthly} a month. New accounts get Pro
               free for their first 14 days, with no card.
             </p>
           </section>

@@ -30,7 +30,6 @@ import { localPrice, type LivePrice } from '@/lib/localPrice'
 const PRO_POINTS = [
   'Every lecture from your term, kept and sorted by module',
   'Record in the browser with no limit',
-  'Unlimited summaries of each lecture',
   'Export your flashcards to Anki',
 ]
 
