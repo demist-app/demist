@@ -73,16 +73,18 @@ export const COMPARE_PAGES: ComparePage[] = [
     name: 'Genio Notes',
     title: 'Demist vs Genio Notes for university lectures',
     description:
-      'How Demist and Genio Notes compare for students: live term explanations, transcripts, quizzes and flashcards, translation and pricing.',
+      'How Demist and Genio Notes compare for students: lecture notes, live transcripts and term explanations, listening back, quizzes and flashcards, translation and pricing.',
     verdict:
-      'Genio Notes is a note-taking tool built around recording a lecture and organising your own notes against the audio, with transcripts generated after class and a quiz feature. Demist does less of the note-taking and more of the understanding: it explains unfamiliar terms live, during the lecture, and builds flashcards from them. If you want structured notes you write yourself, Genio suits you. If you lose the thread when an unfamiliar term goes past, Demist does.',
+      'Both record a lecture and give you notes afterwards. Genio Notes is built around organising your own notes against the recording, with transcripts made after class. Demist works during the lecture as well: it writes the lecture down live and explains unfamiliar terms on screen as they are said, then writes full notes from the transcript and builds flashcards. If you want to write and arrange your own notes against the audio, Genio suits you. If you lose the thread in the lecture itself, or want the notes written for you, Demist does. Demist is free to start; Genio individual plans are from £12 a month.',
     rows: [
       { label: 'Price for students', demist: DEMIST_PRICE, them: 'Individual plans from £12 a month, with a 30-day free trial and no payment details needed. Also sold to departments and institutions' },
+      { label: 'Notes written for you', demist: 'Full lecture notes from the transcript, in sections with headings. Deadlines and exam hints quoted in the lecturer\'s words. 3 lectures a month free, every lecture on Pro', them: 'Structured summaries linked to moments in the recording, at the click of a button' },
+      { label: 'Listen back', demist: 'Windows app with Pro: the audio is kept on your computer, and tapping a sentence plays that moment', them: 'Yes, notes are organised against the lecture recording' },
       { label: 'Transcripts', demist: 'Live, as the lecture happens', them: 'Generated after class' },
       { label: 'Live captions', demist: 'The live transcript is shown as the lecturer speaks', them: 'Not available on individual plans' },
       { label: 'Explains terms during the lecture', demist: DEMIST_LIVE, them: 'Not listed' },
       { label: 'Translation', demist: DEMIST_TRANSLATION, them: 'Transcription in multiple languages; translation not listed' },
-      { label: 'Quizzes and flashcards', demist: DEMIST_FLASHCARDS, them: 'Auto-generated "Quiz Me" questions. Flashcards not listed' },
+      { label: 'Quizzes and flashcards', demist: DEMIST_FLASHCARDS, them: 'Multiple-choice "Quiz Me" questions from a recorded class. Flashcards not listed' },
       { label: 'Where audio is processed', demist: DEMIST_AUDIO, them: 'Not stated on its pricing pages' },
     ],
     themBetter: [
@@ -91,7 +93,8 @@ export const COMPARE_PAGES: ComparePage[] = [
       'You take handwritten notes and want them kept with the recording.',
     ],
     faq: [
-      { q: 'Can I use Demist and Genio together?', a: 'Yes. They do different jobs: Genio for your own notes against the recording, Demist for explanations of unfamiliar terms while the lecture is happening.' },
+      { q: 'Is Demist a Genio alternative?', a: 'For many students, yes. Both record your lecture and give you notes afterwards. The difference is during the lecture: Demist shows a live transcript and explains unfamiliar terms as they are said, then writes the notes for you, where Genio is built around organising notes yourself against the recording. Demist is free to start, with Pro at ' + PRO_PRICE_TEXT.yearly + ' a year; Genio individual plans are from £12 a month.' },
+      { q: 'Can I use Demist and Genio together?', a: 'Yes. Some students keep Genio for their own notes against the recording and use Demist for explanations of unfamiliar terms while the lecture is happening.' },
       { q: 'Which is cheaper?', a: `Demist is free, with Pro at ${PRO_PRICE_TEXT.monthly} a month or ${PRO_PRICE_TEXT.yearly} a year. Genio lists individual plans from £12 a month, and also sells licences to departments and institutions.` },
       { q: 'Does Demist give live captions?', a: 'Demist shows a live transcript as the lecturer speaks. It is built for following a lecture, not as a certified captioning service.' },
     ],
@@ -100,7 +103,7 @@ export const COMPARE_PAGES: ComparePage[] = [
       { label: 'Genio pricing', url: 'https://genio.co/pricing' },
       { label: 'Genio Notes', url: 'https://genio.co/notes' },
     ],
-    checkedOn: '2026-09-25',
+    checkedOn: '2026-11-26',
   },
   {
     slug: 'notebooklm',
@@ -116,7 +119,7 @@ export const COMPARE_PAGES: ComparePage[] = [
       { label: 'Explains terms during the lecture', demist: DEMIST_LIVE, them: 'Not described. Its mobile app can record a lecture to use as a source afterwards' },
       { label: 'What it works from', demist: 'A live lecture (microphone, a browser tab, or system audio in the Windows app), or an uploaded recording, slides or transcript', them: 'PDFs, websites, YouTube videos, audio files, Google Docs and Google Slides' },
       { label: 'Flashcards and quizzes', demist: DEMIST_FLASHCARDS, them: 'Yes, generated from your sources, with adjustable topic, difficulty and number' },
-      { label: 'Overviews', demist: 'A written summary of each lecture', them: 'Audio overviews and short video overviews of your sources' },
+      { label: 'Overviews', demist: 'Full written notes from each lecture\'s transcript', them: 'Audio overviews and short video overviews of your sources' },
       { label: 'Where audio is processed', demist: DEMIST_AUDIO, them: 'Not stated on the pages checked' },
     ],
     themBetter: [
@@ -149,7 +152,7 @@ export const COMPARE_PAGES: ComparePage[] = [
       { label: 'Price for students', demist: DEMIST_PRICE, them: 'Built into Windows 11. Microsoft\'s page does not mention a charge' },
       { label: 'Where it runs', demist: 'Windows app, iPhone app, and in the browser', them: 'Windows 11, version 22H2 and later' },
       { label: 'Live text on screen', demist: 'Yes', them: 'Yes' },
-      { label: 'Keeps a transcript afterwards', demist: 'Yes, with a summary and a glossary', them: 'No. Microsoft says generated captions are not stored anywhere on the device or the cloud' },
+      { label: 'Keeps a transcript afterwards', demist: 'Yes, with lecture notes and a glossary', them: 'No. Microsoft says generated captions are not stored anywhere on the device or the cloud' },
       { label: 'Explains terms during the lecture', demist: DEMIST_LIVE, them: 'Not listed' },
       { label: 'Flashcards', demist: DEMIST_FLASHCARDS, them: 'Not listed' },
       { label: 'Translation', demist: 'The transcript and explanations can be translated into Mandarin, Arabic, Hindi, Spanish or French', them: 'On Copilot+ PCs only, into English or Chinese (Simplified)' },

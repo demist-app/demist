@@ -3,11 +3,19 @@ import { PRO_PRICE_TEXT } from './pricing'
 // These answers are read by search engines and AI assistants and quoted word
 // for word (they are also the FAQPage JSON-LD on the home page), so every one
 // must be true of the product as it ships. Checked against the code on
-// 2026-09-25; recheck when pricing, limits or capture modes change.
+// 2026-11-26; recheck when pricing, limits or capture modes change.
 export const FAQ = [
   {
     q: 'Is Demist free?',
-    a: `The core of it is. Live explanations, translation, your glossary and flashcards are free, and so is unlimited recording in the Windows and iPhone apps. In the browser, free accounts get 3 recordings. Free accounts keep lecture history for 7 days. Demist Pro keeps every lecture, removes the browser limit and adds unlimited summaries and Anki export, for ${PRO_PRICE_TEXT.monthly} a month or ${PRO_PRICE_TEXT.yearly} a year. New accounts get Pro free for their first 14 days, with no card.`,
+    a: `The core of it is. Live explanations, translation, your glossary and flashcards are free, and so is unlimited recording in the Windows and iPhone apps. Free accounts also get full lecture notes for 3 lectures a month. In the browser, free accounts get 3 recordings, and free accounts keep lecture history for 7 days. Demist Pro writes notes for every lecture, keeps every lecture, lets you listen back to lectures in the Windows app, removes the browser limit and adds Anki export, for ${PRO_PRICE_TEXT.monthly} a month or ${PRO_PRICE_TEXT.yearly} a year (the student price, open to everyone). New accounts get Pro free for their first 14 days, with no card.`,
+  },
+  {
+    q: 'Does Demist write lecture notes?',
+    a: 'Yes. When a lecture ends, Demist writes notes from its transcript: short sections with headings and points you can revise from. Deadlines, exam hints and anything the lecturer said to remember are quoted in their own words, and any point with a number or name the lecturer did not say is left out. Notes are made on the website now, and in the Windows app from version 1.0.12, where they are written on your own computer. They need the lecture\'s transcript, which is kept when your lecturer has given permission to record or you have told Demist about a support need. Free accounts get notes for 3 lectures a month; Pro makes them for every lecture. More at demist.app/lecture-notes.',
+  },
+  {
+    q: 'Can Demist record my lecture so I can listen back?',
+    a: 'In the Windows app with Pro, yes. Demist keeps the lecture\'s audio on your own computer, never on a server, and you can tap any sentence of the transcript to hear that moment again. In every version, a lecture\'s written transcript is kept when your lecturer has given permission or you have told Demist about a support need, so you can read back over anything you missed. Audio follows the same rule, so check your university\'s recording policy first.',
   },
   {
     q: 'What subjects does it support?',

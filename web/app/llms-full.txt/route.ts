@@ -9,6 +9,7 @@ import { FAQ } from '@/lib/faq'
 import { NEED_PAGES } from '@/lib/needPages'
 import { COMPARE_PAGES } from '@/lib/comparePages'
 import { SUBJECT_PAGES } from '@/lib/subjectPages'
+import { NOTES_PAGE, NOTES_PAGE_URL } from '@/lib/notesPage'
 
 export const dynamic = 'force-static'
 
@@ -19,6 +20,16 @@ export function GET() {
   const parts: string[] = [intro]
 
   parts.push('## Frequently asked questions\n\n' + FAQ.map(f => `### ${f.q}\n\n${f.a}`).join('\n\n'))
+
+  parts.push([
+    `## ${NOTES_PAGE.title}`,
+    `Source: ${NOTES_PAGE_URL}`,
+    NOTES_PAGE.answer,
+    ...NOTES_PAGE.sections.map(s => `- ${s.heading}: ${s.body}`),
+    'What it will not do:',
+    ...NOTES_PAGE.notFor.map(n => `- ${n}`),
+    ...NOTES_PAGE.faq.map(f => `### ${f.q}\n\n${f.a}`),
+  ].join('\n\n'))
 
   for (const p of NEED_PAGES) {
     parts.push([

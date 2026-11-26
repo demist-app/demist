@@ -64,8 +64,8 @@ const FEATURES = [
     tag: null as string | null,
   },
   {
-    title: 'Session summaries',
-    body: 'When you stop recording, Demist generates a summary of your lecture. Find it in your history alongside the term list and transcript.',
+    title: 'Full lecture notes',
+    body: 'When the lecture ends, Demist writes notes from the transcript: headings and points you can revise from, with deadlines and exam hints in your lecturer\'s own words. 3 a month free, every lecture with Pro.',
     Icon: SummaryIcon,
     tag: null as string | null,
   },
@@ -77,7 +77,7 @@ const FEATURES = [
   },
   {
     title: 'Full session history',
-    body: 'Every lecture you record or import is stored with its terms, transcript, and summary. Rename sessions, browse past notes, and come back to anything.',
+    body: 'Every lecture you record or import is stored with its terms, transcript and notes. In the Windows app with Pro you can listen back to the lecture too. Rename sessions and come back to anything.',
     Icon: HistoryIconFeat,
     tag: null as string | null,
   },
@@ -109,7 +109,7 @@ const STEPS = [
   {
     n: '03',
     title: 'Your glossary and flashcards build themselves',
-    body: <>Every concept is saved with its definition and a summary of the session. Flashcards queue with <span style={{ color: "var(--accent)", fontWeight: 500 }}>spaced repetition</span> on a schedule built around when you&apos;ll forget.</>,
+    body: <>Every concept is saved with its definition, and your lecture notes are written for you. Flashcards queue with <span style={{ color: "var(--accent)", fontWeight: 500 }}>spaced repetition</span> on a schedule built around when you&apos;ll forget.</>,
   },
 ]
 
@@ -444,7 +444,7 @@ export default function LandingClient() {
           className="text-[16px] sm:text-[18px] leading-relaxed mb-10 max-w-[480px]"
           style={{ color: 'var(--fg-muted)', ...anim(240).style }}
         >
-          Record a live lecture and Demist explains the jargon on screen as your lecturer says it, translates it if English isn't your first language, and builds your glossary, summaries and flashcards automatically. The Windows and Mac apps do all of it on your own device, so your lectures never leave your computer, and your transcript is always yours to copy or export.
+          Record a live lecture and Demist explains the jargon on screen as your lecturer says it, translates it if English isn't your first language, and writes your lecture notes, glossary and flashcards for you. The Windows and Mac apps turn the lecture into text on your own device, so the audio never leaves it, and your transcript and notes are always yours to copy or export.
         </p>
 
         <div className="flex flex-col sm:flex-row items-center gap-3 mb-4" {...anim(320)}>
@@ -946,10 +946,11 @@ export default function LandingClient() {
                 Demist Pro is here{proPriceText ? ` · ${proPriceText}/mo` : ''}
               </p>
               <p className="text-[13px] mb-4 leading-relaxed" style={{ color: 'var(--fg-muted)' }}>
-                Every lecture from your term kept and sorted by module, recording in the browser
-                with no limit, unlimited summaries and Anki export. New accounts get Pro free for
-                their first 14 days, with no card. Live definitions, your glossary and flashcards
-                stay free, same as always.
+                Full notes for every lecture, every lecture from your term kept and sorted by
+                module, listening back to your lectures in the Windows app, recording in the browser
+                with no limit and Anki export. New accounts get Pro free for their first 14 days,
+                with no card. Live definitions, your glossary, flashcards and 3 sets of lecture
+                notes a month stay free.
               </p>
               <button
                 onClick={cta}
@@ -1052,6 +1053,8 @@ export default function LandingClient() {
               {' · '}
             </span>
           ))}
+          <a href="/lecture-notes" className="underline-offset-2 hover:underline">Lecture notes</a>
+          {' · '}
           <a href="/lecture-recordings" className="underline-offset-2 hover:underline">Using lecture recordings</a>
         </p>
       </nav>

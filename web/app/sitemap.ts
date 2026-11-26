@@ -1,3 +1,4 @@
+import { NOTES_PAGE_REVIEWED } from '@/lib/notesPage'
 import type { MetadataRoute } from 'next'
 import { SUBJECT_PAGES } from '@/lib/subjectPages'
 import { COMPARE_PAGES } from '@/lib/comparePages'
@@ -29,6 +30,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: 'monthly' as const,
       priority: 0.8,
     })),
+    { url: `${base}/lecture-notes`, lastModified: new Date(NOTES_PAGE_REVIEWED), changeFrequency: 'monthly', priority: 0.9 },
     { url: `${base}/lecture-recordings`, lastModified: now, changeFrequency: 'monthly', priority: 0.8 },
     { url: `${base}/privacy`, lastModified: now, changeFrequency: 'yearly', priority: 0.3 },
     { url: `${base}/terms`, lastModified: now, changeFrequency: 'yearly', priority: 0.3 },

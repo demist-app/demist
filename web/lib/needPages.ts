@@ -37,7 +37,7 @@ export interface NeedPage {
 }
 
 // The day these pages were last checked against the product. Shown on the page.
-export const NEED_PAGES_REVIEWED = '2026-11-04'
+export const NEED_PAGES_REVIEWED = '2026-11-26'
 
 export const NEED_PAGES: NeedPage[] = [
   {
@@ -59,7 +59,11 @@ export const NEED_PAGES: NeedPage[] = [
       },
       {
         heading: 'No writing while listening',
-        body: 'Demist keeps the transcript and builds the glossary, so you are not splitting your attention between the lecturer and your notes. Afterwards you have a summary, and flashcards that bring words back shortly before you would forget them.',
+        body: 'Demist keeps the transcript and writes your notes, so you are not splitting your attention between the lecturer and a notebook. When the lecture ends you get full lecture notes, with deadlines and exam hints in the lecturer\'s own words, and flashcards that bring words back shortly before you would forget them.',
+      },
+      {
+        heading: 'Listen back when you revise',
+        body: 'In the Windows app with Pro, Demist keeps the lecture\'s audio on your own computer. Tap any sentence in the transcript to hear that moment again, instead of scrubbing through an hour of recording.',
       },
       {
         heading: 'A calmer screen',
@@ -71,6 +75,7 @@ export const NEED_PAGES: NeedPage[] = [
       'Your university may have its own rules on recording lectures, so check them first.',
     ],
     faq: [
+      { q: 'Is there an app that records lectures and writes notes for students with ADHD?', a: 'Yes, Demist does both. It writes the lecture down as it happens, explains unfamiliar words on screen, and when the lecture ends it writes full notes from the transcript. In the Windows app with Pro it also keeps the audio, so you can tap a sentence and hear it again when you revise.' },
       { q: 'What is the best lecture app for students with ADHD?', a: 'It depends on what goes wrong for you. If you lose the thread in lectures, Demist is built for that: a live transcript to catch up from, explanations of unfamiliar words as they are said, and an I\'m lost button that marks the moment so you can go back to it. If you mainly need help starting work or planning your week, a task tool will suit you better.' },
       { q: 'Can Demist help if I zone out in a lecture?', a: 'It lets you recover. The transcript keeps running while your attention is elsewhere, so you can read back over what you missed, and pressing I\'m lost marks the moment to look at afterwards.' },
       { q: 'Do I need a diagnosis to use it?', a: 'No. Anyone can use Demist, and it does not ask for evidence of anything.' },
@@ -96,7 +101,7 @@ export const NEED_PAGES: NeedPage[] = [
       },
       {
         heading: 'A transcript to keep',
-        body: 'When the lecture ends you have the full text, a summary, and a glossary of the words that came up, so you can check anything you were unsure of.',
+        body: 'When the lecture ends you have the full text, lecture notes written from it, and a glossary of the words that came up, so you can check anything you were unsure of.',
       },
       {
         heading: 'Unfamiliar words explained',
@@ -127,7 +132,7 @@ export const NEED_PAGES: NeedPage[] = [
     helps: [
       {
         heading: 'Listen instead of writing',
-        body: 'Demist keeps the transcript, so you can follow the lecture without trying to get it onto paper at the same time. Afterwards there is a summary and a glossary of the words that came up.',
+        body: 'Demist keeps the transcript, so you can follow the lecture without trying to get it onto paper at the same time. Afterwards it writes full lecture notes, in short sections with headings, and a glossary of the words that came up.',
       },
       {
         heading: 'Read aloud',
@@ -148,9 +153,9 @@ export const NEED_PAGES: NeedPage[] = [
       'Demist is not a DSA approved supplier, though the core of it is free without any funding.',
     ],
     faq: [
-      { q: 'What is the best note-taking app for dyslexic students in lectures?', a: 'If the hard part is writing while listening, Demist takes that away: it keeps a live transcript, explains new words and can read your notes back. If you prefer to take your own notes alongside a recording, a tool built around that may suit you better.' },
+      { q: 'What is the best note-taking app for dyslexic students in lectures?', a: 'If the hard part is writing while listening, Demist does the writing for you: it keeps a live transcript, explains new words as they are said, writes full lecture notes when the lecture ends and reads them back to you. If you would rather write and organise your own notes against a recording, a tool built around that, such as Genio, may suit you better.' },
       { q: 'Does Demist have a dyslexia-friendly font?', a: 'It offers Atkinson Hyperlegible and Lexend across the whole app, along with extra spacing, adjustable text size and coloured tints. People differ in what helps, so it is worth trying each.' },
-      { q: 'Can it read my notes to me?', a: 'Yes. Explanations and transcripts have a read aloud button.' },
+      { q: 'Can it read my notes to me?', a: 'Yes. Lecture notes, explanations and transcripts all have a read aloud button.' },
       { q: 'Do I need DSA funding?', a: 'No. Demist is not a DSA approved supplier, and the core of it is free for every student.' },
     ],
   },
