@@ -100,6 +100,12 @@ async function sb(pathname, init = {}) {
 
 async function main() {
   const offices = parseCsv(fs.readFileSync(path.join(OUT, 'offices-best.csv'), 'utf8'));
+  // Inboxes checked by hand (domain,inbox) replace what the scan picked.
+  const ovFile = path.join(OUT, 'inbox-overrides.csv');
+  if (fs.existsSync(ovFile)) {
+    const ov = new Map(parseCsv(fs.readFileSync(ovFile, 'utf8')).map((r) => [r.domain, r.inbox]));
+    for (const o of offices) if (ov.has(o.domain)) { o.inbox = ov.get(o.domain); o.priority = String(Math.max(Number(o.priority), 4)); }
+  }
   const sentFile = path.join(OUT, 'sent.csv');
   const dncFile = path.join(OUT, 'do-not-contact.txt');
   const sent = fs.existsSync(sentFile) ? parseCsv(fs.readFileSync(sentFile, 'utf8')) : [];
@@ -109,7 +115,7 @@ async function main() {
 
   const used = new Set();
   const batch = offices
-    .filter((o) => o.inbox && Number(o.priority) >= MIN_PRIORITY && !sentDomains.has(o.domain) && !sentTo.has(o.inbox.toLowerCase())
+    .filter((o) => (!a.country || o.country === a.country) && o.inbox && Number(o.priority) >= MIN_PRIORITY && !sentDomains.has(o.domain) && !sentTo.has(o.inbox.toLowerCase())
       && !dnc.has(o.inbox.toLowerCase()) && !dnc.has(o.domain))
     .slice(0, LIMIT)
     .map((o) => {
