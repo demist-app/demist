@@ -12,6 +12,7 @@ import { PRO_LIVE } from '@/lib/subscription'
 import { SUBJECT_PAGES } from '@/lib/subjectPages'
 import { NEED_PAGES } from '@/lib/needPages'
 import { COMPARE_PAGES } from '@/lib/comparePages'
+import { BEST_PAGES } from '@/lib/bestPages'
 import { BrandMark, GracefulMindsLogo } from '@/components/BrandMark'
 
 const SPRING = 'cubic-bezier(0.16, 1, 0.3, 1)'
@@ -1056,6 +1057,17 @@ export default function LandingClient() {
           <a href="/lecture-notes" className="underline-offset-2 hover:underline">Lecture notes</a>
           {' · '}
           <a href="/lecture-recordings" className="underline-offset-2 hover:underline">Using lecture recordings</a>
+          {' · '}
+          <a href="/for-lecturers" className="underline-offset-2 hover:underline">For lecturers</a>
+        </p>
+        <p>
+          <span className="font-semibold">Best lecture apps </span>
+          {BEST_PAGES.map((p, i) => (
+            <span key={p.slug}>
+              {i > 0 && ' · '}
+              <a href={`/best/${p.slug}`} className="underline-offset-2 hover:underline">for {p.audience}</a>
+            </span>
+          ))}
         </p>
       </nav>
 
