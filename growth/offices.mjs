@@ -242,7 +242,8 @@ async function main() {
     }
   }
   const unis = list
-    .filter((u) => countries.includes(u.country) && u.domains?.length && !done.has(u.domains[0]))
+    // --name "university" scans only institutions whose name matches.
+    .filter((u) => countries.includes(u.country) && u.domains?.length && !done.has(u.domains[0]) && (!a.name || new RegExp(a.name, 'i').test(u.name)))
     .slice(offset, offset + limit);
   console.log(`Scanning ${unis.length} universities (${countries.join(', ')}), ${done.size} already done.`);
 

@@ -2,6 +2,7 @@ import { NOTES_PAGE_REVIEWED } from '@/lib/notesPage'
 import type { MetadataRoute } from 'next'
 import { SUBJECT_PAGES } from '@/lib/subjectPages'
 import { COMPARE_PAGES } from '@/lib/comparePages'
+import { BEST_PAGES, BEST_PAGES_REVIEWED } from '@/lib/bestPages'
 import { NEED_PAGES, NEED_PAGES_REVIEWED } from '@/lib/needPages'
 
 export default function sitemap(): MetadataRoute.Sitemap {
@@ -29,6 +30,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified: new Date(p.checkedOn),
       changeFrequency: 'monthly' as const,
       priority: 0.8,
+    })),
+    ...BEST_PAGES.map(p => ({
+      url: `${base}/best/${p.slug}`,
+      lastModified: new Date(BEST_PAGES_REVIEWED),
+      changeFrequency: 'monthly' as const,
+      priority: 0.9,
     })),
     { url: `${base}/lecture-notes`, lastModified: new Date(NOTES_PAGE_REVIEWED), changeFrequency: 'monthly', priority: 0.9 },
     { url: `${base}/lecture-recordings`, lastModified: now, changeFrequency: 'monthly', priority: 0.8 },

@@ -10,6 +10,7 @@ import { NEED_PAGES } from '@/lib/needPages'
 import { COMPARE_PAGES } from '@/lib/comparePages'
 import { SUBJECT_PAGES } from '@/lib/subjectPages'
 import { NOTES_PAGE, NOTES_PAGE_URL } from '@/lib/notesPage'
+import { BEST_PAGES, BEST_PAGES_REVIEWED, TOOLS } from '@/lib/bestPages'
 
 export const dynamic = 'force-static'
 
@@ -51,6 +52,16 @@ export function GET() {
       ...p.rows.map(r => `- ${r.label}: Demist: ${r.demist}. ${p.name}: ${r.them}.`),
       `Where ${p.name} is the better choice:`,
       ...p.themBetter.map(t => `- ${t}`),
+    ].join('\n\n'))
+  }
+
+  for (const p of BEST_PAGES) {
+    parts.push([
+      `## ${p.title}`,
+      `Source: ${SITE}/best/${p.slug} (Demist is ours; facts about other apps from their own sites, reviewed ${BEST_PAGES_REVIEWED})`,
+      p.answer,
+      ...p.picks.map(k => `- ${TOOLS[k.tool].name}. Best for: ${k.bestFor}. ${k.why} Watch out for: ${k.watchOut} Price: ${TOOLS[k.tool].price}.`),
+      ...p.faq.map(f => `### ${f.q}\n\n${f.a}`),
     ].join('\n\n'))
   }
 
