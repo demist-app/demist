@@ -65,15 +65,15 @@ function emailFor(o, link) {
   const subject = uk ? 'Lecture support for your students, free from a charity' : 'A free lecture tool for students with accommodations';
   const text = `Hello ${o.university} team,
 
-I'm Shivam Chopra from Graceful Minds, a charity that supports neurodivergent young people. We make Demist, a lecture app for students who find lectures hard to follow: students with ADHD, dyslexia, hearing loss, or English as an additional language.
+I'm Shivam Chopra from Graceful Minds, ${uk ? 'a charity' : 'a UK charity'} that supports neurodivergent young people. We make Demist, a lecture app for students who find lectures hard to follow: students with ADHD, dyslexia, hearing loss, or ${uk ? 'English as an additional language' : 'English as a second language'}.
 
-I was reading your page on ${topic}${toolLine}. Demist does something slightly different. While the lecture is happening it shows a live transcript and explains difficult words in plain English as the lecturer says them. Afterwards it writes notes the student can revise from. On Windows, the transcription runs on the student's own laptop, so the lecture audio is not uploaded anywhere.
+I was reading your page on ${topic}${toolLine}. Demist does something slightly different. While the lecture is happening it shows a live transcript and explains difficult words in plain English as the lecturer says them. Afterwards it writes notes the student can ${uk ? 'revise' : 'study'} from. On Windows, the transcription runs on the student's own laptop, so the lecture audio is not uploaded anywhere.
 
-We would like to give your students Demist Pro free until 30 June 2027. There is nothing for you to buy or install: students open this link and sign up themselves.
+We would like to give your students Demist Pro free until ${uk ? '30 June 2027' : 'June 30, 2027'}. There is nothing for you to buy or install: students open this link and sign up themselves.
 
 ${link}
 
-If you find it useful, we would be grateful if you could add Demist to your list of tools for students.
+If you find it useful, we would be grateful if you could add Demist to your list of ${uk ? 'tools for students' : 'assistive technology resources'}.
 
 To be clear about its limits: it does not replace a human note-taker or captioner, and the automatic explanations can sometimes be wrong. The app says so too.
 
@@ -115,6 +115,8 @@ async function main() {
 
   const used = new Set();
   const batch = offices
+    // IT, web and mailing-list inboxes are not the disability office.
+    .filter((o) => !/(digital|^web|websupport|techsupport|helpdesk|servicedesk|innovative|-l@|@ufic.)/i.test(o.inbox || ''))
     .filter((o) => (!a.country || o.country === a.country) && o.inbox && Number(o.priority) >= MIN_PRIORITY && !sentDomains.has(o.domain) && !sentTo.has(o.inbox.toLowerCase())
       && !dnc.has(o.inbox.toLowerCase()) && !dnc.has(o.domain))
     .slice(0, LIMIT)
