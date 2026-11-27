@@ -97,6 +97,8 @@ export interface SubscriptionRow {
   current_period_end: string | null
   stripe_customer_id: string | null
   stripe_subscription_id: string | null
+  // Set when the comped row came from a university offer (migration 044).
+  org_code?: string | null
 }
 
 export interface Entitlement {
@@ -109,6 +111,10 @@ export interface Entitlement {
   // comped month or of the reverse trial. Drives the "your Pro just ended"
   // notice, which is the moment someone first sees their lectures lock.
   lapsedAt: string | null
+  // The university offer behind a comped Pro, or null. Pro from an offer keeps
+  // the browser recording cap (webTrial.ts): browser recording bills per
+  // lecture-hour, while the desktop app costs us nothing per student.
+  org?: string | null
 }
 
 function daysUntil(iso: string, now: Date): number {
@@ -132,7 +138,13 @@ export function resolveEntitlement(
   const subIsPro = sub?.plan === 'pro'
   const subCurrent = subIsPro && (!sub?.current_period_end || new Date(sub.current_period_end) > now)
   if (subCurrent) {
+    // Offer Pro keeps the browser cap, except while the account's own reverse
+    // trial would still lift it: claiming an offer must never take anything away.
+    const orgCode = !sub?.stripe_subscription_id && sub?.org_code ? sub.org_code : null
+    const trialStillOn = !!userCreatedAt && new Date(userCreatedAt) >= new Date(REVERSE_TRIAL_START)
+      && new Date(userCreatedAt).getTime() + trialDaysFor(userCreatedAt) * DAY_MS > now.getTime()
     return {
+      org: orgCode && !trialStillOn ? orgCode : null,
       plan: 'pro',
       // A Stripe subscription id means someone paid. stripe_customer_id alone
       // does not: stripe-checkout writes it the moment checkout OPENS.

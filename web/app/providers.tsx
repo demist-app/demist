@@ -6,6 +6,8 @@ import { ThemeProvider, useTheme } from 'next-themes'
 import { startSessionRecording, stopSessionRecording } from '@/lib/analytics'
 import { isElectronNative } from '@/lib/electronNative'
 import { captureFirstTouch } from '@/lib/firstTouch'
+import { createClient } from '@/lib/supabase'
+import { claimPendingUniCode } from '@/lib/uniOffer'
 
 const THEME_COLOR = { light: '#F3F0F8', dark: '#110B1C' }
 
@@ -112,6 +114,23 @@ function ServiceWorkerRegistration() {
   return null
 }
 
+// A university offer link visited while signed out (lib/uniOffer.ts) is
+// claimed here once the student has an account, wherever sign-up led them.
+// The cost when there is no pending code is one localStorage read.
+function UniOfferGate() {
+  useEffect(() => {
+    let pending = false
+    try { pending = !!localStorage.getItem('demist_uni_code') } catch {}
+    if (!pending) return
+    const sb = createClient()
+    const tryClaim = () => sb.auth.getSession().then(({ data: { session } }) => { if (session) claimPendingUniCode() })
+    tryClaim()
+    const { data: { subscription } } = sb.auth.onAuthStateChange((event) => { if (event === 'SIGNED_IN') tryClaim() })
+    return () => subscription.unsubscribe()
+  }, [])
+  return null
+}
+
 export function PHProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const el = document.getElementById('init-loader')
@@ -127,6 +146,7 @@ export function PHProvider({ children }: { children: React.ReactNode }) {
       <ThemeColorSync />
       <ServiceWorkerRegistration />
       <SessionReplayGate />
+      <UniOfferGate />
       {children}
     </ThemeProvider>
   )

@@ -109,7 +109,9 @@ export async function checkWebTrialLimit(supabase: SupabaseClient, userId: strin
   // the testing exemption does. Before 2026-09-23 it did not, which meant the
   // trial wall - the moment someone most wants to keep recording - could only
   // offer a free download, because Pro did not solve their problem.
-  const remaining = trialRemaining(used, !!profile?.web_trial_exempt || LIMITS[entitlement.plan].webRecordingUnlimited)
+  // Pro from a university offer is the exception: it keeps the cap (see
+  // Entitlement.org), which points those students at the free desktop app.
+  const remaining = trialRemaining(used, !!profile?.web_trial_exempt || (LIMITS[entitlement.plan].webRecordingUnlimited && !entitlement.org))
   // null means no cap applies to this visitor at all.
   if (remaining === null) return { allowed: true }
 
