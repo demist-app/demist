@@ -199,7 +199,13 @@ function writeSummary(csvPath) {
     const best = [...rs].sort((x, y) => rank(y) - rank(x))[0];
     const emails = [...new Set(rs.flatMap((r) => (r.emails ? r.emails.split('; ') : [])))];
     // Disability / assistive-tech inboxes first, then accessibility, then general support.
-    const w = (e) => { const l = e.split('@')[0]; return /disab|neurodiv|dyslex|atech|assistive|ssd|drc/.test(l) ? 3 : /access|inclus/.test(l) && !/elearn|digital|web/.test(l) ? 2 : 1; };
+    const w = (e) => {
+      const l = e.split('@')[0];
+      if (/disab|neurodiv|dyslex|atech|assistive|ssd|drc|^sas$|inclusivesupport|learningsupport/.test(l)) return 3;
+      if (/access|inclus/.test(l) && !/elearn|digital|web/.test(l)) return 2;
+      if (/wellbeing|counsel|mental/.test(l)) return 0;
+      return 1;
+    };
     const inbox = emails.filter((e) => OFFICE_INBOX.test(e.split('@')[0])).sort((x, y) => w(y) - w(x));
     const tools = [...new Set(rs.flatMap((r) => (r.tools_named ? r.tools_named.split('; ') : [])))];
     out.push({
