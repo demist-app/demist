@@ -46,7 +46,7 @@ function parseCsv(text) {
 // leeds.ac.uk -> leeds, mailbox.lboro.ac.uk -> lboro, cs.stanford.edu -> stanford
 function codeFor(domain) {
   const parts = domain.replace(/^www\./, '').split('.');
-  const tail = /^(ac|co|edu)$/.test(parts[parts.length - 2]) ? 2 : 1;
+  const tail = /^(ac|co|edu|org|gov)$/.test(parts[parts.length - 2]) ? 2 : 1;
   return parts[parts.length - tail - 1].toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 40);
 }
 
@@ -114,6 +114,8 @@ async function main() {
     .slice(0, LIMIT)
     .map((o) => {
       let code = codeFor(o.domain);
+      // Codes need 3+ characters (uni_offers check): hw.ac.uk -> heriot-watt-university
+      if (code.length < 3) code = o.university.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40);
       while (used.has(code)) code += '-u';
       used.add(code);
       return { ...o, code, link: `https://demist.app/uni/${code}` };
