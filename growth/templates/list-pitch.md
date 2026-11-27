@@ -10,7 +10,7 @@ From shivam@demist.app. One message per site, one follow-up at most.
 
 Hi Frank,
 
-I read "Best Note-Taking Apps for ADHD in 2026" and liked that it sorts apps by what goes wrong for the reader, not just by features.
+Your "Best Note-Taking Apps for ADHD in 2026" came up when I was looking at what students with ADHD get pointed to for lectures.
 
 I help make Demist, from Graceful Minds, a charity for neurodivergent young people. It's built for the student who loses the thread in a lecture: it keeps a live transcript you can glance back at, explains unfamiliar words on screen as the lecturer says them, and has an "I'm lost" button that marks the moment so you can find it afterwards. When the lecture ends it writes the notes. It's free on Windows, with a Mac beta.
 
