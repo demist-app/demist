@@ -77,6 +77,8 @@ If you find it useful, we would be grateful if you could add Demist to your list
 
 To be clear about its limits: it does not replace a human note-taker or captioner, and the automatic explanations can sometimes be wrong. The app says so too.
 
+There is also a page you can pass on to teaching staff, with a short message they can post for their class: https://demist.app/for-lecturers
+
 Would a one-page guide you could pass on to students be useful? I'm also happy to do a 15-minute call or a demo on a real lecture.
 
 Best wishes,
