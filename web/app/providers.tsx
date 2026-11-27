@@ -8,6 +8,7 @@ import { isElectronNative } from '@/lib/electronNative'
 import { captureFirstTouch } from '@/lib/firstTouch'
 import { createClient } from '@/lib/supabase'
 import { claimPendingUniCode } from '@/lib/uniOffer'
+import { claimPendingReferral, hasPendingReferral } from '@/lib/referral'
 
 const THEME_COLOR = { light: '#F3F0F8', dark: '#110B1C' }
 
@@ -119,11 +120,16 @@ function ServiceWorkerRegistration() {
 // The cost when there is no pending code is one localStorage read.
 function UniOfferGate() {
   useEffect(() => {
+    // Also a friend's invite (lib/referral.ts), claimed the same way.
     let pending = false
     try { pending = !!localStorage.getItem('demist_uni_code') } catch {}
-    if (!pending) return
+    if (!pending && !hasPendingReferral()) return
     const sb = createClient()
-    const tryClaim = () => sb.auth.getSession().then(({ data: { session } }) => { if (session) claimPendingUniCode() })
+    const tryClaim = () => sb.auth.getSession().then(({ data: { session } }) => {
+      if (!session) return
+      claimPendingUniCode()
+      claimPendingReferral()
+    })
     tryClaim()
     const { data: { subscription } } = sb.auth.onAuthStateChange((event) => { if (event === 'SIGNED_IN') tryClaim() })
     return () => subscription.unsubscribe()

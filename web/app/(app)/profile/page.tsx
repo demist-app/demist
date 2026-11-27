@@ -12,6 +12,7 @@ import { useNativeTranslate } from '@/lib/useNativeTranslate'
 import { FontScale, FONT_SCALE_LABELS, getFontScale, setFontScale } from '@/lib/fontScale'
 import { ComfortSettings } from '@/components/ComfortSettings'
 import { StudyEmailsToggle } from '@/components/StudyEmailsToggle'
+import { InviteFriends } from '@/components/InviteFriends'
 import { removeAllLectureAudio } from '@/lib/lectureAudio'
 import { getDemistNative, isElectronNative } from '@/lib/electronNative'
 import { useRecordingSession } from '@/lib/recordingSession'
@@ -812,6 +813,8 @@ export default function Profile() {
           <ComfortSettings />
 
           <StudyEmailsToggle />
+
+          <InviteFriends />
 
           {isElectronNative() && (
             <div>
