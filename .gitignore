@@ -38,3 +38,6 @@ Thumbs.db
 # scripts/bundle-vcredist.js. Microsoft's binaries, not ours - recreate with
 # scripts/stage-vcredist.ps1 rather than committing them.
 desktop/vcredist/
+
+# Growth tool output: scraped contact lists and daily digests, never committed
+growth/out/

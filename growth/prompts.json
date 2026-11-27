@@ -1,0 +1,24 @@
+{
+  "_note": "Questions students actually ask, partly taken from profiles.heard_from_detail. Keep the wording plain and student-like. Each runs once per country.",
+  "countries": ["GB", "US"],
+  "prompts": [
+    { "tag": "general", "q": "what's the best app to record lectures and explain what the lecturer is saying" },
+    { "tag": "general", "q": "app that explains what a lecturer is talking about while they talk" },
+    { "tag": "general", "q": "best lecture helper app for university students" },
+    { "tag": "general", "q": "free app to transcribe lectures live on my laptop" },
+    { "tag": "notes", "q": "app that turns lecture recordings into notes for students" },
+    { "tag": "notes", "q": "apps for recording lectures so I can listen back during revision" },
+    { "tag": "adhd", "q": "I have ADHD and can't focus in lectures, is there an app that helps" },
+    { "tag": "adhd", "q": "best note taking app for students with ADHD in lectures" },
+    { "tag": "dyslexia", "q": "lecture recording app for dyslexic university students" },
+    { "tag": "deaf", "q": "live captions app for deaf or hard of hearing students in lectures" },
+    { "tag": "language", "q": "English is not my first language and I struggle to understand lectures, what app can help" },
+    { "tag": "language", "q": "app that translates lectures live for international students" },
+    { "tag": "privacy", "q": "lecture transcription app that works offline and keeps recordings on my computer" },
+    { "tag": "windows", "q": "best Windows app for live lecture transcription" },
+    { "tag": "compare", "q": "Genio alternatives for students" },
+    { "tag": "compare", "q": "Otter alternatives for lectures" },
+    { "tag": "dsa", "q": "what note taking software can I get through DSA" },
+    { "tag": "brand", "q": "what is Demist lecture app" }
+  ]
+}

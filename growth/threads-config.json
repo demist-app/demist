@@ -1,0 +1,20 @@
+{
+  "_note": "Subreddits and searches for the thread finder. signals are [regex, weight]; a thread needs min_score to make the digest.",
+  "subreddits": [
+    "ADHD", "adhdwomen", "ADHDUK", "ADHDers", "adhd_college", "dyslexia", "Dyslexia_UK", "deaf", "hardofhearing",
+    "college", "GetStudying", "studytips", "UniUK", "GradSchool", "medicalschool", "nursing", "lawschool",
+    "InternationalStudents", "EnglishLearning", "neurodiversity", "autism", "Notetaking", "productivity", "windows"
+  ],
+  "queries": ["lecture", "lectures", "note taking", "take notes in class", "record lecture", "transcribe", "can't focus in class", "professor talks too fast"],
+  "signals": [
+    ["lecture|lectures|lecturer|professor|prof\\b|in class|seminar", 2],
+    ["note.?tak|notes|transcri|record(ing)?|captions?", 2],
+    ["app|software|tool|program|recommend|any(one)? (use|know)|suggestions?|what do you use", 3],
+    ["can'?t (focus|keep up|follow|concentrate)|zone out|lost in|too fast|struggl|overwhelm|miss(ing)? (stuff|things|what)", 2],
+    ["adhd|dyslexi|deaf|hard of hearing|hearing loss|auditory processing|apd\\b|autis|english (is|isn'?t) my (second|first)|non.?native|international student", 2],
+    ["otter|genio|glean|notability|sonocent|live captions|turbolearn|knowt", 2],
+    ["meme|rant|vent|celebrat|diagnos(ed|is) (today|finally)|medication|meds\\b|dose", -3]
+  ],
+  "min_score": 7,
+  "max_per_digest": 15
+}
