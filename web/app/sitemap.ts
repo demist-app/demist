@@ -3,6 +3,7 @@ import type { MetadataRoute } from 'next'
 import { SUBJECT_PAGES } from '@/lib/subjectPages'
 import { COMPARE_PAGES } from '@/lib/comparePages'
 import { BEST_PAGES, BEST_PAGES_REVIEWED } from '@/lib/bestPages'
+import { LECTURER_PAGE_REVIEWED } from '@/lib/lecturerPage'
 import { NEED_PAGES, NEED_PAGES_REVIEWED } from '@/lib/needPages'
 
 export default function sitemap(): MetadataRoute.Sitemap {
@@ -37,6 +38,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: 'monthly' as const,
       priority: 0.9,
     })),
+    { url: `${base}/for-lecturers`, lastModified: new Date(LECTURER_PAGE_REVIEWED), changeFrequency: 'monthly', priority: 0.8 },
     { url: `${base}/lecture-notes`, lastModified: new Date(NOTES_PAGE_REVIEWED), changeFrequency: 'monthly', priority: 0.9 },
     { url: `${base}/lecture-recordings`, lastModified: now, changeFrequency: 'monthly', priority: 0.8 },
     { url: `${base}/privacy`, lastModified: now, changeFrequency: 'yearly', priority: 0.3 },

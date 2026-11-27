@@ -11,6 +11,7 @@ import { COMPARE_PAGES } from '@/lib/comparePages'
 import { SUBJECT_PAGES } from '@/lib/subjectPages'
 import { NOTES_PAGE, NOTES_PAGE_URL } from '@/lib/notesPage'
 import { BEST_PAGES, BEST_PAGES_REVIEWED, TOOLS } from '@/lib/bestPages'
+import { LECTURER_PAGE, LECTURER_PAGE_URL } from '@/lib/lecturerPage'
 
 export const dynamic = 'force-static'
 
@@ -54,6 +55,16 @@ export function GET() {
       ...p.themBetter.map(t => `- ${t}`),
     ].join('\n\n'))
   }
+
+  parts.push([
+    `## ${LECTURER_PAGE.title}`,
+    `Source: ${LECTURER_PAGE_URL}`,
+    LECTURER_PAGE.answer,
+    ...LECTURER_PAGE.sections.map(s => `- ${s.heading}: ${s.body}`),
+    'What it will not do:',
+    ...LECTURER_PAGE.notFor.map(n => `- ${n}`),
+    ...LECTURER_PAGE.faq.map(f => `### ${f.q}\n\n${f.a}`),
+  ].join('\n\n'))
 
   for (const p of BEST_PAGES) {
     parts.push([
