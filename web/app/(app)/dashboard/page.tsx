@@ -30,6 +30,7 @@ import { LostMoments } from '@/components/LostMoments'
 import { ListenBack, ListenBackChip, useLectureAudioIds } from '@/components/ListenBack'
 import { LectureNotes } from '@/components/LectureNotes'
 import { SampleLecture } from '@/components/SampleLecture'
+import { FirstRecordingGuide, firstGuideEligible } from '@/components/FirstRecordingGuide'
 import { FirstWeekOffer } from '@/components/FirstWeekOffer'
 
 function fmtTime(s: number) {
@@ -126,6 +127,13 @@ export default function Dashboard() {
     setIsWindowsWeb(!inDesktopApp && !isMobileUA() && detectDesktopPlatform() === 'windows')
   }, [])
   const [showSample, setShowSample] = useState(false)
+  // Decided once as each recording starts, so the guide does not appear or
+  // vanish mid-recording as the recent list refreshes (components/FirstRecordingGuide.tsx).
+  const [guideEligible, setGuideEligible] = useState(false)
+  useEffect(() => {
+    if (isRecording) setGuideEligible(firstGuideEligible(recentSessions))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isRecording])
   const withAudio = useLectureAudioIds(recentSessions.map(s => s.id))
   const beginRecordingFlow = () => {
     // Mic mode only: tab/system-audio capture has its own
@@ -489,6 +497,14 @@ export default function Dashboard() {
             </div>
 
             <LostButton count={lostMarks.length} lastAtMs={lostMarks.at(-1)?.atMs ?? null} onPress={markLost} />
+
+            <FirstRecordingGuide
+              eligible={guideEligible}
+              hasText={sentences.length > 0}
+              cardCount={Math.max(sessionGlossary.length, liveTerms.length)}
+              elapsed={elapsed}
+              capturingTab={captureMode === 'tab'}
+            />
 
             {!wakeLockUnsupported && (
               <p className="relative z-10 text-[11px] text-gray-600 text-center -mt-1 mb-1 px-4">

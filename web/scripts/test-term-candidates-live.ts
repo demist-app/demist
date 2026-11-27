@@ -20,6 +20,12 @@ const SETS: Record<string, { subject: string; lang: LectureLanguage; text: strin
     { subject: 'Law', lang: 'en', text: ['Congress used the commerce clause to pass laws regulating trade between states.', 'The reservation system was enforced by federal indian law for decades.'] },
     { subject: 'Biology', lang: 'en', text: ['It had a big effect on everyone in the room, honestly.', 'Remember the test is next week, so revise the whole thing.'] },
   ],
+  // The read-aloud sentence in components/FirstRecordingGuide.tsx: it must
+  // produce explanations, or a new user's test shows nothing.
+  guide: [
+    { subject: '', lang: 'en', text: ['Mitochondria make ATP through oxidative phosphorylation, which is part of cellular respiration.'] },
+    { subject: '', lang: 'en', text: ['The proton motive force drives ATP synthase across the inner mitochondrial membrane.'] },
+  ],
   fr: [
     { subject: 'cours de droit', lang: 'fr', text: ["Mais précontractuelle, ce qu'on entend par précontractuelle, c'est la période des pourparlers avant la signature du contrat.", "Les personnes concernées doivent respecter l'obligation d'information pendant les négociations."] },
   ],
