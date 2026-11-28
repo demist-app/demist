@@ -4,10 +4,11 @@
 // (lib/shared/lectureNotes.ts), plus the lecturer's own words on dates and
 // exams, which are worked out on the phone and so are free.
 //
-// No price, no upgrade button and no link out (App Store 3.1.3(b)): out of
-// free notes, it says when more arrive, and nothing else.
+// Out of free notes, it says when more arrive and offers Pro, which is sold
+// through Apple in-app purchase (app/pro.tsx). Never a link to the web.
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { Share, View } from 'react-native'
+import { router } from 'expo-router'
 import { usePrefs } from '../lib/prefs'
 import { capture } from '../lib/analytics'
 import { freeNotesLeft, makeNotes, notesState, subscribeNotes, type NotesFailure } from '../lib/notes'
@@ -110,6 +111,9 @@ export function LectureNotes({ sessionId, title, transcript, saved, language }: 
         {!outOfFree && (
           <Button label={working ? 'Making notes…' : 'Make notes'} loading={working} disabled={left === undefined}
             onPress={() => { void makeNotes({ sessionId, transcriptChars: chars, language }) }} style={{ marginTop: 12, minHeight: 48 }} />
+        )}
+        {outOfFree && (
+          <Button kind="secondary" label="Notes for every lecture with Pro" onPress={() => { capture('pro_cta_tapped', { from: 'notes_limit' }); router.push('/pro') }} style={{ marginTop: 12, minHeight: 48 }} />
         )}
         {reminderBox}
       </Card>

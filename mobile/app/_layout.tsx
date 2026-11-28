@@ -54,6 +54,7 @@ function Gate() {
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="session/[id]" />
           <Stack.Screen name="consents" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="pro" options={{ presentation: 'modal' }} />
         </Stack.Protected>
       </Stack>
     </>

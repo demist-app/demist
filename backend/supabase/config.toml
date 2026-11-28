@@ -7,3 +7,6 @@ project_id = "bsjcdvhiuxtyvbnrcbwg"
 # verify_jwt defaults to true and nothing had disabled it for this function.
 [functions.stripe-webhook]
 verify_jwt = false
+
+[functions.revenuecat-webhook]
+verify_jwt = false

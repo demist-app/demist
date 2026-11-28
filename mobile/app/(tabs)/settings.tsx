@@ -175,6 +175,9 @@ export default function Settings() {
         {entitlement.plan === 'pro' ? <T size={13} tone="calm" style={{ marginTop: 4 }}>Pro is active on this account.</T> : null}
       </Card>
       <Card style={{ paddingVertical: 4, marginTop: 10 }}>
+        <Row label="Demist Pro" value={entitlement.plan === 'pro' ? 'Active' : undefined} onPress={() => router.push('/pro')} />
+      </Card>
+      <Card style={{ paddingVertical: 4, marginTop: 10 }}>
         <Row label="Privacy Policy" onPress={() => Linking.openURL('https://demist.app/privacy')} />
         <Row label="Terms" onPress={() => Linking.openURL('https://demist.app/terms')} />
         <Row label="Help and support" onPress={() => Linking.openURL('https://demist.app/support')} />
