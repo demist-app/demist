@@ -2,7 +2,7 @@
 // tested with node directly; the cron route (app/api/cron/pro-expiry) owns
 // everything with side effects.
 
-import { resolveEntitlement, type SubscriptionRow } from './entitlementRules'
+import { resolveEntitlement, isPaidRow, type SubscriptionRow } from './entitlementRules'
 
 export type ExpiryStage = 'minus7' | 'minus1' | 'day0'
 
@@ -27,7 +27,7 @@ export function stageFor(sub: SubscriptionRow | null, createdAt: string, now: Da
   }
   if (ent.source === 'free' && ent.lapsedAt && now.getTime() - new Date(ent.lapsedAt).getTime() <= DAY0_GRACE_MS) {
     // Which kind of Pro just ended: the comped row's end, or the trial's.
-    const compedEnd = sub?.plan === 'pro' && sub.current_period_end && !sub.stripe_subscription_id ? sub.current_period_end : null
+    const compedEnd = sub?.plan === 'pro' && sub.current_period_end && !isPaidRow(sub) ? sub.current_period_end : null
     const source = compedEnd && new Date(compedEnd).getTime() === new Date(ent.lapsedAt).getTime() ? 'comped' : 'trial'
     return { stage: 'day0', source, periodEnd: ent.lapsedAt }
   }

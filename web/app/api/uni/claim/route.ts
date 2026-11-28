@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 import { createAdminClient } from '@/lib/supabaseAdmin'
 import { captureServer } from '@/lib/serverCapture'
+import { isPaidRow } from '@/lib/entitlementRules'
 
 // Claims a university offer (migration 044) for the signed-in student: their
 // comped Pro runs to the offer's pro_until. Idempotent, so the page and the
@@ -28,11 +29,11 @@ export async function POST(req: NextRequest) {
 
   // Every account gets a subscriptions row at sign-up, so this is an update.
   const { data: sub, error: subErr } = await admin
-    .from('subscriptions').select('plan, current_period_end, stripe_subscription_id').eq('user_id', user.id).maybeSingle()
+    .from('subscriptions').select('*').eq('user_id', user.id).maybeSingle()
   if (subErr || !sub) return NextResponse.json({ error: 'no_subscription_row' }, { status: 500 })
 
   const now = new Date()
-  const paidAndCurrent = !!sub.stripe_subscription_id && sub.plan === 'pro'
+  const paidAndCurrent = isPaidRow(sub) && sub.plan === 'pro'
     && (!sub.current_period_end || new Date(sub.current_period_end) > now)
   let proUntil = offer.pro_until as string
 

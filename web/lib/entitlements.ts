@@ -11,7 +11,9 @@ import { resolveEntitlement, LIMITS, type Entitlement, type SubscriptionRow } fr
 
 export * from '@/lib/entitlementRules'
 
-const SUB_COLUMNS = 'plan, current_period_end, stripe_customer_id, stripe_subscription_id, org_code'
+// Every column, so new ones (org_code 044, store_transaction_id 046) are read
+// without the select failing on a database that has not had them added yet.
+const SUB_COLUMNS = '*'
 
 /** For non-React callers (the web trial gate). One parallel round trip. */
 export async function fetchEntitlement(supabase: SupabaseClient, userId: string): Promise<Entitlement> {

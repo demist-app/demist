@@ -97,8 +97,15 @@ export interface SubscriptionRow {
   current_period_end: string | null
   stripe_customer_id: string | null
   stripe_subscription_id: string | null
+  // Set when Pro was bought in the iPhone app (migration 046, revenuecat-webhook).
+  store_transaction_id?: string | null
   // Set when the comped row came from a university offer (migration 044).
   org_code?: string | null
+}
+
+/** A row someone pays for: through Stripe (web, Windows) or the App Store (iPhone). */
+export function isPaidRow(sub: Pick<SubscriptionRow, 'stripe_subscription_id' | 'store_transaction_id'> | null | undefined): boolean {
+  return !!(sub?.stripe_subscription_id || sub?.store_transaction_id)
 }
 
 export interface Entitlement {
@@ -140,7 +147,7 @@ export function resolveEntitlement(
   if (subCurrent) {
     // Offer Pro keeps the browser cap, except while the account's own reverse
     // trial would still lift it: claiming an offer must never take anything away.
-    const orgCode = !sub?.stripe_subscription_id && sub?.org_code ? sub.org_code : null
+    const orgCode = !isPaidRow(sub) && sub?.org_code ? sub.org_code : null
     const trialStillOn = !!userCreatedAt && new Date(userCreatedAt) >= new Date(REVERSE_TRIAL_START)
       && new Date(userCreatedAt).getTime() + trialDaysFor(userCreatedAt) * DAY_MS > now.getTime()
     return {
@@ -148,7 +155,7 @@ export function resolveEntitlement(
       plan: 'pro',
       // A Stripe subscription id means someone paid. stripe_customer_id alone
       // does not: stripe-checkout writes it the moment checkout OPENS.
-      source: sub?.stripe_subscription_id ? 'paid' : 'comped',
+      source: isPaidRow(sub) ? 'paid' : 'comped',
       periodEnd: sub?.current_period_end ?? null,
       daysLeft: sub?.current_period_end ? daysUntil(sub.current_period_end, now) : null,
       lapsedAt: null,
@@ -171,7 +178,7 @@ export function resolveEntitlement(
 
   // Free. Record when Pro last ended, if it ever did, whichever is later.
   const endings = [
-    subIsPro && sub?.current_period_end && !sub.stripe_subscription_id ? new Date(sub.current_period_end) : null,
+    subIsPro && sub?.current_period_end && !isPaidRow(sub) ? new Date(sub.current_period_end) : null,
     trialEnd,
   ].filter((d): d is Date => d !== null && d <= now)
   const lapsed = endings.length ? new Date(Math.max(...endings.map(d => d.getTime()))) : null
