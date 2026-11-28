@@ -57,16 +57,17 @@ export function FirstRecordingGuide({ eligible, hasText, cardCount, elapsed, cap
   let body: React.ReactNode
   if (doneAt !== null) {
     body = <p>That's it. In a lecture, this happens all the way through, and everything is saved for you.</p>
-  } else if (!hasText) {
-    body = <p>Listening. What you hear will appear below as text in a few seconds.</p>
   } else if (capturingTab) {
-    body = <p>It's working. Explanations appear when a difficult word is said. The first one can take up to 30 seconds.</p>
+    body = <p>{hasText ? 'It\'s working.' : 'Listening. Text appears below in a few seconds.'} Explanations appear when a difficult word is said. The first one can take up to 30 seconds, so keep it playing.</p>
   } else {
+    // The sentence shows from the first second (2026-11-28): the first person
+    // to see this guide stopped at 25s, before any text had appeared, and
+    // waiting for text before offering the sentence wasted that time.
     body = (
       <>
-        <p>It's working. Explanations appear when a difficult word is said. Trying it out? Read this aloud:</p>
+        <p>{hasText ? 'It\'s working.' : 'Listening. Text appears below in a few seconds.'} Trying it out? Read this aloud:</p>
         <p className="mt-2 font-semibold dark:text-white text-gray-900">&ldquo;{GUIDE_SENTENCE}&rdquo;</p>
-        <p className="mt-2">Or play a lecture video out loud near your laptop. The first explanation can take up to 30 seconds.</p>
+        <p className="mt-2">An explanation of the difficult words appears within about 30 seconds, so keep recording. Or play a lecture video out loud near your laptop.</p>
       </>
     )
   }
